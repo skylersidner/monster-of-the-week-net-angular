@@ -1,0 +1,15 @@
+{
+  "agents": [
+    { "persistent_name": "Mario", "role": "Lead", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Luigi", "role": "Frontend Developer", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Bowser", "role": "Backend Developer / DevOps", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Rosalina", "role": "Designer", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Toad", "role": "QA Tester", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Peach", "role": "Product Owner / Business Analyst", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Boo", "role": "Web Security Specialist", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Yoshi", "role": "Architect", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Koopa", "role": "Retrospective Analyst", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Scribe", "role": "Session Logger", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Ralph", "role": "Work Monitor", "universe": "nintendo", "created_at": "2026-04-19", "legacy_named": false, "status": "active" }
+  ]
+}
