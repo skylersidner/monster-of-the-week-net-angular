@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "universe": "nintendo",
+  "allowedUniverses": ["nintendo"],
+  "maxTeamSize": 15
+}
