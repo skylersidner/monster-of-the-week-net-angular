@@ -1,0 +1,24 @@
+<section>
+  <h2>Mysteries</h2>
+
+  @if (isLoading()) {
+    <p>Loading mysteries...</p>
+  } @else if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  } @else if (mysteries().length === 0) {
+    <p>No mysteries yet.</p>
+  } @else {
+    <ul class="mystery-list">
+      @for (mystery of mysteries(); track mystery.id) {
+        <li>
+          <a [routerLink]="['/mysteries', mystery.id]">{{ mystery.name }}</a>
+          <p>{{ mystery.concept || 'No concept provided' }}</p>
+          <small>
+            Monsters: {{ mystery.monsterCount }} · Locations: {{ mystery.locationCount }} · Bystanders:
+            {{ mystery.bystanderCount }} · Created: {{ mystery.createdAt | date: 'mediumDate' }}
+          </small>
+        </li>
+      }
+    </ul>
+  }
+</section>

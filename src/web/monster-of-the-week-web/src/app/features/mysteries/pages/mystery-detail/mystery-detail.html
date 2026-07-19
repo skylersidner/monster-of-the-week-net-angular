@@ -1,0 +1,33 @@
+<section>
+  <a routerLink="/mysteries">← Back to mysteries</a>
+
+  @if (isLoading()) {
+    <p>Loading mystery details...</p>
+  } @else if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  } @else if (mystery()) {
+    <h2>{{ mystery()!.name }}</h2>
+    <p>{{ mystery()!.overview || mystery()!.concept || 'No overview provided.' }}</p>
+
+    <dl class="entity-counts">
+      <div><dt>Monsters</dt><dd>{{ mystery()!.monsterCount }}</dd></div>
+      <div><dt>Locations</dt><dd>{{ mystery()!.locationCount }}</dd></div>
+      <div><dt>Bystanders</dt><dd>{{ mystery()!.bystanderCount }}</dd></div>
+      <div><dt>Updated</dt><dd>{{ mystery()!.updatedAt | date: 'medium' }}</dd></div>
+    </dl>
+
+    <h3>Countdown</h3>
+    @if (mystery()!.countdown) {
+      <ul class="countdown-list">
+        <li><strong>Day:</strong> {{ mystery()!.countdown!.day || '—' }}</li>
+        <li><strong>Shadows:</strong> {{ mystery()!.countdown!.shadows || '—' }}</li>
+        <li><strong>Sunset:</strong> {{ mystery()!.countdown!.sunset || '—' }}</li>
+        <li><strong>Dusk:</strong> {{ mystery()!.countdown!.dusk || '—' }}</li>
+        <li><strong>Nightfall:</strong> {{ mystery()!.countdown!.nightfall || '—' }}</li>
+        <li><strong>Midnight:</strong> {{ mystery()!.countdown!.midnight || '—' }}</li>
+      </ul>
+    } @else {
+      <p>No countdown found for this mystery.</p>
+    }
+  }
+</section>

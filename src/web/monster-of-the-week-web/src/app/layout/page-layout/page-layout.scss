@@ -1,0 +1,39 @@
+.page-layout {
+  min-height: 100vh;
+  background: #f5f7fb;
+}
+
+.top-bar {
+  align-items: center;
+  background: #1d3557;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+}
+
+.top-bar h1 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.top-bar nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.top-bar a {
+  color: #d6e8ff;
+  text-decoration: none;
+}
+
+.top-bar a.active-link {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+main {
+  margin: 0 auto;
+  max-width: 62rem;
+  padding: 1.5rem;
+}

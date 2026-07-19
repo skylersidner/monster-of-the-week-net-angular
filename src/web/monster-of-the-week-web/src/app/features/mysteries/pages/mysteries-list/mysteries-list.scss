@@ -1,0 +1,28 @@
+.mystery-list {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+}
+
+.mystery-list li {
+  background: #fff;
+  border: 1px solid #e5e9f2;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.mystery-list a {
+  color: #1d3557;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mystery-list p {
+  margin: 0.5rem 0;
+}
+
+.error {
+  color: #a10808;
+}
