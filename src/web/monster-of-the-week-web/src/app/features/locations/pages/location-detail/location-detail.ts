@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, switchMap } from 'rxjs';
 import { ApiService } from '../../../../core/api';
 import { LocationDetailResponse, TypeRefResponse, UpsertLocationRequest } from '../../../../core/models';
+import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 
 @Component({
@@ -20,8 +21,8 @@ export class LocationDetailComponent implements OnInit {
   readonly location = signal<LocationDetailResponse | null>(null);
   readonly locationTypes = signal<TypeRefResponse[]>([]);
   readonly isLoading = signal(true);
+  readonly isSaving = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly successMessage = signal<string | null>(null);
   readonly mysteryId = signal<string | null>(null);
 
   readonly form = this.formBuilder.group({
@@ -38,7 +39,8 @@ export class LocationDetailComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly apiService: ApiService,
-    private readonly referenceDataService: ReferenceDataService
+    private readonly referenceDataService: ReferenceDataService,
+    private readonly notificationService: NotificationService
   ) {}
 
   ngOnInit(): void {
@@ -92,6 +94,7 @@ export class LocationDetailComponent implements OnInit {
       locationTypeId: this.form.controls.locationTypeId.value,
     };
 
+    this.isSaving.set(true);
     this.apiService
       .put<UpsertLocationRequest, LocationDetailResponse>(`/api/locations/${this.location()!.id}`, payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -103,11 +106,14 @@ export class LocationDetailComponent implements OnInit {
             description: location.description ?? '',
             locationTypeId: location.locationTypeId,
           });
-          this.successMessage.set('Location saved.');
+          this.notificationService.success('Location saved.');
           this.errorMessage.set(null);
+          this.isSaving.set(false);
         },
         error: () => {
           this.errorMessage.set('Unable to save location.');
+          this.notificationService.error('Unable to save location.');
+          this.isSaving.set(false);
         },
       });
   }

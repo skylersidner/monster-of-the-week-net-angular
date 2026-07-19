@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
+import { NotificationService } from '../../core/notifications';
 import { PageLayoutComponent } from './page-layout';
 
 describe('PageLayoutComponent', () => {
@@ -20,5 +21,13 @@ describe('PageLayoutComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('shows queued notifications', () => {
+    const notificationService = TestBed.inject(NotificationService);
+    notificationService.success('Saved successfully');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Saved successfully');
   });
 });

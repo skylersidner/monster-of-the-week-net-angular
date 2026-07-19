@@ -9,4 +9,15 @@
   <main>
     <router-outlet />
   </main>
+
+  <aside class="toast-stack" aria-live="polite">
+    @for (notification of notificationService.notifications(); track notification.id) {
+      <div class="toast" [class.toast-error]="notification.kind === 'error'">
+        <span>{{ notification.message }}</span>
+        <button type="button" (click)="notificationService.dismiss(notification.id)" aria-label="Dismiss notification">
+          ×
+        </button>
+      </div>
+    }
+  </aside>
 </div>

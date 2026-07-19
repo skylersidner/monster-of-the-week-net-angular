@@ -8,8 +8,8 @@
   } @else if (monster()) {
     <h2>{{ monster()!.name }}</h2>
 
-    @if (successMessage()) {
-      <p class="success">{{ successMessage() }}</p>
+    @if (activeMutation()) {
+      <p class="mutating">{{ activeMutation() }}</p>
     }
 
     <form [formGroup]="monsterForm" (ngSubmit)="saveMonster()">
@@ -44,7 +44,7 @@
           }
         </select>
       </label>
-      <button type="submit" [disabled]="isSaving()">Save Monster</button>
+      <button type="submit" [disabled]="isMutating()">Save Monster</button>
     </form>
 
     <div class="sub-resource-grid">
@@ -59,7 +59,7 @@
                   <span> · Tags: {{ weaponTagNames(attack) }}</span>
                 }
               </div>
-              <button type="button" (click)="deleteAttack(attack.id)">Delete</button>
+              <button type="button" (click)="deleteAttack(attack.id)" [disabled]="isMutating()">Delete</button>
             </li>
           }
         </ul>
@@ -84,7 +84,7 @@
               }
             </select>
           </label>
-          <button type="submit">Add Attack</button>
+          <button type="submit" [disabled]="isMutating()">Add Attack</button>
         </form>
       </article>
 
@@ -96,7 +96,7 @@
               <div>
                 <strong>{{ power.name }}</strong>
               </div>
-              <button type="button" (click)="deletePower(power.id)">Delete</button>
+              <button type="button" (click)="deletePower(power.id)" [disabled]="isMutating()">Delete</button>
             </li>
           }
         </ul>
@@ -109,7 +109,7 @@
             Description
             <input type="text" formControlName="description" />
           </label>
-          <button type="submit">Add Power</button>
+          <button type="submit" [disabled]="isMutating()">Add Power</button>
         </form>
       </article>
 
@@ -121,7 +121,7 @@
               <div>
                 <strong>{{ armor.name }}</strong> (Soak {{ armor.harmSoak }})
               </div>
-              <button type="button" (click)="deleteArmor(armor.id)">Delete</button>
+              <button type="button" (click)="deleteArmor(armor.id)" [disabled]="isMutating()">Delete</button>
             </li>
           }
         </ul>
@@ -142,7 +142,7 @@
             <input type="checkbox" formControlName="isMagical" />
             Magical
           </label>
-          <button type="submit">Add Armor</button>
+          <button type="submit" [disabled]="isMutating()">Add Armor</button>
         </form>
       </article>
 
@@ -154,7 +154,7 @@
               <div>
                 <strong>{{ weakness.name }}</strong>
               </div>
-              <button type="button" (click)="deleteWeakness(weakness.id)">Delete</button>
+              <button type="button" (click)="deleteWeakness(weakness.id)" [disabled]="isMutating()">Delete</button>
             </li>
           }
         </ul>
@@ -167,7 +167,7 @@
             Description
             <input type="text" formControlName="description" />
           </label>
-          <button type="submit">Add Weakness</button>
+          <button type="submit" [disabled]="isMutating()">Add Weakness</button>
         </form>
       </article>
     </div>

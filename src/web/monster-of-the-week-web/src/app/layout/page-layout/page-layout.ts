@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NotificationService } from '../../core/notifications';
 
 @Component({
   selector: 'app-page-layout',
@@ -7,4 +8,6 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   templateUrl: './page-layout.html',
   styleUrl: './page-layout.scss',
 })
-export class PageLayoutComponent {}
+export class PageLayoutComponent {
+  constructor(readonly notificationService: NotificationService) {}
+}

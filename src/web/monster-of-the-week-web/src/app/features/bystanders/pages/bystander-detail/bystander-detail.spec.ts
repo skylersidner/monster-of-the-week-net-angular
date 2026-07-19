@@ -1,17 +1,23 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { convertToParamMap, provideRouter } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 
 import { ApiService } from '../../../../core/api';
+import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { BystanderDetailComponent } from './bystander-detail';
 
 describe('BystanderDetailComponent', () => {
   let component: BystanderDetailComponent;
   let fixture: ComponentFixture<BystanderDetailComponent>;
+  let putSubject: Subject<unknown>;
+  let successCalls = 0;
 
   beforeEach(async () => {
+    putSubject = new Subject();
+    successCalls = 0;
+
     await TestBed.configureTestingModule({
       imports: [BystanderDetailComponent],
       providers: [
@@ -36,13 +42,24 @@ describe('BystanderDetailComponent', () => {
                 bystanderTypeMotivation: 'Test',
                 customMoves: [],
               }),
-            put: () => of({}),
+            put: () => putSubject,
           },
         },
         {
           provide: ReferenceDataService,
           useValue: {
             getBystanderTypes: () => of([{ id: 'bt1', name: 'Witness', motivation: 'Test' }]),
+          },
+        },
+        {
+          provide: NotificationService,
+          useValue: {
+            success: () => {
+              successCalls += 1;
+            },
+            error: () => {},
+            notifications: () => [],
+            dismiss: () => {},
           },
         },
       ],
@@ -55,5 +72,25 @@ describe('BystanderDetailComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('tracks save loading state and sends success toast', () => {
+    component.save();
+    expect(component.isSaving()).toBe(true);
+
+    putSubject.next({
+      id: 'b1',
+      mysteryId: 'm1',
+      name: 'Bystander',
+      description: null,
+      bystanderTypeId: 'bt1',
+      bystanderTypeName: 'Witness',
+      bystanderTypeMotivation: 'Test',
+      customMoves: [],
+    });
+    putSubject.complete();
+
+    expect(component.isSaving()).toBe(false);
+    expect(successCalls).toBe(1);
   });
 });

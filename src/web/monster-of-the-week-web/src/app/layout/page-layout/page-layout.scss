@@ -37,3 +37,34 @@ main {
   max-width: 62rem;
   padding: 1.5rem;
 }
+
+.toast-stack {
+  bottom: 1rem;
+  display: grid;
+  gap: 0.5rem;
+  position: fixed;
+  right: 1rem;
+  width: min(24rem, calc(100vw - 2rem));
+}
+
+.toast {
+  align-items: center;
+  background: #1b6f2a;
+  border-radius: 0.5rem;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.65rem 0.75rem;
+}
+
+.toast-error {
+  background: #a10808;
+}
+
+.toast button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.1rem;
+}

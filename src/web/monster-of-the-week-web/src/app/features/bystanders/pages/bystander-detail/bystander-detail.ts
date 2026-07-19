@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, switchMap } from 'rxjs';
 import { ApiService } from '../../../../core/api';
 import { BystanderDetailResponse, TypeRefResponse, UpsertBystanderRequest } from '../../../../core/models';
+import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 
 @Component({
@@ -20,8 +21,8 @@ export class BystanderDetailComponent implements OnInit {
   readonly bystander = signal<BystanderDetailResponse | null>(null);
   readonly bystanderTypes = signal<TypeRefResponse[]>([]);
   readonly isLoading = signal(true);
+  readonly isSaving = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly successMessage = signal<string | null>(null);
   readonly mysteryId = signal<string | null>(null);
 
   readonly form = this.formBuilder.group({
@@ -38,7 +39,8 @@ export class BystanderDetailComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly apiService: ApiService,
-    private readonly referenceDataService: ReferenceDataService
+    private readonly referenceDataService: ReferenceDataService,
+    private readonly notificationService: NotificationService
   ) {}
 
   ngOnInit(): void {
@@ -92,6 +94,7 @@ export class BystanderDetailComponent implements OnInit {
       bystanderTypeId: this.form.controls.bystanderTypeId.value,
     };
 
+    this.isSaving.set(true);
     this.apiService
       .put<UpsertBystanderRequest, BystanderDetailResponse>(
         `/api/bystanders/${this.bystander()!.id}`,
@@ -106,11 +109,14 @@ export class BystanderDetailComponent implements OnInit {
             description: bystander.description ?? '',
             bystanderTypeId: bystander.bystanderTypeId,
           });
-          this.successMessage.set('Bystander saved.');
+          this.notificationService.success('Bystander saved.');
           this.errorMessage.set(null);
+          this.isSaving.set(false);
         },
         error: () => {
           this.errorMessage.set('Unable to save bystander.');
+          this.notificationService.error('Unable to save bystander.');
+          this.isSaving.set(false);
         },
       });
   }

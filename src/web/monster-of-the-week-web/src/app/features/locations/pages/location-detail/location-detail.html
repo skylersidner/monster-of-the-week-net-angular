@@ -8,8 +8,8 @@
   } @else if (location()) {
     <h2>{{ location()!.name }}</h2>
 
-    @if (successMessage()) {
-      <p class="success">{{ successMessage() }}</p>
+    @if (isSaving()) {
+      <p class="mutating">Saving location...</p>
     }
 
     <form [formGroup]="form" (ngSubmit)="save()">
@@ -29,7 +29,7 @@
           }
         </select>
       </label>
-      <button type="submit">Save Location</button>
+      <button type="submit" [disabled]="isSaving()">Save Location</button>
     </form>
 
     <h3>Custom Moves</h3>

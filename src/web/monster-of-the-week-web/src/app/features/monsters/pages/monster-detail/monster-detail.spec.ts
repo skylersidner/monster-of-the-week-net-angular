@@ -4,14 +4,17 @@ import { ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 
 import { MonsterService } from '../../../../core/monster';
+import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { MonsterDetailComponent } from './monster-detail';
 
 describe('MonsterDetailComponent', () => {
   let component: MonsterDetailComponent;
   let fixture: ComponentFixture<MonsterDetailComponent>;
+  let deleteAttackCalls = 0;
 
   beforeEach(async () => {
+    deleteAttackCalls = 0;
     await TestBed.configureTestingModule({
       imports: [MonsterDetailComponent],
       providers: [
@@ -48,7 +51,10 @@ describe('MonsterDetailComponent', () => {
             createPower: () => of({}),
             createArmor: () => of({}),
             createWeakness: () => of({}),
-            deleteAttack: () => of(void 0),
+            deleteAttack: () => {
+              deleteAttackCalls += 1;
+              return of(void 0);
+            },
             deletePower: () => of(void 0),
             deleteArmor: () => of(void 0),
             deleteWeakness: () => of(void 0),
@@ -62,6 +68,15 @@ describe('MonsterDetailComponent', () => {
             getWeaponTags: () => of([]),
           },
         },
+        {
+          provide: NotificationService,
+          useValue: {
+            success: () => {},
+            error: () => {},
+            notifications: () => [],
+            dismiss: () => {},
+          },
+        },
       ],
     }).compileComponents();
 
@@ -72,5 +87,25 @@ describe('MonsterDetailComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('does not delete attack when confirm is canceled', () => {
+    const originalConfirm = window.confirm;
+    window.confirm = () => false;
+
+    component.deleteAttack('attack-1');
+
+    window.confirm = originalConfirm;
+    expect(deleteAttackCalls).toBe(0);
+  });
+
+  it('deletes attack when confirm is accepted', () => {
+    const originalConfirm = window.confirm;
+    window.confirm = () => true;
+
+    component.deleteAttack('attack-1');
+
+    window.confirm = originalConfirm;
+    expect(deleteAttackCalls).toBe(1);
   });
 });

@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, Observable, of, switchMap } from 'rxjs';
 import { MonsterService } from '../../../../core/monster';
+import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import {
   MonsterDetailResponse,
@@ -32,10 +33,10 @@ export class MonsterDetailComponent implements OnInit {
   readonly minionTypes = signal<TypeRefResponse[]>([]);
   readonly weaponTags = signal<WeaponTagRefResponse[]>([]);
   readonly isLoading = signal(true);
-  readonly isSaving = signal(false);
+  readonly activeMutation = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
-  readonly successMessage = signal<string | null>(null);
   readonly mysteryId = signal<string | null>(null);
+  readonly isMutating = computed(() => this.activeMutation() !== null);
 
   readonly backLink = computed(() => {
     const id = this.mysteryId();
@@ -77,7 +78,8 @@ export class MonsterDetailComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly monsterService: MonsterService,
-    private readonly referenceDataService: ReferenceDataService
+    private readonly referenceDataService: ReferenceDataService,
+    private readonly notificationService: NotificationService
   ) {}
 
   ngOnInit(): void {
@@ -133,8 +135,7 @@ export class MonsterDetailComponent implements OnInit {
       minionTypeId: this.toNullable(this.monsterForm.controls.minionTypeId.value),
     };
 
-    this.isSaving.set(true);
-    this.successMessage.set(null);
+    this.activeMutation.set('Saving monster...');
 
     this.monsterService
       .update(this.monster()!.id, payload)
@@ -143,12 +144,14 @@ export class MonsterDetailComponent implements OnInit {
         next: (monster) => {
           this.monster.set(monster);
           this.populateMonsterForm(monster);
-          this.isSaving.set(false);
-          this.successMessage.set('Monster details saved.');
+          this.activeMutation.set(null);
+          this.notificationService.success('Monster details saved.');
+          this.errorMessage.set(null);
         },
         error: () => {
-          this.isSaving.set(false);
+          this.activeMutation.set(null);
           this.errorMessage.set('Unable to save monster details.');
+          this.notificationService.error('Unable to save monster details.');
         },
       });
   }
@@ -167,6 +170,7 @@ export class MonsterDetailComponent implements OnInit {
 
     const selectedTagIds = this.attackForm.controls.weaponTagIds.value;
     const monsterId = this.monster()!.id;
+    this.activeMutation.set('Adding attack...');
 
     this.monsterService
       .createAttack(monsterId, payload)
@@ -187,16 +191,23 @@ export class MonsterDetailComponent implements OnInit {
         next: (monster) => {
           this.monster.set(monster);
           this.attackForm.reset({ name: '', description: '', harm: 0, weaponTagIds: [] });
-          this.successMessage.set('Attack added.');
+          this.notificationService.success('Attack added.');
           this.errorMessage.set(null);
+          this.activeMutation.set(null);
         },
         error: () => {
           this.errorMessage.set('Unable to add attack.');
+          this.notificationService.error('Unable to add attack.');
+          this.activeMutation.set(null);
         },
       });
   }
 
   deleteAttack(attackId: string): void {
+    if (!this.confirmDelete('Delete this attack?')) {
+      return;
+    }
+
     this.runAndRefresh((monsterId) => this.monsterService.deleteAttack(monsterId, attackId), 'Unable to delete attack.');
   }
 
@@ -220,6 +231,10 @@ export class MonsterDetailComponent implements OnInit {
   }
 
   deletePower(powerId: string): void {
+    if (!this.confirmDelete('Delete this power?')) {
+      return;
+    }
+
     this.runAndRefresh((monsterId) => this.monsterService.deletePower(monsterId, powerId), 'Unable to delete power.');
   }
 
@@ -245,6 +260,10 @@ export class MonsterDetailComponent implements OnInit {
   }
 
   deleteArmor(armorId: string): void {
+    if (!this.confirmDelete('Delete this armor?')) {
+      return;
+    }
+
     this.runAndRefresh((monsterId) => this.monsterService.deleteArmor(monsterId, armorId), 'Unable to delete armor.');
   }
 
@@ -268,6 +287,10 @@ export class MonsterDetailComponent implements OnInit {
   }
 
   deleteWeakness(weaknessId: string): void {
+    if (!this.confirmDelete('Delete this weakness?')) {
+      return;
+    }
+
     this.runAndRefresh(
       (monsterId) => this.monsterService.deleteWeakness(monsterId, weaknessId),
       'Unable to delete weakness.'
@@ -285,6 +308,7 @@ export class MonsterDetailComponent implements OnInit {
     }
 
     const monsterId = this.monster()!.id;
+    this.activeMutation.set('Saving changes...');
     operation(monsterId)
       .pipe(
         switchMap(() => this.monsterService.getById(monsterId)),
@@ -295,10 +319,13 @@ export class MonsterDetailComponent implements OnInit {
           this.monster.set(monster);
           onSuccess?.();
           this.errorMessage.set(null);
-          this.successMessage.set(successMessage ?? null);
+          this.activeMutation.set(null);
+          this.notificationService.success(successMessage ?? 'Changes saved.');
         },
         error: () => {
           this.errorMessage.set(errorMessage);
+          this.activeMutation.set(null);
+          this.notificationService.error(errorMessage);
         },
       });
   }
@@ -324,5 +351,9 @@ export class MonsterDetailComponent implements OnInit {
 
   weaponTagNames(attack: MonsterAttackResponse): string {
     return attack.weaponTags.map((tag) => tag.name).join(', ');
+  }
+
+  private confirmDelete(message: string): boolean {
+    return window.confirm(message);
   }
 }

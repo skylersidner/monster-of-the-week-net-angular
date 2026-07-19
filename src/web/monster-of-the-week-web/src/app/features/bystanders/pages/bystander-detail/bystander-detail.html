@@ -8,8 +8,8 @@
   } @else if (bystander()) {
     <h2>{{ bystander()!.name }}</h2>
 
-    @if (successMessage()) {
-      <p class="success">{{ successMessage() }}</p>
+    @if (isSaving()) {
+      <p class="mutating">Saving bystander...</p>
     }
 
     <form [formGroup]="form" (ngSubmit)="save()">
@@ -29,7 +29,7 @@
           }
         </select>
       </label>
-      <button type="submit">Save Bystander</button>
+      <button type="submit" [disabled]="isSaving()">Save Bystander</button>
     </form>
 
     <h3>Custom Moves</h3>
