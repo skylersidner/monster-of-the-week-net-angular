@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monster of the Week — .NET + Angular Rebuild Plan</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --purple: #7c3aed;
+      --purple-dark: #5b21b6;
+      --purple-light: #ede9fe;
+      --indigo: #4f46e5;
+      --indigo-light: #e0e7ff;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-700: #374151;
+      --gray-900: #111827;
+      --green: #059669;
+      --amber: #d97706;
+      --red: #dc2626;
+      --sky: #0284c7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      line-height: 1.6;
+    }
+    header {
+      background: linear-gradient(135deg, var(--purple-dark) 0%, var(--indigo) 100%);
+      color: white;
+      padding: 2rem 2.5rem;
+    }
+    header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }
+    header p { margin-top: 0.5rem; opacity: 0.85; font-size: 1.05rem; }
+    header .meta { margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+    .pill {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 999px;
+      padding: 0.2em 0.75em;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    nav.toc {
+      background: white;
+      border-bottom: 1px solid var(--gray-200);
+      padding: 0.75rem 2.5rem;
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      font-size: 0.875rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    nav.toc a { color: var(--purple); text-decoration: none; font-weight: 500; }
+    nav.toc a:hover { text-decoration: underline; }
+    main { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+    section { margin-bottom: 3rem; }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--purple-dark);
+      border-bottom: 2px solid var(--purple-light);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+    h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin: 1.25rem 0 0.75rem;
+    }
+    h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--purple-dark);
+      margin: 1rem 0 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    p { margin-bottom: 0.875rem; color: var(--gray-700); }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .cards-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .card h3 { margin-top: 0; color: var(--purple-dark); }
+    .card h4 { margin-top: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 1rem;
+    }
+    th {
+      background: var(--purple);
+      color: white;
+      padding: 0.625rem 1rem;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    td {
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: var(--gray-50); }
+    code {
+      background: var(--gray-100);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      font-size: 0.875em;
+      font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      color: var(--purple-dark);
+    }
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 1.25rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.83rem;
+      margin: 1rem 0;
+      line-height: 1.6;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+    .kw { color: #cba6f7; }
+    .str { color: #a6e3a1; }
+    .cmt { color: #6c7086; font-style: italic; }
+    .type { color: #89dceb; }
+    .attr { color: #fab387; }
+    .num { color: #fab387; }
+    .diagram-container {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      overflow-x: auto;
+    }
+    .diagram-container h3 { margin-top: 0; }
+    .mermaid { display: flex; justify-content: center; }
+    .badge {
+      display: inline-block;
+      padding: 0.2em 0.6em;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-green { background: #d1fae5; color: var(--green); }
+    .badge-amber { background: #fef3c7; color: var(--amber); }
+    .badge-red { background: #fee2e2; color: var(--red); }
+    .badge-purple { background: var(--purple-light); color: var(--purple-dark); }
+    .badge-sky { background: #e0f2fe; color: var(--sky); }
+    .alert {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-left: 4px solid var(--amber);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      font-size: 0.925rem;
+      color: #92400e;
+    }
+    .info {
+      background: var(--purple-light);
+      border: 1px solid #c4b5fd;
+      border-left: 4px solid var(--purple);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      font-size: 0.925rem;
+      color: var(--purple-dark);
+    }
+    .success {
+      background: #d1fae5;
+      border: 1px solid #6ee7b7;
+      border-left: 4px solid var(--green);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      font-size: 0.925rem;
+      color: #065f46;
+    }
+    .endpoint-table td:nth-child(1) { font-family: Consolas, monospace; font-size: 0.8rem; white-space: nowrap; }
+    .endpoint-table td:nth-child(2) { font-weight: 600; font-size: 0.8rem; }
+    .method-get { color: var(--green); font-weight: 700; }
+    .method-post { color: var(--sky); font-weight: 700; }
+    .method-put { color: var(--amber); font-weight: 700; }
+    .method-delete { color: var(--red); font-weight: 700; }
+    .method-patch { color: var(--purple); font-weight: 700; }
+    .dir-tree {
+      font-family: 'Cascadia Code', Consolas, monospace;
+      font-size: 0.85rem;
+      line-height: 1.8;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 1.25rem 1.5rem;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .dir-tree .dir { color: #89b4fa; }
+    .dir-tree .file { color: #a6e3a1; }
+    .dir-tree .cmt { color: #6c7086; }
+    ul.feature-list { padding-left: 1.5rem; color: var(--gray-700); }
+    ul.feature-list li { margin-bottom: 0.4rem; }
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: #6b7280;
+      font-size: 0.85rem;
+      border-top: 1px solid var(--gray-200);
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🐺 Monster of the Week — .NET + Angular Rebuild Plan</h1>
+  <p>Technical specification for migrating from Node.js/GraphQL/React to .NET 10/REST/Angular 21 — modeled after the portfolio application architecture.</p>
+  <div class="meta">
+    <span class="pill">Based on: portfolio app patterns</span>
+    <span class="pill">.NET 10 · ASP.NET Core · EF Core 10</span>
+    <span class="pill">Angular 21 · Tailwind CSS 4</span>
+    <span class="pill">PostgreSQL 17 · Docker</span>
+    <span class="pill">REST (GraphQL → HTTP)</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#comparison">Stack Comparison</a>
+  <a href="#tailwind">Tailwind &amp; Angular</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#api-contracts">REST API Contracts</a>
+  <a href="#ef-model">EF Core Model</a>
+  <a href="#angular-structure">Angular Structure</a>
+  <a href="#project-structure">Project Structure</a>
+  <a href="#docker">Docker &amp; Config</a>
+  <a href="#roadmap">Implementation Roadmap</a>
+</nav>
+
+<main>
+
+  <!-- ================================================================
+       SECTION: STACK COMPARISON
+  ================================================================ -->
+  <section id="comparison">
+    <h2>📊 Stack Comparison: Current vs. Target</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Current (JS / Node)</th>
+          <th>Target (.NET / Angular)</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Runtime</td>
+          <td>Node.js ~14</td>
+          <td>.NET 10 (C#)</td>
+          <td>LTS runtime; major paradigm shift</td>
+        </tr>
+        <tr>
+          <td>API Framework</td>
+          <td>Express + Apollo Server 2</td>
+          <td>ASP.NET Core Web API</td>
+          <td>Controller/Service/Repository pattern (per portfolio)</td>
+        </tr>
+        <tr>
+          <td>API Style</td>
+          <td>GraphQL (schema-first)</td>
+          <td>REST (JSON over HTTP)</td>
+          <td>Contracts as C# records; no query language</td>
+        </tr>
+        <tr>
+          <td>ORM</td>
+          <td>Knex.js (query builder)</td>
+          <td>Entity Framework Core 10 + Npgsql</td>
+          <td>Code-first migrations replace Knex migrations</td>
+        </tr>
+        <tr>
+          <td>Database</td>
+          <td>PostgreSQL 9.6 (Docker)</td>
+          <td>PostgreSQL 17 (Docker)</td>
+          <td>Same schema, upgraded image; same table structure</td>
+        </tr>
+        <tr>
+          <td>UI Framework</td>
+          <td>React 17</td>
+          <td>Angular 21 (standalone components)</td>
+          <td>TypeScript-first, RxJS, Angular Router</td>
+        </tr>
+        <tr>
+          <td>Build Tooling (UI)</td>
+          <td>CRA 4 + CRACO (deprecated)</td>
+          <td>Angular CLI + @angular/build (Vite/esbuild)</td>
+          <td>Angular CLI handles everything; no hacks needed</td>
+        </tr>
+        <tr>
+          <td>CSS Framework</td>
+          <td>Tailwind 2 (postcss7 compat)</td>
+          <td>Tailwind 4 (native Vite/esbuild integration)</td>
+          <td>✅ No compatibility issues — see Tailwind section</td>
+        </tr>
+        <tr>
+          <td>Routing</td>
+          <td>React Router DOM v5</td>
+          <td>@angular/router (built-in)</td>
+          <td>Lazy-loaded feature routes</td>
+        </tr>
+        <tr>
+          <td>HTTP Client (UI)</td>
+          <td>None wired yet</td>
+          <td>Angular HttpClient (built-in)</td>
+          <td>RxJS observables + typed responses</td>
+        </tr>
+        <tr>
+          <td>Testing (API)</td>
+          <td>None</td>
+          <td>xUnit + Moq (standard .NET stack)</td>
+          <td>Unit + integration tests from the start</td>
+        </tr>
+        <tr>
+          <td>Testing (UI)</td>
+          <td>@testing-library/react</td>
+          <td>Vitest + @angular/testing-library</td>
+          <td>Per portfolio: vitest replaces Karma/Jest</td>
+        </tr>
+        <tr>
+          <td>Container</td>
+          <td>Docker (Postgres only)</td>
+          <td>Docker (Postgres + optional API container)</td>
+          <td>Follows portfolio's Dockerfile/docker-compose pattern</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ================================================================
+       SECTION: TAILWIND + ANGULAR
+  ================================================================ -->
+  <section id="tailwind">
+    <h2>🎨 Tailwind CSS + Angular — Compatibility Assessment</h2>
+
+    <div class="success">
+      ✅ <strong>No issues — Tailwind 4 works natively with Angular 21.</strong> The old postcss7-compat workaround needed for CRA is completely unnecessary here. Angular 21's <code>@angular/build</code> uses Vite/esbuild under the hood, and Tailwind 4 ships a first-class Vite plugin. Setup takes &lt; 5 minutes.
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Why Tailwind Worked Poorly Before</h3>
+        <p>The current UI uses <code>@tailwindcss/postcss7-compat</code> because Create React App 4 bundles PostCSS 7, which is incompatible with Tailwind 3+. CRACO was added solely to inject a PostCSS 8 pipeline without ejecting CRA.</p>
+        <p>None of this applies to Angular. The Angular CLI has never had this limitation.</p>
+      </div>
+      <div class="card">
+        <h3>Tailwind 4 Setup in Angular 21</h3>
+        <pre><code><span class="cmt"># Install Tailwind 4 and its Vite plugin</span>
+npm install tailwindcss @tailwindcss/vite
+
+<span class="cmt"># In vite.config (via angular.json plugin config)
+# or use the Angular CLI integration:</span>
+ng add tailwindcss</code></pre>
+        <p>In <code>src/styles.css</code> (or <code>styles.scss</code>):</p>
+        <pre><code><span class="cmt">/* Tailwind 4 — single import replaces the 3-directive pattern */</span>
+@import "tailwindcss";</code></pre>
+        <p>Tailwind 4 auto-detects content files. No <code>tailwind.config.js</code> required (though supported for customization).</p>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Key Tailwind 4 Changes vs Tailwind 2 (current)</h3>
+        <table>
+          <thead><tr><th>Feature</th><th>Tailwind 2 (current)</th><th>Tailwind 4 (target)</th></tr></thead>
+          <tbody>
+            <tr><td>Config file</td><td><code>tailwind.config.js</code> required</td><td>Optional (CSS-first config via <code>@theme</code>)</td></tr>
+            <tr><td>PostCSS</td><td>postcss7-compat hack needed for CRA</td><td>Native Vite plugin — no PostCSS config needed</td></tr>
+            <tr><td>CSS import</td><td><code>@tailwind base/components/utilities</code> (3 lines)</td><td><code>@import "tailwindcss"</code> (1 line)</td></tr>
+            <tr><td>Content detection</td><td>Manual <code>purge</code> array</td><td>Automatic (scans project files)</td></tr>
+            <tr><td>Custom theme</td><td><code>theme.extend</code> in JS config</td><td><code>@theme</code> block in CSS</td></tr>
+            <tr><td>Arbitrary values</td><td>Supported</td><td>Supported (improved)</td></tr>
+            <tr><td>Dark mode</td><td><code>darkMode: false/media/class</code></td><td><code>@variant dark</code> in CSS</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Migrating Existing Tailwind Classes</h3>
+        <p>The existing UI's Tailwind classes (indigo nav, responsive layout) will mostly work unchanged in Tailwind 4. The main things to update:</p>
+        <ul class="feature-list">
+          <li>Replace the 3-directive import with <code>@import "tailwindcss"</code></li>
+          <li>Verify any custom colors still resolve (indigo palette is unchanged)</li>
+          <li>Update <code>darkMode</code> if used (class strategy syntax changed slightly)</li>
+          <li>Any <code>@apply</code> directives still work</li>
+          <li>The <code>bg-indigo-600</code>, <code>max-w-7xl</code>, <code>text-lg</code> etc. classes from the existing layout are identical in Tailwind 4</li>
+        </ul>
+        <div class="info">
+          💡 Tailwind provides an official upgrade tool: <code>npx @tailwindcss/upgrade</code> to handle most class renames automatically.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SECTION: ARCHITECTURE
+  ================================================================ -->
+  <section id="architecture">
+    <h2>🏗️ Architecture</h2>
+
+    <div class="diagram-container">
+      <h3>High-Level System Architecture</h3>
+      <div class="mermaid">
+graph TD
+    Browser["🌐 Browser\n(localhost:4200 dev\nor same origin prod)"]
+    Angular["⚛️ Angular 21 SPA\n@angular/build · Vite/esbuild\nTailwind CSS 4\n@angular/router\nAngular HttpClient + RxJS"]
+    API["🔷 ASP.NET Core\nWeb API (.NET 10)\nport 5000/5001"]
+    CORS["CORS Policy\n(configurable origins)"]
+    Controllers["🎮 Controllers\n(per resource group)"]
+    Services["⚙️ Services\n(business logic)"]
+    Repos["🗄️ Repositories\n(data access)"]
+    EF["📋 Entity Framework Core 10\n+ Npgsql provider"]
+    Postgres["🐘 PostgreSQL 17\nDocker (port 5432)\n18 tables"]
+
+    Browser -->|"HTTP GET index.html\n(initial load)"| Angular
+    Angular -->|"REST API calls\nGET/POST/PUT/DELETE /api/..."| CORS
+    CORS --> Controllers
+    Controllers --> Services
+    Services --> Repos
+    Repos --> EF
+    EF -->|"SQL (Npgsql)"| Postgres
+
+    style Browser fill:#4f46e5,color:#fff,stroke:#3730a3
+    style Angular fill:#dd0031,color:#fff,stroke:#b91c1c
+    style API fill:#512bd4,color:#fff,stroke:#3730a3
+    style CORS fill:#7c3aed,color:#fff,stroke:#5b21b6
+    style Controllers fill:#8b5cf6,color:#fff,stroke:#6d28d9
+    style Services fill:#6d28d9,color:#fff,stroke:#4c1d95
+    style Repos fill:#0891b2,color:#fff,stroke:#0e7490
+    style EF fill:#047857,color:#fff,stroke:#065f46
+    style Postgres fill:#1e40af,color:#fff,stroke:#1e3a8a
+      </div>
+    </div>
+
+    <div class="diagram-container">
+      <h3>API Request Lifecycle</h3>
+      <div class="mermaid">
+sequenceDiagram
+    participant A as Angular Service
+    participant C as Controller
+    participant S as Service
+    participant R as Repository
+    participant DB as EF DbContext / PostgreSQL
+
+    A->>C: GET /api/mysteries/{id}
+    C->>S: GetMysteryByIdAsync(id, ct)
+    S->>R: GetByIdAsync(id, ct)
+    R->>DB: context.Mysteries<br/>.Include(m => m.Countdowns)<br/>.Include(m => m.Monsters)<br/>...FirstOrDefaultAsync()
+    DB-->>R: MysteryEntity?
+    R-->>S: MysteryEntity?
+    S->>S: Map entity → MysteryDetailResponse
+    S-->>C: MysteryDetailResponse?
+    C-->>A: 200 OK { id, name, monsters: [...] }<br/>or 404 Not Found
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3>API Layer Responsibilities</h3>
+        <h4>Controllers</h4>
+        <ul class="feature-list">
+          <li>Route binding and HTTP verb mapping</li>
+          <li>Input validation (model state)</li>
+          <li>HTTP status code selection</li>
+          <li>No business logic — delegate to Services</li>
+        </ul>
+        <h4>Services</h4>
+        <ul class="feature-list">
+          <li>Business logic and validation rules</li>
+          <li>Entity ↔ Contract mapping</li>
+          <li>Orchestrate multiple repository calls</li>
+        </ul>
+        <h4>Repositories</h4>
+        <ul class="feature-list">
+          <li>All EF Core / database queries</li>
+          <li>Eager loading of navigation properties</li>
+          <li>No mapping — return entities</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Angular Layer Responsibilities</h3>
+        <h4>Feature Services (e.g. <code>MysteryService</code>)</h4>
+        <ul class="feature-list">
+          <li>Wrap <code>HttpClient</code> calls with typed responses</li>
+          <li>Return <code>Observable&lt;T&gt;</code> to components</li>
+          <li>Handle error mapping</li>
+        </ul>
+        <h4>Components (standalone)</h4>
+        <ul class="feature-list">
+          <li>Inject services via <code>inject()</code></li>
+          <li>Use <code>AsyncPipe</code> for subscription management</li>
+          <li>Tailwind classes for styling directly in template</li>
+        </ul>
+        <h4>Core Module (singleton)</h4>
+        <ul class="feature-list">
+          <li>HTTP interceptors (auth, error handling, loading)</li>
+          <li>App-wide models/interfaces</li>
+          <li>Signal-based state (Angular Signals, no NgRx needed for this app size)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SECTION: REST API CONTRACTS
+  ================================================================ -->
+  <section id="api-contracts">
+    <h2>📋 REST API Contract Design</h2>
+
+    <p>GraphQL's flexible querying is replaced by a conventional REST hierarchy. The root resource is <strong>Mystery</strong> — all other entities are scoped through it or through their direct parent. Lookup tables (types) are read-only reference endpoints seeded at startup.</p>
+
+    <div class="info">
+      💡 <strong>Design philosophy:</strong> Mystery detail responses embed nested counts/summaries to avoid N+1 client round-trips. Full sub-resource lists are fetched separately only when a user navigates to that section. This mirrors how the existing UI was structured (mystery detail page → monster detail panel).
+    </div>
+
+    <div class="cards">
+
+      <div class="card">
+        <h3>🔮 Mysteries</h3>
+        <table class="endpoint-table">
+          <thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method-get">GET</span></td><td>/api/mysteries</td><td>MysteryListItem[]</td></tr>
+            <tr><td><span class="method-post">POST</span></td><td>/api/mysteries</td><td>MysteryDetail (201)</td></tr>
+            <tr><td><span class="method-get">GET</span></td><td>/api/mysteries/{id}</td><td>MysteryDetail</td></tr>
+            <tr><td><span class="method-put">PUT</span></td><td>/api/mysteries/{id}</td><td>MysteryDetail</td></tr>
+            <tr><td><span class="method-delete">DELETE</span></td><td>/api/mysteries/{id}</td><td>204 No Content</td></tr>
+          </tbody>
+        </table>
+        <pre><code><span class="cmt">// MysteryListItem — summary for list views</span>
+<span class="kw">record</span> <span class="type">MysteryListItem</span>(
+  <span class="type">Guid</span> Id,
+  <span class="type">string</span> Name,
+  <span class="type">string</span>? Concept,
+  <span class="type">string</span>? Hook,
+  <span class="type">int</span> MonsterCount,
+  <span class="type">int</span> LocationCount,
+  <span class="type">int</span> BystanderCount,
+  <span class="type">DateTimeOffset</span> CreatedAt
+);
+
+<span class="cmt">// MysteryDetail — full with countdown embedded</span>
+<span class="kw">record</span> <span class="type">MysteryDetail</span>(
+  <span class="type">Guid</span> Id,
+  <span class="type">string</span> Name,
+  <span class="type">string</span>? Concept,
+  <span class="type">string</span>? Hook,
+  <span class="type">string</span>? Overview,
+  <span class="type">string</span>? Notes,
+  <span class="type">CountdownDetail</span>? Countdown,
+  <span class="type">int</span> MonsterCount,
+  <span class="type">int</span> LocationCount,
+  <span class="type">int</span> BystanderCount,
+  <span class="type">IReadOnlyList</span>&lt;<span class="type">CustomMoveItem</span>&gt; CustomMoves,
+  <span class="type">DateTimeOffset</span> CreatedAt,
+  <span class="type">DateTimeOffset</span> UpdatedAt
+);</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>⏱️ Countdowns</h3>
+        <p>One-to-one with Mystery. Created automatically with the mystery (null values) and updated via PUT.</p>
+        <table class="endpoint-table">
+          <thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method-get">GET</span></td><td>/api/mysteries/{id}/countdown</td><td>CountdownDetail</td></tr>
+            <tr><td><span class="method-put">PUT</span></td><td>/api/mysteries/{id}/countdown</td><td>CountdownDetail</td></tr>
+          </tbody>
+        </table>
+        <pre><code><span class="kw">record</span> <span class="type">CountdownDetail</span>(
+  <span class="type">Guid</span> Id,
+  <span class="type">string</span> Day,
+  <span class="type">string</span> Shadows,
+  <span class="type">string</span> Sunset,
+  <span class="type">string</span> Dusk,
+  <span class="type">string</span> Nightfall,
+  <span class="type">string</span> Midnight
+);
+
+<span class="kw">record</span> <span class="type">UpsertCountdownRequest</span>(
+  <span class="type">string</span> Day,
+  <span class="type">string</span> Shadows,
+  <span class="type">string</span> Sunset,
+  <span class="type">string</span> Dusk,
+  <span class="type">string</span> Nightfall,
+  <span class="type">string</span> Midnight
+);</code></pre>
+      </div>
+
+    </div>
+
+    <div class="cards">
+
+      <div class="card">
+        <h3>👾 Monsters</h3>
+        <table class="endpoint-table">
+          <thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method-get">GET</span></td><td>/api/mysteries/{id}/monsters</td><td>MonsterListItem[]</td></tr>
+            <tr><td><span class="method-post">POST</span></td><td>/api/mysteries/{id}/monsters</td><td>MonsterDetail (201)</td></tr>
+            <tr><td><span class="method-get">GET</span></td><td>/api/monsters/{id}</td><td>MonsterDetail</td></tr>
+            <tr><td><span class="method-put">PUT</span></td><td>/api/monsters/{id}</td><td>MonsterDetail</td></tr>
+            <tr><td><span class="method-delete">DELETE</span></td><td>/api/monsters/{id}</td><td>204 No Content</td></tr>
+          </tbody>
+        </table>
+        <table class="endpoint-table" style="margin-top:0.5rem;">
+          <thead><tr><th>Method</th><th>Sub-resource path (under /api/monsters/{id}/...)</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method-get">GET</span>/<span class="method-post">POST</span></td><td>/attacks</td><td>MonsterAttack[] / MonsterAttack</td></tr>
+            <tr><td><span class="method-put">PUT</span>/<span class="method-delete">DELETE</span></td><td>/attacks/{attackId}</td><td>MonsterAttack / 204</td></tr>
+            <tr><td><span class="method-get">GET</span>/<span class="method-post">POST</span></td><td>/attacks/{attackId}/weapon-tags</td><td>WeaponTag[] / 204</td></tr>
+            <tr><td><span class="method-delete">DELETE</span></td><td>/attacks/{attackId}/weapon-tags/{tagId}</td><td>204</td></tr>
+            <tr><td><span class="method-get">GET</span>/<span class="method-post">POST</span></td><td>/powers</td><td>MonsterPower[] / MonsterPower</td></tr>
+            <tr><td><span class="method-put">PUT</span>/<span class="method-delete">DELETE</span></td><td>/powers/{powerId}</td><td>MonsterPower / 204</td></tr>
+            <tr><td><span class="method-get">GET</span>/<span class="method-post">POST</span></td><td>/armors</td><td>MonsterArmor[] / MonsterArmor</td></tr>
+            <tr><td><span class="method-put">PUT</span>/<span class="method-delete">DELETE</span></td><td>/armors/{armorId}</td><td>MonsterArmor / 204</td></tr>
+            <tr><td><span class="method-get">GET</span>/<span class="method-post">POST</span></td><td>/weaknesses</td><td>MonsterWeakness[] / MonsterWeakness</td></tr>
+            <tr><td><span class="method-put">PUT</span>/<span class="method-delete">DELETE</span></td><td>/weaknesses/{weaknessId}</td><td>MonsterWeakness / 204</td></tr>
+            <tr><td><span class="method-get">GET</span>/<span class="method-post">POST</span></td><td>/custom-moves</td><td>CustomMove[] / CustomMove</td></tr>
+            <tr><td><span class="method-put">PUT</span>/<span class="method-delete">DELETE</span></td><td>/custom-moves/{moveId}</td><td>CustomMove / 204</td></tr>
+          </tbody>
+        </table>
+        <pre><code><span class="kw">record</span> <span class="type">MonsterDetail</span>(
+  <span class="type">Guid</span> Id, <span class="type">Guid</span> MysteryId,
+  <span class="type">string</span> Name, <span class="type">string</span>? Description,
+  <span class="type">int</span> HarmCapacity,
+  <span class="type">Guid</span>? MonsterTypeId, <span class="type">string</span>? MonsterTypeName,
+  <span class="type">Guid</span>? MinionTypeId,  <span class="type">string</span>? MinionTypeName,
+  <span class="type">IReadOnlyList</span>&lt;<span class="type">MonsterAttack</span>&gt; Attacks,
+  <span class="type">IReadOnlyList</span>&lt;<span class="type">MonsterPower</span>&gt; Powers,
+  <span class="type">IReadOnlyList</span>&lt;<span class="type">MonsterArmor</span>&gt; Armors,
+  <span class="type">IReadOnlyList</span>&lt;<span class="type">MonsterWeakness</span>&gt; Weaknesses,
+  <span class="type">IReadOnlyList</span>&lt;<span class="type">CustomMove</span>&gt; CustomMoves
+);
+
+<span class="kw">record</span> <span class="type">MonsterAttack</span>(
+  <span class="type">Guid</span> Id, <span class="type">string</span> Name,
+  <span class="type">string</span>? Description, <span class="type">int</span> Harm,
+  <span class="type">IReadOnlyList</span>&lt;<span class="type">WeaponTagRef</span>&gt; WeaponTags
+);</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>📍 Locations &amp; 🧍 Bystanders</h3>
+        <table class="endpoint-table">
+          <thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method-get">GET</span></td><td>/api/mysteries/{id}/locations</td><td>Location[]</td></tr>
+            <tr><td><span class="method-post">POST</span></td><td>/api/mysteries/{id}/locations</td><td>Location (201)</td></tr>
+            <tr><td><span class="method-get">GET</span></td><td>/api/locations/{id}</td><td>LocationDetail</td></tr>
+            <tr><td><span class="method-put">PUT</span></td><td>/api/locations/{id}</td><td>LocationDetail</td></tr>
+            <tr><td><span class="method-delete">DELETE</span></td><td>/api/locations/{id}</td><td>204</td></tr>
+            <tr><td><span class="method-get">GET</span>/<span class="method-post">POST</span></td><td>/api/locations/{id}/custom-moves</td><td>CustomMove[] / CustomMove</td></tr>
+            <tr><td><span class="method-put">PUT</span>/<span class="method-delete">DELETE</span></td><td>/api/locations/{id}/custom-moves/{moveId}</td><td>CustomMove / 204</td></tr>
+          </tbody>
+        </table>
+        <table class="endpoint-table" style="margin-top:1rem;">
+          <thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method-get">GET</span></td><td>/api/mysteries/{id}/bystanders</td><td>Bystander[]</td></tr>
+            <tr><td><span class="method-post">POST</span></td><td>/api/mysteries/{id}/bystanders</td><td>Bystander (201)</td></tr>
+            <tr><td><span class="method-get">GET</span></td><td>/api/bystanders/{id}</td><td>BystanderDetail</td></tr>
+            <tr><td><span class="method-put">PUT</span></td><td>/api/bystanders/{id}</td><td>BystanderDetail</td></tr>
+            <tr><td><span class="method-delete">DELETE</span></td><td>/api/bystanders/{id}</td><td>204</td></tr>
+            <tr><td><span class="method-get">GET</span>/<span class="method-post">POST</span></td><td>/api/bystanders/{id}/custom-moves</td><td>CustomMove[] / CustomMove</td></tr>
+            <tr><td><span class="method-put">PUT</span>/<span class="method-delete">DELETE</span></td><td>/api/bystanders/{id}/custom-moves/{moveId}</td><td>CustomMove / 204</td></tr>
+          </tbody>
+        </table>
+        <pre><code><span class="kw">record</span> <span class="type">LocationDetail</span>(
+  <span class="type">Guid</span> Id, <span class="type">Guid</span> MysteryId,
+  <span class="type">string</span> Name, <span class="type">string</span>? Description,
+  <span class="type">Guid</span> LocationTypeId, <span class="type">string</span> LocationTypeName,
+  <span class="type">string</span> LocationTypeMotivation,
+  <span class="type">IReadOnlyList</span>&lt;<span class="type">CustomMove</span>&gt; CustomMoves
+);
+
+<span class="kw">record</span> <span class="type">BystanderDetail</span>(
+  <span class="type">Guid</span> Id, <span class="type">Guid</span> MysteryId,
+  <span class="type">string</span> Name, <span class="type">string</span>? Description,
+  <span class="type">Guid</span> BystanderTypeId, <span class="type">string</span> BystanderTypeName,
+  <span class="type">string</span> BystanderTypeMotivation,
+  <span class="type">IReadOnlyList</span>&lt;<span class="type">CustomMove</span>&gt; CustomMoves
+);</code></pre>
+      </div>
+
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3>🔍 Reference / Lookup Endpoints (read-only, seeded data)</h3>
+      <table class="endpoint-table">
+        <thead><tr><th>Method</th><th>Path</th><th>Returns</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><span class="method-get">GET</span></td><td>/api/monster-types</td><td>TypeRef[]</td><td>Seed: Devourer, Torturer, Executioner…</td></tr>
+          <tr><td><span class="method-get">GET</span></td><td>/api/minion-types</td><td>TypeRef[]</td><td>Seed: Brute, Cultist, Hive, Plague…</td></tr>
+          <tr><td><span class="method-get">GET</span></td><td>/api/location-types</td><td>TypeRef[]</td><td>Seed: Crossroads, Deathtrap, Den…</td></tr>
+          <tr><td><span class="method-get">GET</span></td><td>/api/bystander-types</td><td>TypeRef[]</td><td>Seed: Victim, Innocent, Busybody…</td></tr>
+          <tr><td><span class="method-get">GET</span></td><td>/api/weapon-tags</td><td>WeaponTagRef[]</td><td>Seed: +1harm, area, close, hand…</td></tr>
+          <tr><td><span class="method-get">GET</span></td><td>/healthz</td><td>200 OK</td><td>Health check (per portfolio pattern)</td></tr>
+        </tbody>
+      </table>
+      <pre><code><span class="kw">record</span> <span class="type">TypeRef</span>(<span class="type">Guid</span> Id, <span class="type">string</span> Name, <span class="type">string</span> Motivation);
+<span class="kw">record</span> <span class="type">WeaponTagRef</span>(<span class="type">Guid</span> Id, <span class="type">string</span> Name, <span class="type">string</span> Description);
+<span class="kw">record</span> <span class="type">CustomMove</span>(<span class="type">Guid</span> Id, <span class="type">string</span> Name, <span class="type">string</span>? Description);</code></pre>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SECTION: EF CORE MODEL
+  ================================================================ -->
+  <section id="ef-model">
+    <h2>🗄️ Entity Framework Core Data Model</h2>
+
+    <p>The existing PostgreSQL schema (18 tables) is preserved almost exactly. EF Core code-first migrations will replace Knex migrations. The only meaningful adaptations are timestamp types and the addition of <code>UpdatedAt</code> auto-update handling.</p>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Schema Adaptations from Current Design</h3>
+        <table>
+          <thead><tr><th>Change</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>timestamps(true,true)</code> → <code>created_at</code> + <code>updated_at</code> as <code>DateTimeOffset</code></td>
+              <td>Knex's timestamp helper maps directly. EF Core uses <code>DateTimeOffset</code> for timezone-aware storage (Npgsql maps to <code>timestamptz</code>).</td>
+            </tr>
+            <tr>
+              <td>Add <code>SaveChangesAsync</code> interceptor to auto-update <code>updated_at</code></td>
+              <td>Knex's <code>timestamps(true, true)</code> auto-updated on write; EF Core needs a <code>DbContext.SaveChanges</code> override or a <code>SavingChangesEvent</code> handler to replicate this.</td>
+            </tr>
+            <tr>
+              <td>Rename join table to <code>monster_attack_weapon_tags</code> (singular "attack")</td>
+              <td>Minor naming consistency; existing data migrates cleanly.</td>
+            </tr>
+            <tr>
+              <td>All <code>uuid</code> PKs → <code>Guid</code> in C#</td>
+              <td>Direct mapping; <code>uuid_generate_v4()</code> replaced by <code>Guid.NewGuid()</code> in entity constructors.</td>
+            </tr>
+            <tr>
+              <td>No schema changes to column names or foreign keys</td>
+              <td>EF Core's <code>ToTable()</code> + <code>HasColumnName()</code> map C# PascalCase properties to existing snake_case columns.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3><code>MotwDbContext</code> Overview</h3>
+        <pre><code><span class="kw">public sealed class</span> <span class="type">MotwDbContext</span> : <span class="type">DbContext</span>
+{
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">Mystery</span>&gt; Mysteries =&gt; <span class="type">Set</span>&lt;<span class="type">Mystery</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">Countdown</span>&gt; Countdowns =&gt; <span class="type">Set</span>&lt;<span class="type">Countdown</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">Monster</span>&gt; Monsters =&gt; <span class="type">Set</span>&lt;<span class="type">Monster</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">MonsterType</span>&gt; MonsterTypes =&gt; <span class="type">Set</span>&lt;<span class="type">MonsterType</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">MinionType</span>&gt; MinionTypes =&gt; <span class="type">Set</span>&lt;<span class="type">MinionType</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">MonsterPower</span>&gt; MonsterPowers =&gt; <span class="type">Set</span>&lt;<span class="type">MonsterPower</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">MonsterAttack</span>&gt; MonsterAttacks =&gt; <span class="type">Set</span>&lt;<span class="type">MonsterAttack</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">MonsterAttackWeaponTag</span>&gt; MonsterAttackWeaponTags =&gt; <span class="type">Set</span>&lt;<span class="type">MonsterAttackWeaponTag</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">MonsterArmor</span>&gt; MonsterArmors =&gt; <span class="type">Set</span>&lt;<span class="type">MonsterArmor</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">MonsterWeakness</span>&gt; MonsterWeaknesses =&gt; <span class="type">Set</span>&lt;<span class="type">MonsterWeakness</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">MonsterCustomMove</span>&gt; MonsterCustomMoves =&gt; <span class="type">Set</span>&lt;<span class="type">MonsterCustomMove</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">WeaponTag</span>&gt; WeaponTags =&gt; <span class="type">Set</span>&lt;<span class="type">WeaponTag</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">Location</span>&gt; Locations =&gt; <span class="type">Set</span>&lt;<span class="type">Location</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">LocationType</span>&gt; LocationTypes =&gt; <span class="type">Set</span>&lt;<span class="type">LocationType</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">LocationCustomMove</span>&gt; LocationCustomMoves =&gt; <span class="type">Set</span>&lt;<span class="type">LocationCustomMove</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">Bystander</span>&gt; Bystanders =&gt; <span class="type">Set</span>&lt;<span class="type">Bystander</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">BystanderType</span>&gt; BystanderTypes =&gt; <span class="type">Set</span>&lt;<span class="type">BystanderType</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">BystanderCustomMove</span>&gt; BystanderCustomMoves =&gt; <span class="type">Set</span>&lt;<span class="type">BystanderCustomMove</span>&gt;();
+    <span class="kw">public</span> <span class="type">DbSet</span>&lt;<span class="type">MysteryCustomMove</span>&gt; MysteryCustomMoves =&gt; <span class="type">Set</span>&lt;<span class="type">MysteryCustomMove</span>&gt;();
+
+    <span class="kw">public override async</span> <span class="type">Task</span>&lt;<span class="type">int</span>&gt; <span class="attr">SaveChangesAsync</span>(...)
+    {
+        <span class="cmt">// Auto-stamp UpdatedAt on modified entities</span>
+        <span class="kw">foreach</span> (<span class="kw">var</span> entry <span class="kw">in</span> ChangeTracker.<span class="attr">Entries</span>&lt;<span class="type">ITimestamped</span>&gt;()
+            .<span class="attr">Where</span>(e =&gt; e.State == <span class="type">EntityState</span>.Modified))
+            entry.Entity.UpdatedAt = <span class="type">DateTimeOffset</span>.UtcNow;
+
+        <span class="kw">return await base</span>.<span class="attr">SaveChangesAsync</span>(...);
+    }
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="diagram-container">
+      <h3>Entity Relationships (EF Core Navigation Properties)</h3>
+      <div class="mermaid">
+erDiagram
+    Mystery {
+        Guid Id PK
+        string Name
+        string Concept
+        string Hook
+        string Overview
+        string Notes
+        DateTimeOffset CreatedAt
+        DateTimeOffset UpdatedAt
+    }
+    Countdown {
+        Guid Id PK
+        Guid MysteryId FK
+        string Day
+        string Shadows
+        string Sunset
+        string Dusk
+        string Nightfall
+        string Midnight
+    }
+    MonsterType {
+        Guid Id PK
+        string Name
+        string Motivation
+    }
+    MinionType {
+        Guid Id PK
+        string Name
+        string Motivation
+    }
+    Monster {
+        Guid Id PK
+        Guid MysteryId FK
+        Guid MonsterTypeId FK
+        Guid MinionTypeId FK
+        string Name
+        string Description
+        int HarmCapacity
+    }
+    MonsterAttack {
+        Guid Id PK
+        Guid MonsterId FK
+        string Name
+        string Description
+        int Harm
+    }
+    WeaponTag {
+        Guid Id PK
+        string Name
+        string Description
+    }
+    MonsterAttackWeaponTag {
+        Guid WeaponTagId FK
+        Guid MonsterAttackId FK
+    }
+    MonsterPower {
+        Guid Id PK
+        Guid MonsterId FK
+        string Name
+        string Description
+    }
+    MonsterArmor {
+        Guid Id PK
+        Guid MonsterId FK
+        string Name
+        string Description
+        int HarmSoak
+        bool IsMagical
+    }
+    MonsterWeakness {
+        Guid Id PK
+        Guid MonsterId FK
+        string Name
+        string Description
+    }
+    MonsterCustomMove {
+        Guid Id PK
+        Guid MonsterId FK
+        string Name
+        string Description
+    }
+    LocationType {
+        Guid Id PK
+        string Name
+        string Motivation
+    }
+    Location {
+        Guid Id PK
+        Guid MysteryId FK
+        Guid LocationTypeId FK
+        string Name
+        string Description
+    }
+    LocationCustomMove {
+        Guid Id PK
+        Guid LocationId FK
+        string Name
+        string Description
+    }
+    BystanderType {
+        Guid Id PK
+        string Name
+        string Motivation
+    }
+    Bystander {
+        Guid Id PK
+        Guid MysteryId FK
+        Guid BystanderTypeId FK
+        string Name
+        string Description
+    }
+    BystanderCustomMove {
+        Guid Id PK
+        Guid BystanderId FK
+        string Name
+        string Description
+    }
+    MysteryCustomMove {
+        Guid Id PK
+        Guid MysteryId FK
+        string Name
+        string Description
+    }
+
+    Mystery ||--o| Countdown : "has"
+    Mystery ||--o{ Monster : "features"
+    Mystery ||--o{ Location : "has"
+    Mystery ||--o{ Bystander : "has"
+    Mystery ||--o{ MysteryCustomMove : "has"
+    Monster }o--|| MonsterType : "typed as"
+    Monster }o--|| MinionType : "minion typed as"
+    Monster ||--o{ MonsterAttack : "has"
+    Monster ||--o{ MonsterPower : "has"
+    Monster ||--o{ MonsterArmor : "has"
+    Monster ||--o{ MonsterWeakness : "has"
+    Monster ||--o{ MonsterCustomMove : "has"
+    MonsterAttack ||--o{ MonsterAttackWeaponTag : "tagged with"
+    WeaponTag ||--o{ MonsterAttackWeaponTag : "applied to"
+    Location }o--|| LocationType : "typed as"
+    Location ||--o{ LocationCustomMove : "has"
+    Bystander }o--|| BystanderType : "typed as"
+    Bystander ||--o{ BystanderCustomMove : "has"
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Sample Entity + Model Configuration</h3>
+      <pre><code><span class="kw">public sealed class</span> <span class="type">Mystery</span> : <span class="type">ITimestamped</span>
+{
+    <span class="kw">public</span> <span class="type">Guid</span> Id { <span class="kw">get</span>; <span class="kw">init</span>; } = <span class="type">Guid</span>.<span class="attr">NewGuid</span>();
+    <span class="kw">public required</span> <span class="type">string</span> Name { <span class="kw">get</span>; <span class="kw">set</span>; }
+    <span class="kw">public</span> <span class="type">string</span>? Concept { <span class="kw">get</span>; <span class="kw">set</span>; }
+    <span class="kw">public</span> <span class="type">string</span>? Hook { <span class="kw">get</span>; <span class="kw">set</span>; }
+    <span class="kw">public</span> <span class="type">string</span>? Overview { <span class="kw">get</span>; <span class="kw">set</span>; }
+    <span class="kw">public</span> <span class="type">string</span>? Notes { <span class="kw">get</span>; <span class="kw">set</span>; }
+    <span class="kw">public</span> <span class="type">DateTimeOffset</span> CreatedAt { <span class="kw">get</span>; <span class="kw">init</span>; } = <span class="type">DateTimeOffset</span>.UtcNow;
+    <span class="kw">public</span> <span class="type">DateTimeOffset</span> UpdatedAt { <span class="kw">get</span>; <span class="kw">set</span>; } = <span class="type">DateTimeOffset</span>.UtcNow;
+
+    <span class="kw">public</span> <span class="type">Countdown</span>? Countdown { <span class="kw">get</span>; <span class="kw">set</span>; }
+    <span class="kw">public</span> <span class="type">ICollection</span>&lt;<span class="type">Monster</span>&gt; Monsters { <span class="kw">get</span>; <span class="kw">set</span>; } = [];
+    <span class="kw">public</span> <span class="type">ICollection</span>&lt;<span class="type">Location</span>&gt; Locations { <span class="kw">get</span>; <span class="kw">set</span>; } = [];
+    <span class="kw">public</span> <span class="type">ICollection</span>&lt;<span class="type">Bystander</span>&gt; Bystanders { <span class="kw">get</span>; <span class="kw">set</span>; } = [];
+    <span class="kw">public</span> <span class="type">ICollection</span>&lt;<span class="type">MysteryCustomMove</span>&gt; CustomMoves { <span class="kw">get</span>; <span class="kw">set</span>; } = [];
+}
+
+<span class="cmt">// In OnModelCreating:</span>
+modelBuilder.<span class="attr">Entity</span>&lt;<span class="type">Mystery</span>&gt;(entity =&gt; {
+    entity.<span class="attr">ToTable</span>(<span class="str">"mysteries"</span>);
+    entity.<span class="attr">HasKey</span>(m =&gt; m.Id);
+    entity.<span class="attr">Property</span>(m =&gt; m.Id).<span class="attr">HasColumnName</span>(<span class="str">"id"</span>);
+    entity.<span class="attr">Property</span>(m =&gt; m.Name).<span class="attr">HasColumnName</span>(<span class="str">"name"</span>).<span class="attr">HasMaxLength</span>(<span class="num">255</span>).<span class="attr">IsRequired</span>();
+    entity.<span class="attr">Property</span>(m =&gt; m.CreatedAt).<span class="attr">HasColumnName</span>(<span class="str">"created_at"</span>);
+    entity.<span class="attr">Property</span>(m =&gt; m.UpdatedAt).<span class="attr">HasColumnName</span>(<span class="str">"updated_at"</span>);
+    entity.<span class="attr">HasOne</span>(m =&gt; m.Countdown).<span class="attr">WithOne</span>(c =&gt; c.Mystery)
+        .<span class="attr">HasForeignKey</span>&lt;<span class="type">Countdown</span>&gt;(c =&gt; c.MysteryId);
+});</code></pre>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SECTION: ANGULAR STRUCTURE
+  ================================================================ -->
+  <section id="angular-structure">
+    <h2>⚛️ Angular 21 Application Structure</h2>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Angular Feature Architecture</h3>
+        <p>Uses <strong>standalone components</strong> (Angular 17+ default) with lazy-loaded routes. No NgModules required. Signals replace simple RxJS state where appropriate.</p>
+
+        <h4>Core Services (singleton, provided in root)</h4>
+        <ul class="feature-list">
+          <li><code>ApiService</code> — base URL config, shared error handling</li>
+          <li><code>MysteryService</code> — mystery CRUD + countdown</li>
+          <li><code>MonsterService</code> — monster + all sub-resources</li>
+          <li><code>LocationService</code> — location CRUD + custom moves</li>
+          <li><code>BystanderService</code> — bystander CRUD + custom moves</li>
+          <li><code>ReferenceDataService</code> — lookup types + weapon tags (cached)</li>
+        </ul>
+
+        <h4>HTTP Pattern</h4>
+        <pre><code><span class="cmt">// mystery.service.ts</span>
+@<span class="type">Injectable</span>({ providedIn: <span class="str">'root'</span> })
+<span class="kw">export class</span> <span class="type">MysteryService</span> {
+  <span class="kw">private</span> http = <span class="attr">inject</span>(<span class="type">HttpClient</span>);
+  <span class="kw">private</span> base = <span class="str">'/api/mysteries'</span>;
+
+  <span class="attr">getAll</span>(): <span class="type">Observable</span>&lt;<span class="type">MysteryListItem</span>[]&gt; {
+    <span class="kw">return this</span>.http.<span class="attr">get</span>&lt;<span class="type">MysteryListItem</span>[]&gt;(<span class="kw">this</span>.base);
+  }
+
+  <span class="attr">getById</span>(id: <span class="type">string</span>): <span class="type">Observable</span>&lt;<span class="type">MysteryDetail</span>&gt; {
+    <span class="kw">return this</span>.http.<span class="attr">get</span>&lt;<span class="type">MysteryDetail</span>&gt;(<span class="str">`${this.base}/${id}`</span>);
+  }
+
+  <span class="attr">create</span>(req: <span class="type">CreateMysteryRequest</span>): <span class="type">Observable</span>&lt;<span class="type">MysteryDetail</span>&gt; {
+    <span class="kw">return this</span>.http.<span class="attr">post</span>&lt;<span class="type">MysteryDetail</span>&gt;(<span class="kw">this</span>.base, req);
+  }
+}</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>Routing Strategy</h3>
+        <pre><code><span class="cmt">// app.routes.ts</span>
+<span class="kw">export const</span> routes: <span class="type">Routes</span> = [
+  {
+    path: <span class="str">''</span>,
+    <span class="attr">loadComponent</span>: () =&gt;
+      <span class="attr">import</span>(<span class="str">'./features/dashboard/dashboard.component'</span>)
+        .<span class="attr">then</span>(m =&gt; m.<span class="type">DashboardComponent</span>)
+  },
+  {
+    path: <span class="str">'mysteries'</span>,
+    <span class="attr">loadChildren</span>: () =&gt;
+      <span class="attr">import</span>(<span class="str">'./features/mysteries/mysteries.routes'</span>)
+        .<span class="attr">then</span>(m =&gt; m.MYSTERY_ROUTES)
+  },
+  {
+    path: <span class="str">'mysteries/:id/monsters/:monsterId'</span>,
+    <span class="attr">loadComponent</span>: () =&gt;
+      <span class="attr">import</span>(<span class="str">'./features/monsters/monster-detail.component'</span>)
+        .<span class="attr">then</span>(m =&gt; m.<span class="type">MonsterDetailComponent</span>)
+  },
+  { path: <span class="str">'**'</span>, <span class="attr">redirectTo</span>: <span class="str">''</span> }
+];
+
+<span class="cmt">// mysteries.routes.ts</span>
+<span class="kw">export const</span> <span class="type">MYSTERY_ROUTES</span>: <span class="type">Routes</span> = [
+  { path: <span class="str">''</span>, component: <span class="type">MysteriesListComponent</span> },
+  { path: <span class="str">':id'</span>, component: <span class="type">MysteryDetailComponent</span> },
+];</code></pre>
+
+        <h4>Component pattern (Signals + AsyncPipe)</h4>
+        <pre><code><span class="cmt">// mysteries-list.component.ts</span>
+@<span class="type">Component</span>({
+  selector: <span class="str">'app-mysteries-list'</span>,
+  standalone: <span class="kw">true</span>,
+  imports: [<span class="type">AsyncPipe</span>, <span class="type">RouterLink</span>, <span class="type">NgFor</span>],
+  template: <span class="str">`
+    &lt;div class="max-w-7xl mx-auto px-4 py-6"&gt;
+      &lt;div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"&gt;
+        @for (m of mysteries$ | async; track m.id) {
+          &lt;a [routerLink]="['/mysteries', m.id]"
+             class="block p-6 bg-white rounded-lg shadow
+                    hover:shadow-md transition-shadow"&gt;
+            &lt;h2 class="text-lg font-semibold text-gray-900"&gt;
+              {{m.name}}
+            &lt;/h2&gt;
+          &lt;/a&gt;
+        }
+      &lt;/div&gt;
+    &lt;/div&gt;`</span>
+})
+<span class="kw">export class</span> <span class="type">MysteriesListComponent</span> {
+  <span class="kw">private</span> svc = <span class="attr">inject</span>(<span class="type">MysteryService</span>);
+  mysteries$ = <span class="kw">this</span>.svc.<span class="attr">getAll</span>();
+}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SECTION: PROJECT STRUCTURE
+  ================================================================ -->
+  <section id="project-structure">
+    <h2>📁 Recommended Project Structure</h2>
+
+    <div class="cards">
+      <div class="card">
+        <h3>API — <code>monster-of-the-week-api/</code></h3>
+        <div class="dir-tree">
+<span class="dir">MonsterOfTheWeek.Api/</span>
+├── <span class="dir">Configuration/</span>
+│   ├── <span class="file">DatabaseOptions.cs</span>
+│   ├── <span class="file">CorsOptions.cs</span>
+│   └── <span class="file">MotwAppOptions.cs</span>
+├── <span class="dir">Contracts/</span>
+│   ├── <span class="file">MysteryContracts.cs</span>   <span class="cmt"># request/response records</span>
+│   ├── <span class="file">MonsterContracts.cs</span>
+│   ├── <span class="file">LocationContracts.cs</span>
+│   ├── <span class="file">BystanderContracts.cs</span>
+│   └── <span class="file">ReferenceContracts.cs</span>
+├── <span class="dir">Controllers/</span>
+│   ├── <span class="file">MysteriesController.cs</span>
+│   ├── <span class="file">MonstersController.cs</span>
+│   ├── <span class="file">LocationsController.cs</span>
+│   ├── <span class="file">BystandersController.cs</span>
+│   └── <span class="file">ReferenceController.cs</span>  <span class="cmt"># types + weapon tags</span>
+├── <span class="dir">Data/</span>
+│   ├── <span class="file">MotwDbContext.cs</span>
+│   ├── <span class="file">MotwDbContextFactory.cs</span>  <span class="cmt"># for EF CLI migrations</span>
+│   ├── <span class="file">MotwDbInitializer.cs</span>    <span class="cmt"># migrate + seed on startup</span>
+│   └── <span class="dir">Entities/</span>
+│       ├── <span class="file">Mystery.cs</span>
+│       ├── <span class="file">Countdown.cs</span>
+│       ├── <span class="file">Monster.cs</span>
+│       ├── <span class="file">MonsterType.cs</span>
+│       ├── <span class="file">MinionType.cs</span>
+│       ├── <span class="file">MonsterAttack.cs</span>
+│       ├── <span class="file">MonsterAttackWeaponTag.cs</span>
+│       ├── <span class="file">WeaponTag.cs</span>
+│       ├── <span class="file">MonsterPower.cs</span>
+│       ├── <span class="file">MonsterArmor.cs</span>
+│       ├── <span class="file">MonsterWeakness.cs</span>
+│       ├── <span class="file">MonsterCustomMove.cs</span>
+│       ├── <span class="file">Location.cs</span>
+│       ├── <span class="file">LocationType.cs</span>
+│       ├── <span class="file">LocationCustomMove.cs</span>
+│       ├── <span class="file">Bystander.cs</span>
+│       ├── <span class="file">BystanderType.cs</span>
+│       ├── <span class="file">BystanderCustomMove.cs</span>
+│       └── <span class="file">MysteryCustomMove.cs</span>
+├── <span class="dir">Migrations/</span>              <span class="cmt"># EF Core generated</span>
+├── <span class="dir">Repositories/</span>
+│   ├── <span class="file">IMysteryRepository.cs</span>
+│   ├── <span class="file">MysteryRepository.cs</span>
+│   ├── <span class="file">IMonsterRepository.cs</span>
+│   ├── <span class="file">MonsterRepository.cs</span>
+│   └── ... <span class="cmt">(one pair per aggregate)</span>
+├── <span class="dir">Services/</span>
+│   ├── <span class="file">IMysteryService.cs</span>
+│   ├── <span class="file">MysteryService.cs</span>
+│   ├── <span class="file">IMonsterService.cs</span>
+│   ├── <span class="file">MonsterService.cs</span>
+│   └── ...
+├── <span class="file">Program.cs</span>
+├── <span class="file">appsettings.json</span>
+├── <span class="file">appsettings.Development.json</span>
+├── <span class="file">appsettings.Local.json</span>         <span class="cmt"># gitignored, local overrides</span>
+└── <span class="file">MonsterOfTheWeek.Api.csproj</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>UI — <code>monster-of-the-week-ui/</code></h3>
+        <div class="dir-tree">
+<span class="dir">src/</span>
+├── <span class="dir">app/</span>
+│   ├── <span class="dir">core/</span>
+│   │   ├── <span class="file">models.ts</span>            <span class="cmt"># TypeScript interfaces for API contracts</span>
+│   │   ├── <span class="file">api.service.ts</span>       <span class="cmt"># base URL + error handling</span>
+│   │   └── <span class="file">http-error.interceptor.ts</span>
+│   ├── <span class="dir">features/</span>
+│   │   ├── <span class="dir">dashboard/</span>
+│   │   │   └── <span class="file">dashboard.component.ts</span>
+│   │   ├── <span class="dir">mysteries/</span>
+│   │   │   ├── <span class="file">mysteries.routes.ts</span>
+│   │   │   ├── <span class="file">mystery.service.ts</span>
+│   │   │   ├── <span class="file">mysteries-list.component.ts</span>
+│   │   │   └── <span class="file">mystery-detail.component.ts</span>
+│   │   ├── <span class="dir">monsters/</span>
+│   │   │   ├── <span class="file">monster.service.ts</span>
+│   │   │   ├── <span class="file">monster-detail.component.ts</span>
+│   │   │   ├── <span class="file">monster-attacks.component.ts</span>
+│   │   │   └── <span class="file">monster-form.component.ts</span>
+│   │   ├── <span class="dir">locations/</span>
+│   │   │   ├── <span class="file">location.service.ts</span>
+│   │   │   └── <span class="file">location-detail.component.ts</span>
+│   │   └── <span class="dir">bystanders/</span>
+│   │       ├── <span class="file">bystander.service.ts</span>
+│   │       └── <span class="file">bystander-detail.component.ts</span>
+│   ├── <span class="dir">shared/</span>
+│   │   ├── <span class="dir">components/</span>
+│   │   │   ├── <span class="file">nav-menu.component.ts</span>     <span class="cmt"># indigo Tailwind nav (ported)</span>
+│   │   │   ├── <span class="file">page-layout.component.ts</span>  <span class="cmt"># wraps page with header + nav</span>
+│   │   │   └── <span class="file">confirm-dialog.component.ts</span>
+│   │   └── <span class="dir">pipes/</span>
+│   ├── <span class="file">app.config.ts</span>
+│   ├── <span class="file">app.routes.ts</span>
+│   ├── <span class="file">app.ts</span>
+│   └── <span class="file">app.html</span>
+├── <span class="file">styles.css</span>                     <span class="cmt"># @import "tailwindcss"; only</span>
+├── <span class="file">main.ts</span>
+└── <span class="file">index.html</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SECTION: DOCKER + CONFIG
+  ================================================================ -->
+  <section id="docker">
+    <h2>🐳 Docker &amp; Configuration</h2>
+
+    <div class="cards">
+      <div class="card">
+        <h3><code>docker-compose.yml</code> (dev environment)</h3>
+        <p>Modeled directly after the portfolio's docker-compose. Upgrades Postgres 9.6 → 17.</p>
+        <pre><code><span class="attr">services:</span>
+  <span class="attr">postgres:</span>
+    image: postgres:17-alpine
+    container_name: motw-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: motw_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - <span class="str">"5432:5432"</span>
+    volumes:
+      - motw-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [<span class="str">"CMD-SHELL"</span>, <span class="str">"pg_isready -U postgres -d motw_dev"</span>]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+<span class="attr">volumes:</span>
+  motw-postgres-data:</code></pre>
+      </div>
+
+      <div class="card">
+        <h3><code>appsettings.Local.json</code> (gitignored)</h3>
+        <p>Local developer overrides; matches portfolio pattern of <code>appsettings.Local.json</code>.</p>
+        <pre><code>{
+  <span class="str">"Database"</span>: {
+    <span class="str">"Provider"</span>: <span class="str">"PostgreSQL"</span>,
+    <span class="str">"ConnectionString"</span>: <span class="str">"Host=localhost;Port=5432;Database=motw_dev;Username=postgres;Password=postgres"</span>
+  },
+  <span class="str">"Cors"</span>: {
+    <span class="str">"AllowedOrigins"</span>: [<span class="str">"http://localhost:4200"</span>]
+  },
+  <span class="str">"Application"</span>: {
+    <span class="str">"PublicBaseUrl"</span>: <span class="str">"http://localhost:5000"</span>
+  }
+}</code></pre>
+        <h4>Angular environment (<code>environment.ts</code>)</h4>
+        <pre><code><span class="kw">export const</span> environment = {
+  production: <span class="kw">false</span>,
+  apiBaseUrl: <span class="str">'http://localhost:5000'</span>
+};</code></pre>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3><code>MonsterOfTheWeek.Api.csproj</code></h3>
+      <pre><code><span class="kw">&lt;Project</span> Sdk=<span class="str">"Microsoft.NET.Sdk.Web"</span><span class="kw">&gt;</span>
+  <span class="kw">&lt;PropertyGroup&gt;</span>
+    <span class="kw">&lt;TargetFramework&gt;</span>net10.0<span class="kw">&lt;/TargetFramework&gt;</span>
+    <span class="kw">&lt;Nullable&gt;</span>enable<span class="kw">&lt;/Nullable&gt;</span>
+    <span class="kw">&lt;ImplicitUsings&gt;</span>enable<span class="kw">&lt;/ImplicitUsings&gt;</span>
+  <span class="kw">&lt;/PropertyGroup&gt;</span>
+  <span class="kw">&lt;ItemGroup&gt;</span>
+    <span class="kw">&lt;PackageReference</span> Include=<span class="str">"Microsoft.EntityFrameworkCore.Design"</span> Version=<span class="str">"10.0.0"</span> <span class="kw">/&gt;</span>
+    <span class="kw">&lt;PackageReference</span> Include=<span class="str">"Npgsql.EntityFrameworkCore.PostgreSQL"</span> Version=<span class="str">"10.0.0"</span> <span class="kw">/&gt;</span>
+    <span class="cmt">&lt;!-- Optional: Swashbuckle for Swagger UI during development --&gt;</span>
+    <span class="kw">&lt;PackageReference</span> Include=<span class="str">"Swashbuckle.AspNetCore"</span> Version=<span class="str">"7.x"</span> <span class="kw">/&gt;</span>
+  <span class="kw">&lt;/ItemGroup&gt;</span>
+<span class="kw">&lt;/Project&gt;</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SECTION: ROADMAP
+  ================================================================ -->
+  <section id="roadmap">
+    <h2>🗺️ Implementation Roadmap</h2>
+
+    <div class="diagram-container">
+      <h3>Build Sequence</h3>
+      <div class="mermaid">
+graph LR
+    subgraph Phase1["Phase 1 — Project Bootstrap"]
+        A["Create .NET solution\nMonsterOfTheWeek.sln\n+ MonsterOfTheWeek.Api.csproj"]
+        B["Scaffold Angular app\nng new monster-of-the-week-ui\n--style=css --routing"]
+        C["Install Tailwind 4\nnpm install tailwindcss\n@tailwindcss/vite\n@import tailwindcss in styles.css"]
+        D["docker-compose up\n(Postgres 17)"]
+    end
+    subgraph Phase2["Phase 2 — API Foundation"]
+        E["EF Core entities\n+ MotwDbContext\n+ ModelBuilder config"]
+        F["Initial EF migration\ndotnet ef migrations add InitialCreate\ndotnet ef database update"]
+        G["Seed data\n(types + weapon tags\nrun on startup)"]
+        H["Program.cs setup\n(CORS, health checks,\nProblemDetails,\nDB init on startup)"]
+    end
+    subgraph Phase3["Phase 3 — API Resources"]
+        I["Mysteries controller\n+ service + repository\n(full CRUD)"]
+        J["Countdowns + Monster\ncontrollers"]
+        K["Locations + Bystanders\ncontrollers"]
+        L["Reference endpoints\n(/api/*-types,\n/api/weapon-tags)"]
+    end
+    subgraph Phase4["Phase 4 — Angular UI"]
+        M["Core models.ts\n(TypeScript interfaces\nmatching API contracts)"]
+        N["Services (HttpClient)\n+ routing skeleton\n+ layout component\n(port Tailwind nav)"]
+        O["Mysteries list+detail\npages (fully wired)"]
+        P["Monster, Location,\nBystander detail pages"]
+    end
+
+    A --> E
+    B --> C
+    C --> N
+    D --> F
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    I --> J
+    J --> K
+    K --> L
+    L --> M
+    M --> N
+    N --> O
+    O --> P
+
+    style Phase1 fill:#d1fae5,stroke:#059669
+    style Phase2 fill:#e0e7ff,stroke:#4f46e5
+    style Phase3 fill:#fef3c7,stroke:#d97706
+    style Phase4 fill:#ede9fe,stroke:#7c3aed
+      </div>
+    </div>
+
+    <h3>Detailed Phase Checklist</h3>
+    <div class="cards-3">
+      <div class="card">
+        <h4>Phase 1 — Bootstrap</h4>
+        <ul class="feature-list">
+          <li>Create solution file (<code>MonsterOfTheWeek.sln</code>)</li>
+          <li><code>dotnet new webapi -n MonsterOfTheWeek.Api</code></li>
+          <li>Add Npgsql + EF Core NuGet packages</li>
+          <li><code>ng new monster-of-the-week-ui --style=css --routing</code></li>
+          <li>Install Tailwind 4 + Vite plugin</li>
+          <li>Add <code>@import "tailwindcss"</code> to <code>styles.css</code></li>
+          <li>Set up <code>docker-compose.yml</code> (Postgres 17)</li>
+          <li>Configure <code>appsettings.Local.json</code> (gitignored)</li>
+          <li>Add <code>environment.ts</code> to Angular with API base URL</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Phase 2 — Data Layer</h4>
+        <ul class="feature-list">
+          <li>Create all 19 entity classes (including <code>ITimestamped</code> interface)</li>
+          <li>Configure <code>MotwDbContext</code> with <code>OnModelCreating</code> (snake_case column mappings)</li>
+          <li>Override <code>SaveChangesAsync</code> for auto-UpdatedAt</li>
+          <li>Create <code>MotwDbContextFactory</code> for EF CLI</li>
+          <li>Run <code>dotnet ef migrations add InitialCreate</code></li>
+          <li>Run <code>dotnet ef database update</code></li>
+          <li>Create <code>MotwDbInitializer</code> to seed lookup tables at startup</li>
+          <li>Wire up <code>Program.cs</code>: CORS, ProblemDetails, health checks, DB init</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Phase 3 — API Resources</h4>
+        <ul class="feature-list">
+          <li>Implement <code>MysteriesController</code> (GET list, GET detail, POST, PUT, DELETE)</li>
+          <li>Implement countdown sub-resource (GET + PUT)</li>
+          <li>Implement <code>MonstersController</code> + all sub-resources (attacks, powers, armors, weaknesses, custom moves)</li>
+          <li>Implement weapon-tag assignment on attacks</li>
+          <li>Implement <code>LocationsController</code> + custom moves</li>
+          <li>Implement <code>BystandersController</code> + custom moves</li>
+          <li>Implement <code>ReferenceController</code> (all 5 lookup endpoints)</li>
+          <li>Add Swagger/OpenAPI (optional, useful during development)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Phase 4 — Angular Foundation</h4>
+        <ul class="feature-list">
+          <li>Define all TypeScript interfaces in <code>core/models.ts</code></li>
+          <li>Create <code>ApiService</code> with base URL from environment</li>
+          <li>Add HTTP error interceptor</li>
+          <li>Create <code>PageLayoutComponent</code> (port Tailwind indigo nav from current UI)</li>
+          <li>Set up app-level routing with lazy loaded features</li>
+          <li>Create <code>MysteryService</code>, wire to <code>MysteriesListComponent</code></li>
+          <li>Create <code>MysteryDetailComponent</code> showing countdown + entity counts</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Phase 5 — Angular Features</h4>
+        <ul class="feature-list">
+          <li>Create <code>MonsterService</code> + <code>MonsterDetailComponent</code></li>
+          <li>Create monster sub-forms: attacks, powers, armors, weaknesses</li>
+          <li>Add weapon tag multi-select on attack form</li>
+          <li>Create <code>LocationDetailComponent</code></li>
+          <li>Create <code>BystanderDetailComponent</code></li>
+          <li>Create <code>ReferenceDataService</code> with caching (shareReplay)</li>
+          <li>Connect type dropdowns using reference data</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Phase 6 — Polish</h4>
+        <ul class="feature-list">
+          <li>Add loading states with Angular Signals</li>
+          <li>Add toast/notification system for mutations</li>
+          <li>Add confirm-before-delete dialogs</li>
+          <li>Add xUnit tests for API services and repositories</li>
+          <li>Add vitest component tests for Angular</li>
+          <li>Add Dockerfile for API (per portfolio pattern)</li>
+          <li>Review and add any missing API input validation (FluentValidation or DataAnnotations)</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Key Technical Decisions Summary</h3>
+    <table>
+      <thead><tr><th>Decision</th><th>Choice</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>API style</td>
+          <td>REST (no GraphQL)</td>
+          <td>Simpler contracts, conventional HTTP tooling, matches portfolio pattern</td>
+        </tr>
+        <tr>
+          <td>Angular standalone vs NgModules</td>
+          <td>Standalone components (Angular 21 default)</td>
+          <td>Less boilerplate, tree-shakeable, lazy loading built-in</td>
+        </tr>
+        <tr>
+          <td>State management</td>
+          <td>RxJS services + Angular Signals (no NgRx)</td>
+          <td>App complexity doesn't warrant a full state library; signals handle local/shared state</td>
+        </tr>
+        <tr>
+          <td>EF Core vs Dapper</td>
+          <td>EF Core 10 (same as portfolio)</td>
+          <td>Code-first migrations; strongly typed queries; schema matches 1:1 with entities</td>
+        </tr>
+        <tr>
+          <td>Authentication</td>
+          <td>Not in scope (not in original app)</td>
+          <td>Can be added later; JWT + ASP.NET Core Identity is the natural fit when needed</td>
+        </tr>
+        <tr>
+          <td>Swagger / OpenAPI</td>
+          <td>Add Swashbuckle for dev-time exploration</td>
+          <td>Replaces Apollo Studio; useful while building Angular services against the API</td>
+        </tr>
+        <tr>
+          <td>Mystery detail response</td>
+          <td>Embedded countdown + entity counts; sub-resources fetched on demand</td>
+          <td>Avoids N+1 client calls for the list view; matches typical UI interaction pattern</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<footer>
+  Generated by GitHub Copilot CLI &nbsp;|&nbsp; Monster of the Week — .NET + Angular Rebuild Plan &nbsp;|&nbsp; Reference: portfolio app (<code>projects/portfolio</code>) &nbsp;|&nbsp; July 2026
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    er: { useMaxWidth: true },
+    flowchart: { useMaxWidth: true, htmlLabels: true },
+    sequence: { useMaxWidth: true }
+  });
+</script>
+</body>
+</html>

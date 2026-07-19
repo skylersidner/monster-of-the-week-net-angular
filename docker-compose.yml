@@ -10,7 +10,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - motw-postgres-data:/var/lib/postgresql/data
+      - motw-postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-motw_app} -d ${POSTGRES_DB:-motw}"]
       interval: 10s
