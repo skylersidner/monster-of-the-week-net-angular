@@ -1,0 +1,22 @@
+{
+  "phase": "phase-1",
+  "updatedAt": "2026-07-19",
+  "frameworkTargets": {
+    "dotnet": {
+      "targetFramework": "net10.0",
+      "track": "LTS"
+    },
+    "angular": {
+      "majorVersion": 22,
+      "track": "Current stable"
+    },
+    "node": {
+      "majorVersion": 24,
+      "track": "LTS"
+    },
+    "postgresql": {
+      "majorVersion": 18,
+      "track": "Current stable"
+    }
+  }
+}

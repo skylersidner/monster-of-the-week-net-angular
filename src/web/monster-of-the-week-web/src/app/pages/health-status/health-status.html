@@ -1,0 +1,6 @@
+<main class="health-status">
+  <h1>Monster of the Week Health Status</h1>
+  <p [class.ok]="isHealthy()" [class.error]="hasError()">
+    {{ message() }}
+  </p>
+</main>

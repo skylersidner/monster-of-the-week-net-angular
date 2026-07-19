@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: motw-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-motw}
+      POSTGRES_USER: ${POSTGRES_USER:-motw_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-motw_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - motw-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-motw_app} -d ${POSTGRES_DB:-motw}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  motw-postgres-data:
