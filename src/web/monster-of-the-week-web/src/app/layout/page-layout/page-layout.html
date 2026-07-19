@@ -1,14 +1,187 @@
-<div class="page-layout">
-  <header class="top-bar">
-    <h1>Monster of the Week</h1>
-    <nav>
-      <a routerLink="/mysteries" routerLinkActive="active-link">Mysteries</a>
-      <a routerLink="/health-status" routerLinkActive="active-link">Health</a>
+<div class="shell">
+  <aside class="sidebar sidebar-desktop" aria-label="Primary navigation">
+    <div class="brand-badge" aria-hidden="true">MOTW</div>
+    <nav class="sidebar-nav">
+      @for (item of navItems; track item.label) {
+        @if (item.route) {
+          <a
+            class="sidebar-link"
+            [routerLink]="item.route"
+            routerLinkActive="sidebar-link-active"
+            [routerLinkActiveOptions]="{ exact: item.exactMatch ?? false }"
+          >
+            <span class="sidebar-link-icon" aria-hidden="true">
+              @switch (item.icon) {
+                @case ('dashboard') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z" />
+                  </svg>
+                }
+                @case ('mysteries') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M21 21l-4.35-4.35M11 8v3l2 1.5" />
+                  </svg>
+                }
+                @case ('monsters') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M7 5l2 3h6l2-3M6 8l-2 11h16L18 8M10 13h4" />
+                  </svg>
+                }
+                @case ('minions') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="8" cy="9" r="3" />
+                    <circle cx="16" cy="9" r="3" />
+                    <path d="M3 19c0-2.8 2.2-5 5-5M21 19c0-2.8-2.2-5-5-5M8 19c0-2.8 2.2-5 4-5s4 2.2 4 5" />
+                  </svg>
+                }
+                @case ('locations') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" />
+                    <circle cx="12" cy="10" r="2.5" />
+                  </svg>
+                }
+                @case ('bystanders') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="7.5" r="3.5" />
+                    <path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" />
+                  </svg>
+                }
+              }
+            </span>
+            <span class="sidebar-link-label">{{ item.label }}</span>
+          </a>
+        } @else {
+          <span class="sidebar-link" aria-disabled="true" style="color: rgba(219,234,254,.72); cursor: default;">
+            <span class="sidebar-link-icon" aria-hidden="true">
+              @switch (item.icon) {
+                @case ('monsters') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M7 5l2 3h6l2-3M6 8l-2 11h16L18 8M10 13h4" />
+                  </svg>
+                }
+                @case ('minions') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="8" cy="9" r="3" />
+                    <circle cx="16" cy="9" r="3" />
+                    <path d="M3 19c0-2.8 2.2-5 5-5M21 19c0-2.8-2.2-5-5-5M8 19c0-2.8 2.2-5 4-5s4 2.2 4 5" />
+                  </svg>
+                }
+                @case ('locations') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" />
+                    <circle cx="12" cy="10" r="2.5" />
+                  </svg>
+                }
+                @case ('bystanders') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="7.5" r="3.5" />
+                    <path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" />
+                  </svg>
+                }
+              }
+            </span>
+            <span class="sidebar-link-label">{{ item.label }}</span>
+            <span
+              style="background: rgba(255,255,255,.2); border-radius: 999px; font-size: .62rem; font-weight: 700; letter-spacing: .03em; margin-top: .2rem; padding: .08rem .35rem;"
+            >
+              Soon
+            </span>
+          </span>
+        }
+      }
     </nav>
-  </header>
-  <main>
-    <router-outlet />
-  </main>
+  </aside>
+
+  @if (isShowingMobileMenu) {
+    <div class="mobile-menu-backdrop" role="dialog" aria-modal="true">
+      <button
+        class="mobile-menu-overlay"
+        type="button"
+        (click)="closeMobileMenu()"
+        aria-label="Close sidebar overlay"
+      ></button>
+      <aside class="sidebar sidebar-mobile" aria-label="Mobile navigation">
+        <button type="button" class="menu-close-button" (click)="closeMobileMenu()" aria-label="Close sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 6l12 12M18 6l-12 12" />
+          </svg>
+        </button>
+        <div class="brand-badge" aria-hidden="true">MOTW</div>
+        <nav class="sidebar-nav">
+          @for (item of navItems; track item.label) {
+            @if (item.route) {
+              <a
+                class="sidebar-link mobile-link"
+                [routerLink]="item.route"
+                routerLinkActive="sidebar-link-active"
+                [routerLinkActiveOptions]="{ exact: item.exactMatch ?? false }"
+                (click)="closeMobileMenu()"
+              >
+                {{ item.label }}
+              </a>
+            } @else {
+              <span class="sidebar-link mobile-link" aria-disabled="true" style="color: rgba(219,234,254,.72); cursor: default;">
+                {{ item.label }}
+                <span
+                  style="margin-left: auto; background: rgba(255,255,255,.2); border-radius: 999px; font-size: .62rem; font-weight: 700; letter-spacing: .03em; padding: .08rem .35rem;"
+                >
+                  Soon
+                </span>
+              </span>
+            }
+          }
+        </nav>
+      </aside>
+    </div>
+  }
+
+  <div class="shell-content">
+    <header class="top-header">
+      <button type="button" class="menu-open-button" (click)="toggleMobileMenu()" aria-label="Open sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <form class="search-form" role="search">
+        <label class="sr-only" for="layout-search">Search</label>
+        <div class="search-wrapper">
+          <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path
+              fill-rule="evenodd"
+              d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <input id="layout-search" type="search" placeholder="Search (coming soon)" />
+        </div>
+      </form>
+
+      <div class="header-actions">
+        <div class="user-menu">
+          <button type="button" class="avatar-button" (click)="toggleUserMenu()" aria-label="Open user menu">
+            <span aria-hidden="true">U</span>
+          </button>
+          @if (isShowingUserMenu) {
+            <div class="user-menu-panel">
+              <a href="#">Your profile</a>
+              <a href="#">Sign out</a>
+            </div>
+          }
+        </div>
+        <button type="button" class="quick-action-button" aria-label="Quick action">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 6v12M6 12h12" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <router-outlet />
+    </main>
+  </div>
 
   <aside class="toast-stack" aria-live="polite">
     @for (notification of notificationService.notifications(); track notification.id) {
@@ -20,4 +193,49 @@
       </div>
     }
   </aside>
+
+  @if (isApiUnavailable()) {
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="api-modal-title"
+      style="align-items: center; background: rgba(15,23,42,.58); display: flex; inset: 0; justify-content: center; padding: 1rem; position: fixed; z-index: 60;"
+    >
+      <section
+        class="api-modal"
+        style="background: #fff; border-radius: .75rem; box-shadow: 0 16px 34px rgba(15,23,42,.28); max-width: 28rem; padding: 1.2rem; width: 100%;"
+      >
+        <h2 id="api-modal-title">API unavailable</h2>
+        <p style="color: #334155; margin: .65rem 0 0;">
+          The app cannot reach the API health endpoint right now. Restore API availability and try again.
+        </p>
+        <button
+          type="button"
+          (click)="checkApiAvailability()"
+          [disabled]="isCheckingApiAvailability()"
+          [style.opacity]="isCheckingApiAvailability() ? '.7' : '1'"
+          [style.cursor]="isCheckingApiAvailability() ? 'not-allowed' : 'pointer'"
+          style="align-items: center; background: #4f46e5; border: 0; border-radius: .5rem; color: #fff; display: inline-flex; gap: .45rem; margin-top: 1rem; padding: .55rem .95rem;"
+        >
+          @if (isCheckingApiAvailability()) {
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="height: 1rem; width: 1rem;">
+              <circle cx="12" cy="12" r="9" opacity=".25" stroke="currentColor" stroke-width="2"></circle>
+              <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="0 12 12"
+                to="360 12 12"
+                dur="0.9s"
+                repeatCount="indefinite"
+              />
+            </svg>
+            Checking...
+          } @else {
+            Try again
+          }
+        </button>
+      </section>
+    </div>
+  }
 </div>

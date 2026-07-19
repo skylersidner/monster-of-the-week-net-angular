@@ -6,16 +6,15 @@ export const routes: Routes = [
     path: '',
     component: PageLayoutComponent,
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'mysteries' },
+      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.DashboardPageComponent),
+      },
       {
         path: 'mysteries',
         loadChildren: () =>
           import('./features/mysteries/mysteries.routes').then((m) => m.MYSTERIES_ROUTES),
-      },
-      {
-        path: 'health-status',
-        loadComponent: () =>
-          import('./pages/health-status/health-status').then((m) => m.HealthStatus),
       },
     ],
   },

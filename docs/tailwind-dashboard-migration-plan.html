@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Angular Tailwind Dashboard Migration Plan</title>
+  <style>
+    body {
+      font-family: Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.45;
+      margin: 0;
+      background: #f7f9fc;
+      color: #1b2430;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+    }
+    h1, h2, h3 { margin: 0 0 12px; }
+    section {
+      background: #fff;
+      border: 1px solid #e4e8ef;
+      border-radius: 10px;
+      padding: 16px;
+      margin: 0 0 16px;
+    }
+    ul, ol { margin: 8px 0 0 20px; }
+    li { margin: 6px 0; }
+    .meta { color: #56657a; font-size: 14px; }
+    .todo { color: #7a3e00; font-weight: 600; }
+    .future { color: #375a00; font-weight: 600; }
+    code { background: #f2f5fa; padding: 1px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Tailwind Layout Integration Plan (Angular)</h1>
+    <p class="meta">
+      Source reference: Svelte layout at
+      <code>C:\Users\malev\projects\monster-of-the-week-svelte\src\routes\__layout.svelte</code>
+    </p>
+
+    <section>
+      <h2>Goal</h2>
+      <p>
+        Bring the Angular app to a similar Tailwind-style application shell (desktop sidebar, mobile off-canvas menu,
+        top header, routed content area), add a new dashboard landing experience, and keep scope lean for a first pass.
+      </p>
+    </section>
+
+    <section>
+      <h2>Confirmed Scope Decisions</h2>
+      <ul>
+        <li>Default landing route should become <code>/dashboard</code> (instead of <code>/mysteries</code>).</li>
+        <li>Sidebar placeholder entries are required, but deferred from first pass (<span class="todo">TODO</span>).</li>
+        <li>Header search is visual-only for now (<span class="future">Future Feature</span>).</li>
+        <li>HTTP failures should surface as global toasts for consistency.</li>
+        <li>Dashboard data should be driven by <code>/api/mysteries</code> first (lean scope).</li>
+        <li>Use inline SVG/Heroicons now; Font Awesome can be revisited later (<span class="future">Future Feature</span>).</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Component and Route Breakdown</h2>
+      <ol>
+        <li>
+          <strong>Layout Shell (Page Layout)</strong>
+          <ul>
+            <li>Desktop narrow sidebar navigation</li>
+            <li>Mobile off-canvas menu + backdrop + toggle state</li>
+            <li>Top header with visual search bar, user menu shell, and quick action button</li>
+            <li>Global toast stack rendered in layout for all routes</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Routes</strong>
+          <ul>
+            <li>Add <code>/dashboard</code> route under existing layout children.</li>
+            <li>Change default child redirect from <code>/mysteries</code> to <code>/dashboard</code>.</li>
+            <li>Keep existing mysteries/detail routes untouched in first pass.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Dashboard Page</strong>
+          <ul>
+            <li>Summary cards and/or recent list using current <code>/api/mysteries</code> payloads.</li>
+            <li>Simple loading/error/empty states aligned to new layout styling.</li>
+          </ul>
+        </li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Implementation Steps (First Pass)</h2>
+      <ol>
+        <li>Refactor Angular page layout template to match Svelte shell structure using Tailwind classes.</li>
+        <li>Add nav model in Angular layout for shared desktop/mobile rendering.</li>
+        <li>Implement mobile menu open/close behavior and user menu toggle in layout component state.</li>
+        <li>Add new Dashboard page component and route.</li>
+        <li>Update root redirect to <code>/dashboard</code>.</li>
+        <li>Restyle toast stack to fit shell and preserve dismiss behavior.</li>
+        <li>Wire global HTTP error handling to notification toasts via interceptor.</li>
+        <li>Update unit tests for layout behavior and routing redirect change.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>TODO List (Must Do Before Full Functional Milestone)</h2>
+      <ul>
+        <li>
+          <strong>Sidebar placeholders:</strong> add placeholder nav entries for Monsters, Minions, Locations, and
+          Bystanders in the shell nav model without enabling full route content yet.
+        </li>
+        <li>
+          <strong>Dashboard data implementation detail:</strong> define and implement the best first-pass dashboard view
+          using only <code>/api/mysteries</code> (counts/summary/recency strategy).
+        </li>
+        <li>
+          <strong>Toast consistency audit:</strong> ensure mutation successes and failures across key pages surface
+          consistent global toast messaging patterns.
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Future Feature List</h2>
+      <ul>
+        <li>Convert header search from visual-only to real search/navigation behavior.</li>
+        <li>Evaluate Font Awesome-based icon strategy vs inline SVG/Heroicons for long-term consistency.</li>
+        <li>Add richer dashboard data via dedicated aggregate endpoint once scope allows.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
