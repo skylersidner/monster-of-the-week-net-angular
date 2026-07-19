@@ -1,0 +1,46 @@
+<section>
+  <a [routerLink]="backLink()">← Back to mystery</a>
+
+  @if (isLoading()) {
+    <p>Loading location...</p>
+  } @else if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  } @else if (location()) {
+    <h2>{{ location()!.name }}</h2>
+
+    @if (successMessage()) {
+      <p class="success">{{ successMessage() }}</p>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <label>
+        Name
+        <input type="text" formControlName="name" />
+      </label>
+      <label>
+        Description
+        <textarea formControlName="description" rows="3"></textarea>
+      </label>
+      <label>
+        Location Type
+        <select formControlName="locationTypeId">
+          @for (type of locationTypes(); track type.id) {
+            <option [value]="type.id">{{ type.name }}</option>
+          }
+        </select>
+      </label>
+      <button type="submit">Save Location</button>
+    </form>
+
+    <h3>Custom Moves</h3>
+    @if (location()!.customMoves.length === 0) {
+      <p>No custom moves.</p>
+    } @else {
+      <ul>
+        @for (move of location()!.customMoves; track move.id) {
+          <li>{{ move.name }}</li>
+        }
+      </ul>
+    }
+  }
+</section>

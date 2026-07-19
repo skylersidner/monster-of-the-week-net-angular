@@ -39,3 +39,27 @@
 .error {
   color: #a10808;
 }
+
+.linked-entities {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  margin-top: 1rem;
+}
+
+.linked-entities article {
+  background: #fff;
+  border: 1px solid #e5e9f2;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.linked-entities ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.linked-entities li {
+  margin: 0.4rem 0;
+}

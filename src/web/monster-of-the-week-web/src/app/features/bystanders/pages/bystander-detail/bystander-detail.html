@@ -1,0 +1,46 @@
+<section>
+  <a [routerLink]="backLink()">← Back to mystery</a>
+
+  @if (isLoading()) {
+    <p>Loading bystander...</p>
+  } @else if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  } @else if (bystander()) {
+    <h2>{{ bystander()!.name }}</h2>
+
+    @if (successMessage()) {
+      <p class="success">{{ successMessage() }}</p>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <label>
+        Name
+        <input type="text" formControlName="name" />
+      </label>
+      <label>
+        Description
+        <textarea formControlName="description" rows="3"></textarea>
+      </label>
+      <label>
+        Bystander Type
+        <select formControlName="bystanderTypeId">
+          @for (type of bystanderTypes(); track type.id) {
+            <option [value]="type.id">{{ type.name }}</option>
+          }
+        </select>
+      </label>
+      <button type="submit">Save Bystander</button>
+    </form>
+
+    <h3>Custom Moves</h3>
+    @if (bystander()!.customMoves.length === 0) {
+      <p>No custom moves.</p>
+    } @else {
+      <ul>
+        @for (move of bystander()!.customMoves; track move.id) {
+          <li>{{ move.name }}</li>
+        }
+      </ul>
+    }
+  }
+</section>

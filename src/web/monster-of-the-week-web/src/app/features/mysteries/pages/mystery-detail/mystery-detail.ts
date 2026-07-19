@@ -2,9 +2,16 @@ import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { switchMap } from 'rxjs';
+import { forkJoin, switchMap } from 'rxjs';
+import { ApiService } from '../../../../core/api';
+import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
-import { MysteryDetailResponse } from '../../../../core/models';
+import {
+  BystanderListItemResponse,
+  LocationListItemResponse,
+  MonsterListItemResponse,
+  MysteryDetailResponse,
+} from '../../../../core/models';
 
 @Component({
   selector: 'app-mystery-detail',
@@ -16,12 +23,17 @@ export class MysteryDetailComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly mystery = signal<MysteryDetailResponse | null>(null);
+  readonly monsters = signal<MonsterListItemResponse[]>([]);
+  readonly locations = signal<LocationListItemResponse[]>([]);
+  readonly bystanders = signal<BystanderListItemResponse[]>([]);
   readonly isLoading = signal(true);
   readonly errorMessage = signal<string | null>(null);
 
   constructor(
     private readonly route: ActivatedRoute,
-    private readonly mysteryService: MysteryService
+    private readonly mysteryService: MysteryService,
+    private readonly monsterService: MonsterService,
+    private readonly apiService: ApiService
   ) {}
 
   ngOnInit(): void {
@@ -36,12 +48,20 @@ export class MysteryDetailComponent implements OnInit {
 
           this.isLoading.set(true);
           this.errorMessage.set(null);
-          return this.mysteryService.getMystery(id);
+          return forkJoin({
+            mystery: this.mysteryService.getMystery(id),
+            monsters: this.monsterService.getByMystery(id),
+            locations: this.apiService.get<LocationListItemResponse[]>(`/api/mysteries/${id}/locations`),
+            bystanders: this.apiService.get<BystanderListItemResponse[]>(`/api/mysteries/${id}/bystanders`),
+          });
         })
       )
       .subscribe({
-        next: (mystery) => {
+        next: ({ mystery, monsters, locations, bystanders }) => {
           this.mystery.set(mystery);
+          this.monsters.set(monsters);
+          this.locations.set(locations);
+          this.bystanders.set(bystanders);
           this.isLoading.set(false);
         },
         error: () => {

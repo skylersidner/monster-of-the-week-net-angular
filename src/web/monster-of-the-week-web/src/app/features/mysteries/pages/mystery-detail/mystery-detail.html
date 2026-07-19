@@ -29,5 +29,54 @@
     } @else {
       <p>No countdown found for this mystery.</p>
     }
+
+    <div class="linked-entities">
+      <article>
+        <h3>Monsters</h3>
+        @if (monsters().length === 0) {
+          <p>No monsters.</p>
+        } @else {
+          <ul>
+            @for (monster of monsters(); track monster.id) {
+              <li>
+                <a [routerLink]="['/mysteries', mystery()!.id, 'monsters', monster.id]">{{ monster.name }}</a>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+
+      <article>
+        <h3>Locations</h3>
+        @if (locations().length === 0) {
+          <p>No locations.</p>
+        } @else {
+          <ul>
+            @for (location of locations(); track location.id) {
+              <li>
+                <a [routerLink]="['/mysteries', mystery()!.id, 'locations', location.id]">{{ location.name }}</a>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+
+      <article>
+        <h3>Bystanders</h3>
+        @if (bystanders().length === 0) {
+          <p>No bystanders.</p>
+        } @else {
+          <ul>
+            @for (bystander of bystanders(); track bystander.id) {
+              <li>
+                <a [routerLink]="['/mysteries', mystery()!.id, 'bystanders', bystander.id]">
+                  {{ bystander.name }}
+                </a>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+    </div>
   }
 </section>

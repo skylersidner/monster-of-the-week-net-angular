@@ -1,0 +1,175 @@
+<section>
+  <a [routerLink]="backLink()">← Back to mystery</a>
+
+  @if (isLoading()) {
+    <p>Loading monster...</p>
+  } @else if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  } @else if (monster()) {
+    <h2>{{ monster()!.name }}</h2>
+
+    @if (successMessage()) {
+      <p class="success">{{ successMessage() }}</p>
+    }
+
+    <form [formGroup]="monsterForm" (ngSubmit)="saveMonster()">
+      <h3>Details</h3>
+      <label>
+        Name
+        <input type="text" formControlName="name" />
+      </label>
+      <label>
+        Description
+        <textarea formControlName="description" rows="3"></textarea>
+      </label>
+      <label>
+        Harm Capacity
+        <input type="number" formControlName="harmCapacity" min="0" />
+      </label>
+      <label>
+        Monster Type
+        <select formControlName="monsterTypeId">
+          <option value="">None</option>
+          @for (type of monsterTypes(); track type.id) {
+            <option [value]="type.id">{{ type.name }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Minion Type
+        <select formControlName="minionTypeId">
+          <option value="">None</option>
+          @for (type of minionTypes(); track type.id) {
+            <option [value]="type.id">{{ type.name }}</option>
+          }
+        </select>
+      </label>
+      <button type="submit" [disabled]="isSaving()">Save Monster</button>
+    </form>
+
+    <div class="sub-resource-grid">
+      <article>
+        <h3>Attacks</h3>
+        <ul>
+          @for (attack of monster()!.attacks; track attack.id) {
+            <li>
+              <div>
+                <strong>{{ attack.name }}</strong> (Harm {{ attack.harm }})
+                @if (attack.weaponTags.length > 0) {
+                  <span> · Tags: {{ weaponTagNames(attack) }}</span>
+                }
+              </div>
+              <button type="button" (click)="deleteAttack(attack.id)">Delete</button>
+            </li>
+          }
+        </ul>
+        <form [formGroup]="attackForm" (ngSubmit)="createAttack()">
+          <label>
+            Name
+            <input type="text" formControlName="name" />
+          </label>
+          <label>
+            Description
+            <input type="text" formControlName="description" />
+          </label>
+          <label>
+            Harm
+            <input type="number" formControlName="harm" min="0" />
+          </label>
+          <label>
+            Weapon Tags
+            <select formControlName="weaponTagIds" multiple size="4">
+              @for (tag of weaponTags(); track tag.id) {
+                <option [value]="tag.id">{{ tag.name }}</option>
+              }
+            </select>
+          </label>
+          <button type="submit">Add Attack</button>
+        </form>
+      </article>
+
+      <article>
+        <h3>Powers</h3>
+        <ul>
+          @for (power of monster()!.powers; track power.id) {
+            <li>
+              <div>
+                <strong>{{ power.name }}</strong>
+              </div>
+              <button type="button" (click)="deletePower(power.id)">Delete</button>
+            </li>
+          }
+        </ul>
+        <form [formGroup]="powerForm" (ngSubmit)="createPower()">
+          <label>
+            Name
+            <input type="text" formControlName="name" />
+          </label>
+          <label>
+            Description
+            <input type="text" formControlName="description" />
+          </label>
+          <button type="submit">Add Power</button>
+        </form>
+      </article>
+
+      <article>
+        <h3>Armors</h3>
+        <ul>
+          @for (armor of monster()!.armors; track armor.id) {
+            <li>
+              <div>
+                <strong>{{ armor.name }}</strong> (Soak {{ armor.harmSoak }})
+              </div>
+              <button type="button" (click)="deleteArmor(armor.id)">Delete</button>
+            </li>
+          }
+        </ul>
+        <form [formGroup]="armorForm" (ngSubmit)="createArmor()">
+          <label>
+            Name
+            <input type="text" formControlName="name" />
+          </label>
+          <label>
+            Description
+            <input type="text" formControlName="description" />
+          </label>
+          <label>
+            Harm Soak
+            <input type="number" formControlName="harmSoak" min="0" />
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" formControlName="isMagical" />
+            Magical
+          </label>
+          <button type="submit">Add Armor</button>
+        </form>
+      </article>
+
+      <article>
+        <h3>Weaknesses</h3>
+        <ul>
+          @for (weakness of monster()!.weaknesses; track weakness.id) {
+            <li>
+              <div>
+                <strong>{{ weakness.name }}</strong>
+              </div>
+              <button type="button" (click)="deleteWeakness(weakness.id)">Delete</button>
+            </li>
+          }
+        </ul>
+        <form [formGroup]="weaknessForm" (ngSubmit)="createWeakness()">
+          <label>
+            Name
+            <input type="text" formControlName="name" />
+          </label>
+          <label>
+            Description
+            <input type="text" formControlName="description" />
+          </label>
+          <button type="submit">Add Weakness</button>
+        </form>
+      </article>
+    </div>
+  }
+</section>

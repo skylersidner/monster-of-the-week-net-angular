@@ -3,6 +3,8 @@ import { convertToParamMap, provideRouter } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 
+import { ApiService } from '../../../../core/api';
+import { MonsterService } from '../../../../core/monster';
 import { MysteryDetailComponent } from './mystery-detail';
 import { MysteryService } from '../../../../core/mystery';
 
@@ -40,6 +42,18 @@ describe('MysteryDetailComponent', () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               }),
+          },
+        },
+        {
+          provide: MonsterService,
+          useValue: {
+            getByMystery: () => of([]),
+          },
+        },
+        {
+          provide: ApiService,
+          useValue: {
+            get: () => of([]),
           },
         },
       ],
