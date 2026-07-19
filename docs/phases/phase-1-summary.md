@@ -26,6 +26,7 @@
 - Angular tests: passed (`npm run test -- --watch=false`)
 - API liveness endpoint runtime check: passed (`http://localhost:5225/health/live` returned `Healthy`)
 
-## Notes / TODO
+## Notes
 
-- TODO: After adopting Node `26.5.0` as the local baseline (`nvm use 26.5.0`), upgrade Angular to the latest stable major for future phases.
+- Node baseline has been updated to `26.5.0` (`nvm use 26.5.0`).
+- Angular has been validated on current stable `22.0.7`.

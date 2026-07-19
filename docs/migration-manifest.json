@@ -7,11 +7,11 @@
       "track": "LTS"
     },
     "angular": {
-      "majorVersion": 22,
+      "version": "22.0.7",
       "track": "Current stable"
     },
     "node": {
-      "majorVersion": 24,
+      "version": "26.5.0",
       "track": "LTS"
     },
     "postgresql": {

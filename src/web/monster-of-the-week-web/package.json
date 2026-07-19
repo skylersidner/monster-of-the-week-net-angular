@@ -10,13 +10,16 @@
   },
   "private": true,
   "packageManager": "npm@11.12.1",
+  "engines": {
+    "node": ">=26.5.0 <27"
+  },
   "dependencies": {
-    "@angular/common": "^22.0.0",
-    "@angular/compiler": "^22.0.0",
-    "@angular/core": "^22.0.0",
-    "@angular/forms": "^22.0.0",
-    "@angular/platform-browser": "^22.0.0",
-    "@angular/router": "^22.0.0",
+    "@angular/common": "^22.0.7",
+    "@angular/compiler": "^22.0.7",
+    "@angular/core": "^22.0.7",
+    "@angular/forms": "^22.0.7",
+    "@angular/platform-browser": "^22.0.7",
+    "@angular/router": "^22.0.7",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
