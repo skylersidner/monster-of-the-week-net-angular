@@ -1,5 +1,27 @@
+.mystery-narrative {
+  background: #fff;
+  border: 1px solid #e5e9f2;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  padding: 1rem 1.25rem;
+}
+
+.mystery-narrative h3 {
+  color: #4e5d78;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+}
+
+.mystery-narrative p {
+  line-height: 1.65;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .entity-counts {
-  display: grid;
   gap: 0.5rem;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   margin: 1rem 0;

@@ -7,7 +7,27 @@
     <p class="error">{{ errorMessage() }}</p>
   } @else if (mystery()) {
     <h2>{{ mystery()!.name }}</h2>
-    <p>{{ mystery()!.overview || mystery()!.concept || 'No overview provided.' }}</p>
+
+    @if (mystery()!.concept) {
+      <section class="mystery-narrative">
+        <h3>Concept</h3>
+        <p>{{ mystery()!.concept }}</p>
+      </section>
+    }
+
+    @if (mystery()!.hook) {
+      <section class="mystery-narrative">
+        <h3>Hook</h3>
+        <p>{{ mystery()!.hook }}</p>
+      </section>
+    }
+
+    @if (mystery()!.overview) {
+      <section class="mystery-narrative">
+        <h3>Overview</h3>
+        <p>{{ mystery()!.overview }}</p>
+      </section>
+    }
 
     <dl class="entity-counts">
       <div><dt>Monsters</dt><dd>{{ mystery()!.monsterCount }}</dd></div>
