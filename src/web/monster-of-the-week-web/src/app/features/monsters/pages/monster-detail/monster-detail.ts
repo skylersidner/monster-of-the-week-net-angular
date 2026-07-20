@@ -67,7 +67,8 @@ export class MonsterDetailComponent implements OnInit {
     name: this.formBuilder.nonNullable.control('', [Validators.required]),
     description: this.formBuilder.control(''),
     harmSoak: this.formBuilder.nonNullable.control(0, [Validators.required, Validators.min(0)]),
-    isMagical: this.formBuilder.nonNullable.control(false),
+    isSpecial: this.formBuilder.nonNullable.control(false),
+    specialDescription: this.formBuilder.control(''),
   });
 
   readonly weaknessForm = this.formBuilder.group({
@@ -248,13 +249,14 @@ export class MonsterDetailComponent implements OnInit {
       name: this.armorForm.controls.name.value.trim(),
       description: this.toNullable(this.armorForm.controls.description.value),
       harmSoak: this.armorForm.controls.harmSoak.value,
-      isMagical: this.armorForm.controls.isMagical.value,
+      isSpecial: this.armorForm.controls.isSpecial.value,
+      specialDescription: this.toNullable(this.armorForm.controls.specialDescription.value),
     };
 
     this.runAndRefresh(
       (monsterId) => this.monsterService.createArmor(monsterId, payload),
       'Unable to add armor.',
-      () => this.armorForm.reset({ name: '', description: '', harmSoak: 0, isMagical: false }),
+      () => this.armorForm.reset({ name: '', description: '', harmSoak: 0, isSpecial: false, specialDescription: '' }),
       'Armor added.'
     );
   }

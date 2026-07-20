@@ -43,7 +43,7 @@ public static class ApiMappers
         new(value.Id, value.Name, value.Description);
 
     public static MonsterArmorResponse ToResponse(this MonsterArmor value) =>
-        new(value.Id, value.Name, value.Description, value.HarmSoak, value.IsMagical);
+        new(value.Id, value.Name, value.Description, value.HarmSoak, value.IsSpecial, value.SpecialDescription);
 
     public static MonsterWeaknessResponse ToResponse(this MonsterWeakness value) =>
         new(value.Id, value.Name, value.Description);

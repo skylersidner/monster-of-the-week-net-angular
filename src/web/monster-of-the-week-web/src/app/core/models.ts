@@ -119,7 +119,8 @@ export interface MonsterArmorResponse {
   name: string;
   description: string | null;
   harmSoak: number;
-  isMagical: boolean;
+  isSpecial: boolean;
+  specialDescription?: string | null;
 }
 
 export interface MonsterWeaknessResponse {
@@ -172,7 +173,8 @@ export interface UpsertMonsterArmorRequest {
   name: string;
   description: string | null;
   harmSoak: number;
-  isMagical: boolean;
+  isSpecial: boolean;
+  specialDescription: string | null;
 }
 
 export interface UpsertMonsterWeaknessRequest {

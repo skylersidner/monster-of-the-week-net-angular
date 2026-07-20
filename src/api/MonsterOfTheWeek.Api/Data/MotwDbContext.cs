@@ -159,7 +159,8 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.HarmSoak).HasColumnName("harm_soak");
-            entity.Property(e => e.IsMagical).HasColumnName("is_magical");
+            entity.Property(e => e.IsSpecial).HasColumnName("is_special");
+            entity.Property(e => e.SpecialDescription).HasColumnName("special_description");
             entity.HasOne(e => e.Monster).WithMany(e => e.Armors).HasForeignKey(e => e.MonsterId);
         });
 
