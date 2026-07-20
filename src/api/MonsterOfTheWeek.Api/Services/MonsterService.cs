@@ -283,7 +283,8 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
             HarmSoak = request.HarmSoak,
-            IsMagical = request.IsMagical
+            IsSpecial = request.IsSpecial,
+            SpecialDescription = request.SpecialDescription?.Trim()
         };
 
         await monsterRepository.AddArmorAsync(value, cancellationToken);
@@ -306,7 +307,8 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
         value.Name = request.Name.Trim();
         value.Description = request.Description?.Trim();
         value.HarmSoak = request.HarmSoak;
-        value.IsMagical = request.IsMagical;
+        value.IsSpecial = request.IsSpecial;
+        value.SpecialDescription = request.SpecialDescription?.Trim();
         await monsterRepository.SaveChangesAsync(cancellationToken);
         return ServiceResult<MonsterArmorResponse>.Success(value.ToResponse());
     }

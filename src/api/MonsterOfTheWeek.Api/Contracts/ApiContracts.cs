@@ -80,7 +80,7 @@ public sealed record MonsterAttackResponse(
     IReadOnlyList<WeaponTagRefResponse> WeaponTags);
 
 public sealed record MonsterPowerResponse(Guid Id, string Name, string? Description);
-public sealed record MonsterArmorResponse(Guid Id, string Name, string? Description, int HarmSoak, bool IsMagical);
+public sealed record MonsterArmorResponse(Guid Id, string Name, string? Description, int HarmSoak, bool IsSpecial, string? SpecialDescription);
 public sealed record MonsterWeaknessResponse(Guid Id, string Name, string? Description);
 
 public sealed record MonsterDetailResponse(
@@ -109,7 +109,7 @@ public sealed record UpsertMonsterRequest(
 public sealed record UpsertMonsterAttackRequest(string Name, string? Description, int Harm);
 public sealed record AssignWeaponTagRequest(Guid WeaponTagId);
 public sealed record UpsertMonsterPowerRequest(string Name, string? Description);
-public sealed record UpsertMonsterArmorRequest(string Name, string? Description, int HarmSoak, bool IsMagical);
+public sealed record UpsertMonsterArmorRequest(string Name, string? Description, int HarmSoak, bool IsSpecial, string? SpecialDescription);
 public sealed record UpsertMonsterWeaknessRequest(string Name, string? Description);
 public sealed record UpsertCustomMoveRequest(string Name, string? Description);
 

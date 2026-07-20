@@ -123,7 +123,8 @@ public sealed class MonsterArmor
     public required string Name { get; set; }
     public string? Description { get; set; }
     public int HarmSoak { get; set; }
-    public bool IsMagical { get; set; }
+    public bool IsSpecial { get; set; }
+    public string? SpecialDescription { get; set; }
 
     public Monster Monster { get; set; } = null!;
 }

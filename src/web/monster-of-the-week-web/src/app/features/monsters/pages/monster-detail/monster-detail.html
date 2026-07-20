@@ -139,8 +139,12 @@
             <input type="number" formControlName="harmSoak" min="0" />
           </label>
           <label class="checkbox-row">
-            <input type="checkbox" formControlName="isMagical" />
-            Magical
+            <input type="checkbox" formControlName="isSpecial" />
+            Special
+          </label>
+          <label>
+            Special Description
+            <input type="text" formControlName="specialDescription" />
           </label>
           <button type="submit" [disabled]="isMutating()">Add Armor</button>
         </form>
