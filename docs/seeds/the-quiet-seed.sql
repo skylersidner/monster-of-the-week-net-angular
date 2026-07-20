@@ -96,6 +96,15 @@ BEGIN
 
   -- -------------------------------------------------------------------------
   -- Monster 2: The Disembodied Quiet  (MinionType = "Parasite")
+  -- Ensure Parasite exists as a minion type (added here since it may not yet
+  -- be present in the reference data).
+  -- -------------------------------------------------------------------------
+  INSERT INTO minion_types (id, name, motivation)
+  SELECT gen_random_uuid(), 'Parasite', 'to consume and feed off its host'
+  WHERE NOT EXISTS (SELECT 1 FROM minion_types WHERE name = 'Parasite');
+
+  -- -------------------------------------------------------------------------
+  -- Monster 2: The Disembodied Quiet  (MinionType = "Parasite") (continued)
   -- -------------------------------------------------------------------------
   INSERT INTO monsters (id, mystery_id, monster_type_id, minion_type_id, name, description, harm_capacity)
   VALUES (
