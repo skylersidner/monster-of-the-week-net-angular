@@ -33,6 +33,9 @@ public sealed class ReferenceRepository(MotwDbContext dbContext) : IReferenceRep
     public Task AddBystanderTypeAsync(BystanderType bystanderType, CancellationToken cancellationToken) =>
         dbContext.BystanderTypes.AddAsync(bystanderType, cancellationToken).AsTask();
 
+    public Task AddWeaponTagAsync(WeaponTag weaponTag, CancellationToken cancellationToken) =>
+        dbContext.WeaponTags.AddAsync(weaponTag, cancellationToken).AsTask();
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 }

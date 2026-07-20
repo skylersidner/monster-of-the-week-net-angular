@@ -2,7 +2,13 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { shareReplay } from 'rxjs/operators';
 import { ApiService } from './api';
-import { CreateTypeRefRequest, ReferenceTypeTable, TypeRefResponse, WeaponTagRefResponse } from './models';
+import {
+  CreateTypeRefRequest,
+  CreateWeaponTagRequest,
+  ReferenceTypeTable,
+  TypeRefResponse,
+  WeaponTagRefResponse,
+} from './models';
 
 @Injectable({
   providedIn: 'root',
@@ -61,6 +67,8 @@ export class ReferenceDataService {
         return this.getLocationTypes();
       case ReferenceTypeTable.BystanderTypes:
         return this.getBystanderTypes();
+      case ReferenceTypeTable.WeaponTags:
+        throw new Error('Weapon tags are not a type reference table.');
     }
   }
 
@@ -78,6 +86,13 @@ export class ReferenceDataService {
       case ReferenceTypeTable.BystanderTypes:
         this.bystanderTypes$ = undefined;
         return this.apiService.post<CreateTypeRefRequest, TypeRefResponse>('/api/bystander-types', request);
+      case ReferenceTypeTable.WeaponTags:
+        throw new Error('Weapon tags use createWeaponTag.');
     }
+  }
+
+  createWeaponTag(request: CreateWeaponTagRequest): Observable<WeaponTagRefResponse> {
+    this.weaponTags$ = undefined;
+    return this.apiService.post<CreateWeaponTagRequest, WeaponTagRefResponse>('/api/weapon-tags', request);
   }
 }

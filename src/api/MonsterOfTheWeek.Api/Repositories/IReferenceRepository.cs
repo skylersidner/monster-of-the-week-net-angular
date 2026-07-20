@@ -13,5 +13,6 @@ public interface IReferenceRepository
     Task AddMinionTypeAsync(MinionType minionType, CancellationToken cancellationToken);
     Task AddLocationTypeAsync(LocationType locationType, CancellationToken cancellationToken);
     Task AddBystanderTypeAsync(BystanderType bystanderType, CancellationToken cancellationToken);
+    Task AddWeaponTagAsync(WeaponTag weaponTag, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CreateTypeRefRequest, ReferenceTypeTable, TypeRefResponse } from '../../core/models';
 import { NotificationService } from '../../core/notifications';
 import { ReferenceDataService } from '../../core/reference-data';
+import { WeaponTagAdminComponent } from './components/weapon-tag-admin/weapon-tag-admin';
 
 interface ReferenceTypeOption {
   readonly table: ReferenceTypeTable;
@@ -12,7 +13,7 @@ interface ReferenceTypeOption {
 
 @Component({
   selector: 'app-data-admin-page',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, WeaponTagAdminComponent],
   templateUrl: './data-admin.html',
   styleUrl: './data-admin.scss',
 })
@@ -25,6 +26,7 @@ export class DataAdminPageComponent implements OnInit {
     { table: ReferenceTypeTable.MinionTypes, label: 'Minion Types' },
     { table: ReferenceTypeTable.LocationTypes, label: 'Location Types' },
     { table: ReferenceTypeTable.BystanderTypes, label: 'Bystander Types' },
+    { table: ReferenceTypeTable.WeaponTags, label: 'Weapon Tags' },
   ];
 
   readonly hasSubmitted = signal(false);
@@ -44,9 +46,10 @@ export class DataAdminPageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadSelectedTypeRecords(this.form.controls.referenceTypeTable.value);
+    this.loadSelectedTableRecords(this.form.controls.referenceTypeTable.value);
     this.form.controls.referenceTypeTable.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((table) => {
-      this.loadSelectedTypeRecords(table);
+      this.hasSubmitted.set(false);
+      this.loadSelectedTableRecords(table);
     });
   }
 
@@ -59,6 +62,10 @@ export class DataAdminPageComponent implements OnInit {
   }
 
   saveReferenceType(): void {
+    if (!this.isTypeRefTable(this.form.controls.referenceTypeTable.value)) {
+      return;
+    }
+
     this.hasSubmitted.set(true);
 
     if (this.form.invalid) {
@@ -81,7 +88,7 @@ export class DataAdminPageComponent implements OnInit {
           this.hasSubmitted.set(false);
           this.form.controls.name.reset('');
           this.form.controls.motivation.reset('');
-          this.loadSelectedTypeRecords(this.form.controls.referenceTypeTable.value);
+          this.loadSelectedTableRecords(this.form.controls.referenceTypeTable.value);
           this.notificationService.success(
             `${this.getReferenceTypeLabel(this.form.controls.referenceTypeTable.value)} entry "${created.name}" created.`
           );
@@ -101,11 +108,22 @@ export class DataAdminPageComponent implements OnInit {
     return this.hasSubmitted() && this.form.controls.motivation.invalid;
   }
 
+  isWeaponTagSelected(): boolean {
+    return this.form.controls.referenceTypeTable.value === ReferenceTypeTable.WeaponTags;
+  }
+
   private getReferenceTypeLabel(table: ReferenceTypeTable): string {
     return this.referenceTypeOptions.find((option) => option.table === table)?.label ?? 'Reference Type';
   }
 
-  private loadSelectedTypeRecords(table: ReferenceTypeTable): void {
+  private loadSelectedTableRecords(table: ReferenceTypeTable): void {
+    if (!this.isTypeRefTable(table)) {
+      this.selectedTypeRecords.set([]);
+      this.recordsLoadError.set(null);
+      this.isLoadingTypes.set(false);
+      return;
+    }
+
     this.isLoadingTypes.set(true);
     this.recordsLoadError.set(null);
     this.referenceDataService
@@ -122,5 +140,9 @@ export class DataAdminPageComponent implements OnInit {
           this.isLoadingTypes.set(false);
         },
       });
+  }
+
+  private isTypeRefTable(table: ReferenceTypeTable): table is Exclude<ReferenceTypeTable, ReferenceTypeTable.WeaponTags> {
+    return table !== ReferenceTypeTable.WeaponTags;
   }
 }

@@ -13,4 +13,5 @@ public interface IReferenceService
     Task<TypeRefResponse> CreateMinionTypeAsync(CreateTypeRefRequest request, CancellationToken cancellationToken);
     Task<TypeRefResponse> CreateLocationTypeAsync(CreateTypeRefRequest request, CancellationToken cancellationToken);
     Task<TypeRefResponse> CreateBystanderTypeAsync(CreateTypeRefRequest request, CancellationToken cancellationToken);
+    Task<WeaponTagRefResponse> CreateWeaponTagAsync(CreateWeaponTagRefRequest request, CancellationToken cancellationToken);
 }

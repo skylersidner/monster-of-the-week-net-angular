@@ -9,11 +9,17 @@ export interface CreateTypeRefRequest {
   motivation: string;
 }
 
+export interface CreateWeaponTagRequest {
+  name: string;
+  description: string;
+}
+
 export enum ReferenceTypeTable {
   MonsterTypes = 'monster-types',
   MinionTypes = 'minion-types',
   LocationTypes = 'location-types',
   BystanderTypes = 'bystander-types',
+  WeaponTags = 'weapon-tags',
 }
 
 export interface WeaponTagRefResponse {

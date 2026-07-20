@@ -31,11 +31,13 @@ describe('DataAdminPageComponent', () => {
               selectedTable = table;
               return of({ id: 'type-1', name: 'Crossroads', motivation: 'Tempts visitors toward danger.' });
             },
+            createWeaponTag: () => of({ id: 'tag-1', name: 'Area', description: 'Impacts everyone in an area.' }),
             getTypesByTable: (table: ReferenceTypeTable) => {
               loadTypeCalls += 1;
               selectedLoadTable = table;
               return of([{ id: `${table}-1`, name: `${table} name`, motivation: `${table} motivation` }]);
             },
+            getWeaponTags: () => of([{ id: 'tag-1', name: 'Area', description: 'Impacts everyone in an area.' }]),
           },
         },
         {
@@ -101,5 +103,14 @@ describe('DataAdminPageComponent', () => {
     expect(selectedLoadTable).toBe(ReferenceTypeTable.LocationTypes);
     expect(fixture.nativeElement.textContent).toContain('location-types name');
     expect(fixture.nativeElement.textContent).toContain('location-types motivation');
+  });
+
+  it('shows weapon tag admin component when weapon tags are selected', () => {
+    component.form.controls.referenceTypeTable.setValue(ReferenceTypeTable.WeaponTags);
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Description');
+    expect(text).not.toContain('Motivation must be at least 10 characters.');
   });
 });

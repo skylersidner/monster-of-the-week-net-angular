@@ -42,4 +42,15 @@ describe('ReferenceDataService', () => {
 
     expect(postPath).toBe('/api/location-types');
   });
+
+  it('routes weapon tag create requests to weapon-tags endpoint', () => {
+    service
+      .createWeaponTag({
+        name: 'Messy',
+        description: 'Causes brutal collateral damage.',
+      })
+      .subscribe();
+
+    expect(postPath).toBe('/api/weapon-tags');
+  });
 });

@@ -55,4 +55,11 @@ public sealed class ReferenceController(IReferenceService referenceService) : Co
     [HttpGet("weapon-tags")]
     public async Task<ActionResult<IReadOnlyList<WeaponTagRefResponse>>> GetWeaponTags(CancellationToken cancellationToken) =>
         Ok(await referenceService.GetWeaponTagsAsync(cancellationToken));
+
+    [HttpPost("weapon-tags")]
+    public async Task<ActionResult<WeaponTagRefResponse>> CreateWeaponTag([FromBody] CreateWeaponTagRefRequest request, CancellationToken cancellationToken)
+    {
+        var created = await referenceService.CreateWeaponTagAsync(request, cancellationToken);
+        return Created($"/api/weapon-tags/{created.Id}", created);
+    }
 }

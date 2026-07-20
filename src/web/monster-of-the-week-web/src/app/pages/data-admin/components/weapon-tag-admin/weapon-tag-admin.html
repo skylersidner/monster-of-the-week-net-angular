@@ -1,0 +1,51 @@
+<article class="form-card">
+  <form [formGroup]="form" (ngSubmit)="saveWeaponTag()">
+    <label>
+      Name
+      <input type="text" formControlName="name" />
+    </label>
+    @if (shouldShowNameValidationError()) {
+      <p class="validation-error">Name must be at least 3 characters.</p>
+    }
+
+    <label>
+      Description
+      <textarea formControlName="description" rows="4"></textarea>
+    </label>
+    @if (shouldShowDescriptionValidationError()) {
+      <p class="validation-error">Description must be at least 10 characters.</p>
+    }
+
+    <button type="submit" [disabled]="!canSave()">
+      {{ isSaving() ? 'Saving...' : 'Save' }}
+    </button>
+  </form>
+</article>
+
+<article class="records-card">
+  <h2>Current Records</h2>
+  @if (isLoadingWeaponTags()) {
+    <p class="records-state">Loading records...</p>
+  } @else if (weaponTagsLoadError()) {
+    <p class="records-state records-error">{{ weaponTagsLoadError() }}</p>
+  } @else if (weaponTags().length === 0) {
+    <p class="records-state">No records found.</p>
+  } @else {
+    <table class="records-table">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (record of weaponTags(); track record.id) {
+          <tr>
+            <td>{{ record.name }}</td>
+            <td>{{ record.description }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</article>

@@ -81,4 +81,17 @@ public sealed class ReferenceService(IReferenceRepository referenceRepository) :
         await referenceRepository.SaveChangesAsync(cancellationToken);
         return new TypeRefResponse(value.Id, value.Name, value.Motivation);
     }
+
+    public async Task<WeaponTagRefResponse> CreateWeaponTagAsync(CreateWeaponTagRefRequest request, CancellationToken cancellationToken)
+    {
+        var value = new Data.Entities.WeaponTag
+        {
+            Name = request.Name.Trim(),
+            Description = request.Description.Trim()
+        };
+
+        await referenceRepository.AddWeaponTagAsync(value, cancellationToken);
+        await referenceRepository.SaveChangesAsync(cancellationToken);
+        return new WeaponTagRefResponse(value.Id, value.Name, value.Description);
+    }
 }

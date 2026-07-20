@@ -4,17 +4,22 @@
     <p>Add new entries for reference type tables.</p>
   </header>
 
-  <article class="form-card">
-    <form [formGroup]="form" (ngSubmit)="saveReferenceType()">
-      <label>
-        Type Table
-        <select formControlName="referenceTypeTable">
-          @for (option of referenceTypeOptions; track option.table) {
-            <option [value]="option.table">{{ option.label }}</option>
-          }
-        </select>
-      </label>
+  <article class="selector-card">
+    <label>
+      Type Table
+      <select [formControl]="form.controls.referenceTypeTable">
+        @for (option of referenceTypeOptions; track option.table) {
+          <option [value]="option.table">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+  </article>
 
+  @if (isWeaponTagSelected()) {
+    <app-weapon-tag-admin />
+  } @else {
+    <article class="form-card">
+      <form [formGroup]="form" (ngSubmit)="saveReferenceType()">
       <label>
         Name
         <input type="text" formControlName="name" />
@@ -35,33 +40,34 @@
         {{ isSaving() ? 'Saving...' : 'Save' }}
       </button>
     </form>
-  </article>
+    </article>
 
-  <article class="records-card">
-    <h2>Current Records</h2>
-    @if (isLoadingTypes()) {
-      <p class="records-state">Loading records...</p>
-    } @else if (recordsLoadError()) {
-      <p class="records-state records-error">{{ recordsLoadError() }}</p>
-    } @else if (selectedTypeRecords().length === 0) {
-      <p class="records-state">No records found.</p>
-    } @else {
-      <table class="records-table">
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Motivation</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (record of selectedTypeRecords(); track record.id) {
+    <article class="records-card">
+      <h2>Current Records</h2>
+      @if (isLoadingTypes()) {
+        <p class="records-state">Loading records...</p>
+      } @else if (recordsLoadError()) {
+        <p class="records-state records-error">{{ recordsLoadError() }}</p>
+      } @else if (selectedTypeRecords().length === 0) {
+        <p class="records-state">No records found.</p>
+      } @else {
+        <table class="records-table">
+          <thead>
             <tr>
-              <td>{{ record.name }}</td>
-              <td>{{ record.motivation }}</td>
+              <th scope="col">Name</th>
+              <th scope="col">Motivation</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    }
-  </article>
+          </thead>
+          <tbody>
+            @for (record of selectedTypeRecords(); track record.id) {
+              <tr>
+                <td>{{ record.name }}</td>
+                <td>{{ record.motivation }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </article>
+  }
 </section>
