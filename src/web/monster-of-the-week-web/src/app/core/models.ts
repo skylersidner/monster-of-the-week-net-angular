@@ -4,6 +4,18 @@ export interface TypeRefResponse {
   motivation: string;
 }
 
+export interface CreateTypeRefRequest {
+  name: string;
+  motivation: string;
+}
+
+export enum ReferenceTypeTable {
+  MonsterTypes = 'monster-types',
+  MinionTypes = 'minion-types',
+  LocationTypes = 'location-types',
+  BystanderTypes = 'bystander-types',
+}
+
 export interface WeaponTagRefResponse {
   id: string;
   name: string;

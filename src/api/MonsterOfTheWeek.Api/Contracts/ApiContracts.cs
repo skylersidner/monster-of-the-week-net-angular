@@ -1,6 +1,11 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace MonsterOfTheWeek.Api.Contracts;
 
 public sealed record TypeRefResponse(Guid Id, string Name, string Motivation);
+public sealed record CreateTypeRefRequest(
+    [param: Required, MinLength(3)] string Name,
+    [param: Required, MinLength(10)] string Motivation);
 public sealed record WeaponTagRefResponse(Guid Id, string Name, string? Description);
 public sealed record CustomMoveResponse(Guid Id, string Name, string? Description);
 

@@ -6,7 +6,7 @@ import { NotificationService } from '../../core/notifications';
 interface NavItem {
   readonly label: string;
   readonly route: string | null;
-  readonly icon: 'dashboard' | 'mysteries' | 'monsters' | 'minions' | 'locations' | 'bystanders';
+  readonly icon: 'dashboard' | 'data-admin' | 'mysteries' | 'monsters' | 'minions' | 'locations' | 'bystanders';
   readonly exactMatch?: boolean;
 }
 
@@ -24,6 +24,7 @@ export class PageLayoutComponent implements OnInit {
     { label: 'Minions', route: null, icon: 'minions' },
     { label: 'Locations', route: null, icon: 'locations' },
     { label: 'Bystanders', route: null, icon: 'bystanders' },
+    { label: 'Data Admin', route: '/data-admin', icon: 'data-admin', exactMatch: true },
   ];
 
   isShowingUserMenu = false;

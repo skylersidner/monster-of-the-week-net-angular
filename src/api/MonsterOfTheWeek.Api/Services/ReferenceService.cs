@@ -29,4 +29,56 @@ public sealed class ReferenceService(IReferenceRepository referenceRepository) :
         (await referenceRepository.GetWeaponTagsAsync(cancellationToken))
         .Select(x => new WeaponTagRefResponse(x.Id, x.Name, x.Description))
         .ToList();
+
+    public async Task<TypeRefResponse> CreateMonsterTypeAsync(CreateTypeRefRequest request, CancellationToken cancellationToken)
+    {
+        var value = new Data.Entities.MonsterType
+        {
+            Name = request.Name.Trim(),
+            Motivation = request.Motivation.Trim()
+        };
+
+        await referenceRepository.AddMonsterTypeAsync(value, cancellationToken);
+        await referenceRepository.SaveChangesAsync(cancellationToken);
+        return new TypeRefResponse(value.Id, value.Name, value.Motivation);
+    }
+
+    public async Task<TypeRefResponse> CreateMinionTypeAsync(CreateTypeRefRequest request, CancellationToken cancellationToken)
+    {
+        var value = new Data.Entities.MinionType
+        {
+            Name = request.Name.Trim(),
+            Motivation = request.Motivation.Trim()
+        };
+
+        await referenceRepository.AddMinionTypeAsync(value, cancellationToken);
+        await referenceRepository.SaveChangesAsync(cancellationToken);
+        return new TypeRefResponse(value.Id, value.Name, value.Motivation);
+    }
+
+    public async Task<TypeRefResponse> CreateLocationTypeAsync(CreateTypeRefRequest request, CancellationToken cancellationToken)
+    {
+        var value = new Data.Entities.LocationType
+        {
+            Name = request.Name.Trim(),
+            Motivation = request.Motivation.Trim()
+        };
+
+        await referenceRepository.AddLocationTypeAsync(value, cancellationToken);
+        await referenceRepository.SaveChangesAsync(cancellationToken);
+        return new TypeRefResponse(value.Id, value.Name, value.Motivation);
+    }
+
+    public async Task<TypeRefResponse> CreateBystanderTypeAsync(CreateTypeRefRequest request, CancellationToken cancellationToken)
+    {
+        var value = new Data.Entities.BystanderType
+        {
+            Name = request.Name.Trim(),
+            Motivation = request.Motivation.Trim()
+        };
+
+        await referenceRepository.AddBystanderTypeAsync(value, cancellationToken);
+        await referenceRepository.SaveChangesAsync(cancellationToken);
+        return new TypeRefResponse(value.Id, value.Name, value.Motivation);
+    }
 }

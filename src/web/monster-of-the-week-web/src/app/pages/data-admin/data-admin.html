@@ -1,0 +1,67 @@
+<section class="data-admin-page">
+  <header class="page-header">
+    <h1>Data Admin</h1>
+    <p>Add new entries for reference type tables.</p>
+  </header>
+
+  <article class="form-card">
+    <form [formGroup]="form" (ngSubmit)="saveReferenceType()">
+      <label>
+        Type Table
+        <select formControlName="referenceTypeTable">
+          @for (option of referenceTypeOptions; track option.table) {
+            <option [value]="option.table">{{ option.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        Name
+        <input type="text" formControlName="name" />
+      </label>
+      @if (shouldShowNameValidationError()) {
+        <p class="validation-error">Name must be at least 3 characters.</p>
+      }
+
+      <label>
+        Motivation
+        <textarea formControlName="motivation" rows="4"></textarea>
+      </label>
+      @if (shouldShowMotivationValidationError()) {
+        <p class="validation-error">Motivation must be at least 10 characters.</p>
+      }
+
+      <button type="submit" [disabled]="!canSave()">
+        {{ isSaving() ? 'Saving...' : 'Save' }}
+      </button>
+    </form>
+  </article>
+
+  <article class="records-card">
+    <h2>Current Records</h2>
+    @if (isLoadingTypes()) {
+      <p class="records-state">Loading records...</p>
+    } @else if (recordsLoadError()) {
+      <p class="records-state records-error">{{ recordsLoadError() }}</p>
+    } @else if (selectedTypeRecords().length === 0) {
+      <p class="records-state">No records found.</p>
+    } @else {
+      <table class="records-table">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Motivation</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (record of selectedTypeRecords(); track record.id) {
+            <tr>
+              <td>{{ record.name }}</td>
+              <td>{{ record.motivation }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </article>
+</section>

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { shareReplay } from 'rxjs/operators';
 import { ApiService } from './api';
-import { TypeRefResponse, WeaponTagRefResponse } from './models';
+import { CreateTypeRefRequest, ReferenceTypeTable, TypeRefResponse, WeaponTagRefResponse } from './models';
 
 @Injectable({
   providedIn: 'root',
@@ -49,5 +49,35 @@ export class ReferenceDataService {
       .get<WeaponTagRefResponse[]>('/api/weapon-tags')
       .pipe(shareReplay({ bufferSize: 1, refCount: false }));
     return this.weaponTags$;
+  }
+
+  getTypesByTable(table: ReferenceTypeTable): Observable<TypeRefResponse[]> {
+    switch (table) {
+      case ReferenceTypeTable.MonsterTypes:
+        return this.getMonsterTypes();
+      case ReferenceTypeTable.MinionTypes:
+        return this.getMinionTypes();
+      case ReferenceTypeTable.LocationTypes:
+        return this.getLocationTypes();
+      case ReferenceTypeTable.BystanderTypes:
+        return this.getBystanderTypes();
+    }
+  }
+
+  createType(table: ReferenceTypeTable, request: CreateTypeRefRequest): Observable<TypeRefResponse> {
+    switch (table) {
+      case ReferenceTypeTable.MonsterTypes:
+        this.monsterTypes$ = undefined;
+        return this.apiService.post<CreateTypeRefRequest, TypeRefResponse>('/api/monster-types', request);
+      case ReferenceTypeTable.MinionTypes:
+        this.minionTypes$ = undefined;
+        return this.apiService.post<CreateTypeRefRequest, TypeRefResponse>('/api/minion-types', request);
+      case ReferenceTypeTable.LocationTypes:
+        this.locationTypes$ = undefined;
+        return this.apiService.post<CreateTypeRefRequest, TypeRefResponse>('/api/location-types', request);
+      case ReferenceTypeTable.BystanderTypes:
+        this.bystanderTypes$ = undefined;
+        return this.apiService.post<CreateTypeRefRequest, TypeRefResponse>('/api/bystander-types', request);
+    }
   }
 }

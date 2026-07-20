@@ -9,4 +9,9 @@ public interface IReferenceRepository
     Task<IReadOnlyList<LocationType>> GetLocationTypesAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<BystanderType>> GetBystanderTypesAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<WeaponTag>> GetWeaponTagsAsync(CancellationToken cancellationToken);
+    Task AddMonsterTypeAsync(MonsterType monsterType, CancellationToken cancellationToken);
+    Task AddMinionTypeAsync(MinionType minionType, CancellationToken cancellationToken);
+    Task AddLocationTypeAsync(LocationType locationType, CancellationToken cancellationToken);
+    Task AddBystanderTypeAsync(BystanderType bystanderType, CancellationToken cancellationToken);
+    Task SaveChangesAsync(CancellationToken cancellationToken);
 }

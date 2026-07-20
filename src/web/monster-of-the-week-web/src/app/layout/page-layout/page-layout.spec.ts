@@ -46,6 +46,12 @@ describe('PageLayoutComponent', () => {
     expect(element.textContent).toContain('Dashboard');
   });
 
+  it('renders data admin nav entry', () => {
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Data Admin');
+  });
+
   it('renders placeholder nav entries', () => {
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;

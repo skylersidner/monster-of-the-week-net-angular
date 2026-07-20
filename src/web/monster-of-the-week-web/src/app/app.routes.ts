@@ -12,6 +12,10 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.DashboardPageComponent),
       },
       {
+        path: 'data-admin',
+        loadComponent: () => import('./pages/data-admin/data-admin').then((m) => m.DataAdminPageComponent),
+      },
+      {
         path: 'mysteries',
         loadChildren: () =>
           import('./features/mysteries/mysteries.routes').then((m) => m.MYSTERIES_ROUTES),
