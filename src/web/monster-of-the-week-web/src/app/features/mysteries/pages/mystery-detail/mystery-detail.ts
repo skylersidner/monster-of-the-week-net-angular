@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -15,7 +14,7 @@ import {
 
 @Component({
   selector: 'app-mystery-detail',
-  imports: [DatePipe, RouterLink],
+  imports: [RouterLink],
   templateUrl: './mystery-detail.html',
   styleUrl: './mystery-detail.scss',
 })

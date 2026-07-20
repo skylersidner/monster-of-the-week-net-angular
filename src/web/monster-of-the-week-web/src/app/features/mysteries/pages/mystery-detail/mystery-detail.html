@@ -29,13 +29,6 @@
       </section>
     }
 
-    <dl class="entity-counts">
-      <div><dt>Monsters</dt><dd>{{ mystery()!.monsterCount }}</dd></div>
-      <div><dt>Locations</dt><dd>{{ mystery()!.locationCount }}</dd></div>
-      <div><dt>Bystanders</dt><dd>{{ mystery()!.bystanderCount }}</dd></div>
-      <div><dt>Updated</dt><dd>{{ mystery()!.updatedAt | date: 'medium' }}</dd></div>
-    </dl>
-
     <h3>Countdown</h3>
     @if (mystery()!.countdown) {
       <ul class="countdown-list">
