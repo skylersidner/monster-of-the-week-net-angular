@@ -33,13 +33,28 @@
     <div class="linked-entities">
       <article>
         <h3>Monsters</h3>
-        @if (monsters().length === 0) {
+        @if (pureMonsters().length === 0) {
           <p>No monsters.</p>
         } @else {
           <ul>
-            @for (monster of monsters(); track monster.id) {
+            @for (monster of pureMonsters(); track monster.id) {
               <li>
                 <a [routerLink]="['/mysteries', mystery()!.id, 'monsters', monster.id]">{{ monster.name }}</a>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+
+      <article>
+        <h3>Minions</h3>
+        @if (minions().length === 0) {
+          <p>No minions.</p>
+        } @else {
+          <ul>
+            @for (minion of minions(); track minion.id) {
+              <li>
+                <a [routerLink]="['/mysteries', mystery()!.id, 'monsters', minion.id]">{{ minion.name }}</a>
               </li>
             }
           </ul>
