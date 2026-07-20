@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin, switchMap } from 'rxjs';
@@ -24,6 +24,8 @@ export class MysteryDetailComponent implements OnInit {
 
   readonly mystery = signal<MysteryDetailResponse | null>(null);
   readonly monsters = signal<MonsterListItemResponse[]>([]);
+  readonly pureMonsters = computed(() => this.monsters().filter((m) => m.minionTypeId == null));
+  readonly minions = computed(() => this.monsters().filter((m) => m.minionTypeId != null));
   readonly locations = signal<LocationListItemResponse[]>([]);
   readonly bystanders = signal<BystanderListItemResponse[]>([]);
   readonly isLoading = signal(true);
