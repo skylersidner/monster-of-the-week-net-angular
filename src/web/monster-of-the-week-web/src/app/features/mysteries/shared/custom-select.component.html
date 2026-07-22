@@ -32,7 +32,12 @@
             @if (multiple && isOptionSelected(option)) {
               <span class="custom-select__check">✓</span>
             }
-            <span>{{ optionLabel(option) }}</span>
+            <span class="custom-select__option-body">
+              <span class="custom-select__option-label">{{ optionLabel(option) }}</span>
+              @if (optionSubLabel(option)) {
+                <span class="custom-select__option-sublabel">{{ optionSubLabel(option) }}</span>
+              }
+            </span>
           </button>
         }
       </div>

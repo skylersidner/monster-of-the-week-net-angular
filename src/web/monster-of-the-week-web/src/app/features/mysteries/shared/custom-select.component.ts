@@ -23,6 +23,7 @@ export class CustomSelectComponent<T> implements ControlValueAccessor {
   @Input() disabled = false;
   @Input() optionValue: (option: T) => string = (option: T) => this.resolveOptionValue(option);
   @Input() optionLabel: (option: T) => string = (option: T) => this.resolveOptionLabel(option);
+  @Input() optionSubLabel: (option: T) => string | null = (option: T) => this.resolveOptionSubLabel(option);
 
   readonly isOpen = signal(false);
   readonly searchTerm = signal('');
@@ -54,6 +55,12 @@ export class CustomSelectComponent<T> implements ControlValueAccessor {
     const record = option as Record<string, unknown>;
     const label = record['name'];
     return typeof label === 'string' ? label : String(option);
+  }
+
+  private resolveOptionSubLabel(option: T): string | null {
+    const record = option as Record<string, unknown>;
+    const subLabel = record['motivation'];
+    return typeof subLabel === 'string' && subLabel.length > 0 ? subLabel : null;
   }
 
   readonly filteredOptions = computed(() => {

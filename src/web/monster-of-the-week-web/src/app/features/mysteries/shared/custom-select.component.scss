@@ -115,6 +115,29 @@
   transition: background 0.15s ease;
 }
 
+.custom-select__option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.custom-select__option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-select__option-sublabel {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .custom-select__option:hover {
   background: #f8fafc;
 }
@@ -123,6 +146,11 @@
   background: #eef2ff;
   color: #4338ca;
   font-weight: 600;
+}
+
+.custom-select__option.is-selected .custom-select__option-sublabel {
+  color: #6366f1;
+  font-weight: 400;
 }
 
 .custom-select__check {
