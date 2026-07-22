@@ -243,14 +243,29 @@ app-mystery-create {
   padding: 0.3rem 0;
 }
 
+.mystery-create .sub-item-row > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mystery-create .sub-item-description {
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .mystery-create .add-sub-item-form {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
 
-.mystery-create .add-sub-item-form input {
+.mystery-create .add-sub-item-form input,
+.mystery-create .add-sub-item-form textarea {
   border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
   font: inherit;
@@ -258,8 +273,9 @@ app-mystery-create {
   padding: 0.4rem 0.6rem;
 }
 
-.mystery-create .add-sub-item-form input:first-child {
-  flex: 1;
+.mystery-create .add-sub-item-form input:first-child,
+.mystery-create .add-sub-item-form textarea {
+  flex: 1 1 220px;
 }
 
 .mystery-create .add-item-form {

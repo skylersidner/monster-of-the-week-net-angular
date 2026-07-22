@@ -59,26 +59,38 @@
     <h4>Powers</h4>
     @for (power of store.monsterPowers(); track $index) {
       <div class="sub-item-row">
-        <span>{{ power.name }}</span>
+        <div>
+          <span>{{ power.name }}</span>
+          @if (power.description) {
+            <div class="sub-item-description">{{ power.description }}</div>
+          }
+        </div>
         <button type="button" class="remove-btn" (click)="store.removeMonsterPower($index)">×</button>
       </div>
     }
     <form [formGroup]="store.monsterPowerForm" class="add-sub-item-form">
       <input formControlName="name" placeholder="Power name" />
+      <textarea formControlName="description" rows="2" placeholder="What does this power do?"></textarea>
       <button type="button" class="btn-add" (click)="store.addMonsterPower()">+ Add</button>
     </form>
   </div>
-
+ 
   <div class="sub-items">
     <h4>Weaknesses</h4>
     @for (weakness of store.monsterWeaknesses(); track $index) {
       <div class="sub-item-row">
-        <span>{{ weakness.name }}</span>
+        <div>
+          <span>{{ weakness.name }}</span>
+          @if (weakness.description) {
+            <div class="sub-item-description">{{ weakness.description }}</div>
+          }
+        </div>
         <button type="button" class="remove-btn" (click)="store.removeMonsterWeakness($index)">×</button>
       </div>
     }
     <form [formGroup]="store.monsterWeaknessForm" class="add-sub-item-form">
       <input formControlName="name" placeholder="Weakness name" />
+      <textarea formControlName="description" rows="2" placeholder="What makes this weakness matter?"></textarea>
       <button type="button" class="btn-add" (click)="store.addMonsterWeakness()">+ Add</button>
     </form>
   </div>
@@ -144,26 +156,38 @@
     <h4>Powers</h4>
     @for (power of store.minionPowers(); track $index) {
       <div class="sub-item-row">
-        <span>{{ power.name }}</span>
+        <div>
+          <span>{{ power.name }}</span>
+          @if (power.description) {
+            <div class="sub-item-description">{{ power.description }}</div>
+          }
+        </div>
         <button type="button" class="remove-btn" (click)="store.removeMinionPower($index)">×</button>
       </div>
     }
     <form [formGroup]="store.minionPowerForm" class="add-sub-item-form">
       <input formControlName="name" placeholder="Power name" />
+      <textarea formControlName="description" rows="2" placeholder="What does this power do?"></textarea>
       <button type="button" class="btn-add" (click)="store.addMinionPower()">+ Add</button>
     </form>
   </div>
-
+ 
   <div class="sub-items">
     <h4>Weaknesses</h4>
     @for (weakness of store.minionWeaknesses(); track $index) {
       <div class="sub-item-row">
-        <span>{{ weakness.name }}</span>
+        <div>
+          <span>{{ weakness.name }}</span>
+          @if (weakness.description) {
+            <div class="sub-item-description">{{ weakness.description }}</div>
+          }
+        </div>
         <button type="button" class="remove-btn" (click)="store.removeMinionWeakness($index)">×</button>
       </div>
     }
     <form [formGroup]="store.minionWeaknessForm" class="add-sub-item-form">
       <input formControlName="name" placeholder="Weakness name" />
+      <textarea formControlName="description" rows="2" placeholder="What makes this weakness matter?"></textarea>
       <button type="button" class="btn-add" (click)="store.addMinionWeakness()">+ Add</button>
     </form>
   </div>

@@ -75,7 +75,12 @@
       <p class="dossier-field"><span class="field-label">Powers</span></p>
       <ul class="dossier-list">
         @for (power of store.monsterPreview().powers; track $index) {
-          <li>{{ power.name }}</li>
+          <li>
+            <span>{{ power.name }}</span>
+            @if (power.description) {
+              <div class="sub-item-description">{{ power.description }}</div>
+            }
+          </li>
         }
       </ul>
     }
@@ -83,7 +88,12 @@
       <p class="dossier-field"><span class="field-label">Weaknesses</span></p>
       <ul class="dossier-list">
         @for (weakness of store.monsterPreview().weaknesses; track $index) {
-          <li>{{ weakness.name }}</li>
+          <li>
+            <span>{{ weakness.name }}</span>
+            @if (weakness.description) {
+              <div class="sub-item-description">{{ weakness.description }}</div>
+            }
+          </li>
         }
       </ul>
     }
@@ -118,7 +128,12 @@
       <p class="dossier-field"><span class="field-label">Powers</span></p>
       <ul class="dossier-list">
         @for (power of store.minionPreview().powers; track $index) {
-          <li>{{ power.name }}</li>
+          <li>
+            <span>{{ power.name }}</span>
+            @if (power.description) {
+              <div class="sub-item-description">{{ power.description }}</div>
+            }
+          </li>
         }
       </ul>
     }
@@ -126,7 +141,12 @@
       <p class="dossier-field"><span class="field-label">Weaknesses</span></p>
       <ul class="dossier-list">
         @for (weakness of store.minionPreview().weaknesses; track $index) {
-          <li>{{ weakness.name }}</li>
+          <li>
+            <span>{{ weakness.name }}</span>
+            @if (weakness.description) {
+              <div class="sub-item-description">{{ weakness.description }}</div>
+            }
+          </li>
         }
       </ul>
     }

@@ -119,6 +119,10 @@ describe('MysteryCreateStore', () => {
     });
     store.monsterAttackForm.setValue({ name: 'Shattering Note', harm: 3, description: '', weaponTagIds: ['weapon-tag-1'] });
     store.addMonsterAttack();
+    store.monsterPowerForm.setValue({ name: 'Shadow Step', description: 'Can slip through darkness' });
+    store.addMonsterPower();
+    store.monsterWeaknessForm.setValue({ name: 'Silver', description: 'Silver seals the curse' });
+    store.addMonsterWeakness();
     store.next();
 
     store.minionForm.setValue({
@@ -160,6 +164,14 @@ describe('MysteryCreateStore', () => {
       harmCapacity: 8,
       monsterTypeId: 'monster-type-1',
       minionTypeId: null,
+    });
+    expect(monsterService.createPower).toHaveBeenCalledWith('monster-1', {
+      name: 'Shadow Step',
+      description: 'Can slip through darkness',
+    });
+    expect(monsterService.createWeakness).toHaveBeenCalledWith('monster-1', {
+      name: 'Silver',
+      description: 'Silver seals the curse',
     });
     expect(monsterService.create).toHaveBeenNthCalledWith(2, 'mystery-1', {
       name: 'Choir Thrall',
