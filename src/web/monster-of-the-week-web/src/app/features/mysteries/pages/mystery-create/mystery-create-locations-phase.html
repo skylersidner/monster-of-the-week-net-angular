@@ -1,0 +1,32 @@
+<div class="added-items">
+  @for (location of store.locations(); track $index) {
+    <div class="added-item-row">
+      <span>{{ location.name }}</span>
+      <button type="button" class="remove-btn" (click)="store.removeLocation($index)">×</button>
+    </div>
+  }
+  @if (store.locations().length === 0) {
+    <p class="empty-hint">No locations added yet.</p>
+  }
+</div>
+
+<form [formGroup]="store.addLocationForm" class="add-item-form">
+  <div class="field">
+    <label>Location Name <span class="required">*</span></label>
+    <input formControlName="name" placeholder="The old mill, the forest clearing..." />
+  </div>
+  <div class="field">
+    <label>Description</label>
+    <textarea formControlName="description" rows="3"></textarea>
+  </div>
+  <div class="field">
+    <label>Type <span class="required">*</span></label>
+    <select formControlName="locationTypeId">
+      <option value="">Select a type...</option>
+      @for (type of store.locationTypes(); track type.id) {
+        <option [value]="type.id">{{ type.name }}</option>
+      }
+    </select>
+  </div>
+  <button type="button" class="btn-add" (click)="store.addLocation()">+ Add Location</button>
+</form>

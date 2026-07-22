@@ -1,0 +1,150 @@
+@if (store.currentStep() === 0) {
+  <form [formGroup]="store.monsterForm">
+    <div class="field">
+      <label for="monsterName">Monster Name <span class="required">*</span></label>
+      <input id="monsterName" type="text" formControlName="name" placeholder="The creature's name" />
+      @if (store.monsterForm.controls.name.invalid && store.monsterForm.controls.name.touched) {
+        <span class="field-error">Name is required</span>
+      }
+    </div>
+    <div class="field">
+      <label for="monsterDescription">Description</label>
+      <textarea
+        id="monsterDescription"
+        formControlName="description"
+        rows="3"
+        placeholder="What does it look like? How does it move?"></textarea>
+    </div>
+    <div class="field">
+      <label for="monsterHarmCapacity">Harm Capacity</label>
+      <input id="monsterHarmCapacity" type="number" formControlName="harmCapacity" min="0" />
+    </div>
+    <div class="field">
+      <label for="monsterType">Monster Type</label>
+      <select id="monsterType" formControlName="monsterTypeId">
+        <option value="">Select a type...</option>
+        @for (type of store.monsterTypes(); track type.id) {
+          <option [value]="type.id">{{ type.name }}</option>
+        }
+      </select>
+    </div>
+  </form>
+
+  <div class="sub-items">
+    <h4>Attacks</h4>
+    @for (attack of store.monsterAttacks(); track $index) {
+      <div class="sub-item-row">
+        <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
+        <button type="button" class="remove-btn" (click)="store.removeMonsterAttack($index)">×</button>
+      </div>
+    }
+    <form [formGroup]="store.monsterAttackForm" class="add-sub-item-form">
+      <input formControlName="name" placeholder="Attack name" />
+      <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px" />
+      <button type="button" class="btn-add" (click)="store.addMonsterAttack()">+ Add</button>
+    </form>
+  </div>
+
+  <div class="sub-items">
+    <h4>Powers</h4>
+    @for (power of store.monsterPowers(); track $index) {
+      <div class="sub-item-row">
+        <span>{{ power.name }}</span>
+        <button type="button" class="remove-btn" (click)="store.removeMonsterPower($index)">×</button>
+      </div>
+    }
+    <form [formGroup]="store.monsterPowerForm" class="add-sub-item-form">
+      <input formControlName="name" placeholder="Power name" />
+      <button type="button" class="btn-add" (click)="store.addMonsterPower()">+ Add</button>
+    </form>
+  </div>
+
+  <div class="sub-items">
+    <h4>Weaknesses</h4>
+    @for (weakness of store.monsterWeaknesses(); track $index) {
+      <div class="sub-item-row">
+        <span>{{ weakness.name }}</span>
+        <button type="button" class="remove-btn" (click)="store.removeMonsterWeakness($index)">×</button>
+      </div>
+    }
+    <form [formGroup]="store.monsterWeaknessForm" class="add-sub-item-form">
+      <input formControlName="name" placeholder="Weakness name" />
+      <button type="button" class="btn-add" (click)="store.addMonsterWeakness()">+ Add</button>
+    </form>
+  </div>
+}
+
+@if (store.currentStep() === 1) {
+  <p class="phase-note">Minion is optional — leave Name blank to skip.</p>
+
+  <form [formGroup]="store.minionForm">
+    <div class="field">
+      <label for="minionName">Minion Name</label>
+      <input id="minionName" type="text" formControlName="name" placeholder="The minion's name (optional)" />
+    </div>
+    <div class="field">
+      <label for="minionDescription">Description</label>
+      <textarea
+        id="minionDescription"
+        formControlName="description"
+        rows="3"
+        placeholder="What are they? How do they help the monster?"></textarea>
+    </div>
+    <div class="field">
+      <label for="minionHarmCapacity">Harm Capacity</label>
+      <input id="minionHarmCapacity" type="number" formControlName="harmCapacity" min="0" />
+    </div>
+    <div class="field">
+      <label for="minionType">Minion Type</label>
+      <select id="minionType" formControlName="minionTypeId">
+        <option value="">Select a type...</option>
+        @for (type of store.minionTypes(); track type.id) {
+          <option [value]="type.id">{{ type.name }}</option>
+        }
+      </select>
+    </div>
+  </form>
+
+  <div class="sub-items">
+    <h4>Attacks</h4>
+    @for (attack of store.minionAttacks(); track $index) {
+      <div class="sub-item-row">
+        <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
+        <button type="button" class="remove-btn" (click)="store.removeMinionAttack($index)">×</button>
+      </div>
+    }
+    <form [formGroup]="store.minionAttackForm" class="add-sub-item-form">
+      <input formControlName="name" placeholder="Attack name" />
+      <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px" />
+      <button type="button" class="btn-add" (click)="store.addMinionAttack()">+ Add</button>
+    </form>
+  </div>
+
+  <div class="sub-items">
+    <h4>Powers</h4>
+    @for (power of store.minionPowers(); track $index) {
+      <div class="sub-item-row">
+        <span>{{ power.name }}</span>
+        <button type="button" class="remove-btn" (click)="store.removeMinionPower($index)">×</button>
+      </div>
+    }
+    <form [formGroup]="store.minionPowerForm" class="add-sub-item-form">
+      <input formControlName="name" placeholder="Power name" />
+      <button type="button" class="btn-add" (click)="store.addMinionPower()">+ Add</button>
+    </form>
+  </div>
+
+  <div class="sub-items">
+    <h4>Weaknesses</h4>
+    @for (weakness of store.minionWeaknesses(); track $index) {
+      <div class="sub-item-row">
+        <span>{{ weakness.name }}</span>
+        <button type="button" class="remove-btn" (click)="store.removeMinionWeakness($index)">×</button>
+      </div>
+    }
+    <form [formGroup]="store.minionWeaknessForm" class="add-sub-item-form">
+      <input formControlName="name" placeholder="Weakness name" />
+      <button type="button" class="btn-add" (click)="store.addMinionWeakness()">+ Add</button>
+    </form>
+  </div>
+}

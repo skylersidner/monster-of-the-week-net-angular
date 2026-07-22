@@ -1,0 +1,36 @@
+<header class="tracker">
+  @for (phase of store.phases; track phase.index) {
+    @if (phase.index > 0) {
+      <div class="tracker-line" [class.complete]="store.phaseComplete()[phase.index - 1]"></div>
+    }
+
+    <div class="tracker-phase">
+      <button
+        type="button"
+        class="phase-bubble"
+        [class.active]="store.currentPhase() === phase.index"
+        [class.complete]="store.phaseComplete()[phase.index]"
+        [disabled]="!store.isPhaseAccessible(phase.index)"
+        (click)="store.jumpToPhase(phase.index)">
+        @if (store.phaseComplete()[phase.index]) { ✓ } @else { {{ phase.index + 1 }} }
+      </button>
+
+      <span class="phase-name">{{ phase.name }}</span>
+
+      @if (phase.steps > 1) {
+        <div class="step-dots">
+          @for (step of phase.stepsArray; track step) {
+            <span
+              class="step-dot"
+              [class.active]="store.currentPhase() === phase.index && store.currentStep() === step"
+              [class.complete]="
+                store.phaseComplete()[phase.index] ||
+                (store.currentPhase() === phase.index && store.currentStep() > step)
+              ">
+            </span>
+          }
+        </div>
+      }
+    </div>
+  }
+</header>

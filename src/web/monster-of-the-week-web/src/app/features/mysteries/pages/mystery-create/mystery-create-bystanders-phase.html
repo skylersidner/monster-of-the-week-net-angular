@@ -1,0 +1,32 @@
+<div class="added-items">
+  @for (bystander of store.bystanders(); track $index) {
+    <div class="added-item-row">
+      <span>{{ bystander.name }}</span>
+      <button type="button" class="remove-btn" (click)="store.removeBystander($index)">×</button>
+    </div>
+  }
+  @if (store.bystanders().length === 0) {
+    <p class="empty-hint">No bystanders added yet.</p>
+  }
+</div>
+
+<form [formGroup]="store.addBystanderForm" class="add-item-form">
+  <div class="field">
+    <label>Bystander Name <span class="required">*</span></label>
+    <input formControlName="name" placeholder="The sheriff, the missing teen, the witness..." />
+  </div>
+  <div class="field">
+    <label>Description</label>
+    <textarea formControlName="description" rows="3"></textarea>
+  </div>
+  <div class="field">
+    <label>Type <span class="required">*</span></label>
+    <select formControlName="bystanderTypeId">
+      <option value="">Select a type...</option>
+      @for (type of store.bystanderTypes(); track type.id) {
+        <option [value]="type.id">{{ type.name }}</option>
+      }
+    </select>
+  </div>
+  <button type="button" class="btn-add" (click)="store.addBystander()">+ Add Bystander</button>
+</form>
