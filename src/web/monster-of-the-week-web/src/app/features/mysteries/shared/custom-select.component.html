@@ -1,0 +1,46 @@
+<div class="custom-select" [class.is-open]="isOpen()" [class.is-disabled]="disabled" [class.multiple-select]="multiple">
+  <button type="button" class="custom-select__trigger" [disabled]="disabled" (click)="toggleOpen()" [attr.aria-expanded]="isOpen()">
+    <span class="custom-select__label">{{ displayText() }}</span>
+    <span class="custom-select__caret">▾</span>
+  </button>
+
+  @if (isOpen()) {
+    <div class="custom-select__panel">
+      @if (searchable) {
+        <div class="custom-select__search">
+          <input
+            type="text"
+            [value]="searchTerm()"
+            (input)="searchTerm.set($any($event.target).value)"
+            placeholder="Search options"
+          />
+        </div>
+      }
+
+      <div class="custom-select__options" role="listbox">
+        @if (filteredOptions().length === 0) {
+          <div class="custom-select__empty">{{ emptyText }}</div>
+        }
+
+        @for (option of filteredOptions(); track optionValue(option)) {
+          <button
+            type="button"
+            class="custom-select__option"
+            [class.is-selected]="isOptionSelected(option)"
+            (click)="selectOption(option)"
+          >
+            @if (multiple && isOptionSelected(option)) {
+              <span class="custom-select__check">✓</span>
+            }
+            <span class="custom-select__option-body">
+              <span class="custom-select__option-label">{{ optionLabel(option) }}</span>
+              @if (optionSubLabel(option)) {
+                <span class="custom-select__option-sublabel">{{ optionSubLabel(option) }}</span>
+              }
+            </span>
+          </button>
+        }
+      </div>
+    </div>
+  }
+</div>

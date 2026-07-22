@@ -15,6 +15,13 @@
   text-transform: uppercase;
 }
 
+.heading-with-icon {
+  --mystery-section-icon-size: 2rem;
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
 .mystery-narrative p {
   line-height: 1.65;
   margin: 0;
@@ -32,6 +39,20 @@
 
 .countdown-list li {
   margin: 0.35rem 0;
+}
+
+.countdown-stage-entry {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.countdown-stage-label {
+  --mystery-section-icon-size: 1rem;
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
 }
 
 .error {

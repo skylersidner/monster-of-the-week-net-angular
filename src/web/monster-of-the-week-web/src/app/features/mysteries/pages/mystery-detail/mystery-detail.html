@@ -10,34 +10,59 @@
 
     @if (mystery()!.concept) {
       <section class="mystery-narrative">
-        <h3>Concept</h3>
+        <h3>
+          <span class="heading-with-icon">
+            <app-mystery-section-icon kind="mystery" />
+            <span>Concept</span>
+          </span>
+        </h3>
         <p>{{ mystery()!.concept }}</p>
       </section>
     }
 
     @if (mystery()!.hook) {
       <section class="mystery-narrative">
-        <h3>Hook</h3>
+        <h3>
+          <span class="heading-with-icon">
+            <app-mystery-section-icon kind="mystery" />
+            <span>Hook</span>
+          </span>
+        </h3>
         <p>{{ mystery()!.hook }}</p>
       </section>
     }
 
     @if (mystery()!.overview) {
       <section class="mystery-narrative">
-        <h3>Overview</h3>
+        <h3>
+          <span class="heading-with-icon">
+            <app-mystery-section-icon kind="mystery" />
+            <span>Overview</span>
+          </span>
+        </h3>
         <p>{{ mystery()!.overview }}</p>
       </section>
     }
 
-    <h3>Countdown</h3>
+    <h3>
+      <span class="heading-with-icon">
+        <app-mystery-section-icon kind="countdown" />
+        <span>Countdown</span>
+      </span>
+    </h3>
     @if (mystery()!.countdown) {
       <ul class="countdown-list">
-        <li><strong>Day:</strong> {{ mystery()!.countdown!.day || '—' }}</li>
-        <li><strong>Shadows:</strong> {{ mystery()!.countdown!.shadows || '—' }}</li>
-        <li><strong>Sunset:</strong> {{ mystery()!.countdown!.sunset || '—' }}</li>
-        <li><strong>Dusk:</strong> {{ mystery()!.countdown!.dusk || '—' }}</li>
-        <li><strong>Nightfall:</strong> {{ mystery()!.countdown!.nightfall || '—' }}</li>
-        <li><strong>Midnight:</strong> {{ mystery()!.countdown!.midnight || '—' }}</li>
+        @for (stage of countdownStages; track stage.key) {
+          <li>
+            <span class="countdown-stage-entry">
+              <span class="countdown-stage-label">
+                <app-mystery-section-icon [kind]="stage.icon" />
+                <strong>{{ stage.label }}:</strong>
+              </span>
+              <span>{{ mystery()!.countdown?.[stage.key] || '—' }}</span>
+            </span>
+          </li>
+        }
       </ul>
     } @else {
       <p>No countdown found for this mystery.</p>
@@ -45,7 +70,12 @@
 
     <div class="linked-entities">
       <article>
-        <h3>Monsters</h3>
+        <h3>
+          <span class="heading-with-icon">
+            <app-mystery-section-icon kind="monster" />
+            <span>Monsters</span>
+          </span>
+        </h3>
         @if (pureMonsters().length === 0) {
           <p>No monsters.</p>
         } @else {
@@ -60,7 +90,12 @@
       </article>
 
       <article>
-        <h3>Minions</h3>
+        <h3>
+          <span class="heading-with-icon">
+            <app-mystery-section-icon kind="minions" />
+            <span>Minions</span>
+          </span>
+        </h3>
         @if (minions().length === 0) {
           <p>No minions.</p>
         } @else {
@@ -75,7 +110,12 @@
       </article>
 
       <article>
-        <h3>Locations</h3>
+        <h3>
+          <span class="heading-with-icon">
+            <app-mystery-section-icon kind="locations" />
+            <span>Locations</span>
+          </span>
+        </h3>
         @if (locations().length === 0) {
           <p>No locations.</p>
         } @else {
@@ -90,7 +130,12 @@
       </article>
 
       <article>
-        <h3>Bystanders</h3>
+        <h3>
+          <span class="heading-with-icon">
+            <app-mystery-section-icon kind="bystanders" />
+            <span>Bystanders</span>
+          </span>
+        </h3>
         @if (bystanders().length === 0) {
           <p>No bystanders.</p>
         } @else {

@@ -5,6 +5,8 @@ import { forkJoin, switchMap } from 'rxjs';
 import { ApiService } from '../../../../core/api';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
+import { MysterySectionIconComponent } from '../../shared/mystery-section-icon';
+import { MYSTERY_COUNTDOWN_STAGES } from '../../shared/mystery-countdown-stage';
 import {
   BystanderListItemResponse,
   LocationListItemResponse,
@@ -14,12 +16,13 @@ import {
 
 @Component({
   selector: 'app-mystery-detail',
-  imports: [RouterLink],
+  imports: [RouterLink, MysterySectionIconComponent],
   templateUrl: './mystery-detail.html',
   styleUrl: './mystery-detail.scss',
 })
 export class MysteryDetailComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
+  readonly countdownStages = MYSTERY_COUNTDOWN_STAGES;
 
   readonly mystery = signal<MysteryDetailResponse | null>(null);
   readonly monsters = signal<MonsterListItemResponse[]>([]);

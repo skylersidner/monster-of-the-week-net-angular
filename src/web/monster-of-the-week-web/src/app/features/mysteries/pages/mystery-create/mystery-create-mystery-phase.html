@@ -1,0 +1,63 @@
+@if (store.currentStep() === 0) {
+  <form [formGroup]="store.conceptForm">
+    <div class="field">
+      <label for="name">Mystery Name <span class="required">*</span></label>
+      <input id="name" type="text" formControlName="name" placeholder="Give your mystery a name" />
+      @if (store.conceptForm.controls.name.invalid && store.conceptForm.controls.name.touched) {
+        <span class="field-error">Name is required</span>
+      }
+    </div>
+    <div class="field">
+      <label for="concept">Concept</label>
+      <textarea
+        id="concept"
+        formControlName="concept"
+        rows="4"
+        placeholder="The one-sentence truth of the threat..."></textarea>
+    </div>
+  </form>
+}
+
+@if (store.currentStep() === 1) {
+  <form [formGroup]="store.hookForm">
+    <div class="field">
+      <label for="hook">Hook</label>
+      <textarea
+        id="hook"
+        formControlName="hook"
+        rows="6"
+        placeholder="How do the hunters first encounter this mystery?"></textarea>
+    </div>
+  </form>
+}
+
+@if (store.currentStep() === 2) {
+  <form [formGroup]="store.overviewForm">
+    <div class="field">
+      <label for="overview">Overview</label>
+      <textarea
+        id="overview"
+        formControlName="overview"
+        rows="8"
+        placeholder="What's really going on? Tell the full story that the hunters will uncover."></textarea>
+    </div>
+  </form>
+}
+
+@if (store.currentStep() === 3) {
+  <form [formGroup]="store.countdownForm">
+    <div class="countdown-grid">
+      @for (stage of countdownStages; track stage.key) {
+        <div class="field">
+          <label [attr.for]="stage.key" class="countdown-stage-label">
+            <span class="heading-with-icon countdown-stage-heading">
+              <app-mystery-section-icon [kind]="stage.icon" />
+              <span>{{ stage.label }}</span>
+            </span>
+          </label>
+          <input [id]="stage.key" type="text" [formControlName]="stage.key" [placeholder]="stage.placeholder" />
+        </div>
+      }
+    </div>
+  </form>
+}
