@@ -23,6 +23,7 @@ describe('MysteryCreateStore', () => {
     assignAttackWeaponTag: ReturnType<typeof vi.fn>;
     createPower: ReturnType<typeof vi.fn>;
     createWeakness: ReturnType<typeof vi.fn>;
+    createArmor: ReturnType<typeof vi.fn>;
   };
   let apiService: {
     post: ReturnType<typeof vi.fn>;
@@ -43,6 +44,7 @@ describe('MysteryCreateStore', () => {
       assignAttackWeaponTag: vi.fn(() => of({})),
       createPower: vi.fn(() => of({ id: 'power-1' })),
       createWeakness: vi.fn(() => of({ id: 'weakness-1' })),
+      createArmor: vi.fn(() => of({ id: 'armor-1' })),
     };
     apiService = {
       post: vi.fn(() => of({})),
@@ -193,5 +195,67 @@ describe('MysteryCreateStore', () => {
     });
     expect(notificationService.success).toHaveBeenCalledWith('Mystery created!');
     expect(router.navigate).toHaveBeenCalledWith(['/mysteries', 'mystery-1']);
+  });
+
+  it('adds and removes armor drafts independently for monster and minion', () => {
+    store.monsterArmorForm.setValue({
+      name: 'Thick Hide',
+      description: 'Tough skin',
+      harmSoak: 2,
+      isSpecial: false,
+      specialDescription: '',
+    });
+    store.addMonsterArmor();
+
+    store.minionArmorForm.setValue({
+      name: 'Leather Vest',
+      description: '',
+      harmSoak: 1,
+      isSpecial: true,
+      specialDescription: 'Only protects vital organs',
+    });
+    store.addMinionArmor();
+
+    expect(store.monsterArmors()).toEqual([
+      { name: 'Thick Hide', description: 'Tough skin', harmSoak: 2, isSpecial: false, specialDescription: '' },
+    ]);
+    expect(store.minionArmors()).toEqual([
+      { name: 'Leather Vest', description: '', harmSoak: 1, isSpecial: true, specialDescription: 'Only protects vital organs' },
+    ]);
+
+    store.removeMonsterArmor(0);
+    expect(store.monsterArmors()).toEqual([]);
+    expect(store.minionArmors()).toEqual([
+      { name: 'Leather Vest', description: '', harmSoak: 1, isSpecial: true, specialDescription: 'Only protects vital organs' },
+    ]);
+  });
+
+  it('includes armor drafts in the submission collections', () => {
+    store.monsterArmorForm.setValue({
+      name: 'Steel Plates',
+      description: 'Reinforced armor',
+      harmSoak: 3,
+      isSpecial: false,
+      specialDescription: '',
+    });
+    store.addMonsterArmor();
+
+    store.minionArmorForm.setValue({
+      name: 'Leather Vest',
+      description: '',
+      harmSoak: 1,
+      isSpecial: true,
+      specialDescription: 'Only vital organs',
+    });
+    store.addMinionArmor();
+
+    const draftState = store.draftState();
+    
+    expect(draftState.collections.monsterArmors).toEqual([
+      { name: 'Steel Plates', description: 'Reinforced armor', harmSoak: 3, isSpecial: false, specialDescription: '' },
+    ]);
+    expect(draftState.collections.minionArmors).toEqual([
+      { name: 'Leather Vest', description: '', harmSoak: 1, isSpecial: true, specialDescription: 'Only vital organs' },
+    ]);
   });
 });

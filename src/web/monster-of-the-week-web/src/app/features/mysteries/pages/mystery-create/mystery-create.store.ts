@@ -37,6 +37,14 @@ export interface WeaknessDraft {
   description: string;
 }
 
+export interface ArmorDraft {
+  name: string;
+  description: string;
+  harmSoak: number;
+  isSpecial: boolean;
+  specialDescription: string;
+}
+
 export interface LocationDraft {
   name: string;
   description: string;
@@ -95,9 +103,11 @@ export interface MysteryCreateDraftState {
     monsterAttacks: AttackDraft[];
     monsterPowers: PowerDraft[];
     monsterWeaknesses: WeaknessDraft[];
+    monsterArmors: ArmorDraft[];
     minionAttacks: AttackDraft[];
     minionPowers: PowerDraft[];
     minionWeaknesses: WeaknessDraft[];
+    minionArmors: ArmorDraft[];
     locations: LocationDraft[];
     bystanders: BystanderDraft[];
   };
@@ -133,6 +143,14 @@ type BystanderFormGroup = FormGroup<{
   name: FormControl<string>;
   description: FormControl<string | null>;
   bystanderTypeId: FormControl<string>;
+}>;
+
+type ArmorFormGroup = FormGroup<{
+  name: FormControl<string>;
+  description: FormControl<string | null>;
+  harmSoak: FormControl<number>;
+  isSpecial: FormControl<boolean>;
+  specialDescription: FormControl<string | null>;
 }>;
 
 @Injectable()
@@ -172,9 +190,11 @@ export class MysteryCreateStore {
   readonly monsterAttacks = signal<AttackDraft[]>([]);
   readonly monsterPowers = signal<PowerDraft[]>([]);
   readonly monsterWeaknesses = signal<WeaknessDraft[]>([]);
+  readonly monsterArmors = signal<ArmorDraft[]>([]);
   readonly minionAttacks = signal<AttackDraft[]>([]);
   readonly minionPowers = signal<PowerDraft[]>([]);
   readonly minionWeaknesses = signal<WeaknessDraft[]>([]);
+  readonly minionArmors = signal<ArmorDraft[]>([]);
   readonly locations = signal<LocationDraft[]>([]);
   readonly bystanders = signal<BystanderDraft[]>([]);
 
@@ -248,6 +268,22 @@ export class MysteryCreateStore {
     description: this.fb.control(''),
   });
 
+  readonly monsterArmorForm: ArmorFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+    harmSoak: this.fb.nonNullable.control(0, [Validators.min(0)]),
+    isSpecial: this.fb.nonNullable.control(false),
+    specialDescription: this.fb.control(''),
+  });
+
+  readonly minionArmorForm: ArmorFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+    harmSoak: this.fb.nonNullable.control(0, [Validators.min(0)]),
+    isSpecial: this.fb.nonNullable.control(false),
+    specialDescription: this.fb.control(''),
+  });
+
   readonly addLocationForm: LocationFormGroup = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
@@ -288,6 +324,7 @@ export class MysteryCreateStore {
       attacks: this.monsterAttacks(),
       powers: this.monsterPowers(),
       weaknesses: this.monsterWeaknesses(),
+      armors: this.monsterArmors(),
     };
   });
 
@@ -317,6 +354,7 @@ export class MysteryCreateStore {
       attacks: this.minionAttacks(),
       powers: this.minionPowers(),
       weaknesses: this.minionWeaknesses(),
+      armors: this.minionArmors(),
     };
   });
 
@@ -383,9 +421,11 @@ export class MysteryCreateStore {
       monsterAttacks: [...this.monsterAttacks()],
       monsterPowers: [...this.monsterPowers()],
       monsterWeaknesses: [...this.monsterWeaknesses()],
+      monsterArmors: [...this.monsterArmors()],
       minionAttacks: [...this.minionAttacks()],
       minionPowers: [...this.minionPowers()],
       minionWeaknesses: [...this.minionWeaknesses()],
+      minionArmors: [...this.minionArmors()],
       locations: [...this.locations()],
       bystanders: [...this.bystanders()],
     },
@@ -502,6 +542,22 @@ export class MysteryCreateStore {
 
   removeMinionWeakness(index: number): void {
     this.removeDraft(this.minionWeaknesses, index);
+  }
+
+  addMonsterArmor(): void {
+    this.addArmorDraft(this.monsterArmors, this.monsterArmorForm);
+  }
+
+  removeMonsterArmor(index: number): void {
+    this.removeDraft(this.monsterArmors, index);
+  }
+
+  addMinionArmor(): void {
+    this.addArmorDraft(this.minionArmors, this.minionArmorForm);
+  }
+
+  removeMinionArmor(index: number): void {
+    this.removeDraft(this.minionArmors, index);
   }
 
   addLocation(): void {
@@ -640,7 +696,8 @@ export class MysteryCreateStore {
             monster.id,
             this.monsterAttacks(),
             this.monsterPowers(),
-            this.monsterWeaknesses()
+            this.monsterWeaknesses(),
+            this.monsterArmors()
           )
         ),
         switchMap(() => {
@@ -659,7 +716,7 @@ export class MysteryCreateStore {
 
           return this.monsterService.create(mysteryId, minionRequest).pipe(
             switchMap((minion) =>
-              this.saveThreatCollections(minion.id, this.minionAttacks(), this.minionPowers(), this.minionWeaknesses())
+              this.saveThreatCollections(minion.id, this.minionAttacks(), this.minionPowers(), this.minionWeaknesses(), this.minionArmors())
             )
           );
         }),
@@ -725,7 +782,8 @@ export class MysteryCreateStore {
     monsterId: string,
     attacks: AttackDraft[],
     powers: PowerDraft[],
-    weaknesses: WeaknessDraft[]
+    weaknesses: WeaknessDraft[],
+    armors: ArmorDraft[]
   ): Observable<unknown[]> {
     const requests: Observable<unknown>[] = [
       ...attacks.map((attack) =>
@@ -758,6 +816,15 @@ export class MysteryCreateStore {
         this.monsterService.createWeakness(monsterId, {
           name: weakness.name,
           description: this.toNullable(weakness.description),
+        })
+      ),
+      ...armors.map((armor) =>
+        this.monsterService.createArmor(monsterId, {
+          name: armor.name,
+          description: this.toNullable(armor.description),
+          harmSoak: armor.harmSoak,
+          isSpecial: armor.isSpecial,
+          specialDescription: this.toNullable(armor.specialDescription),
         })
       ),
     ];
@@ -818,6 +885,25 @@ export class MysteryCreateStore {
 
   private removeDraft<T>(target: WritableSignal<T[]>, index: number): void {
     target.update((items) => items.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  private addArmorDraft(target: WritableSignal<ArmorDraft[]>, form: ArmorFormGroup): void {
+    if (form.invalid) {
+      form.markAllAsTouched();
+      return;
+    }
+
+    target.update((items) => [
+      ...items,
+      {
+        name: form.controls.name.value.trim(),
+        description: form.controls.description.value ?? '',
+        harmSoak: form.controls.harmSoak.value,
+        isSpecial: form.controls.isSpecial.value,
+        specialDescription: form.controls.specialDescription.value ?? '',
+      },
+    ]);
+    form.reset({ name: '', description: '', harmSoak: 0, isSpecial: false, specialDescription: '' });
   }
 
   private toNullable(value: string | null | undefined): string | null {

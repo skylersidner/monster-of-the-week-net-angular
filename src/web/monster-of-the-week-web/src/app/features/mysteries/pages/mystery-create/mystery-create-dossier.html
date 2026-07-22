@@ -97,6 +97,22 @@
         }
       </ul>
     }
+    @if (store.monsterPreview().armors.length > 0) {
+      <p class="dossier-field"><span class="field-label">Armor</span></p>
+      <ul class="dossier-list">
+        @for (armor of store.monsterPreview().armors; track $index) {
+          <li>
+            <span>{{ armor.name }} ({{ armor.harmSoak }} harm soak)</span>
+            @if (armor.isSpecial && armor.specialDescription) {
+              <div class="sub-item-description">Special: {{ armor.specialDescription }}</div>
+            }
+            @if (!armor.isSpecial && armor.description) {
+              <div class="sub-item-description">{{ armor.description }}</div>
+            }
+          </li>
+        }
+      </ul>
+    }
   </section>
 }
 
@@ -145,6 +161,22 @@
             <span>{{ weakness.name }}</span>
             @if (weakness.description) {
               <div class="sub-item-description">{{ weakness.description }}</div>
+            }
+          </li>
+        }
+      </ul>
+    }
+    @if (store.minionPreview().armors.length > 0) {
+      <p class="dossier-field"><span class="field-label">Armor</span></p>
+      <ul class="dossier-list">
+        @for (armor of store.minionPreview().armors; track $index) {
+          <li>
+            <span>{{ armor.name }} ({{ armor.harmSoak }} harm soak)</span>
+            @if (armor.isSpecial && armor.specialDescription) {
+              <div class="sub-item-description">Special: {{ armor.specialDescription }}</div>
+            }
+            @if (!armor.isSpecial && armor.description) {
+              <div class="sub-item-description">{{ armor.description }}</div>
             }
           </li>
         }

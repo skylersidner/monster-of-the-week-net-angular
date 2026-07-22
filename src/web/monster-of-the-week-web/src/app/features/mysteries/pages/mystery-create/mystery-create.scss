@@ -491,3 +491,20 @@ app-mystery-create {
   padding: 2rem 0;
   text-align: center;
 }
+
+.mystery-create .checkbox-inline {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.mystery-create .checkbox-inline input[type='checkbox'] {
+  margin: 0;
+  width: auto;
+}
+
+.mystery-create .tag-count {
+  color: #64748b;
+  font-size: 0.8rem;
+}

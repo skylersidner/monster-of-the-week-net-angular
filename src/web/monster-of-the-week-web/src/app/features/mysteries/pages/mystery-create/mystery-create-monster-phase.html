@@ -94,6 +94,35 @@
       <button type="button" class="btn-add" (click)="store.addMonsterWeakness()">+ Add</button>
     </form>
   </div>
+
+  <div class="sub-items">
+    <h4>Armor</h4>
+    @for (armor of store.monsterArmors(); track $index) {
+      <div class="sub-item-row">
+        <div>
+          <span>{{ armor.name }} (Soak {{ armor.harmSoak }})</span>
+          @if (armor.isSpecial && armor.specialDescription) {
+            <div class="sub-item-description">Special: {{ armor.specialDescription }}</div>
+          }
+          @if (!armor.isSpecial && armor.description) {
+            <div class="sub-item-description">{{ armor.description }}</div>
+          }
+        </div>
+        <button type="button" class="remove-btn" (click)="store.removeMonsterArmor($index)">×</button>
+      </div>
+    }
+    <form [formGroup]="store.monsterArmorForm" class="add-sub-item-form">
+      <input formControlName="name" placeholder="Armor name" />
+      <input formControlName="harmSoak" type="number" placeholder="Harm Soak" style="width: 100px" />
+      <label class="checkbox-inline">
+        <input type="checkbox" formControlName="isSpecial" />
+        <span>Special</span>
+      </label>
+      <textarea formControlName="description" rows="2" placeholder="Description"></textarea>
+      <textarea formControlName="specialDescription" rows="2" placeholder="Special description (if special)"></textarea>
+      <button type="button" class="btn-add" (click)="store.addMonsterArmor()">+ Add</button>
+    </form>
+  </div>
 }
 
 @if (store.currentStep() === 1) {
@@ -189,6 +218,35 @@
       <input formControlName="name" placeholder="Weakness name" />
       <textarea formControlName="description" rows="2" placeholder="What makes this weakness matter?"></textarea>
       <button type="button" class="btn-add" (click)="store.addMinionWeakness()">+ Add</button>
+    </form>
+  </div>
+
+  <div class="sub-items">
+    <h4>Armor</h4>
+    @for (armor of store.minionArmors(); track $index) {
+      <div class="sub-item-row">
+        <div>
+          <span>{{ armor.name }} (Soak {{ armor.harmSoak }})</span>
+          @if (armor.isSpecial && armor.specialDescription) {
+            <div class="sub-item-description">Special: {{ armor.specialDescription }}</div>
+          }
+          @if (!armor.isSpecial && armor.description) {
+            <div class="sub-item-description">{{ armor.description }}</div>
+          }
+        </div>
+        <button type="button" class="remove-btn" (click)="store.removeMinionArmor($index)">×</button>
+      </div>
+    }
+    <form [formGroup]="store.minionArmorForm" class="add-sub-item-form">
+      <input formControlName="name" placeholder="Armor name" />
+      <input formControlName="harmSoak" type="number" placeholder="Harm Soak" style="width: 100px" />
+      <label class="checkbox-inline">
+        <input type="checkbox" formControlName="isSpecial" />
+        <span>Special</span>
+      </label>
+      <textarea formControlName="description" rows="2" placeholder="Description"></textarea>
+      <textarea formControlName="specialDescription" rows="2" placeholder="Special description (if special)"></textarea>
+      <button type="button" class="btn-add" (click)="store.addMinionArmor()">+ Add</button>
     </form>
   </div>
 }
