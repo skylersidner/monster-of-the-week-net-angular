@@ -25,6 +25,10 @@ class MockReferenceDataService {
   getBystanderTypes() {
     return of([{ id: 'bystander-type-1', name: 'Witness', motivation: '' }]);
   }
+
+  getWeaponTags() {
+    return of([{ id: 'weapon-tag-1', name: 'Bladed', description: '' }]);
+  }
 }
 
 class MockMysteryService {

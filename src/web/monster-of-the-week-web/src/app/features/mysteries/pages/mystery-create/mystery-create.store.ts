@@ -12,6 +12,7 @@ import {
   UpsertLocationRequest,
   UpsertMonsterRequest,
   UpsertMysteryRequest,
+  WeaponTagRefResponse,
 } from '../../../../core/models';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
@@ -23,6 +24,7 @@ export interface AttackDraft {
   name: string;
   harm: number;
   description: string;
+  weaponTagIds: string[];
 }
 
 export interface PowerDraft {
@@ -113,6 +115,7 @@ type AttackFormGroup = FormGroup<{
   name: FormControl<string>;
   harm: FormControl<number>;
   description: FormControl<string | null>;
+  weaponTagIds: FormControl<string[]>;
 }>;
 
 type NamedDraftFormGroup = FormGroup<{
@@ -164,6 +167,7 @@ export class MysteryCreateStore {
   readonly minionTypes = signal<TypeRefResponse[]>([]);
   readonly locationTypes = signal<TypeRefResponse[]>([]);
   readonly bystanderTypes = signal<TypeRefResponse[]>([]);
+  readonly weaponTags = signal<WeaponTagRefResponse[]>([]);
 
   readonly monsterAttacks = signal<AttackDraft[]>([]);
   readonly monsterPowers = signal<PowerDraft[]>([]);
@@ -214,6 +218,7 @@ export class MysteryCreateStore {
     name: this.fb.nonNullable.control('', [Validators.required]),
     harm: this.fb.nonNullable.control(0),
     description: this.fb.control(''),
+    weaponTagIds: this.fb.nonNullable.control<string[]>([]),
   });
 
   readonly monsterPowerForm: NamedDraftFormGroup = this.fb.group({
@@ -230,6 +235,7 @@ export class MysteryCreateStore {
     name: this.fb.nonNullable.control('', [Validators.required]),
     harm: this.fb.nonNullable.control(0),
     description: this.fb.control(''),
+    weaponTagIds: this.fb.nonNullable.control<string[]>([]),
   });
 
   readonly minionPowerForm: NamedDraftFormGroup = this.fb.group({
@@ -396,13 +402,15 @@ export class MysteryCreateStore {
       minionTypes: this.referenceDataService.getMinionTypes(),
       locationTypes: this.referenceDataService.getLocationTypes(),
       bystanderTypes: this.referenceDataService.getBystanderTypes(),
+      weaponTags: this.referenceDataService.getWeaponTags(),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(({ monsterTypes, minionTypes, locationTypes, bystanderTypes }) => {
+      .subscribe(({ monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags }) => {
         this.monsterTypes.set(monsterTypes);
         this.minionTypes.set(minionTypes);
         this.locationTypes.set(locationTypes);
         this.bystanderTypes.set(bystanderTypes);
+        this.weaponTags.set(weaponTags);
       });
   }
 
@@ -725,7 +733,20 @@ export class MysteryCreateStore {
           name: attack.name,
           description: this.toNullable(attack.description),
           harm: attack.harm,
-        })
+        }).pipe(
+          switchMap((createdAttack) => {
+            const selectedTagIds = attack.weaponTagIds.filter((tagId) => tagId.length > 0);
+            if (selectedTagIds.length === 0) {
+              return of(createdAttack);
+            }
+
+            return forkJoin(
+              selectedTagIds.map((weaponTagId) =>
+                this.monsterService.assignAttackWeaponTag(monsterId, createdAttack.id, weaponTagId)
+              )
+            ).pipe(switchMap(() => of(createdAttack)));
+          })
+        )
       ),
       ...powers.map((power) =>
         this.monsterService.createPower(monsterId, {
@@ -773,9 +794,10 @@ export class MysteryCreateStore {
         name: form.controls.name.value.trim(),
         harm: form.controls.harm.value,
         description: form.controls.description.value ?? '',
+        weaponTagIds: [...(form.controls.weaponTagIds.value ?? [])],
       },
     ]);
-    form.reset({ name: '', harm: 0, description: '' });
+    form.reset({ name: '', harm: 0, description: '', weaponTagIds: [] });
   }
 
   private addNamedDraft(target: WritableSignal<PowerDraft[] | WeaknessDraft[]>, form: NamedDraftFormGroup): void {

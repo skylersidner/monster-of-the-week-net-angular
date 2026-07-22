@@ -20,6 +20,7 @@ describe('MysteryCreateStore', () => {
   let monsterService: {
     create: ReturnType<typeof vi.fn>;
     createAttack: ReturnType<typeof vi.fn>;
+    assignAttackWeaponTag: ReturnType<typeof vi.fn>;
     createPower: ReturnType<typeof vi.fn>;
     createWeakness: ReturnType<typeof vi.fn>;
   };
@@ -39,6 +40,7 @@ describe('MysteryCreateStore', () => {
         .mockReturnValueOnce(of({ id: 'monster-1' }))
         .mockReturnValueOnce(of({ id: 'minion-1' })),
       createAttack: vi.fn(() => of({ id: 'attack-1' })),
+      assignAttackWeaponTag: vi.fn(() => of({})),
       createPower: vi.fn(() => of({ id: 'power-1' })),
       createWeakness: vi.fn(() => of({ id: 'weakness-1' })),
     };
@@ -56,6 +58,7 @@ describe('MysteryCreateStore', () => {
             getMinionTypes: () => of([{ id: 'minion-type-1', name: 'Cultist', motivation: '' }]),
             getLocationTypes: () => of([{ id: 'location-type-1', name: 'Lair', motivation: '' }]),
             getBystanderTypes: () => of([{ id: 'bystander-type-1', name: 'Witness', motivation: '' }]),
+            getWeaponTags: () => of([{ id: 'weapon-tag-1', name: 'Bladed', description: '' }]),
           },
         },
         { provide: Router, useValue: router },
@@ -75,17 +78,18 @@ describe('MysteryCreateStore', () => {
     expect(store.minionTypes()).toEqual([{ id: 'minion-type-1', name: 'Cultist', motivation: '' }]);
     expect(store.locationTypes()).toEqual([{ id: 'location-type-1', name: 'Lair', motivation: '' }]);
     expect(store.bystanderTypes()).toEqual([{ id: 'bystander-type-1', name: 'Witness', motivation: '' }]);
+    expect(store.weaponTags()).toEqual([{ id: 'weapon-tag-1', name: 'Bladed', description: '' }]);
   });
 
   it('keeps monster and minion draft forms independent', () => {
-    store.monsterAttackForm.setValue({ name: 'Claw Swipe', harm: 2, description: '' });
+    store.monsterAttackForm.setValue({ name: 'Claw Swipe', harm: 2, description: '', weaponTagIds: ['weapon-tag-1'] });
     store.addMonsterAttack();
 
-    store.minionAttackForm.setValue({ name: 'Rusty Knife', harm: 1, description: '' });
+    store.minionAttackForm.setValue({ name: 'Rusty Knife', harm: 1, description: '', weaponTagIds: [] });
     store.addMinionAttack();
 
-    expect(store.monsterAttacks()).toEqual([{ name: 'Claw Swipe', harm: 2, description: '' }]);
-    expect(store.minionAttacks()).toEqual([{ name: 'Rusty Knife', harm: 1, description: '' }]);
+    expect(store.monsterAttacks()).toEqual([{ name: 'Claw Swipe', harm: 2, description: '', weaponTagIds: ['weapon-tag-1'] }]);
+    expect(store.minionAttacks()).toEqual([{ name: 'Rusty Knife', harm: 1, description: '', weaponTagIds: [] }]);
     expect(store.monsterAttackForm.controls.name.value).toBe('');
     expect(store.minionAttackForm.controls.name.value).toBe('');
   });
@@ -113,7 +117,7 @@ describe('MysteryCreateStore', () => {
       harmCapacity: 8,
       monsterTypeId: 'monster-type-1',
     });
-    store.monsterAttackForm.setValue({ name: 'Shattering Note', harm: 3, description: '' });
+    store.monsterAttackForm.setValue({ name: 'Shattering Note', harm: 3, description: '', weaponTagIds: ['weapon-tag-1'] });
     store.addMonsterAttack();
     store.next();
 
@@ -123,7 +127,7 @@ describe('MysteryCreateStore', () => {
       harmCapacity: 3,
       minionTypeId: 'minion-type-1',
     });
-    store.minionAttackForm.setValue({ name: 'Jagged Hymn', harm: 1, description: '' });
+    store.minionAttackForm.setValue({ name: 'Jagged Hymn', harm: 1, description: '', weaponTagIds: [] });
     store.addMinionAttack();
     store.next();
 
@@ -164,6 +168,7 @@ describe('MysteryCreateStore', () => {
       monsterTypeId: null,
       minionTypeId: 'minion-type-1',
     });
+    expect(monsterService.assignAttackWeaponTag).toHaveBeenCalledWith('monster-1', 'attack-1', 'weapon-tag-1');
     expect(apiService.post).toHaveBeenCalledWith('/api/mysteries/mystery-1/locations', {
       name: 'Saint Brigid Chapel',
       description: 'Dusty pews and broken stained glass.',
