@@ -100,3 +100,42 @@ obs$
 ### Verification
 Ran `npm run start` and confirmed successful build with no TypeScript errors. Application bundle generated successfully and dev server started on http://localhost:4200/.
 
+---
+
+## 2026-07-21 — Mystery Create Frontend Decomposition Architecture Review
+
+### Task
+Reviewed the `MysteryCreateComponent` monolith (~680 TS / ~550 HTML lines) and produced a concrete frontend architecture recommendation for decomposing it into child components with a shared signal store.
+
+### Architecture Decision Summary
+
+**Decompose by phase, not by step.** Steps within a phase are UX-only (progressive disclosure), not architectural boundaries. Each phase component owns all of its steps' forms and submits as a unit.
+
+**Components proposed:**
+| Component | Role |
+|---|---|
+| `MysteryCreateStore` | Injectable signal service scoped to the wizard route. Owns navigation state, accumulated arrays, API submission, `mysteryId`. |
+| `MysteryCreateComponent` | Shrunk orchestrator: provides store, renders tracker+phase+dossier, wires nav buttons. |
+| `WizardTrackerComponent` | Pure presentational "pizza tracker" header. |
+| `DossierPanelComponent` | Smart read-only panel; injects store directly. |
+| `MysteryConceptStepComponent` | Owns conceptForm, hookForm, overviewForm, countdownForm. |
+| `MonsterStepComponent` | Owns monsterForm, minionForm, separate add-item form instances per entity. |
+| `LocationsStepComponent` | Owns addLocationForm. |
+| `BystandersStepComponent` | Owns addBystanderForm. |
+| `AddSubItemFormComponent` | Optional generic inline-add component to eliminate shared-form coupling. |
+
+### Key Pattern: Shared Form Instance Caveat
+The current `addAttackForm`, `addPowerForm`, `addWeaknessForm` are SHARED between the monster step and minion step — a known coupling point. Refactored version must use separate form instances per context, or extract `AddSubItemFormComponent` and instantiate it twice.
+
+### Browser-State Persistence Path
+Store owns `persist()` / `restore()` over sessionStorage. Only committed arrays + nav state + `mysteryId` are persisted. Forms are NOT persisted — transient only. `clearDraft()` called on successful completion.
+
+### Files Created
+- `.squad/decisions/inbox/Luigi-mystery-create-frontend-decomposition.md` — full architecture decision record
+- `.squad/skills/angular-wizard-decomposition/SKILL.md` — reusable patterns extracted
+
+### Key Paths
+- Current monolith: `src/app/features/mysteries/pages/mystery-create/mystery-create.ts`
+- Template: `src/app/features/mysteries/pages/mystery-create/mystery-create.html`
+- Styles: `src/app/features/mysteries/pages/mystery-create/mystery-create.scss`
+

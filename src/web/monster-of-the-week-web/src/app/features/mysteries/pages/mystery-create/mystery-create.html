@@ -4,7 +4,12 @@
   <div class="content-area">
     <section class="form-panel">
       <div class="step-label">Phase {{ store.currentPhase() + 1 }} · Step {{ store.currentStep() + 1 }}</div>
-      <h1 class="step-title">{{ store.stepTitle() }}</h1>
+      <h1 class="step-title">
+        <span class="heading-with-icon">
+          <app-mystery-section-icon [kind]="store.currentSectionIcon()" />
+          <span>{{ store.stepTitle() }}</span>
+        </span>
+      </h1>
       <p class="step-blurb">{{ store.stepBlurb() }}</p>
 
       @switch (store.currentPhase()) {

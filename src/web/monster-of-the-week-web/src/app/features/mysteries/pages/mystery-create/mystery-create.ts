@@ -7,6 +7,7 @@ import { MysteryCreateMonsterPhaseComponent } from './mystery-create-monster-pha
 import { MysteryCreateMysteryPhaseComponent } from './mystery-create-mystery-phase';
 import { MysteryCreateStore } from './mystery-create.store';
 import { MysteryCreateTrackerComponent } from './mystery-create-tracker';
+import { MysterySectionIconComponent } from '../../shared/mystery-section-icon';
 
 @Component({
   selector: 'app-mystery-create',
@@ -17,6 +18,7 @@ import { MysteryCreateTrackerComponent } from './mystery-create-tracker';
     MysteryCreateMonsterPhaseComponent,
     MysteryCreateLocationsPhaseComponent,
     MysteryCreateBystandersPhaseComponent,
+    MysterySectionIconComponent,
   ],
   providers: [MysteryCreateStore],
   templateUrl: './mystery-create.html',

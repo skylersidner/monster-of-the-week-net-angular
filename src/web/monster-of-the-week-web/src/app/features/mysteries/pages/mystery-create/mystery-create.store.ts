@@ -17,6 +17,7 @@ import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
+import type { MysterySectionIconKind } from '../../shared/mystery-section-icon';
 
 export interface AttackDraft {
   name: string;
@@ -103,6 +104,7 @@ export interface MysteryCreateDraftState {
 interface PhaseDefinition {
   index: number;
   name: string;
+  icon: MysterySectionIconKind;
   steps: number;
   stepsArray: readonly number[];
 }
@@ -144,10 +146,10 @@ export class MysteryCreateStore {
   private initialized = false;
 
   readonly phases: readonly PhaseDefinition[] = [
-    { index: 0, name: 'Mystery', steps: 4, stepsArray: [0, 1, 2, 3] },
-    { index: 1, name: 'Monsters', steps: 2, stepsArray: [0, 1] },
-    { index: 2, name: 'Locations', steps: 1, stepsArray: [0] },
-    { index: 3, name: 'Bystanders', steps: 1, stepsArray: [0] },
+    { index: 0, name: 'Mystery', icon: 'mystery', steps: 4, stepsArray: [0, 1, 2, 3] },
+    { index: 1, name: 'Monsters', icon: 'monster', steps: 2, stepsArray: [0, 1] },
+    { index: 2, name: 'Locations', icon: 'locations', steps: 1, stepsArray: [0] },
+    { index: 3, name: 'Bystanders', icon: 'bystanders', steps: 1, stepsArray: [0] },
   ];
   readonly lastPhaseIndex = this.phases.length - 1;
 
@@ -281,6 +283,21 @@ export class MysteryCreateStore {
       powers: this.monsterPowers(),
       weaknesses: this.monsterWeaknesses(),
     };
+  });
+
+  readonly currentSectionIcon = computed<MysterySectionIconKind>(() => {
+    const phase = this.currentPhase();
+    const step = this.currentStep();
+
+    if (phase === 0 && step === 3) {
+      return 'countdown';
+    }
+
+    if (phase === 1 && step === 1) {
+      return 'minions';
+    }
+
+    return this.phases[phase]?.icon ?? 'mystery';
   });
 
   readonly minionPreview = computed(() => {

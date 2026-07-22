@@ -4,7 +4,12 @@
 
 @if (store.mysteryPreview().name) {
   <section class="dossier-section">
-    <h3 class="dossier-heading">Mystery</h3>
+    <h3 class="dossier-heading">
+      <span class="heading-with-icon">
+        <app-mystery-section-icon kind="mystery" />
+        <span>Mystery</span>
+      </span>
+    </h3>
     <p class="dossier-field"><span class="field-label">Name</span> {{ store.mysteryPreview().name }}</p>
     @if (store.mysteryPreview().concept) {
       <p class="dossier-field"><span class="field-label">Concept</span> {{ store.mysteryPreview().concept }}</p>
@@ -20,33 +25,23 @@
 
 @if (store.phaseComplete()[0]) {
   <section class="dossier-section">
-    <h3 class="dossier-heading">Countdown</h3>
+    <h3 class="dossier-heading">
+      <span class="heading-with-icon">
+        <app-mystery-section-icon kind="countdown" />
+        <span>Countdown</span>
+      </span>
+    </h3>
     <div class="countdown-dossier-grid">
-      @if (store.mysteryPreview().countdown?.day) {
-        <p class="dossier-field"><span class="field-label">Day</span> {{ store.mysteryPreview().countdown?.day }}</p>
-      }
-      @if (store.mysteryPreview().countdown?.shadows) {
-        <p class="dossier-field">
-          <span class="field-label">Shadows</span> {{ store.mysteryPreview().countdown?.shadows }}
-        </p>
-      }
-      @if (store.mysteryPreview().countdown?.sunset) {
-        <p class="dossier-field">
-          <span class="field-label">Sunset</span> {{ store.mysteryPreview().countdown?.sunset }}
-        </p>
-      }
-      @if (store.mysteryPreview().countdown?.dusk) {
-        <p class="dossier-field"><span class="field-label">Dusk</span> {{ store.mysteryPreview().countdown?.dusk }}</p>
-      }
-      @if (store.mysteryPreview().countdown?.nightfall) {
-        <p class="dossier-field">
-          <span class="field-label">Nightfall</span> {{ store.mysteryPreview().countdown?.nightfall }}
-        </p>
-      }
-      @if (store.mysteryPreview().countdown?.midnight) {
-        <p class="dossier-field">
-          <span class="field-label">Midnight</span> {{ store.mysteryPreview().countdown?.midnight }}
-        </p>
+      @for (stage of countdownStages; track stage.key) {
+        @if (store.mysteryPreview().countdown?.[stage.key]) {
+          <p class="dossier-field">
+            <span class="field-label field-label-with-icon">
+              <app-mystery-section-icon [kind]="stage.icon" />
+              <span>{{ stage.label }}</span>
+            </span>
+            {{ store.mysteryPreview().countdown?.[stage.key] }}
+          </p>
+        }
       }
     </div>
   </section>
@@ -54,7 +49,12 @@
 
 @if (store.currentPhase() >= 1 && store.monsterPreview().name) {
   <section class="dossier-section">
-    <h3 class="dossier-heading">The Monster</h3>
+    <h3 class="dossier-heading">
+      <span class="heading-with-icon">
+        <app-mystery-section-icon kind="monster" />
+        <span>The Monster</span>
+      </span>
+    </h3>
     <p class="dossier-field"><span class="field-label">Name</span> {{ store.monsterPreview().name }}</p>
     @if (store.monsterPreview().typeName) {
       <p class="dossier-field"><span class="field-label">Type</span> {{ store.monsterPreview().typeName }}</p>
@@ -92,7 +92,12 @@
 
 @if (store.currentPhase() >= 1 && store.minionPreview().name) {
   <section class="dossier-section">
-    <h3 class="dossier-heading">Minions</h3>
+    <h3 class="dossier-heading">
+      <span class="heading-with-icon">
+        <app-mystery-section-icon kind="minions" />
+        <span>Minions</span>
+      </span>
+    </h3>
     <p class="dossier-field"><span class="field-label">Name</span> {{ store.minionPreview().name }}</p>
     @if (store.minionPreview().typeName) {
       <p class="dossier-field"><span class="field-label">Type</span> {{ store.minionPreview().typeName }}</p>
@@ -130,7 +135,12 @@
 
 @if ((store.phaseComplete()[2] || store.currentPhase() >= 2) && store.locations().length > 0) {
   <section class="dossier-section">
-    <h3 class="dossier-heading">Locations</h3>
+    <h3 class="dossier-heading">
+      <span class="heading-with-icon">
+        <app-mystery-section-icon kind="locations" />
+        <span>Locations</span>
+      </span>
+    </h3>
     <ul class="dossier-list">
       @for (location of store.locations(); track $index) {
         <li>{{ location.name }}</li>
@@ -141,7 +151,12 @@
 
 @if ((store.phaseComplete()[3] || store.currentPhase() >= 3) && store.bystanders().length > 0) {
   <section class="dossier-section">
-    <h3 class="dossier-heading">Bystanders</h3>
+    <h3 class="dossier-heading">
+      <span class="heading-with-icon">
+        <app-mystery-section-icon kind="bystanders" />
+        <span>Bystanders</span>
+      </span>
+    </h3>
     <ul class="dossier-list">
       @for (bystander of store.bystanders(); track $index) {
         <li>{{ bystander.name }}</li>

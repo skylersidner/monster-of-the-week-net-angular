@@ -95,6 +95,7 @@ describe('MysteryCreateComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect(element.querySelectorAll('.phase-bubble').length).toBe(4);
+    expect(element.querySelectorAll('app-mystery-section-icon').length).toBe(5);
     expect(element.textContent).toContain('Your mystery will take shape here as you work through each step.');
   });
 
@@ -104,5 +105,26 @@ describe('MysteryCreateComponent', () => {
 
     const element = fixture.nativeElement as HTMLElement;
     expect(element.textContent).toContain('The Hollow Choir');
+  });
+
+  it('renders countdown stage icons in the countdown step and dossier preview', () => {
+    component.store.conceptForm.controls.name.setValue('The Hollow Choir');
+    component.store.next();
+    component.store.hookForm.controls.hook.setValue('A choir sings after midnight.');
+    component.store.next();
+    component.store.overviewForm.controls.overview.setValue('A ghost conductor is opening a gate.');
+    component.store.next();
+    component.store.countdownForm.patchValue({
+      day: 'A hymn starts by itself.',
+      midnight: 'The gate tears open.',
+    });
+    component.store.phaseComplete.set([true, false, false, false]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelectorAll('.countdown-grid app-mystery-section-icon').length).toBe(6);
+    expect(element.querySelectorAll('.countdown-dossier-grid app-mystery-section-icon').length).toBe(2);
+    expect(element.textContent).toContain('Midnight');
   });
 });

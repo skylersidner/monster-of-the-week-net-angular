@@ -47,30 +47,17 @@
 @if (store.currentStep() === 3) {
   <form [formGroup]="store.countdownForm">
     <div class="countdown-grid">
-      <div class="field">
-        <label for="day">Day</label>
-        <input id="day" type="text" formControlName="day" placeholder="First sign of trouble..." />
-      </div>
-      <div class="field">
-        <label for="shadows">Shadows</label>
-        <input id="shadows" type="text" formControlName="shadows" placeholder="Things escalate..." />
-      </div>
-      <div class="field">
-        <label for="sunset">Sunset</label>
-        <input id="sunset" type="text" formControlName="sunset" placeholder="The threat becomes visible..." />
-      </div>
-      <div class="field">
-        <label for="dusk">Dusk</label>
-        <input id="dusk" type="text" formControlName="dusk" placeholder="People are in danger..." />
-      </div>
-      <div class="field">
-        <label for="nightfall">Nightfall</label>
-        <input id="nightfall" type="text" formControlName="nightfall" placeholder="Death and destruction..." />
-      </div>
-      <div class="field">
-        <label for="midnight">Midnight</label>
-        <input id="midnight" type="text" formControlName="midnight" placeholder="Catastrophe..." />
-      </div>
+      @for (stage of countdownStages; track stage.key) {
+        <div class="field">
+          <label [attr.for]="stage.key" class="countdown-stage-label">
+            <span class="heading-with-icon countdown-stage-heading">
+              <app-mystery-section-icon [kind]="stage.icon" />
+              <span>{{ stage.label }}</span>
+            </span>
+          </label>
+          <input [id]="stage.key" type="text" [formControlName]="stage.key" [placeholder]="stage.placeholder" />
+        </div>
+      }
     </div>
   </form>
 }

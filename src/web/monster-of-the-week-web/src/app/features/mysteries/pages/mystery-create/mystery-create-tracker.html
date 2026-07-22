@@ -15,7 +15,10 @@
         @if (store.phaseComplete()[phase.index]) { ✓ } @else { {{ phase.index + 1 }} }
       </button>
 
-      <span class="phase-name">{{ phase.name }}</span>
+      <span class="phase-name">
+        <app-mystery-section-icon [kind]="phase.icon" />
+        <span>{{ phase.name }}</span>
+      </span>
 
       @if (phase.steps > 1) {
         <div class="step-dots">
