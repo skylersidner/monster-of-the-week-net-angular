@@ -1,7 +1,13 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api';
-import { MysteryDetailResponse, MysteryListItemResponse } from './models';
+import {
+  CountdownResponse,
+  MysteryDetailResponse,
+  MysteryListItemResponse,
+  UpsertCountdownRequest,
+  UpsertMysteryRequest,
+} from './models';
 
 @Injectable({
   providedIn: 'root',
@@ -15,5 +21,13 @@ export class MysteryService {
 
   getMystery(id: string): Observable<MysteryDetailResponse> {
     return this.apiService.get<MysteryDetailResponse>(`/api/mysteries/${id}`);
+  }
+
+  create(request: UpsertMysteryRequest): Observable<MysteryDetailResponse> {
+    return this.apiService.post<UpsertMysteryRequest, MysteryDetailResponse>('/api/mysteries', request);
+  }
+
+  upsertCountdown(id: string, request: UpsertCountdownRequest): Observable<CountdownResponse> {
+    return this.apiService.put<UpsertCountdownRequest, CountdownResponse>(`/api/mysteries/${id}/countdown`, request);
   }
 }

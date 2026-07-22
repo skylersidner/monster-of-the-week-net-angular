@@ -1,5 +1,8 @@
 <section>
-  <h2>Mysteries</h2>
+  <div class="list-header">
+    <h2>Mysteries</h2>
+    <a routerLink="/mysteries/create" class="create-btn">Create something new...</a>
+  </div>
 
   @if (isLoading()) {
     <p>Loading mysteries...</p>

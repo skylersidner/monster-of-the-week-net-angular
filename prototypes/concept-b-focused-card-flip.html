@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Concept B - Focused Card Flip</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e5e9f2;
+      --soft-line: #e2e8f0;
+      --primary: #4f46e5;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+    }
+
+    .left-panel {
+      width: 45%;
+      background: #fff;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .right-panel {
+      width: 55%;
+      background: var(--bg);
+      padding: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stepper {
+      width: 220px;
+      padding-bottom: 1rem;
+    }
+
+    .stepper-phase {
+      display: flex;
+      gap: 0.85rem;
+      position: relative;
+      padding-bottom: 1rem;
+    }
+
+    .stepper-main {
+      display: flex;
+      gap: 0.85rem;
+      align-items: center;
+    }
+
+    .stepper-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: 2px solid #cbd5e1;
+      color: var(--muted);
+      background: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      flex: 0 0 auto;
+      cursor: default;
+    }
+
+    .stepper-circle.clickable { cursor: pointer; }
+    .stepper-circle.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .stepper-circle.completed {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+
+    .stepper-name {
+      font-size: 1rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .stepper-name.active { color: var(--text); font-weight: 700; }
+    .stepper-name.completed { color: var(--text); font-weight: 600; }
+
+    .stepper-line {
+      width: 2px;
+      background: var(--line);
+      margin-left: 15px;
+      min-height: 34px;
+    }
+    .stepper-line.completed { background: var(--success); }
+
+    .step-dots {
+      margin-left: 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding-top: 0.5rem;
+    }
+
+    .step-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #d7deea;
+    }
+    .step-dot.active { background: var(--primary); }
+    .step-dot.completed { background: var(--success); }
+
+    .divider {
+      border-top: 1px solid var(--line);
+      margin: 1rem 0 1.5rem;
+    }
+
+    .eyebrow {
+      font-size: 0.85rem;
+      color: var(--primary);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .blurb {
+      margin: 0 0 1.5rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .form-area {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    .field { margin-bottom: 1rem; }
+    label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--soft-line);
+      border-radius: 0.5rem;
+      padding: 0.6rem 0.75rem;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: #6366f1;
+      outline: 2px solid rgba(99, 102, 241, 0.18);
+      outline-offset: 0;
+    }
+
+    textarea { min-height: 100px; resize: vertical; }
+    .invalid { border-color: var(--danger) !important; }
+    .error-text { margin-top: 0.35rem; color: var(--danger); font-size: 0.8rem; }
+
+    .split-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .inline-row,
+    .triple-row {
+      display: grid;
+      gap: 0.75rem;
+      align-items: start;
+      margin-bottom: 0.75rem;
+    }
+    .inline-row { grid-template-columns: minmax(0, 1fr) 120px 36px; }
+    .triple-row { grid-template-columns: minmax(0, 1fr) 160px minmax(0, 1.3fr) 36px; }
+
+    .remove-btn {
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: 0.5rem;
+      background: #fee2e2;
+      color: #b91c1c;
+      font-size: 1.2rem;
+      cursor: pointer;
+      align-self: end;
+    }
+
+    .add-btn {
+      border: none;
+      background: transparent;
+      color: var(--primary);
+      font-weight: 600;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding-top: 1rem;
+    }
+
+    .ghost-btn, .primary-btn {
+      border-radius: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      font: inherit;
+      cursor: pointer;
+    }
+    .ghost-btn {
+      border: 1px solid #cbd5e1;
+      background: #fff;
+    }
+    .primary-btn {
+      border: 1px solid var(--primary);
+      background: var(--primary);
+      color: #fff;
+      margin-left: auto;
+    }
+    .ghost-btn:disabled, .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .card-scene { perspective: 1000px; width: min(100%, 480px); }
+    .card-inner {
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.4s;
+      min-height: 520px;
+    }
+    .card-inner.flip { transform: rotateY(180deg); }
+    .card-front, .card-back {
+      backface-visibility: hidden;
+      position: absolute;
+      inset: 0;
+    }
+    .card-back { transform: rotateY(180deg); }
+    .preview-card {
+      background: #fff;
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      height: 100%;
+    }
+    .card-header {
+      font-size: 0.875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6366f1;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid #e5e9f2;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+    .card-content.fade { animation: fadeContent 200ms ease; }
+    @keyframes fadeContent {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .card-row { margin-bottom: 1rem; }
+    .card-label {
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+    .card-value {
+      color: var(--text);
+      line-height: 1.5;
+      font-size: 1rem;
+    }
+    .muted { color: var(--muted); }
+
+    @media (max-width: 1100px) {
+      .app { flex-direction: column; }
+      .left-panel, .right-panel { width: 100%; min-height: auto; }
+      .stepper { width: 100%; }
+      .card-inner { min-height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="left-panel">
+      <div class="stepper" id="stepper"></div>
+      <div class="divider"></div>
+      <div class="eyebrow" id="eyebrow"></div>
+      <h1 id="stepTitle"></h1>
+      <p class="blurb" id="stepBlurb"></p>
+      <div class="form-area" id="formArea"></div>
+      <div class="nav">
+        <button class="ghost-btn" id="backBtn" type="button">Back</button>
+        <button class="primary-btn" id="nextBtn" type="button">Next</button>
+      </div>
+    </section>
+    <aside class="right-panel">
+      <div class="card-scene">
+        <div class="card-inner" id="cardInner">
+          <div class="card-front">
+            <div class="preview-card" id="cardFront"></div>
+          </div>
+          <div class="card-back">
+            <div class="preview-card" id="cardBack"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const state = {
+      currentPhase: 0,
+      currentStep: 0,
+      mystery: {
+        name: '',
+        concept: '',
+        hook: '',
+        overview: '',
+        countdown: { day: '', shadows: '', sunset: '', dusk: '', nightfall: '', midnight: '' }
+      },
+      monster: {
+        name: '',
+        description: '',
+        harmCapacity: 7,
+        monsterType: '',
+        attacks: [{ name: '', harm: '' }],
+        powers: [{ name: '', description: '' }],
+        weaknesses: [{ name: '', description: '' }]
+      },
+      minion: {
+        name: '',
+        description: '',
+        harmCapacity: 3,
+        minionType: '',
+        attacks: [{ name: '', harm: '' }],
+        powers: [{ name: '', description: '' }],
+        weaknesses: [{ name: '', description: '' }]
+      },
+      locations: [{ name: '', description: '', locationType: '' }],
+      bystanders: [{ name: '', description: '', bystanderType: '' }]
+    };
+
+    const options = {
+      monsterType: ['Beast', 'Breeder', 'Collector', 'Destroyer', 'Devourer', 'Executioner', 'Parasite', 'Plague', 'Possessor', 'Sorcerer'],
+      minionType: ['Brute', 'Guardian', 'Plague', 'Right Hand', 'Scout', 'Servant', 'Slaves'],
+      locationType: ['Crossroads', 'Den', 'Fortress', 'Hub', 'Locus', 'Maze', 'Prison', 'Wilds'],
+      bystanderType: ['Busybody', 'Innocent', 'Official', 'Skeptic', 'Victim', 'Witness']
+    };
+
+    const phaseMeta = [
+      { name: 'Mystery', steps: 4 },
+      { name: 'Monsters', steps: 2 },
+      { name: 'Locations', steps: 1 },
+      { name: 'Bystanders', steps: 1 }
+    ];
+
+    const flow = [
+      { phase: 0, step: 0, title: "What's the Core Idea?", blurb: "Every mystery starts with a concept—the one-sentence pitch that captures what's going wrong. Think of it as your elevator pitch: 'A vengeful ghost is drowning swimmers at the lake' or 'Teenagers are vanishing into a pocket dimension at the mall.' Keep it tight and evocative. This is the seed from which everything else grows." },
+      { phase: 0, step: 1, title: 'How Do the Hunters Get Involved?', blurb: "The hook is the inciting incident—how this mystery crashes into your hunters' lives. Maybe someone they know goes missing, or strange phenomena make the news, or they're hired by a desperate local. This is the moment that pulls them from the ordinary world into the supernatural threat. Make it personal or urgent enough that walking away isn't an option." },
+      { phase: 0, step: 2, title: "What's Really Happening?", blurb: "The overview is your behind-the-scenes explanation—the full truth of what's going on, who's responsible, and why. Your hunters won't know this at the start; they'll piece it together through investigation. But you need the complete picture so you can answer their questions and improvise consistently. Include the monster's motivation, the history of the threat, and how it all connects." },
+      { phase: 0, step: 3, title: "What Happens If the Hunters Don't Intervene?", blurb: "The countdown is your mystery's doomsday clock—six escalating events that happen if the hunters don't stop it. Each stage (Day, Shadows, Sunset, Dusk, Nightfall, Midnight) represents the threat growing worse, more public, or more deadly. By Midnight, it's catastrophe. Describe what happens at each stage, not when—timing is flexible based on the hunters' actions." },
+      { phase: 1, step: 0, title: 'What Is the Threat?', blurb: 'This is your primary antagonist—the creature, entity, or force causing the mystery. Give it a name, describe what it is and how it manifests, and define its harm capacity (how much damage it can inflict). Choose a monster type, and list its attacks, powers, and weaknesses. Make it dangerous but defeatable.' },
+      { phase: 1, step: 1, title: 'Who or What Serves the Monster?', blurb: 'Minions are lesser threats that support the main monster—cultists, possessed victims, summoned creatures, or loyal servants. Use the same structure as the monster: name, description, harm capacity, attacks, powers, weaknesses. Choose a minion type that reflects their role.' },
+      { phase: 2, step: 0, title: 'Where Does the Mystery Unfold?', blurb: "Locations are the key places where clues, action, and danger converge—the abandoned asylum, the forest clearing, the victim's apartment, the monster's lair. Each location should have a clear purpose in the mystery. Describe what hunters will find there and what makes it memorable. Add as many locations as your mystery needs—most mysteries have 4–6 core locations." },
+      { phase: 3, step: 0, title: 'Who Else Is Caught Up in This?', blurb: 'Bystanders are the NPCs who populate your mystery—victims, witnesses, suspects, allies, or innocents in danger. Each bystander has a name, a description, and a type that defines their role. Some will help the hunters, some will get in the way, and some are in mortal danger. Add as many as you need—most mysteries have 5–10 bystanders.' }
+    ];
+
+    const stepper = document.getElementById('stepper');
+    const eyebrow = document.getElementById('eyebrow');
+    const stepTitle = document.getElementById('stepTitle');
+    const stepBlurb = document.getElementById('stepBlurb');
+    const formArea = document.getElementById('formArea');
+    const cardInner = document.getElementById('cardInner');
+    const cardFront = document.getElementById('cardFront');
+    const cardBack = document.getElementById('cardBack');
+    const backBtn = document.getElementById('backBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    let maxUnlockedFlat = 0;
+    let errors = {};
+    let previewTimer;
+    let activeCardHtml = '';
+    let lastPhase = 0;
+
+    function getFlatIndex() {
+      return flow.findIndex(item => item.phase === state.currentPhase && item.step === state.currentStep);
+    }
+
+    function setFromFlat(index) {
+      const target = flow[Math.max(0, Math.min(flow.length - 1, index))];
+      state.currentPhase = target.phase;
+      state.currentStep = target.step;
+    }
+
+    function phaseLast(phaseIndex) {
+      let last = 0;
+      flow.forEach((item, index) => {
+        if (item.phase === phaseIndex) last = index;
+      });
+      return last;
+    }
+
+    function phaseCompleted(phaseIndex) {
+      return maxUnlockedFlat > phaseLast(phaseIndex);
+    }
+
+    function phaseClickable(phaseIndex) {
+      return phaseCompleted(phaseIndex);
+    }
+
+    function debounce(fn, delay) {
+      return (...args) => {
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(() => fn(...args), delay);
+      };
+    }
+
+    const schedulePreview = debounce(() => renderPreview(false), 300);
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getByPath(path) {
+      return path.split('.').reduce((acc, key) => acc?.[key], state);
+    }
+
+    function setByPath(path, value) {
+      const keys = path.split('.');
+      const last = keys.pop();
+      const target = keys.reduce((acc, key) => acc[key], state);
+      target[last] = value;
+    }
+
+    function formatValue(value) {
+      return value && String(value).trim() ? escapeHtml(value) : '<span class="muted">—</span>';
+    }
+
+    function formatList(list, formatter) {
+      const items = list.map(formatter).filter(Boolean);
+      return items.length ? items.join(', ') : '<span class="muted">—</span>';
+    }
+
+    function renderStepper() {
+      stepper.innerHTML = phaseMeta.map((phase, index) => {
+        const status = state.currentPhase === index ? 'active' : phaseCompleted(index) ? 'completed' : 'future';
+        const dots = phase.steps > 1 ? `
+          <div class="step-dots">
+            ${Array.from({ length: phase.steps }, (_, dotIndex) => {
+              const dotClass = phaseCompleted(index)
+                ? 'completed'
+                : state.currentPhase === index && state.currentStep === dotIndex
+                  ? 'active'
+                  : '';
+              return `<span class="step-dot ${dotClass}"></span>`;
+            }).join('')}
+          </div>` : '';
+        return `
+          <div>
+            <div class="stepper-phase">
+              <div>
+                <button class="stepper-circle ${status} ${phaseClickable(index) ? 'clickable' : ''}" type="button" data-phase="${index}">${phaseCompleted(index) ? '&#10003;' : index + 1}</button>
+                ${index < phaseMeta.length - 1 ? `<div class="stepper-line ${phaseCompleted(index) ? 'completed' : ''}"></div>` : ''}
+              </div>
+              <div>
+                <div class="stepper-main">
+                  <div class="stepper-name ${status}">${phase.name}</div>
+                </div>
+                ${dots}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function textField(path, labelText, placeholder = '') {
+      return `
+        <div class="field">
+          <label for="${path}">${labelText}</label>
+          <input id="${path}" data-path="${path}" class="${errors[path] ? 'invalid' : ''}" value="${escapeHtml(getByPath(path) ?? '')}" placeholder="${escapeHtml(placeholder)}" />
+          ${errors[path] ? `<div class="error-text">${errors[path]}</div>` : ''}
+        </div>`;
+    }
+
+    function textArea(path, labelText, placeholder = '') {
+      return `
+        <div class="field">
+          <label for="${path}">${labelText}</label>
+          <textarea id="${path}" data-path="${path}" class="${errors[path] ? 'invalid' : ''}" placeholder="${escapeHtml(placeholder)}">${escapeHtml(getByPath(path) ?? '')}</textarea>
+          ${errors[path] ? `<div class="error-text">${errors[path]}</div>` : ''}
+        </div>`;
+    }
+
+    function selectField(path, labelText, optionKey) {
+      const value = getByPath(path) || '';
+      return `
+        <div class="field">
+          <label for="${path}">${labelText}</label>
+          <select id="${path}" data-path="${path}">
+            <option value="">Select...</option>
+            ${options[optionKey].map(option => `<option value="${option}" ${value === option ? 'selected' : ''}>${option}</option>`).join('')}
+          </select>
+        </div>`;
+    }
+
+    function repeatableRows(root, key, labelText, withHarm) {
+      const rows = state[root][key];
+      const pretty = key.charAt(0).toUpperCase() + key.slice(1);
+      return `
+        <div class="field">
+          <label>${pretty}</label>
+          ${rows.map((row, index) => withHarm ? `
+            <div class="inline-row">
+              <input data-path="${root}.${key}.${index}.name" value="${escapeHtml(row.name)}" placeholder="${labelText} name" />
+              <input data-path="${root}.${key}.${index}.harm" type="number" min="0" value="${escapeHtml(row.harm)}" placeholder="Harm" />
+              <button class="remove-btn" type="button" data-action="remove-row" data-root="${root}" data-key="${key}" data-index="${index}">&times;</button>
+            </div>` : `
+            <div class="triple-row">
+              <input data-path="${root}.${key}.${index}.name" value="${escapeHtml(row.name)}" placeholder="${labelText} name" />
+              <div></div>
+              <textarea data-path="${root}.${key}.${index}.description" placeholder="Description">${escapeHtml(row.description)}</textarea>
+              <button class="remove-btn" type="button" data-action="remove-row" data-root="${root}" data-key="${key}" data-index="${index}">&times;</button>
+            </div>`).join('')}
+          <button class="add-btn" type="button" data-action="add-row" data-root="${root}" data-key="${key}">+ Add ${labelText}</button>
+        </div>`;
+    }
+
+    function creatureForm(root, typeKey) {
+      const typeLabel = root === 'monster' ? 'Monster Type' : 'Minion Type';
+      return `
+        ${textField(`${root}.name`, 'Name', 'Enter a name.')}
+        ${textArea(`${root}.description`, 'Description', 'Describe appearance, behavior, and presence.')}
+        <div class="split-2">
+          <div class="field">
+            <label for="${root}.harmCapacity">Harm Capacity</label>
+            <input id="${root}.harmCapacity" type="number" min="0" data-path="${root}.harmCapacity" value="${escapeHtml(getByPath(`${root}.harmCapacity`))}" />
+          </div>
+          ${selectField(`${root}.${typeKey}`, typeLabel, typeKey)}
+        </div>
+        ${repeatableRows(root, 'attacks', 'Attack', true)}
+        ${repeatableRows(root, 'powers', 'Power', false)}
+        ${repeatableRows(root, 'weaknesses', 'Weakness', false)}`;
+    }
+
+    function repeatableEntityForm(key, optionKey, labelText) {
+      return `
+        <div class="field">
+          ${state[key].map((row, index) => `
+            <div class="triple-row">
+              <div>
+                <label>${labelText} Name</label>
+                <input data-path="${key}.${index}.name" class="${errors[`${key}.${index}.name`] ? 'invalid' : ''}" value="${escapeHtml(row.name)}" placeholder="Name" />
+                ${errors[`${key}.${index}.name`] ? `<div class="error-text">${errors[`${key}.${index}.name`]}</div>` : ''}
+              </div>
+              <div>
+                <label>${labelText} Type</label>
+                <select data-path="${key}.${index}.${optionKey}">
+                  <option value="">Select...</option>
+                  ${options[optionKey].map(option => `<option value="${option}" ${row[optionKey] === option ? 'selected' : ''}>${option}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label>Description</label>
+                <textarea data-path="${key}.${index}.description" placeholder="Description">${escapeHtml(row.description)}</textarea>
+              </div>
+              <button class="remove-btn" type="button" data-action="remove-entity" data-key="${key}" data-index="${index}">&times;</button>
+            </div>`).join('')}
+          <button class="add-btn" type="button" data-action="add-entity" data-key="${key}">+ Add ${labelText}</button>
+        </div>`;
+    }
+
+    function renderForm() {
+      const current = flow[getFlatIndex()];
+      eyebrow.textContent = `Phase ${current.phase + 1} • Step ${current.step + 1}`;
+      stepTitle.textContent = current.title;
+      stepBlurb.textContent = current.blurb;
+      backBtn.disabled = getFlatIndex() === 0;
+      nextBtn.textContent = getFlatIndex() === flow.length - 1 ? 'Finish' : 'Next';
+
+      if (state.currentPhase === 0 && state.currentStep === 0) {
+        formArea.innerHTML = `
+          ${textField('mystery.name', 'Mystery Name', 'Give your mystery a title.')}
+          ${textArea('mystery.concept', 'Concept', 'A one-sentence pitch for what is going wrong.')}`;
+      } else if (state.currentPhase === 0 && state.currentStep === 1) {
+        formArea.innerHTML = textArea('mystery.hook', 'Hook', 'How do the hunters get pulled in?');
+      } else if (state.currentPhase === 0 && state.currentStep === 2) {
+        formArea.innerHTML = textArea('mystery.overview', 'Overview', 'What is really happening behind the scenes?');
+      } else if (state.currentPhase === 0 && state.currentStep === 3) {
+        formArea.innerHTML = `
+          <div class="split-2">
+            ${textArea('mystery.countdown.day', 'Day')}
+            ${textArea('mystery.countdown.shadows', 'Shadows')}
+            ${textArea('mystery.countdown.sunset', 'Sunset')}
+            ${textArea('mystery.countdown.dusk', 'Dusk')}
+            ${textArea('mystery.countdown.nightfall', 'Nightfall')}
+            ${textArea('mystery.countdown.midnight', 'Midnight')}
+          </div>`;
+      } else if (state.currentPhase === 1 && state.currentStep === 0) {
+        formArea.innerHTML = creatureForm('monster', 'monsterType');
+      } else if (state.currentPhase === 1 && state.currentStep === 1) {
+        formArea.innerHTML = creatureForm('minion', 'minionType');
+      } else if (state.currentPhase === 2) {
+        formArea.innerHTML = repeatableEntityForm('locations', 'locationType', 'Location');
+      } else {
+        formArea.innerHTML = repeatableEntityForm('bystanders', 'bystanderType', 'Bystander');
+      }
+    }
+
+    function sectionRows(rows) {
+      return rows.map(row => `
+        <div class="card-row">
+          <div class="card-label">${row.label}</div>
+          <div class="card-value">${row.value}</div>
+        </div>`).join('');
+    }
+
+    function entityLines(list, typeKey) {
+      const items = list.filter(item => item.name || item.description || item[typeKey]);
+      return items.length
+        ? items.map((item, index) => `${index + 1}. ${escapeHtml(item.name || 'Untitled')} (${escapeHtml(item[typeKey] || '—')}): ${escapeHtml(item.description || '—')}`).join('<br>')
+        : '<span class="muted">No entries yet.</span>';
+    }
+
+    function phaseCardHtml() {
+      if (state.currentPhase === 0) {
+        return `
+          <div class="card-header">Mystery</div>
+          <div class="card-content fade">
+            ${sectionRows([
+              { label: 'Name', value: formatValue(state.mystery.name) },
+              { label: 'Concept', value: formatValue(state.mystery.concept) },
+              { label: 'Hook', value: formatValue(state.mystery.hook) },
+              { label: 'Overview', value: formatValue(state.mystery.overview) },
+              { label: 'Countdown', value: `
+                  Day: ${formatValue(state.mystery.countdown.day)}<br>
+                  Shadows: ${formatValue(state.mystery.countdown.shadows)}<br>
+                  Sunset: ${formatValue(state.mystery.countdown.sunset)}<br>
+                  Dusk: ${formatValue(state.mystery.countdown.dusk)}<br>
+                  Nightfall: ${formatValue(state.mystery.countdown.nightfall)}<br>
+                  Midnight: ${formatValue(state.mystery.countdown.midnight)}
+                ` }
+            ])}
+          </div>`;
+      }
+
+      if (state.currentPhase === 1) {
+        const creature = state.currentStep === 0 ? state.monster : state.minion;
+        const type = state.currentStep === 0 ? creature.monsterType : creature.minionType;
+        const header = state.currentStep === 0 ? 'Monster' : 'Minions';
+        return `
+          <div class="card-header">${header}</div>
+          <div class="card-content fade">
+            ${sectionRows([
+              { label: 'Name', value: formatValue(creature.name) },
+              { label: 'Type', value: formatValue(type) },
+              { label: 'Harm', value: formatValue(creature.harmCapacity) },
+              { label: 'Description', value: formatValue(creature.description) },
+              { label: 'Attacks', value: formatList(creature.attacks, item => item.name ? `${escapeHtml(item.name)}${item.harm !== '' ? ` (${escapeHtml(item.harm)} harm)` : ''}` : '') },
+              { label: 'Powers', value: formatList(creature.powers, item => item.name ? `${escapeHtml(item.name)}${item.description ? `: ${escapeHtml(item.description)}` : ''}` : '') },
+              { label: 'Weaknesses', value: formatList(creature.weaknesses, item => item.name ? `${escapeHtml(item.name)}${item.description ? `: ${escapeHtml(item.description)}` : ''}` : '') }
+            ])}
+          </div>`;
+      }
+
+      if (state.currentPhase === 2) {
+        return `
+          <div class="card-header">Locations</div>
+          <div class="card-content fade">
+            ${sectionRows([{ label: 'Known Sites', value: entityLines(state.locations, 'locationType') }])}
+          </div>`;
+      }
+
+      return `
+        <div class="card-header">Bystanders</div>
+        <div class="card-content fade">
+          ${sectionRows([{ label: 'People in the Mystery', value: entityLines(state.bystanders, 'bystanderType') }])}
+        </div>`;
+    }
+
+    function renderPreview(phaseChanged) {
+      const nextHtml = phaseCardHtml();
+      if (phaseChanged) {
+        cardBack.innerHTML = nextHtml;
+        cardInner.classList.add('flip');
+        setTimeout(() => {
+          cardFront.innerHTML = nextHtml;
+          activeCardHtml = nextHtml;
+        }, 200);
+        setTimeout(() => {
+          cardInner.classList.remove('flip');
+          cardBack.innerHTML = activeCardHtml;
+        }, 400);
+      } else {
+        cardFront.innerHTML = nextHtml;
+        cardBack.innerHTML = nextHtml;
+        activeCardHtml = nextHtml;
+      }
+    }
+
+    function validateCurrentStep() {
+      errors = {};
+      const flat = getFlatIndex();
+      if (flat === 0 && !state.mystery.name.trim()) errors['mystery.name'] = 'Mystery name is required.';
+      if (flat === 4 && !state.monster.name.trim()) errors['monster.name'] = 'Monster name is required.';
+      if (flat === 5 && !state.minion.name.trim()) errors['minion.name'] = 'Minion name is required.';
+      if (flat === 6) {
+        state.locations.forEach((location, index) => {
+          if (!location.name.trim()) errors[`locations.${index}.name`] = 'Location name is required.';
+        });
+      }
+      if (flat === 7) {
+        state.bystanders.forEach((bystander, index) => {
+          if (!bystander.name.trim()) errors[`bystanders.${index}.name`] = 'Bystander name is required.';
+        });
+      }
+      return Object.keys(errors).length === 0;
+    }
+
+    function move(delta) {
+      if (delta > 0 && !validateCurrentStep()) {
+        renderForm();
+        return;
+      }
+      const nextFlat = getFlatIndex() + delta;
+      if (nextFlat < 0 || nextFlat >= flow.length) return;
+      const previousPhase = state.currentPhase;
+      setFromFlat(nextFlat);
+      maxUnlockedFlat = Math.max(maxUnlockedFlat, nextFlat);
+      errors = {};
+      renderAll(previousPhase !== state.currentPhase);
+    }
+
+    function addRow(root, key) {
+      state[root][key].push(key === 'attacks' ? { name: '', harm: '' } : { name: '', description: '' });
+      renderForm();
+      schedulePreview();
+    }
+
+    function removeRow(root, key, index) {
+      state[root][key].splice(index, 1);
+      if (!state[root][key].length) {
+        state[root][key].push(key === 'attacks' ? { name: '', harm: '' } : { name: '', description: '' });
+      }
+      renderForm();
+      schedulePreview();
+    }
+
+    function addEntity(key) {
+      const optionKey = key === 'locations' ? 'locationType' : 'bystanderType';
+      state[key].push({ name: '', description: '', [optionKey]: '' });
+      renderForm();
+      schedulePreview();
+    }
+
+    function removeEntity(key, index) {
+      state[key].splice(index, 1);
+      if (!state[key].length) {
+        const optionKey = key === 'locations' ? 'locationType' : 'bystanderType';
+        state[key].push({ name: '', description: '', [optionKey]: '' });
+      }
+      renderForm();
+      schedulePreview();
+    }
+
+    function renderAll(phaseChanged = false) {
+      renderStepper();
+      renderForm();
+      renderPreview(phaseChanged);
+      lastPhase = state.currentPhase;
+    }
+
+    stepper.addEventListener('click', event => {
+      const phase = event.target.closest('[data-phase]');
+      if (!phase) return;
+      const phaseIndex = Number(phase.dataset.phase);
+      if (!phaseClickable(phaseIndex)) return;
+      const previousPhase = state.currentPhase;
+      state.currentPhase = phaseIndex;
+      state.currentStep = 0;
+      errors = {};
+      renderAll(previousPhase !== phaseIndex);
+    });
+
+    formArea.addEventListener('input', event => {
+      const path = event.target.dataset.path;
+      if (!path) return;
+      setByPath(path, event.target.value);
+      if (errors[path] && String(getByPath(path)).trim()) delete errors[path];
+      schedulePreview();
+    });
+
+    formArea.addEventListener('change', event => {
+      const path = event.target.dataset.path;
+      if (!path) return;
+      setByPath(path, event.target.value);
+      schedulePreview();
+    });
+
+    formArea.addEventListener('click', event => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const { action, root, key, index } = button.dataset;
+      if (action === 'add-row') addRow(root, key);
+      if (action === 'remove-row') removeRow(root, key, Number(index));
+      if (action === 'add-entity') addEntity(key);
+      if (action === 'remove-entity') removeEntity(key, Number(index));
+    });
+
+    backBtn.addEventListener('click', () => move(-1));
+    nextBtn.addEventListener('click', () => move(1));
+
+    renderAll(false);
+  </script>
+</body>
+</html>

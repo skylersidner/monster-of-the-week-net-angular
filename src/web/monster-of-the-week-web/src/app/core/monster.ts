@@ -30,6 +30,13 @@ export class MonsterService {
     return this.apiService.get<MonsterDetailResponse>(`/api/monsters/${monsterId}`);
   }
 
+  create(mysteryId: string, request: UpsertMonsterRequest): Observable<MonsterDetailResponse> {
+    return this.apiService.post<UpsertMonsterRequest, MonsterDetailResponse>(
+      `/api/mysteries/${mysteryId}/monsters`,
+      request
+    );
+  }
+
   update(monsterId: string, request: UpsertMonsterRequest): Observable<MonsterDetailResponse> {
     return this.apiService.put<UpsertMonsterRequest, MonsterDetailResponse>(`/api/monsters/${monsterId}`, request);
   }

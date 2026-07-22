@@ -1,3 +1,30 @@
+.list-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.list-header h2 {
+  margin: 0;
+}
+
+.create-btn {
+  background: #4f46e5;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.55rem 1.25rem;
+  text-decoration: none;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.create-btn:hover {
+  background: #4338ca;
+}
+
 .mystery-list {
   display: grid;
   gap: 1rem;

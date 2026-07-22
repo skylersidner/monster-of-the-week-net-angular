@@ -5,6 +5,10 @@ import { MysteryDetailComponent } from './pages/mystery-detail/mystery-detail';
 export const MYSTERIES_ROUTES: Routes = [
   { path: '', component: MysteriesListComponent },
   {
+    path: 'create',
+    loadComponent: () => import('./pages/mystery-create/mystery-create').then((m) => m.MysteryCreateComponent),
+  },
+  {
     path: ':mysteryId/monsters/:monsterId',
     loadComponent: () =>
       import('../monsters/pages/monster-detail/monster-detail').then((m) => m.MonsterDetailComponent),
