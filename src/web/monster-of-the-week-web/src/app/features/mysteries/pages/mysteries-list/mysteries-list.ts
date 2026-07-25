@@ -36,4 +36,17 @@ export class MysteriesListComponent implements OnInit {
         },
       });
   }
+
+  deleteMystery(id: string, name: string): void {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) {
+      return;
+    }
+    this.mysteryService
+      .delete(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.mysteries.update((ms) => ms.filter((m) => m.id !== id)),
+        error: () => this.errorMessage.set('Unable to delete mystery.'),
+      });
+  }
 }

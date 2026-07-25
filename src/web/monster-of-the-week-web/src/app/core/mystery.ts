@@ -27,6 +27,14 @@ export class MysteryService {
     return this.apiService.post<UpsertMysteryRequest, MysteryDetailResponse>('/api/mysteries', request);
   }
 
+  update(id: string, request: UpsertMysteryRequest): Observable<MysteryDetailResponse> {
+    return this.apiService.put<UpsertMysteryRequest, MysteryDetailResponse>(`/api/mysteries/${id}`, request);
+  }
+
+  delete(id: string): Observable<void> {
+    return this.apiService.delete(`/api/mysteries/${id}`);
+  }
+
   upsertCountdown(id: string, request: UpsertCountdownRequest): Observable<CountdownResponse> {
     return this.apiService.put<UpsertCountdownRequest, CountdownResponse>(`/api/mysteries/${id}/countdown`, request);
   }

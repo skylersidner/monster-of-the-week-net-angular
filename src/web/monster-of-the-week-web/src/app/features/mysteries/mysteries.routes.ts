@@ -23,5 +23,9 @@ export const MYSTERIES_ROUTES: Routes = [
     loadComponent: () =>
       import('../bystanders/pages/bystander-detail/bystander-detail').then((m) => m.BystanderDetailComponent),
   },
+  {
+    path: ':id/edit',
+    loadComponent: () => import('./pages/mystery-create/mystery-create').then((m) => m.MysteryCreateComponent),
+  },
   { path: ':id', component: MysteryDetailComponent },
 ];

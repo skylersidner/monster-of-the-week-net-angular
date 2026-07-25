@@ -6,6 +6,8 @@ import { Observable, forkJoin, of, startWith, switchMap } from 'rxjs';
 
 import { ApiService } from '../../../../core/api';
 import {
+  BystanderListItemResponse,
+  LocationListItemResponse,
   TypeRefResponse,
   UpsertBystanderRequest,
   UpsertCountdownRequest,
@@ -197,6 +199,20 @@ export class MysteryCreateStore {
   readonly minionArmors = signal<ArmorDraft[]>([]);
   readonly locations = signal<LocationDraft[]>([]);
   readonly bystanders = signal<BystanderDraft[]>([]);
+
+  readonly isEditMode = signal(false);
+  readonly editingMonsterId = signal<string | null>(null);
+  readonly editingMinionId = signal<string | null>(null);
+  private readonly existingMonsterAttackIds = signal<string[]>([]);
+  private readonly existingMonsterPowerIds = signal<string[]>([]);
+  private readonly existingMonsterWeaknessIds = signal<string[]>([]);
+  private readonly existingMonsterArmorIds = signal<string[]>([]);
+  private readonly existingMinionAttackIds = signal<string[]>([]);
+  private readonly existingMinionPowerIds = signal<string[]>([]);
+  private readonly existingMinionWeaknessIds = signal<string[]>([]);
+  private readonly existingMinionArmorIds = signal<string[]>([]);
+  private readonly existingLocationIds = signal<string[]>([]);
+  private readonly existingBystanderIds = signal<string[]>([]);
 
   readonly conceptForm = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required, Validators.minLength(1)]),
@@ -453,12 +469,24 @@ export class MysteryCreateStore {
     },
   }));
 
-  init(): void {
+  init(mysteryId?: string): void {
     if (this.initialized) {
       return;
     }
 
     this.initialized = true;
+
+    if (mysteryId) {
+      this.isEditMode.set(true);
+      this.mysteryId.set(mysteryId);
+      this.phaseComplete.set([true, true, true, true]);
+      this.loadEditData(mysteryId);
+    } else {
+      this.loadReferenceData();
+    }
+  }
+
+  private loadReferenceData(): void {
     forkJoin({
       monsterTypes: this.referenceDataService.getMonsterTypes(),
       minionTypes: this.referenceDataService.getMinionTypes(),
@@ -473,6 +501,129 @@ export class MysteryCreateStore {
         this.locationTypes.set(locationTypes);
         this.bystanderTypes.set(bystanderTypes);
         this.weaponTags.set(weaponTags);
+      });
+  }
+
+  private loadEditData(mysteryId: string): void {
+    forkJoin({
+      monsterTypes: this.referenceDataService.getMonsterTypes(),
+      minionTypes: this.referenceDataService.getMinionTypes(),
+      locationTypes: this.referenceDataService.getLocationTypes(),
+      bystanderTypes: this.referenceDataService.getBystanderTypes(),
+      weaponTags: this.referenceDataService.getWeaponTags(),
+      mystery: this.mysteryService.getMystery(mysteryId),
+      monsters: this.monsterService.getByMystery(mysteryId),
+      locations: this.apiService.get<LocationListItemResponse[]>(`/api/mysteries/${mysteryId}/locations`),
+      bystanders: this.apiService.get<BystanderListItemResponse[]>(`/api/mysteries/${mysteryId}/bystanders`),
+    })
+      .pipe(
+        switchMap(({ monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags, mystery, monsters, locations, bystanders }) => {
+          this.monsterTypes.set(monsterTypes);
+          this.minionTypes.set(minionTypes);
+          this.locationTypes.set(locationTypes);
+          this.bystanderTypes.set(bystanderTypes);
+          this.weaponTags.set(weaponTags);
+
+          this.conceptForm.patchValue({ name: mystery.name, concept: mystery.concept ?? '' });
+          this.hookForm.patchValue({ hook: mystery.hook ?? '' });
+          this.overviewForm.patchValue({ overview: mystery.overview ?? '' });
+          if (mystery.countdown) {
+            this.countdownForm.patchValue({
+              day: mystery.countdown.day ?? '',
+              shadows: mystery.countdown.shadows ?? '',
+              sunset: mystery.countdown.sunset ?? '',
+              dusk: mystery.countdown.dusk ?? '',
+              nightfall: mystery.countdown.nightfall ?? '',
+              midnight: mystery.countdown.midnight ?? '',
+            });
+          }
+
+          this.existingLocationIds.set(locations.map((l) => l.id));
+          this.locations.set(
+            locations.map((l) => ({ name: l.name, description: l.description ?? '', locationTypeId: l.locationTypeId }))
+          );
+
+          this.existingBystanderIds.set(bystanders.map((b) => b.id));
+          this.bystanders.set(
+            bystanders.map((b) => ({ name: b.name, description: b.description ?? '', bystanderTypeId: b.bystanderTypeId }))
+          );
+
+          const pureMonster = monsters.find((m) => m.minionTypeId == null) ?? null;
+          const minion = monsters.find((m) => m.minionTypeId != null) ?? null;
+
+          return forkJoin({
+            pureMonster: pureMonster ? this.monsterService.getById(pureMonster.id) : of(null),
+            minion: minion ? this.monsterService.getById(minion.id) : of(null),
+          });
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(({ pureMonster, minion }) => {
+        if (pureMonster) {
+          this.editingMonsterId.set(pureMonster.id);
+          this.existingMonsterAttackIds.set(pureMonster.attacks.map((a) => a.id));
+          this.existingMonsterPowerIds.set(pureMonster.powers.map((p) => p.id));
+          this.existingMonsterWeaknessIds.set(pureMonster.weaknesses.map((w) => w.id));
+          this.existingMonsterArmorIds.set(pureMonster.armors.map((a) => a.id));
+          this.monsterForm.patchValue({
+            name: pureMonster.name,
+            description: pureMonster.description ?? '',
+            harmCapacity: pureMonster.harmCapacity,
+            monsterTypeId: pureMonster.monsterTypeId ?? '',
+          });
+          this.monsterAttacks.set(
+            pureMonster.attacks.map((a) => ({
+              name: a.name,
+              harm: a.harm,
+              description: a.description ?? '',
+              weaponTagIds: a.weaponTags.map((t) => t.id),
+            }))
+          );
+          this.monsterPowers.set(pureMonster.powers.map((p) => ({ name: p.name, description: p.description ?? '' })));
+          this.monsterWeaknesses.set(pureMonster.weaknesses.map((w) => ({ name: w.name, description: w.description ?? '' })));
+          this.monsterArmors.set(
+            pureMonster.armors.map((a) => ({
+              name: a.name,
+              description: a.description ?? '',
+              harmSoak: a.harmSoak,
+              isSpecial: a.isSpecial,
+              specialDescription: a.specialDescription ?? '',
+            }))
+          );
+        }
+
+        if (minion) {
+          this.editingMinionId.set(minion.id);
+          this.existingMinionAttackIds.set(minion.attacks.map((a) => a.id));
+          this.existingMinionPowerIds.set(minion.powers.map((p) => p.id));
+          this.existingMinionWeaknessIds.set(minion.weaknesses.map((w) => w.id));
+          this.existingMinionArmorIds.set(minion.armors.map((a) => a.id));
+          this.minionForm.patchValue({
+            name: minion.name,
+            description: minion.description ?? '',
+            harmCapacity: minion.harmCapacity,
+            minionTypeId: minion.minionTypeId ?? '',
+          });
+          this.minionAttacks.set(
+            minion.attacks.map((a) => ({
+              name: a.name,
+              harm: a.harm,
+              description: a.description ?? '',
+              weaponTagIds: a.weaponTags.map((t) => t.id),
+            }))
+          );
+          this.minionPowers.set(minion.powers.map((p) => ({ name: p.name, description: p.description ?? '' })));
+          this.minionWeaknesses.set(minion.weaknesses.map((w) => ({ name: w.name, description: w.description ?? '' })));
+          this.minionArmors.set(
+            minion.armors.map((a) => ({
+              name: a.name,
+              description: a.description ?? '',
+              harmSoak: a.harmSoak,
+              isSpecial: a.isSpecial,
+              specialDescription: a.specialDescription ?? '',
+            }))
+          );
+        }
       });
   }
 
@@ -670,11 +821,18 @@ export class MysteryCreateStore {
       notes: null,
     };
 
-    this.mysteryService
-      .create(mysteryRequest)
+    const existingId = this.mysteryId();
+    const save$ =
+      this.isEditMode() && existingId
+        ? this.mysteryService.update(existingId, mysteryRequest)
+        : this.mysteryService.create(mysteryRequest);
+
+    save$
       .pipe(
         switchMap((mystery) => {
-          this.mysteryId.set(mystery.id);
+          if (!this.isEditMode()) {
+            this.mysteryId.set(mystery.id);
+          }
 
           const countdownRequest: UpsertCountdownRequest = {
             day: this.toNullable(this.countdownForm.controls.day.value),
@@ -702,6 +860,7 @@ export class MysteryCreateStore {
       return;
     }
 
+    const editingMonsterId = this.editingMonsterId();
     const monsterRequest: UpsertMonsterRequest = {
       name: this.monsterForm.controls.name.value.trim(),
       description: this.toNullable(this.monsterForm.controls.description.value),
@@ -710,20 +869,34 @@ export class MysteryCreateStore {
       minionTypeId: null,
     };
 
-    this.monsterService
-      .create(mysteryId, monsterRequest)
+    const monsterSave$ = editingMonsterId
+      ? this.monsterService.update(editingMonsterId, monsterRequest)
+      : this.monsterService.create(mysteryId, monsterRequest);
+
+    monsterSave$
       .pipe(
-        switchMap((monster) =>
-          this.saveThreatCollections(
-            monster.id,
-            this.monsterAttacks(),
-            this.monsterPowers(),
-            this.monsterWeaknesses(),
-            this.monsterArmors()
-          )
-        ),
+        switchMap((monster) => {
+          const deleteOps: Observable<unknown>[] = [
+            ...this.existingMonsterAttackIds().map((id) => this.monsterService.deleteAttack(monster.id, id)),
+            ...this.existingMonsterPowerIds().map((id) => this.monsterService.deletePower(monster.id, id)),
+            ...this.existingMonsterWeaknessIds().map((id) => this.monsterService.deleteWeakness(monster.id, id)),
+            ...this.existingMonsterArmorIds().map((id) => this.monsterService.deleteArmor(monster.id, id)),
+          ];
+          return this.runBatch(deleteOps).pipe(
+            switchMap(() =>
+              this.saveThreatCollections(
+                monster.id,
+                this.monsterAttacks(),
+                this.monsterPowers(),
+                this.monsterWeaknesses(),
+                this.monsterArmors()
+              )
+            )
+          );
+        }),
         switchMap(() => {
           const minionName = this.minionForm.controls.name.value.trim();
+          const editingMinionId = this.editingMinionId();
           if (!minionName) {
             return of(null);
           }
@@ -736,10 +909,30 @@ export class MysteryCreateStore {
             minionTypeId: this.toNullable(this.minionForm.controls.minionTypeId.value),
           };
 
-          return this.monsterService.create(mysteryId, minionRequest).pipe(
-            switchMap((minion) =>
-              this.saveThreatCollections(minion.id, this.minionAttacks(), this.minionPowers(), this.minionWeaknesses(), this.minionArmors())
-            )
+          const minionSave$ = editingMinionId
+            ? this.monsterService.update(editingMinionId, minionRequest)
+            : this.monsterService.create(mysteryId, minionRequest);
+
+          return minionSave$.pipe(
+            switchMap((minion) => {
+              const deleteMinionOps: Observable<unknown>[] = [
+                ...this.existingMinionAttackIds().map((id) => this.monsterService.deleteAttack(minion.id, id)),
+                ...this.existingMinionPowerIds().map((id) => this.monsterService.deletePower(minion.id, id)),
+                ...this.existingMinionWeaknessIds().map((id) => this.monsterService.deleteWeakness(minion.id, id)),
+                ...this.existingMinionArmorIds().map((id) => this.monsterService.deleteArmor(minion.id, id)),
+              ];
+              return this.runBatch(deleteMinionOps).pipe(
+                switchMap(() =>
+                  this.saveThreatCollections(
+                    minion.id,
+                    this.minionAttacks(),
+                    this.minionPowers(),
+                    this.minionWeaknesses(),
+                    this.minionArmors()
+                  )
+                )
+              );
+            })
           );
         }),
         takeUntilDestroyed(this.destroyRef)
@@ -757,16 +950,24 @@ export class MysteryCreateStore {
       return;
     }
 
-    const requests = this.locations().map((location) =>
-      this.apiService.post<UpsertLocationRequest, unknown>(`/api/mysteries/${mysteryId}/locations`, {
-        name: location.name,
-        description: this.toNullable(location.description),
-        locationTypeId: location.locationTypeId,
-      })
+    const unlinkOps = this.existingLocationIds().map((locationId) =>
+      this.apiService.delete(`/api/mysteries/${mysteryId}/locations/${locationId}`)
     );
 
-    this.runBatch(requests)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    this.runBatch(unlinkOps)
+      .pipe(
+        switchMap(() => {
+          const createRequests = this.locations().map((location) =>
+            this.apiService.post<UpsertLocationRequest, unknown>(`/api/mysteries/${mysteryId}/locations`, {
+              name: location.name,
+              description: this.toNullable(location.description),
+              locationTypeId: location.locationTypeId,
+            })
+          );
+          return this.runBatch(createRequests);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe({
         next: () => this.advancePhase(),
         error: () => this.handleSubmitError('Could not save locations. Please try again.'),
@@ -780,20 +981,28 @@ export class MysteryCreateStore {
       return;
     }
 
-    const requests = this.bystanders().map((bystander) =>
-      this.apiService.post<UpsertBystanderRequest, unknown>(`/api/mysteries/${mysteryId}/bystanders`, {
-        name: bystander.name,
-        description: this.toNullable(bystander.description),
-        bystanderTypeId: bystander.bystanderTypeId,
-      })
+    const unlinkOps = this.existingBystanderIds().map((bystanderId) =>
+      this.apiService.delete(`/api/mysteries/${mysteryId}/bystanders/${bystanderId}`)
     );
 
-    this.runBatch(requests)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    this.runBatch(unlinkOps)
+      .pipe(
+        switchMap(() => {
+          const createRequests = this.bystanders().map((bystander) =>
+            this.apiService.post<UpsertBystanderRequest, unknown>(`/api/mysteries/${mysteryId}/bystanders`, {
+              name: bystander.name,
+              description: this.toNullable(bystander.description),
+              bystanderTypeId: bystander.bystanderTypeId,
+            })
+          );
+          return this.runBatch(createRequests);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe({
         next: () => {
           this.isSubmitting.set(false);
-          this.notificationService.success('Mystery created!');
+          this.notificationService.success(this.isEditMode() ? 'Mystery updated!' : 'Mystery created!');
           this.router.navigate(['/mysteries', mysteryId]);
         },
         error: () => this.handleSubmitError('Could not save bystanders. Please try again.'),

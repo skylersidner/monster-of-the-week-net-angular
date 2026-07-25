@@ -14,12 +14,26 @@
     <ul class="mystery-list">
       @for (mystery of mysteries(); track mystery.id) {
         <li>
-          <a [routerLink]="['/mysteries', mystery.id]">{{ mystery.name }}</a>
-          <p>{{ mystery.concept || 'No concept provided' }}</p>
-          <small>
-            Monsters: {{ mystery.monsterCount }} · Locations: {{ mystery.locationCount }} · Bystanders:
-            {{ mystery.bystanderCount }} · Created: {{ mystery.createdAt | date: 'mediumDate' }}
-          </small>
+          <div class="mystery-info">
+            <a [routerLink]="['/mysteries', mystery.id]">{{ mystery.name }}</a>
+            <p>{{ mystery.concept || 'No concept provided' }}</p>
+            <small>
+              Monsters: {{ mystery.monsterCount }} · Locations: {{ mystery.locationCount }} · Bystanders:
+              {{ mystery.bystanderCount }} · Created: {{ mystery.createdAt | date: 'mediumDate' }}
+            </small>
+          </div>
+          <div class="mystery-actions">
+            <a [routerLink]="['/mysteries', mystery.id, 'edit']" class="action-btn action-btn--edit" title="Edit mystery">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor">
+                <path fill-rule="evenodd" d="m76.699 64.445v28.754c0 1.3242-1.0742 2.3984-2.3984 2.3984l-67.496 0.003906c-1.3242 0-2.3984-1.0742-2.3984-2.3984l-0.003906-71.754 0.74219-1.7383 15.09-14.977c0.35547-0.21094 0.77344-0.33594 1.2188-0.33594h52.848c1.3242 0 2.3984 1.0742 2.3984 2.3984v24.02c5.8594-10.145 4.0664-9.707 12.496-4.8281l5.1992 3.0078c1.1602 0.66797 1.5391 2.168 0.87891 3.2695l0.003906 0.003906zm-56.125-24.875v4.8008h39.949v-4.8008zm0 30.113v4.8008h26.867v-4.8008zm0-15.059v4.8008h31.559v-4.8008zm-7.9766-35.574h6.4531v-6.4531zm59.301 20.086v-29.938h-48.047v12.25c0 1.3242-1.0742 2.3984-2.3984 2.3984h-12.25v66.953h62.695v-18.039c-1.0664 1.8477-2.0586 4.2539-3.418 4.7891l-9.1172 3.9414c-1.4609 0.63281-3.1445-0.36719-3.3203-1.9219h-0.007813l-1.1602-10.012c-0.066406-0.56641 0.074219-1.1133 0.35938-1.5586zm-11.473 36.691 5.5625-2.4062 23.949-41.48-6.2695-3.6133-23.941 41.469z"/>
+              </svg>
+            </a>
+            <button type="button" class="action-btn action-btn--delete" title="Delete mystery" (click)="deleteMystery(mystery.id, mystery.name)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 40 32 32" aria-hidden="true" fill="currentColor">
+                <path d="m 12.914062,42 c -1.381598,0 -2.52539,1.143791 -2.52539,2.525391 V 46 H 4.1171875 c -0.5522847,0 -1,0.447715 -1,1 0,0.552285 0.4477153,1 1,1 h 0.9160156 c 0.652035,6.357819 1.2452954,12.725162 1.859375,19.095703 C 7.0390694,68.615433 8.2408945,70 9.8886719,70 H 21.888672 c 1.64695,0 2.84373,-1.384481 2.99414,-2.900391 C 25.52557,60.724696 26.108614,54.352916 26.791016,48 h 1.091796 c 0.552285,0 1,-0.447715 1,-1 0,-0.552285 -0.447715,-1 -1,-1 h -6.49414 V 44.525391 C 21.388672,43.143791 20.24488,42 18.863281,42 Z m 0,2 h 5.949219 c 0.309346,0 0.525391,0.216051 0.525391,0.525391 V 46 h -7 V 44.525391 C 12.388672,44.216051 12.604717,44 12.914062,44 Z M 7.0410156,48 H 24.783203 C 24.080881,54.566226 23.453671,61.351887 22.89967,66.895477 22.832032,67.58378 22.456762,68 21.888672,68 H 9.8886719 C 9.3204493,68 8.9508971,67.590347 8.8847656,66.904297 8.2777498,60.607037 7.6860333,54.3022 7.0410156,48 Z"/>
+              </svg>
+            </button>
+          </div>
         </li>
       }
     </ul>

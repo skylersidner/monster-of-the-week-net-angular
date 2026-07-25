@@ -1,4 +1,5 @@
 import { Component, OnInit, ViewEncapsulation, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 
 import { MysteryCreateBystandersPhaseComponent } from './mystery-create-bystanders-phase';
 import { MysteryCreateDossierComponent } from './mystery-create-dossier';
@@ -27,8 +28,10 @@ import { MysterySectionIconComponent } from '../../shared/mystery-section-icon';
 })
 export class MysteryCreateComponent implements OnInit {
   readonly store = inject(MysteryCreateStore);
+  private readonly route = inject(ActivatedRoute);
 
   ngOnInit(): void {
-    this.store.init();
+    const id = this.route.snapshot.paramMap.get('id') ?? undefined;
+    this.store.init(id);
   }
 }
