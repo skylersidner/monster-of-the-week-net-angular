@@ -38,10 +38,7 @@ export class MonsterDetailComponent implements OnInit {
   readonly mysteryId = signal<string | null>(null);
   readonly isMutating = computed(() => this.activeMutation() !== null);
 
-  readonly backLink = computed(() => {
-    const id = this.mysteryId();
-    return id ? ['/mysteries', id] : ['/mysteries'];
-  });
+  readonly backLink = computed(() => ['/monsters']);
 
   readonly monsterForm = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [Validators.required]),
@@ -89,11 +86,11 @@ export class MonsterDetailComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef),
         switchMap((params) => {
           const monsterId = params.get('monsterId');
-          const mysteryId = params.get('mysteryId');
-          if (!monsterId || !mysteryId) {
-            throw new Error('Mystery id and monster id are required.');
+          if (!monsterId) {
+            throw new Error('Monster id is required.');
           }
 
+          const mysteryId = params.get('mysteryId');
           this.mysteryId.set(mysteryId);
           this.isLoading.set(true);
           this.errorMessage.set(null);

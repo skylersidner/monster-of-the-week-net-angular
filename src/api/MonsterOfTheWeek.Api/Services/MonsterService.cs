@@ -6,6 +6,9 @@ namespace MonsterOfTheWeek.Api.Services;
 
 public sealed class MonsterService(IMonsterRepository monsterRepository) : IMonsterService
 {
+    public async Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
+        await monsterRepository.GetAllAsync(cancellationToken);
+
     public async Task<ServiceResult<IReadOnlyList<MonsterListItemResponse>>> GetByMysteryAsync(Guid mysteryId, CancellationToken cancellationToken)
     {
         if (!await monsterRepository.MysteryExistsAsync(mysteryId, cancellationToken))
@@ -14,20 +17,7 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
         }
 
         var monsters = await monsterRepository.GetMonstersByMysteryIdAsync(mysteryId, cancellationToken);
-        var responses = monsters
-            .Select(x => new MonsterListItemResponse(
-                x.Id,
-                x.Mysteries.Select(mm => mm.MysteryId).ToList(),
-                x.Name,
-                x.Description,
-                x.HarmCapacity,
-                x.MonsterTypeId,
-                x.MonsterType?.Name,
-                x.MinionTypeId,
-                x.MinionType?.Name))
-            .ToList();
-
-        return ServiceResult<IReadOnlyList<MonsterListItemResponse>>.Success(responses);
+        return ServiceResult<IReadOnlyList<MonsterListItemResponse>>.Success(monsters);
     }
 
     public async Task<ServiceResult<MonsterDetailResponse>> CreateAsync(

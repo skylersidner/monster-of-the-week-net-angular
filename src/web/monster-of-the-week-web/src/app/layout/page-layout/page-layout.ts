@@ -20,7 +20,7 @@ export class PageLayoutComponent implements OnInit {
   readonly navItems: readonly NavItem[] = [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard', exactMatch: true },
     { label: 'Mysteries', route: '/mysteries', icon: 'mysteries', exactMatch: false },
-    { label: 'Monsters', route: null, icon: 'monsters' },
+    { label: 'Monsters', route: '/monsters', icon: 'monsters', exactMatch: false },
     { label: 'Minions', route: null, icon: 'minions' },
     { label: 'Locations', route: null, icon: 'locations' },
     { label: 'Bystanders', route: null, icon: 'bystanders' },

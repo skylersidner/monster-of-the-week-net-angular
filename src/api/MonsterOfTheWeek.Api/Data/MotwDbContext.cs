@@ -100,6 +100,8 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.HarmCapacity).HasColumnName("harm_capacity");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
             entity.HasOne(e => e.MonsterType).WithMany(e => e.Monsters).HasForeignKey(e => e.MonsterTypeId)
                 .OnDelete(DeleteBehavior.SetNull);

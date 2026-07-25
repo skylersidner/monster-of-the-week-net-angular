@@ -1,3 +1,4 @@
+using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 
 namespace MonsterOfTheWeek.Api.Repositories;
@@ -9,7 +10,8 @@ public interface IMonsterRepository
     Task<bool> MonsterTypeExistsAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> MinionTypeExistsAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> WeaponTagExistsAsync(Guid id, CancellationToken cancellationToken);
-    Task<IReadOnlyList<Monster>> GetMonstersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<MonsterListItemResponse>> GetMonstersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken);
     Task<Monster?> GetMonsterDetailAsync(Guid id, CancellationToken cancellationToken);
     Task<Monster?> GetMonsterForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task AddMonsterAsync(Monster monster, CancellationToken cancellationToken);

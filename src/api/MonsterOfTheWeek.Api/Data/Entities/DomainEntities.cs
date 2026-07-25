@@ -56,7 +56,7 @@ public sealed class MinionType
     public ICollection<Monster> Monsters { get; set; } = [];
 }
 
-public sealed class Monster
+public sealed class Monster : ITimestamped
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid? MonsterTypeId { get; set; }
@@ -64,6 +64,8 @@ public sealed class Monster
     public required string Name { get; set; }
     public string? Description { get; set; }
     public int HarmCapacity { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public MonsterType? MonsterType { get; set; }
     public MinionType? MinionType { get; set; }

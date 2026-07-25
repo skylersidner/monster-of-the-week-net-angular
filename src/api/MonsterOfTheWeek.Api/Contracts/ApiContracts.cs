@@ -70,7 +70,12 @@ public sealed record MonsterListItemResponse(
     Guid? MonsterTypeId,
     string? MonsterTypeName,
     Guid? MinionTypeId,
-    string? MinionTypeName);
+    string? MinionTypeName,
+    int AttackCount,
+    int PowerCount,
+    int ArmorCount,
+    int WeaknessCount,
+    DateTimeOffset CreatedAt);
 
 public sealed record MonsterAttackResponse(
     Guid Id,

@@ -20,6 +20,11 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/mysteries/mysteries.routes').then((m) => m.MYSTERIES_ROUTES),
       },
+      {
+        path: 'monsters',
+        loadChildren: () =>
+          import('./features/monsters/monsters.routes').then((m) => m.MONSTERS_ROUTES),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

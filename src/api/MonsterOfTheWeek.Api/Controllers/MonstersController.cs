@@ -7,6 +7,10 @@ namespace MonsterOfTheWeek.Api.Controllers;
 [ApiController]
 public sealed class MonstersController(IMonsterService monsterService) : ControllerBase
 {
+    [HttpGet("api/monsters")]
+    public async Task<ActionResult<IReadOnlyList<MonsterListItemResponse>>> GetAll(CancellationToken cancellationToken)
+        => Ok(await monsterService.GetAllAsync(cancellationToken));
+
     [HttpGet("api/mysteries/{mysteryId:guid}/monsters")]
     public async Task<ActionResult<IReadOnlyList<MonsterListItemResponse>>> GetByMystery(Guid mysteryId, CancellationToken cancellationToken)
         => ToActionResult(await monsterService.GetByMysteryAsync(mysteryId, cancellationToken));

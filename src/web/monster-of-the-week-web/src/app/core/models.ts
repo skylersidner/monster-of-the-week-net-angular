@@ -98,6 +98,11 @@ export interface MonsterListItemResponse {
   monsterTypeName: string | null;
   minionTypeId: string | null;
   minionTypeName: string | null;
+  attackCount: number;
+  powerCount: number;
+  armorCount: number;
+  weaknessCount: number;
+  createdAt: string;
 }
 
 export interface MonsterAttackResponse {

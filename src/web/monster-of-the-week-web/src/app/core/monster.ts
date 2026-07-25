@@ -26,6 +26,10 @@ export class MonsterService {
     return this.apiService.get<MonsterListItemResponse[]>(`/api/mysteries/${mysteryId}/monsters`);
   }
 
+  getAll(): Observable<MonsterListItemResponse[]> {
+    return this.apiService.get<MonsterListItemResponse[]>(`/api/monsters`);
+  }
+
   getById(monsterId: string): Observable<MonsterDetailResponse> {
     return this.apiService.get<MonsterDetailResponse>(`/api/monsters/${monsterId}`);
   }

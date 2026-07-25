@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
 
@@ -21,14 +22,47 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
     public Task<bool> WeaponTagExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.WeaponTags.AnyAsync(x => x.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<Monster>> GetMonstersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         await dbContext.Monsters
             .AsNoTracking()
-            .Include(x => x.MonsterType)
-            .Include(x => x.MinionType)
-            .Include(x => x.Mysteries)
+            .OrderBy(x => x.Name)
+            .Select(x => new MonsterListItemResponse(
+                x.Id,
+                x.Mysteries.Select(mm => mm.MysteryId).ToList(),
+                x.Name,
+                x.Description,
+                x.HarmCapacity,
+                x.MonsterTypeId,
+                x.MonsterType != null ? x.MonsterType.Name : null,
+                x.MinionTypeId,
+                x.MinionType != null ? x.MinionType.Name : null,
+                x.Attacks.Count,
+                x.Powers.Count,
+                x.Armors.Count,
+                x.Weaknesses.Count,
+                x.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<MonsterListItemResponse>> GetMonstersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken) =>
+        await dbContext.Monsters
+            .AsNoTracking()
             .Where(x => x.Mysteries.Any(mm => mm.MysteryId == mysteryId))
             .OrderBy(x => x.Name)
+            .Select(x => new MonsterListItemResponse(
+                x.Id,
+                x.Mysteries.Select(mm => mm.MysteryId).ToList(),
+                x.Name,
+                x.Description,
+                x.HarmCapacity,
+                x.MonsterTypeId,
+                x.MonsterType != null ? x.MonsterType.Name : null,
+                x.MinionTypeId,
+                x.MinionType != null ? x.MinionType.Name : null,
+                x.Attacks.Count,
+                x.Powers.Count,
+                x.Armors.Count,
+                x.Weaknesses.Count,
+                x.CreatedAt))
             .ToListAsync(cancellationToken);
 
     public Task<Monster?> GetMonsterDetailAsync(Guid id, CancellationToken cancellationToken) =>
