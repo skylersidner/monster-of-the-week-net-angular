@@ -1,10 +1,14 @@
 <header class="tracker">
   @for (phase of store.phases; track phase.index) {
     @if (phase.index > 0) {
-      <div class="tracker-line" [class.complete]="store.phaseComplete()[phase.index - 1]"></div>
+      <div
+        class="tracker-line"
+        [class.complete]="store.phaseComplete()[phase.index - 1]"
+        [style.grid-column]="phase.index * 2">
+      </div>
     }
 
-    <div class="tracker-phase">
+    <div class="tracker-phase" [style.grid-column]="phase.index * 2 + 1">
       <button
         type="button"
         class="phase-bubble"
@@ -20,20 +24,20 @@
         <span>{{ phase.name }}</span>
       </span>
 
-      @if (phase.steps > 1) {
-        <div class="step-dots">
+      <div class="step-dots">
+        @if (phase.steps > 1) {
           @for (step of phase.stepsArray; track step) {
             <span
               class="step-dot"
               [class.active]="store.currentPhase() === phase.index && store.currentStep() === step"
               [class.complete]="
-                store.phaseComplete()[phase.index] ||
+                store.phaseStepComplete()[phase.index]?.[step] ||
                 (store.currentPhase() === phase.index && store.currentStep() > step)
               ">
             </span>
           }
-        </div>
-      }
+        }
+      </div>
     </div>
   }
 </header>

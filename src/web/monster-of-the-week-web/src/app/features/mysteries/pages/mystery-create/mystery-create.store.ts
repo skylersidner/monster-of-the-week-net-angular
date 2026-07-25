@@ -351,6 +351,32 @@ export class MysteryCreateStore {
     countdown: this.countdownValue(),
   }));
 
+  readonly phaseStepComplete = computed<boolean[][]>(() => {
+    const preview = this.mysteryPreview();
+    const hasAnyCountdown = Object.values(preview.countdown ?? {}).some(
+      (v) => typeof v === 'string' && v.trim().length > 0
+    );
+
+    return [
+      // Phase 0 — Mystery (concept, hook, overview, countdown)
+      [
+        preview.name.trim().length > 0,
+        (preview.hook ?? '').trim().length > 0,
+        (preview.overview ?? '').trim().length > 0,
+        hasAnyCountdown,
+      ],
+      // Phase 1 — Monsters (monster, minion)
+      [
+        (this.monsterPreview()?.name ?? '').trim().length > 0,
+        false, // minion is optional — never force-complete
+      ],
+      // Phase 2 — Locations
+      [this.locations().length > 0],
+      // Phase 3 — Bystanders
+      [this.bystanders().length > 0],
+    ];
+  });
+
   readonly monsterPreview = computed(() => {
     const typeId = this.monsterValue()?.monsterTypeId ?? '';
     const type = this.monsterTypes().find((item) => item.id === typeId);
@@ -551,6 +577,13 @@ export class MysteryCreateStore {
           const pureMonster = monsters.find((m) => m.minionTypeId == null) ?? null;
           const minion = monsters.find((m) => m.minionTypeId != null) ?? null;
 
+          this.phaseComplete.set([
+            mystery.name.trim().length > 0,
+            pureMonster != null,
+            locations.length > 0,
+            bystanders.length > 0,
+          ]);
+
           return forkJoin({
             pureMonster: pureMonster ? this.monsterService.getById(pureMonster.id) : of(null),
             minion: minion ? this.monsterService.getById(minion.id) : of(null),
@@ -666,6 +699,9 @@ export class MysteryCreateStore {
   }
 
   isPhaseAccessible(phase: number): boolean {
+    if (this.isEditMode()) {
+      return true;
+    }
     return phase === this.currentPhase() || this.phaseComplete()[phase] === true;
   }
 

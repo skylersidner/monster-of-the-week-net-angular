@@ -10,28 +10,32 @@ app-mystery-create {
 }
 
 .mystery-create .tracker {
-  align-items: center;
   background: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  display: flex;
+  display: grid;
   flex-shrink: 0;
-  gap: 0;
+  grid-template-columns: auto 3rem auto 3rem auto 3rem auto;
+  grid-template-rows: auto auto auto;
   justify-content: center;
+  justify-items: center;
   min-height: 80px;
-  padding: 0 2rem;
+  padding: 0.75rem 2rem;
+  row-gap: 0.35rem;
 }
 
 .mystery-create .tracker-phase {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  display: grid;
+  grid-row: 1 / 4;
+  grid-template-rows: subgrid;
+  justify-items: center;
 }
 
 .mystery-create .tracker-line {
+  align-self: center;
   background: #cbd5e1;
-  flex: 1;
+  grid-row: 1;
   height: 2px;
+  justify-self: stretch;
   max-width: 80px;
   min-width: 24px;
 }
