@@ -34,9 +34,9 @@ public sealed class MonstersController(IMonsterService monsterService) : Control
     public async Task<ActionResult<MonsterDetailResponse>> Update(Guid id, [FromBody] UpsertMonsterRequest request, CancellationToken cancellationToken) =>
         ToActionResult(await monsterService.UpdateAsync(id, request, cancellationToken));
 
-    [HttpDelete("api/monsters/{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        await monsterService.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
+    [HttpDelete("api/mysteries/{mysteryId:guid}/monsters/{id:guid}")]
+    public async Task<IActionResult> UnlinkFromMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
+        await monsterService.UnlinkFromMysteryAsync(mysteryId, id, cancellationToken) ? NoContent() : NotFound();
 
     [HttpGet("api/monsters/{id:guid}/attacks")]
     public async Task<ActionResult<IReadOnlyList<MonsterAttackResponse>>> GetAttacks(Guid id, CancellationToken cancellationToken) =>

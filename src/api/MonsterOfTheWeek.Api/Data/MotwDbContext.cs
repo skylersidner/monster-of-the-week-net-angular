@@ -24,6 +24,9 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
     public DbSet<BystanderType> BystanderTypes => Set<BystanderType>();
     public DbSet<BystanderCustomMove> BystanderCustomMoves => Set<BystanderCustomMove>();
     public DbSet<MysteryCustomMove> MysteryCustomMoves => Set<MysteryCustomMove>();
+    public DbSet<MysteryMonster> MysteryMonsters => Set<MysteryMonster>();
+    public DbSet<MysteryLocation> MysteryLocations => Set<MysteryLocation>();
+    public DbSet<MysteryBystander> MysteryBystanders => Set<MysteryBystander>();
 
     public override int SaveChanges()
     {
@@ -92,14 +95,12 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.ToTable("monsters");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MysteryId).HasColumnName("mystery_id");
             entity.Property(e => e.MonsterTypeId).HasColumnName("monster_type_id");
             entity.Property(e => e.MinionTypeId).HasColumnName("minion_type_id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.HarmCapacity).HasColumnName("harm_capacity");
 
-            entity.HasOne(e => e.Mystery).WithMany(e => e.Monsters).HasForeignKey(e => e.MysteryId);
             entity.HasOne(e => e.MonsterType).WithMany(e => e.Monsters).HasForeignKey(e => e.MonsterTypeId)
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(e => e.MinionType).WithMany(e => e.Monsters).HasForeignKey(e => e.MinionTypeId)
@@ -200,12 +201,10 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.ToTable("locations");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MysteryId).HasColumnName("mystery_id");
             entity.Property(e => e.LocationTypeId).HasColumnName("location_type_id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
 
-            entity.HasOne(e => e.Mystery).WithMany(e => e.Locations).HasForeignKey(e => e.MysteryId);
             entity.HasOne(e => e.LocationType).WithMany(e => e.Locations).HasForeignKey(e => e.LocationTypeId);
         });
 
@@ -234,12 +233,10 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.ToTable("bystanders");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MysteryId).HasColumnName("mystery_id");
             entity.Property(e => e.BystanderTypeId).HasColumnName("bystander_type_id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
 
-            entity.HasOne(e => e.Mystery).WithMany(e => e.Bystanders).HasForeignKey(e => e.MysteryId);
             entity.HasOne(e => e.BystanderType).WithMany(e => e.Bystanders).HasForeignKey(e => e.BystanderTypeId);
         });
 
@@ -263,6 +260,36 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.HasOne(e => e.Mystery).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MysteryId);
+        });
+
+        modelBuilder.Entity<MysteryMonster>(entity =>
+        {
+            entity.ToTable("mystery_monsters");
+            entity.HasKey(e => new { e.MysteryId, e.MonsterId });
+            entity.Property(e => e.MysteryId).HasColumnName("mystery_id");
+            entity.Property(e => e.MonsterId).HasColumnName("monster_id");
+            entity.HasOne(e => e.Mystery).WithMany(e => e.MysteryMonsters).HasForeignKey(e => e.MysteryId);
+            entity.HasOne(e => e.Monster).WithMany(e => e.Mysteries).HasForeignKey(e => e.MonsterId);
+        });
+
+        modelBuilder.Entity<MysteryLocation>(entity =>
+        {
+            entity.ToTable("mystery_locations");
+            entity.HasKey(e => new { e.MysteryId, e.LocationId });
+            entity.Property(e => e.MysteryId).HasColumnName("mystery_id");
+            entity.Property(e => e.LocationId).HasColumnName("location_id");
+            entity.HasOne(e => e.Mystery).WithMany(e => e.MysteryLocations).HasForeignKey(e => e.MysteryId);
+            entity.HasOne(e => e.Location).WithMany(e => e.Mysteries).HasForeignKey(e => e.LocationId);
+        });
+
+        modelBuilder.Entity<MysteryBystander>(entity =>
+        {
+            entity.ToTable("mystery_bystanders");
+            entity.HasKey(e => new { e.MysteryId, e.BystanderId });
+            entity.Property(e => e.MysteryId).HasColumnName("mystery_id");
+            entity.Property(e => e.BystanderId).HasColumnName("bystander_id");
+            entity.HasOne(e => e.Mystery).WithMany(e => e.MysteryBystanders).HasForeignKey(e => e.MysteryId);
+            entity.HasOne(e => e.Bystander).WithMany(e => e.Mysteries).HasForeignKey(e => e.BystanderId);
         });
     }
 

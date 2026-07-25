@@ -17,7 +17,7 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
         var responses = monsters
             .Select(x => new MonsterListItemResponse(
                 x.Id,
-                x.MysteryId,
+                x.Mysteries.Select(mm => mm.MysteryId).ToList(),
                 x.Name,
                 x.Description,
                 x.HarmCapacity,
@@ -48,7 +48,6 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
 
         var monster = new Monster
         {
-            MysteryId = mysteryId,
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
             HarmCapacity = request.HarmCapacity,
@@ -57,6 +56,9 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
         };
 
         await monsterRepository.AddMonsterAsync(monster, cancellationToken);
+        await monsterRepository.LinkMonsterToMysteryAsync(
+            new MysteryMonster { MysteryId = mysteryId, MonsterId = monster.Id },
+            cancellationToken);
         await monsterRepository.SaveChangesAsync(cancellationToken);
 
         var detail = await GetByIdAsync(monster.Id, cancellationToken);
@@ -97,8 +99,8 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
         return ServiceResult<MonsterDetailResponse>.Success(detail!);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
-        await monsterRepository.DeleteMonsterAsync(id, cancellationToken) > 0;
+    public async Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
+        await monsterRepository.UnlinkMonsterFromMysteryAsync(mysteryId, id, cancellationToken) > 0;
 
     public async Task<ServiceResult<IReadOnlyList<MonsterAttackResponse>>> GetAttacksAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -424,7 +426,7 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
     private static MonsterDetailResponse ToDetailResponse(Monster monster) =>
         new(
             monster.Id,
-            monster.MysteryId,
+            monster.Mysteries.Select(mm => mm.MysteryId).ToList(),
             monster.Name,
             monster.Description,
             monster.HarmCapacity,

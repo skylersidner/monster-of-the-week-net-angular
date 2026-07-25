@@ -58,7 +58,7 @@ describe('MysteryDetailComponent', () => {
               of([
                 {
                   id: 'monster-1',
-                  mysteryId: 'mystery-1',
+                  mysteryIds: ['mystery-1'],
                   name: 'The Wailer',
                   description: null,
                   harmCapacity: 8,
@@ -69,7 +69,7 @@ describe('MysteryDetailComponent', () => {
                 },
                 {
                   id: 'minion-1',
-                  mysteryId: 'mystery-1',
+                  mysteryIds: ['mystery-1'],
                   name: 'Echo Thrall',
                   description: null,
                   harmCapacity: 3,
@@ -92,7 +92,7 @@ describe('MysteryDetailComponent', () => {
                         id: 'location-1',
                         name: 'Bell Tower',
                         description: null,
-                        mysteryId: 'mystery-1',
+                        mysteryIds: ['mystery-1'],
                         locationTypeId: 'location-type-1',
                         locationTypeName: 'Sanctum',
                       },
@@ -102,7 +102,7 @@ describe('MysteryDetailComponent', () => {
                         id: 'bystander-1',
                         name: 'Father Reed',
                         description: null,
-                        mysteryId: 'mystery-1',
+                        mysteryIds: ['mystery-1'],
                         bystanderTypeId: 'bystander-type-1',
                         bystanderTypeName: 'Witness',
                       },

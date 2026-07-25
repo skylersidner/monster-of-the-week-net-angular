@@ -16,7 +16,8 @@ public sealed class BystanderRepository(MotwDbContext dbContext) : IBystanderRep
         await dbContext.Bystanders
             .AsNoTracking()
             .Include(x => x.BystanderType)
-            .Where(x => x.MysteryId == mysteryId)
+            .Include(x => x.Mysteries)
+            .Where(x => x.Mysteries.Any(mb => mb.MysteryId == mysteryId))
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
@@ -26,10 +27,22 @@ public sealed class BystanderRepository(MotwDbContext dbContext) : IBystanderRep
         return Task.CompletedTask;
     }
 
+    public Task LinkBystanderToMysteryAsync(MysteryBystander link, CancellationToken cancellationToken)
+    {
+        dbContext.MysteryBystanders.Add(link);
+        return Task.CompletedTask;
+    }
+
+    public Task<int> UnlinkBystanderFromMysteryAsync(Guid mysteryId, Guid bystanderId, CancellationToken cancellationToken) =>
+        dbContext.MysteryBystanders
+            .Where(x => x.MysteryId == mysteryId && x.BystanderId == bystanderId)
+            .ExecuteDeleteAsync(cancellationToken);
+
     public Task<Bystander?> GetBystanderDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.Bystanders
             .Include(x => x.BystanderType)
+            .Include(x => x.Mysteries)
             .Include(x => x.CustomMoves)
             .Where(x => x.Id == id);
         if (asNoTracking)
@@ -42,9 +55,6 @@ public sealed class BystanderRepository(MotwDbContext dbContext) : IBystanderRep
 
     public Task<Bystander?> GetBystanderForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Bystanders.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-
-    public Task<int> DeleteBystanderAsync(Guid id, CancellationToken cancellationToken) =>
-        dbContext.Bystanders.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
 
     public Task<bool> BystanderExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Bystanders.AnyAsync(x => x.Id == id, cancellationToken);

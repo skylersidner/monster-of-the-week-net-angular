@@ -34,7 +34,7 @@ describe('BystanderDetailComponent', () => {
             get: () =>
               of({
                 id: 'b1',
-                mysteryId: 'm1',
+                mysteryIds: ['m1'],
                 name: 'Bystander',
                 description: null,
                 bystanderTypeId: 'bt1',
@@ -80,7 +80,7 @@ describe('BystanderDetailComponent', () => {
 
     putSubject.next({
       id: 'b1',
-      mysteryId: 'm1',
+      mysteryIds: ['m1'],
       name: 'Bystander',
       description: null,
       bystanderTypeId: 'bt1',

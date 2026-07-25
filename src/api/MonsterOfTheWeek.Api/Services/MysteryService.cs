@@ -15,9 +15,9 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
                 x.Name,
                 x.Concept,
                 x.Hook,
-                x.Monsters.Count,
-                x.Locations.Count,
-                x.Bystanders.Count,
+                x.MysteryMonsters.Count,
+                x.MysteryLocations.Count,
+                x.MysteryBystanders.Count,
                 x.CreatedAt))
             .ToList();
     }
@@ -115,9 +115,9 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
             mystery.Overview,
             mystery.Notes,
             mystery.Countdown is null ? null : mystery.Countdown.ToResponse(),
-            mystery.Monsters.Count,
-            mystery.Locations.Count,
-            mystery.Bystanders.Count,
+            mystery.MysteryMonsters.Count,
+            mystery.MysteryLocations.Count,
+            mystery.MysteryBystanders.Count,
             mystery.CustomMoves.Select(x => x.ToResponse()).ToList(),
             mystery.CreatedAt,
             mystery.UpdatedAt);

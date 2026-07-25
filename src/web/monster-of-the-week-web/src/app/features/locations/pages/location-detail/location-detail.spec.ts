@@ -34,7 +34,7 @@ describe('LocationDetailComponent', () => {
             get: () =>
               of({
                 id: 'l1',
-                mysteryId: 'm1',
+                mysteryIds: ['m1'],
                 name: 'Location',
                 description: null,
                 locationTypeId: 'lt1',
@@ -80,7 +80,7 @@ describe('LocationDetailComponent', () => {
 
     putSubject.next({
       id: 'l1',
-      mysteryId: 'm1',
+      mysteryIds: ['m1'],
       name: 'Location',
       description: null,
       locationTypeId: 'lt1',

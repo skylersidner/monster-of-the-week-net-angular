@@ -68,9 +68,9 @@ public sealed class LocationsController(ILocationService locationService) : Cont
         return Ok(result.Value);
     }
 
-    [HttpDelete("api/locations/{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        await locationService.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
+    [HttpDelete("api/mysteries/{mysteryId:guid}/locations/{id:guid}")]
+    public async Task<IActionResult> UnlinkFromMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
+        await locationService.UnlinkFromMysteryAsync(mysteryId, id, cancellationToken) ? NoContent() : NotFound();
 
     [HttpGet("api/locations/{id:guid}/custom-moves")]
     public async Task<ActionResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMoves(Guid id, CancellationToken cancellationToken)

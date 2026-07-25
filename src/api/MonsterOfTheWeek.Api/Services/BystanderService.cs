@@ -17,7 +17,7 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
         var items = bystanders
             .Select(x => new BystanderListItemResponse(
                 x.Id,
-                x.MysteryId,
+                x.Mysteries.Select(mb => mb.MysteryId).ToList(),
                 x.Name,
                 x.Description,
                 x.BystanderTypeId,
@@ -43,13 +43,15 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
 
         var bystander = new Bystander
         {
-            MysteryId = mysteryId,
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
             BystanderTypeId = request.BystanderTypeId
         };
 
         await bystanderRepository.AddBystanderAsync(bystander, cancellationToken);
+        await bystanderRepository.LinkBystanderToMysteryAsync(
+            new MysteryBystander { MysteryId = mysteryId, BystanderId = bystander.Id },
+            cancellationToken);
         await bystanderRepository.SaveChangesAsync(cancellationToken);
         var response = await GetByIdAsync(bystander.Id, cancellationToken);
         return ServiceResult<BystanderDetailResponse>.Success(response!);
@@ -62,7 +64,7 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
             ? null
             : new BystanderDetailResponse(
                 bystander.Id,
-                bystander.MysteryId,
+                bystander.Mysteries.Select(mb => mb.MysteryId).ToList(),
                 bystander.Name,
                 bystander.Description,
                 bystander.BystanderTypeId,
@@ -96,9 +98,9 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
         return ServiceResult<BystanderDetailResponse>.Success(response!);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await bystanderRepository.DeleteBystanderAsync(id, cancellationToken);
+        var deleted = await bystanderRepository.UnlinkBystanderFromMysteryAsync(mysteryId, id, cancellationToken);
         return deleted > 0;
     }
 

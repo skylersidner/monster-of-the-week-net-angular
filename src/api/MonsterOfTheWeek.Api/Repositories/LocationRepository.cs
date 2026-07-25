@@ -16,7 +16,8 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
         await dbContext.Locations
             .AsNoTracking()
             .Include(x => x.LocationType)
-            .Where(x => x.MysteryId == mysteryId)
+            .Include(x => x.Mysteries)
+            .Where(x => x.Mysteries.Any(ml => ml.MysteryId == mysteryId))
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
@@ -26,10 +27,22 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
         return Task.CompletedTask;
     }
 
+    public Task LinkLocationToMysteryAsync(MysteryLocation link, CancellationToken cancellationToken)
+    {
+        dbContext.MysteryLocations.Add(link);
+        return Task.CompletedTask;
+    }
+
+    public Task<int> UnlinkLocationFromMysteryAsync(Guid mysteryId, Guid locationId, CancellationToken cancellationToken) =>
+        dbContext.MysteryLocations
+            .Where(x => x.MysteryId == mysteryId && x.LocationId == locationId)
+            .ExecuteDeleteAsync(cancellationToken);
+
     public Task<Location?> GetLocationDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.Locations
             .Include(x => x.LocationType)
+            .Include(x => x.Mysteries)
             .Include(x => x.CustomMoves)
             .Where(x => x.Id == id);
 
@@ -43,9 +56,6 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
 
     public Task<Location?> GetLocationForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Locations.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-
-    public Task<int> DeleteLocationAsync(Guid id, CancellationToken cancellationToken) =>
-        dbContext.Locations.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
 
     public Task<bool> LocationExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Locations.AnyAsync(x => x.Id == id, cancellationToken);

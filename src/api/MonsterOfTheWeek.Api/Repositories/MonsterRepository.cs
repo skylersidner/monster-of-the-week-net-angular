@@ -26,7 +26,8 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
             .AsNoTracking()
             .Include(x => x.MonsterType)
             .Include(x => x.MinionType)
-            .Where(x => x.MysteryId == mysteryId)
+            .Include(x => x.Mysteries)
+            .Where(x => x.Mysteries.Any(mm => mm.MysteryId == mysteryId))
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
@@ -35,6 +36,7 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
             .AsNoTracking()
             .Include(x => x.MonsterType)
             .Include(x => x.MinionType)
+            .Include(x => x.Mysteries)
             .Include(x => x.Attacks)
             .ThenInclude(x => x.MonsterAttackWeaponTags)
             .ThenInclude(x => x.WeaponTag)
@@ -53,8 +55,19 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
         return Task.CompletedTask;
     }
 
-    public Task<int> DeleteMonsterAsync(Guid id, CancellationToken cancellationToken) =>
-        dbContext.Monsters.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
+    public Task LinkMonsterToMysteryAsync(MysteryMonster link, CancellationToken cancellationToken)
+    {
+        dbContext.MysteryMonsters.Add(link);
+        return Task.CompletedTask;
+    }
+
+    public Task<int> UnlinkMonsterFromMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) =>
+        dbContext.MysteryMonsters
+            .Where(x => x.MysteryId == mysteryId && x.MonsterId == monsterId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+    public Task<bool> MonsterLinkedToMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) =>
+        dbContext.MysteryMonsters.AnyAsync(x => x.MysteryId == mysteryId && x.MonsterId == monsterId, cancellationToken);
 
     public async Task<IReadOnlyList<MonsterAttack>> GetAttacksAsync(Guid monsterId, CancellationToken cancellationToken) =>
         await dbContext.MonsterAttacks

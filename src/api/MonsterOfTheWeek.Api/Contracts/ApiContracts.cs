@@ -63,7 +63,7 @@ public sealed record UpsertCountdownRequest(
 
 public sealed record MonsterListItemResponse(
     Guid Id,
-    Guid MysteryId,
+    IReadOnlyList<Guid> MysteryIds,
     string Name,
     string? Description,
     int HarmCapacity,
@@ -85,7 +85,7 @@ public sealed record MonsterWeaknessResponse(Guid Id, string Name, string? Descr
 
 public sealed record MonsterDetailResponse(
     Guid Id,
-    Guid MysteryId,
+    IReadOnlyList<Guid> MysteryIds,
     string Name,
     string? Description,
     int HarmCapacity,
@@ -115,7 +115,7 @@ public sealed record UpsertCustomMoveRequest(string Name, string? Description);
 
 public sealed record LocationListItemResponse(
     Guid Id,
-    Guid MysteryId,
+    IReadOnlyList<Guid> MysteryIds,
     string Name,
     string? Description,
     Guid LocationTypeId,
@@ -123,7 +123,7 @@ public sealed record LocationListItemResponse(
 
 public sealed record LocationDetailResponse(
     Guid Id,
-    Guid MysteryId,
+    IReadOnlyList<Guid> MysteryIds,
     string Name,
     string? Description,
     Guid LocationTypeId,
@@ -135,7 +135,7 @@ public sealed record UpsertLocationRequest(string Name, string? Description, Gui
 
 public sealed record BystanderListItemResponse(
     Guid Id,
-    Guid MysteryId,
+    IReadOnlyList<Guid> MysteryIds,
     string Name,
     string? Description,
     Guid BystanderTypeId,
@@ -143,7 +143,7 @@ public sealed record BystanderListItemResponse(
 
 public sealed record BystanderDetailResponse(
     Guid Id,
-    Guid MysteryId,
+    IReadOnlyList<Guid> MysteryIds,
     string Name,
     string? Description,
     Guid BystanderTypeId,

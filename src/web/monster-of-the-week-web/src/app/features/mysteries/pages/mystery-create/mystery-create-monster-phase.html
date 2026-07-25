@@ -34,23 +34,38 @@
     <h4>Attacks</h4>
     @for (attack of store.monsterAttacks(); track $index) {
       <div class="sub-item-row">
-        <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
-        @if (attack.weaponTagIds.length > 0) {
-          <span class="tag-count">{{ attack.weaponTagIds.length }} tag{{ attack.weaponTagIds.length === 1 ? '' : 's' }}</span>
-        }
+        <div>
+          <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
+          @if (attack.weaponTagIds.length > 0) {
+            <span class="tag-count">{{ attack.weaponTagIds.length }} tag{{ attack.weaponTagIds.length === 1 ? '' : 's' }}</span>
+          }
+          @if (attack.description) {
+            <div class="sub-item-description">{{ attack.description }}</div>
+          }
+        </div>
         <button type="button" class="remove-btn" (click)="store.removeMonsterAttack($index)">×</button>
       </div>
     }
     <form [formGroup]="store.monsterAttackForm" class="add-sub-item-form">
-      <input formControlName="name" placeholder="Attack name" />
-      <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px" />
-      <app-custom-select
-        formControlName="weaponTagIds"
-        [options]="store.weaponTags()"
-        [multiple]="true"
-        [searchable]="true"
-        placeholder="Select weapon tags"
-      ></app-custom-select>
+      <div class="add-sub-item-row">
+        <input formControlName="name" placeholder="Attack name" />
+        <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px" />
+        <app-custom-select
+          formControlName="weaponTagIds"
+          [options]="store.weaponTags()"
+          [multiple]="true"
+          [searchable]="true"
+          placeholder="Weapon tags"
+        ></app-custom-select>
+      </div>
+      @if (store.selectedMonsterAttackTags().length > 0) {
+        <div class="weapon-tag-chips">
+          @for (tag of store.selectedMonsterAttackTags(); track tag.id) {
+            <span class="weapon-tag-chip">{{ tag.name }}</span>
+          }
+        </div>
+      }
+      <textarea formControlName="description" rows="2" placeholder="What does this attack do?"></textarea>
       <button type="button" class="btn-add" (click)="store.addMonsterAttack()">+ Add</button>
     </form>
   </div>
@@ -119,7 +134,9 @@
         <span>Special</span>
       </label>
       <textarea formControlName="description" rows="2" placeholder="Description"></textarea>
-      <textarea formControlName="specialDescription" rows="2" placeholder="Special description (if special)"></textarea>
+      @if (store.monsterArmorForm.controls.isSpecial.value) {
+        <textarea formControlName="specialDescription" rows="2" placeholder="Special description"></textarea>
+      }
       <button type="button" class="btn-add" (click)="store.addMonsterArmor()">+ Add</button>
     </form>
   </div>
@@ -160,23 +177,38 @@
     <h4>Attacks</h4>
     @for (attack of store.minionAttacks(); track $index) {
       <div class="sub-item-row">
-        <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
-        @if (attack.weaponTagIds.length > 0) {
-          <span class="tag-count">{{ attack.weaponTagIds.length }} tag{{ attack.weaponTagIds.length === 1 ? '' : 's' }}</span>
-        }
+        <div>
+          <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
+          @if (attack.weaponTagIds.length > 0) {
+            <span class="tag-count">{{ attack.weaponTagIds.length }} tag{{ attack.weaponTagIds.length === 1 ? '' : 's' }}</span>
+          }
+          @if (attack.description) {
+            <div class="sub-item-description">{{ attack.description }}</div>
+          }
+        </div>
         <button type="button" class="remove-btn" (click)="store.removeMinionAttack($index)">×</button>
       </div>
     }
     <form [formGroup]="store.minionAttackForm" class="add-sub-item-form">
-      <input formControlName="name" placeholder="Attack name" />
-      <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px" />
-      <app-custom-select
-        formControlName="weaponTagIds"
-        [options]="store.weaponTags()"
-        [multiple]="true"
-        [searchable]="true"
-        placeholder="Select weapon tags"
-      ></app-custom-select>
+      <div class="add-sub-item-row">
+        <input formControlName="name" placeholder="Attack name" />
+        <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px" />
+        <app-custom-select
+          formControlName="weaponTagIds"
+          [options]="store.weaponTags()"
+          [multiple]="true"
+          [searchable]="true"
+          placeholder="Weapon tags"
+        ></app-custom-select>
+      </div>
+      @if (store.selectedMinionAttackTags().length > 0) {
+        <div class="weapon-tag-chips">
+          @for (tag of store.selectedMinionAttackTags(); track tag.id) {
+            <span class="weapon-tag-chip">{{ tag.name }}</span>
+          }
+        </div>
+      }
+      <textarea formControlName="description" rows="2" placeholder="What does this attack do?"></textarea>
       <button type="button" class="btn-add" (click)="store.addMinionAttack()">+ Add</button>
     </form>
   </div>
@@ -245,7 +277,9 @@
         <span>Special</span>
       </label>
       <textarea formControlName="description" rows="2" placeholder="Description"></textarea>
-      <textarea formControlName="specialDescription" rows="2" placeholder="Special description (if special)"></textarea>
+      @if (store.minionArmorForm.controls.isSpecial.value) {
+        <textarea formControlName="specialDescription" rows="2" placeholder="Special description"></textarea>
+      }
       <button type="button" class="btn-add" (click)="store.addMinionArmor()">+ Add</button>
     </form>
   </div>
