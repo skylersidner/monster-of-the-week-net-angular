@@ -305,6 +305,28 @@ export class MysteryCreateStore {
   private readonly monsterValue = toSignal(this.monsterForm.valueChanges.pipe(startWith(this.monsterForm.getRawValue())));
   private readonly minionValue = toSignal(this.minionForm.valueChanges.pipe(startWith(this.minionForm.getRawValue())));
 
+  private readonly monsterAttackTagIds = toSignal(
+    this.monsterAttackForm.controls.weaponTagIds.valueChanges.pipe(
+      startWith(this.monsterAttackForm.controls.weaponTagIds.value)
+    )
+  );
+  readonly selectedMonsterAttackTags = computed(() =>
+    (this.monsterAttackTagIds() ?? [])
+      .map((id) => this.weaponTags().find((t) => t.id === id))
+      .filter((t): t is WeaponTagRefResponse => t !== undefined)
+  );
+
+  private readonly minionAttackTagIds = toSignal(
+    this.minionAttackForm.controls.weaponTagIds.valueChanges.pipe(
+      startWith(this.minionAttackForm.controls.weaponTagIds.value)
+    )
+  );
+  readonly selectedMinionAttackTags = computed(() =>
+    (this.minionAttackTagIds() ?? [])
+      .map((id) => this.weaponTags().find((t) => t.id === id))
+      .filter((t): t is WeaponTagRefResponse => t !== undefined)
+  );
+
   readonly mysteryPreview = computed(() => ({
     name: this.conceptValue()?.name ?? '',
     concept: this.conceptValue()?.concept ?? '',

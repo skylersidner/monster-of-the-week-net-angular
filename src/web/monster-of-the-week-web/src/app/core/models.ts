@@ -90,7 +90,7 @@ export interface UpsertCountdownRequest {
 
 export interface MonsterListItemResponse {
   id: string;
-  mysteryId: string;
+  mysteryIds: string[];
   name: string;
   description: string | null;
   harmCapacity: number;
@@ -131,7 +131,7 @@ export interface MonsterWeaknessResponse {
 
 export interface MonsterDetailResponse {
   id: string;
-  mysteryId: string;
+  mysteryIds: string[];
   name: string;
   description: string | null;
   harmCapacity: number;
@@ -189,7 +189,7 @@ export interface UpsertCustomMoveRequest {
 
 export interface LocationListItemResponse {
   id: string;
-  mysteryId: string;
+  mysteryIds: string[];
   name: string;
   description: string | null;
   locationTypeId: string;
@@ -198,7 +198,7 @@ export interface LocationListItemResponse {
 
 export interface LocationDetailResponse {
   id: string;
-  mysteryId: string;
+  mysteryIds: string[];
   name: string;
   description: string | null;
   locationTypeId: string;
@@ -215,7 +215,7 @@ export interface UpsertLocationRequest {
 
 export interface BystanderListItemResponse {
   id: string;
-  mysteryId: string;
+  mysteryIds: string[];
   name: string;
   description: string | null;
   bystanderTypeId: string;
@@ -224,7 +224,7 @@ export interface BystanderListItemResponse {
 
 export interface BystanderDetailResponse {
   id: string;
-  mysteryId: string;
+  mysteryIds: string[];
   name: string;
   description: string | null;
   bystanderTypeId: string;

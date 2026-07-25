@@ -273,9 +273,45 @@ app-mystery-create {
   padding: 0.4rem 0.6rem;
 }
 
-.mystery-create .add-sub-item-form input:first-child,
-.mystery-create .add-sub-item-form textarea {
+.mystery-create .add-sub-item-form > input:first-child {
   flex: 1 1 220px;
+}
+
+.mystery-create .add-sub-item-form textarea {
+  flex: 1 1 100%;
+}
+
+.mystery-create .add-sub-item-row {
+  align-items: center;
+  display: flex;
+  flex: 1 1 100%;
+  gap: 0.5rem;
+}
+
+.mystery-create .add-sub-item-row input:first-child {
+  flex: 1 1 220px;
+}
+
+.mystery-create .add-sub-item-row app-custom-select {
+  flex: 0 1 160px;
+  font-size: 0.875rem;
+}
+
+.mystery-create .weapon-tag-chips {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.mystery-create .weapon-tag-chip {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  color: #4338ca;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.25rem 0.6rem;
 }
 
 .mystery-create .add-item-form {

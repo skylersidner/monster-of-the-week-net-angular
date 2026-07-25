@@ -84,6 +84,7 @@
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 0.5rem;
+  box-sizing: border-box;
   font: inherit;
   padding: 0.55rem 0.65rem;
   width: 100%;
@@ -91,8 +92,8 @@
 
 .custom-select__search input:focus {
   border-color: #6366f1;
-  outline: 2px solid rgba(99, 102, 241, 0.16);
-  outline-offset: 0;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.16);
+  outline: none;
 }
 
 .custom-select__options {

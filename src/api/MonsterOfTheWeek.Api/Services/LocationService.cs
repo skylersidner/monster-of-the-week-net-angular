@@ -17,7 +17,7 @@ public sealed class LocationService(ILocationRepository locationRepository) : IL
         var items = locations
             .Select(x => new LocationListItemResponse(
                 x.Id,
-                x.MysteryId,
+                x.Mysteries.Select(ml => ml.MysteryId).ToList(),
                 x.Name,
                 x.Description,
                 x.LocationTypeId,
@@ -44,13 +44,15 @@ public sealed class LocationService(ILocationRepository locationRepository) : IL
 
         var location = new Location
         {
-            MysteryId = mysteryId,
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
             LocationTypeId = request.LocationTypeId
         };
 
         await locationRepository.AddLocationAsync(location, cancellationToken);
+        await locationRepository.LinkLocationToMysteryAsync(
+            new MysteryLocation { MysteryId = mysteryId, LocationId = location.Id },
+            cancellationToken);
         await locationRepository.SaveChangesAsync(cancellationToken);
 
         var response = await GetByIdAsync(location.Id, cancellationToken);
@@ -88,9 +90,9 @@ public sealed class LocationService(ILocationRepository locationRepository) : IL
         return ServiceResult<LocationDetailResponse>.Success(response!);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await locationRepository.DeleteLocationAsync(id, cancellationToken);
+        var deleted = await locationRepository.UnlinkLocationFromMysteryAsync(mysteryId, id, cancellationToken);
         return deleted > 0;
     }
 
@@ -154,7 +156,7 @@ public sealed class LocationService(ILocationRepository locationRepository) : IL
     private static LocationDetailResponse ToDetailResponse(Location location) =>
         new(
             location.Id,
-            location.MysteryId,
+            location.Mysteries.Select(ml => ml.MysteryId).ToList(),
             location.Name,
             location.Description,
             location.LocationTypeId,

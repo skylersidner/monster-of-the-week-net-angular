@@ -55,10 +55,9 @@ BEGIN
   -- -------------------------------------------------------------------------
   -- Monster 1: All-Father Stillness  (MonsterType = "Queen")
   -- -------------------------------------------------------------------------
-  INSERT INTO monsters (id, mystery_id, monster_type_id, minion_type_id, name, description, harm_capacity)
+  INSERT INTO monsters (id, monster_type_id, minion_type_id, name, description, harm_capacity)
   VALUES (
     v_monster1_id,
-    v_mystery_id,
     (SELECT id FROM monster_types WHERE name = 'Queen'),
     NULL,
     'All-Father Stillness',
@@ -106,10 +105,9 @@ BEGIN
   -- -------------------------------------------------------------------------
   -- Monster 2: The Disembodied Quiet  (MinionType = "Parasite") (continued)
   -- -------------------------------------------------------------------------
-  INSERT INTO monsters (id, mystery_id, monster_type_id, minion_type_id, name, description, harm_capacity)
+  INSERT INTO monsters (id, monster_type_id, minion_type_id, name, description, harm_capacity)
   VALUES (
     v_monster2_id,
-    v_mystery_id,
     NULL,
     (SELECT id FROM minion_types WHERE name = 'Parasite'),
     'The Disembodied Quiet',
@@ -144,20 +142,17 @@ BEGIN
   -- -------------------------------------------------------------------------
   -- Locations
   -- -------------------------------------------------------------------------
-  INSERT INTO locations (id, mystery_id, location_type_id, name, description)
+  INSERT INTO locations (id, location_type_id, name, description)
   VALUES
     (v_location1_id,
-     v_mystery_id,
      (SELECT id FROM location_types WHERE name = 'Prison'),
      'Alton''s Bend',
      'Alton''s Bend is little more than a cluster of buildings in a horseshoe arrangement, with the One Stop Gas & Grocery at the apex. The town is quite far away from civilisation: the tension can be ratcheted up by having no cell reception and the hunters'' vehicle running on fumes by the time they get there. After the countdown reaches Shadows, the bodies of two state police are found in the center of town near their patrol car. The town seems to have been hurriedly abandoned. The surviving residents are hiding, too scared to make any noise lest the Disembodied Quiet find them.'),
     (v_location2_id,
-     v_mystery_id,
      (SELECT id FROM location_types WHERE name = 'Deathtrap'),
      'One Stop Grocery & Shop',
      'The hoses have been torn from the gas pumps, resulting in large puddles of gas soaking the surrounding gravel. Any kind of flame or spark could cause some serious damage to a large area. Inside the building is a combination gift shop, sandwich counter, and woefully small grocery. The door chime has been pulled down from above the door and smashed to pieces on the floor near the entryway. Dead bodies are in the kitchen and the basement storeroom. Broken pieces of broom handles have been shoved in their ears and dish rags shoved down their throats. The Disembodied Quiet patrol here and will soon see and stalk the hunters.'),
     (v_location3_id,
-     v_mystery_id,
      (SELECT id FROM location_types WHERE name = 'Wilds'),
      'The Quiet Commune',
      'A banner hangs over what was the entrance to the commune. Now split in half and in tatters, it reads "THE QUIET IS STILL... HE MIND." Four-foot tall concrete domes are still very much intact and are a shining white after years of being bleached by the sun. The domes are completely sealed, their entrances having been seamlessly cemented over. Inside the domes are the naked and emaciated bodies of the members of The Quiet. A close check of the bodies reveals they are still alive. Their corporeal form has been slowed to such a point that they still possess the tiniest flicker of life, though there is no chance their spirits can rejoin them. Destroying these bodies will destroy the spirits instantly.');
@@ -165,10 +160,9 @@ BEGIN
   -- -------------------------------------------------------------------------
   -- Bystander: Minnie Dennis  (BystanderType = "Witness")
   -- -------------------------------------------------------------------------
-  INSERT INTO bystanders (id, mystery_id, bystander_type_id, name, description)
+  INSERT INTO bystanders (id, bystander_type_id, name, description)
   VALUES (
     v_bystander_id,
-    v_mystery_id,
     (SELECT id FROM bystander_types WHERE name = 'Witness'),
     'Minnie Dennis',
     'Minnie was an administrative assistant working at the town hall who showed up late one day to work and found the town relatively empty. She bumped into Ari Ray, who tried to keep her quiet and show her a book (Crazy Cults of the Modern Era), but when she wouldn''t stop asking questions, knocked her cold. When she awoke, her car was gone. She went to the One Stop to get something to eat and shortly after opening the door, encountered one of the Disembodied Quiet. She has survived by avoiding making any noises and hiding in a coat closet in the town hall. Minnie is terrified and doesn''t know what to do. She only speaks in barely audible whispers when pressured and if the hunters allow her to, she will find a legal pad and pen to write all communication with them.'
@@ -184,6 +178,21 @@ BEGIN
     'Bring the Noise',
     'When making noise loud enough to drown out a conversation at 10 paces (e.g. banging on sheet metal, turning a car stereo up full blast) to disrupt the Disembodied Quiet, roll +(whichever Rating is most appropriate): On a 10+, all spirits in the nearby area are forced to manifest. When manifested, they are vulnerable to attack. On a 7-9, all spirits in the area are forced to manifest and the hunter chooses 1: All spirits in the area focus their attacks on you; All spirits in the area are enraged and now cause +1 harm (increasing each time this option is selected); The noise disorients you (–1 to Sharp for 30 minutes—this can only be chosen once per hunter). On a 6 or less, all spirits in the area focus their attacks on you.'
   );
+
+  -- -------------------------------------------------------------------------
+  -- Bridge table links: associate monsters, locations, bystander with mystery
+  -- -------------------------------------------------------------------------
+  INSERT INTO mystery_monsters (mystery_id, monster_id) VALUES
+    (v_mystery_id, v_monster1_id),
+    (v_mystery_id, v_monster2_id);
+
+  INSERT INTO mystery_locations (mystery_id, location_id) VALUES
+    (v_mystery_id, v_location1_id),
+    (v_mystery_id, v_location2_id),
+    (v_mystery_id, v_location3_id);
+
+  INSERT INTO mystery_bystanders (mystery_id, bystander_id) VALUES
+    (v_mystery_id, v_bystander_id);
 
   RAISE NOTICE 'Seed complete: mystery "The Quiet" inserted successfully.';
 

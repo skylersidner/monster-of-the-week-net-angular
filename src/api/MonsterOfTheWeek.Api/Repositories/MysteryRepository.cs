@@ -9,9 +9,9 @@ public sealed class MysteryRepository(MotwDbContext dbContext) : IMysteryReposit
     public async Task<IReadOnlyList<Mystery>> GetMysteriesForListAsync(CancellationToken cancellationToken) =>
         await dbContext.Mysteries
             .AsNoTracking()
-            .Include(x => x.Monsters)
-            .Include(x => x.Locations)
-            .Include(x => x.Bystanders)
+            .Include(x => x.MysteryMonsters)
+            .Include(x => x.MysteryLocations)
+            .Include(x => x.MysteryBystanders)
             .OrderBy(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -20,9 +20,9 @@ public sealed class MysteryRepository(MotwDbContext dbContext) : IMysteryReposit
         var query = dbContext.Mysteries
             .Include(x => x.Countdown)
             .Include(x => x.CustomMoves)
-            .Include(x => x.Monsters)
-            .Include(x => x.Locations)
-            .Include(x => x.Bystanders)
+            .Include(x => x.MysteryMonsters)
+            .Include(x => x.MysteryLocations)
+            .Include(x => x.MysteryBystanders)
             .Where(x => x.Id == id);
 
         if (asNoTracking)

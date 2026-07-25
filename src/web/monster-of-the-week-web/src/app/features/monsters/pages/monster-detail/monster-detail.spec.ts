@@ -31,7 +31,7 @@ describe('MonsterDetailComponent', () => {
             getById: () =>
               of({
                 id: 'mo1',
-                mysteryId: 'm1',
+                mysteryIds: ['m1'],
                 name: 'Monster',
                 description: null,
                 harmCapacity: 7,

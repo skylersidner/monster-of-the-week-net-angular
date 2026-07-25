@@ -63,9 +63,9 @@ public sealed class BystandersController(IBystanderService bystanderService) : C
         return Ok(result.Value);
     }
 
-    [HttpDelete("api/bystanders/{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        await bystanderService.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
+    [HttpDelete("api/mysteries/{mysteryId:guid}/bystanders/{id:guid}")]
+    public async Task<IActionResult> UnlinkFromMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
+        await bystanderService.UnlinkFromMysteryAsync(mysteryId, id, cancellationToken) ? NoContent() : NotFound();
 
     [HttpGet("api/bystanders/{id:guid}/custom-moves")]
     public async Task<ActionResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMoves(Guid id, CancellationToken cancellationToken)
