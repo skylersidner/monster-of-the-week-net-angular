@@ -1,25 +1,25 @@
 <section>
-  <div class="list-header">
+  <div class="flex items-center justify-between mb-5">
     <h2>Minions</h2>
   </div>
 
   @if (isLoading()) {
     <p>Loading minions...</p>
   } @else if (errorMessage()) {
-    <p class="error">{{ errorMessage() }}</p>
+    <p class="text-red-800">{{ errorMessage() }}</p>
   } @else if (minions().length === 0) {
     <p>No minions yet.</p>
   } @else {
-    <ul class="minion-list">
+    <ul class="grid gap-4 list-none p-0">
       @for (minion of minions(); track minion.id) {
-        <li>
-          <div class="minion-info">
-            <div class="minion-name-row">
-              <a [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
-              <span class="type-badge type-badge--minion">{{ minion.minionType.name }}: {{ minion.minionType.motivation }}</span>
+        <li class="flex items-center bg-white border border-[#e5e9f2] rounded-lg gap-4 justify-between p-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-baseline gap-2 mb-1">
+              <a class="font-semibold" [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
+              <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-[#fde8d8] text-orange-800">{{ minion.minionType.name }}: {{ minion.minionType.motivation }}</span>
             </div>
-            <p class="minion-parent">
-              Belongs to: <a [routerLink]="['/monsters', minion.monsterId]">{{ minion.monsterName }}</a>
+            <p class="text-gray-500 text-[0.82rem] mt-[0.15rem] mb-[0.25rem]">
+              Belongs to: <a class="text-inherit underline" [routerLink]="['/monsters', minion.monsterId]">{{ minion.monsterName }}</a>
             </p>
             <small>
               Attacks: {{ minion.attackCount }} · Powers: {{ minion.powerCount }} · Armors:

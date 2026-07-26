@@ -10,7 +10,6 @@ import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-m
   selector: 'app-locations-list',
   imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent],
   templateUrl: './locations-list.html',
-  styleUrl: './locations-list.scss',
 })
 export class LocationsListComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);

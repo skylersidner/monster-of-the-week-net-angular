@@ -1,34 +1,34 @@
 <section>
-  <div class="list-header">
+  <div class="flex items-center justify-between mb-5">
     <h2>Locations</h2>
   </div>
 
   @if (isLoading()) {
     <p>Loading locations...</p>
   } @else if (errorMessage()) {
-    <p class="error">{{ errorMessage() }}</p>
+    <p class="text-red-800">{{ errorMessage() }}</p>
   } @else if (locations().length === 0) {
     <p>No locations yet.</p>
   } @else {
-    <ul class="location-list">
+    <ul class="grid gap-4 list-none p-0">
       @for (location of locations(); track location.id) {
-        <li>
-          <div class="location-info">
-            <div class="location-name-row">
-              <a [routerLink]="['/locations', location.id]">{{ location.name }}</a>
-              <span class="type-badge type-badge--location">{{ location.locationTypeName }}: {{ location.locationTypeMotivation }}</span>
+        <li class="flex items-center bg-white border border-[#e5e9f2] rounded-lg gap-4 justify-between p-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-baseline gap-2 mb-1">
+              <a class="font-semibold" [routerLink]="['/locations', location.id]">{{ location.name }}</a>
+              <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-green-100 text-green-900">{{ location.locationTypeName }}: {{ location.locationTypeMotivation }}</span>
             </div>
-            <p>{{ location.description || 'No description provided' }}</p>
+            <p class="my-1">{{ location.description || 'No description provided' }}</p>
             <small>Created: {{ location.createdAt | date: 'mediumDate' }}</small>
           </div>
-          <div class="location-actions">
+          <div class="flex items-center shrink-0 gap-1">
             <button
               type="button"
-              class="action-btn action-btn--delete"
+              class="flex items-center bg-transparent border-0 rounded-md text-gray-500 cursor-pointer justify-center p-[0.375rem] no-underline transition-colors hover:bg-gray-100"
               title="Delete location"
               (click)="requestDelete(location.id, location.name)"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 40 32 32" aria-hidden="true" fill="currentColor">
+              <svg class="h-5 w-5" width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 40 32 32" aria-hidden="true" fill="currentColor">
                 <path d="m 12.914062,42 c -1.381598,0 -2.52539,1.143791 -2.52539,2.525391 V 46 H 4.1171875 c -0.5522847,0 -1,0.447715 -1,1 0,0.552285 0.4477153,1 1,1 h 0.9160156 c 0.652035,6.357819 1.2452954,12.725162 1.859375,19.095703 C 7.0390694,68.615433 8.2408945,70 9.8886719,70 H 21.888672 c 1.64695,0 2.84373,-1.384481 2.99414,-2.900391 C 25.52557,60.724696 26.108614,54.352916 26.791016,48 h 1.091796 c 0.552285,0 1,-0.447715 1,-1 0,-0.552285 -0.447715,-1 -1,-1 h -6.49414 V 44.525391 C 21.388672,43.143791 20.24488,42 18.863281,42 Z m 0,2 h 5.949219 c 0.309346,0 0.525391,0.216051 0.525391,0.525391 V 46 h -7 V 44.525391 C 12.388672,44.216051 12.604717,44 12.914062,44 Z M 7.0410156,48 H 24.783203 C 24.080881,54.566226 23.453671,61.351887 22.89967,66.895477 22.832032,67.58378 22.456762,68 21.888672,68 H 9.8886719 C 9.3204493,68 8.9508971,67.590347 8.8847656,66.904297 8.2777498,60.607037 7.6860333,54.3022 7.0410156,48 Z"/>
               </svg>
             </button>

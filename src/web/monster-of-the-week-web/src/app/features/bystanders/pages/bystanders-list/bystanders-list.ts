@@ -10,7 +10,6 @@ import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-m
   selector: 'app-bystanders-list',
   imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent],
   templateUrl: './bystanders-list.html',
-  styleUrl: './bystanders-list.scss',
 })
 export class BystandersListComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);

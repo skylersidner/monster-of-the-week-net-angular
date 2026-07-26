@@ -9,7 +9,6 @@ import { MinionListItemResponse } from '../../../../core/models';
   selector: 'app-minions-list',
   imports: [RouterLink, DatePipe],
   templateUrl: './minions-list.html',
-  styleUrl: './minions-list.scss',
 })
 export class MinionsListComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
