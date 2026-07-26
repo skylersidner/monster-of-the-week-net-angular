@@ -1,12 +1,12 @@
-<div class="weapon-tag-select">
+<div class="flex flex-col gap-[0.35rem]">
   @if (selectedTags().length > 0) {
-    <div class="weapon-tag-chips">
+    <div class="flex flex-wrap gap-[0.35rem]">
       @for (tag of selectedTags(); track tag.id) {
-        <span class="weapon-tag-chip">{{ tag.name }}</span>
+        <span class="bg-indigo-50 border border-indigo-200 rounded-full text-indigo-700 text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
       }
     </div>
   }
-  <span class="weapon-tag-label">Weapon Tags</span>
+  <span class="text-inherit text-sm font-medium">Weapon Tags</span>
   <app-custom-select
     [formControl]="innerControl"
     [options]="options"

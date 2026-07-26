@@ -9,7 +9,7 @@ import { CustomSelectComponent } from './custom-select.component';
   standalone: true,
   imports: [CustomSelectComponent, ReactiveFormsModule],
   templateUrl: './weapon-tag-select.component.html',
-  styleUrl: './weapon-tag-select.component.scss',
+  host: { class: 'block' },
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
