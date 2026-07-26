@@ -1,3 +1,22 @@
+@use 'breakpoints' as bp;
+
+.weapon-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.weapon-tag-chip {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  color: #4338ca;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.25rem 0.6rem;
+}
+
 .error {
   color: #a10808;
 }
@@ -11,6 +30,18 @@ form {
   display: grid;
   gap: 0.6rem;
   margin: 1rem 0;
+}
+
+.name-row {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: 2fr 1fr 1fr;
+}
+
+@include bp.below(bp.$bp-form) {
+  .name-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 label {
@@ -47,7 +78,19 @@ button {
 .sub-resource-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@include bp.below(bp.$bp-lg) {
+  .sub-resource-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@include bp.below(bp.$bp-sm) {
+  .sub-resource-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 article {
@@ -64,11 +107,18 @@ ul {
 }
 
 li {
-  align-items: center;
+  align-items: flex-start;
   border-bottom: 1px solid #edf1f8;
   display: flex;
   justify-content: space-between;
   padding: 0.45rem 0;
+}
+
+.item-description {
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-weight: 400;
+  margin: 0.2rem 0 0;
 }
 
 li:last-child {

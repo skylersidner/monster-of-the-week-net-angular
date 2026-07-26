@@ -16,15 +16,13 @@
           <div class="monster-info">
             <div class="monster-name-row">
               <a [routerLink]="['/monsters', monster.id]">{{ monster.name }}</a>
-              @if (monster.monsterTypeName) {
-                <span class="type-badge type-badge--monster">Monster Type: {{ monster.monsterTypeName }}</span>
-              }
+              <span class="type-badge type-badge--monster">{{ monster.monsterType.name }}: {{ monster.monsterType.motivation }}</span>
             </div>
             <p>{{ monster.description || 'No description provided' }}</p>
             <small>
               Attacks: {{ monster.attackCount }} · Powers: {{ monster.powerCount }} · Armors:
-              {{ monster.armorCount }} · Weaknesses: {{ monster.weaknessCount }} · Created:
-              {{ monster.createdAt | date: 'mediumDate' }}
+              {{ monster.armorCount }} · Weaknesses: {{ monster.weaknessCount }} · Minions:
+              {{ monster.minionCount }} · Created: {{ monster.createdAt | date: 'mediumDate' }}
             </small>
           </div>
           <div class="monster-actions">

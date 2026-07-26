@@ -14,26 +14,27 @@
 
     <form [formGroup]="monsterForm" (ngSubmit)="saveMonster()">
       <h3>Details</h3>
-      <label>
-        Name
-        <input type="text" formControlName="name" />
-      </label>
+      <div class="name-row">
+        <label>
+          Name
+          <input type="text" formControlName="name" />
+        </label>
+        <label>
+          Harm Capacity
+          <input type="number" formControlName="harmCapacity" min="0" />
+        </label>
+        <label>
+          Monster Type
+          <app-custom-select
+            formControlName="monsterTypeId"
+            [options]="monsterTypes()"
+            placeholder="Select a type..."
+          ></app-custom-select>
+        </label>
+      </div>
       <label>
         Description
         <textarea formControlName="description" rows="9"></textarea>
-      </label>
-      <label>
-        Harm Capacity
-        <input type="number" formControlName="harmCapacity" min="0" />
-      </label>
-      <label>
-        Monster Type
-        <select formControlName="monsterTypeId">
-          <option value="">None</option>
-          @for (type of monsterTypes(); track type.id) {
-            <option [value]="type.id">{{ type.name }}</option>
-          }
-        </select>
       </label>
       <button type="submit" [disabled]="isMutating()">Save Monster</button>
     </form>
@@ -47,10 +48,17 @@
               <div>
                 <strong>{{ attack.name }}</strong> (Harm {{ attack.harm }})
                 @if (attack.weaponTags.length > 0) {
-                  <span> · Tags: {{ weaponTagNames(attack) }}</span>
+                  <div class="weapon-tag-chips">
+                    @for (tag of attack.weaponTags; track tag.id) {
+                      <span class="weapon-tag-chip">{{ tag.name }}</span>
+                    }
+                  </div>
+                }
+                @if (attack.description) {
+                  <p class="item-description">{{ attack.description }}</p>
                 }
               </div>
-              <button type="button" (click)="deleteAttack(attack.id)" [disabled]="isMutating()">Delete</button>
+              <button type="button" (click)="requestDeleteAttack(attack.id, attack.name)" [disabled]="isMutating()">Delete</button>
             </li>
           }
         </ul>
@@ -67,14 +75,10 @@
             Harm
             <input type="number" formControlName="harm" min="0" />
           </label>
-          <label>
-            Weapon Tags
-            <select formControlName="weaponTagIds" multiple size="4">
-              @for (tag of weaponTags(); track tag.id) {
-                <option [value]="tag.id">{{ tag.name }}</option>
-              }
-            </select>
-          </label>
+          <app-weapon-tag-select
+            formControlName="weaponTagIds"
+            [options]="weaponTags()"
+          ></app-weapon-tag-select>
           <button type="submit" [disabled]="isMutating()">Add Attack</button>
         </form>
       </article>
@@ -86,8 +90,11 @@
             <li>
               <div>
                 <strong>{{ power.name }}</strong>
+                @if (power.description) {
+                  <p class="item-description">{{ power.description }}</p>
+                }
               </div>
-              <button type="button" (click)="deletePower(power.id)" [disabled]="isMutating()">Delete</button>
+              <button type="button" (click)="requestDeletePower(power.id, power.name)" [disabled]="isMutating()">Delete</button>
             </li>
           }
         </ul>
@@ -111,8 +118,11 @@
             <li>
               <div>
                 <strong>{{ armor.name }}</strong> (Soak {{ armor.harmSoak }})
+                @if (armor.description) {
+                  <p class="item-description">{{ armor.description }}</p>
+                }
               </div>
-              <button type="button" (click)="deleteArmor(armor.id)" [disabled]="isMutating()">Delete</button>
+              <button type="button" (click)="requestDeleteArmor(armor.id, armor.name)" [disabled]="isMutating()">Delete</button>
             </li>
           }
         </ul>
@@ -148,8 +158,11 @@
             <li>
               <div>
                 <strong>{{ weakness.name }}</strong>
+                @if (weakness.description) {
+                  <p class="item-description">{{ weakness.description }}</p>
+                }
               </div>
-              <button type="button" (click)="deleteWeakness(weakness.id)" [disabled]="isMutating()">Delete</button>
+              <button type="button" (click)="requestDeleteWeakness(weakness.id, weakness.name)" [disabled]="isMutating()">Delete</button>
             </li>
           }
         </ul>
@@ -167,4 +180,11 @@
       </article>
     </div>
   }
+
+  <app-confirm-delete-modal
+    [visible]="pendingDelete() !== null"
+    [itemName]="pendingDelete()?.label ?? ''"
+    (confirmed)="onDeleteConfirmed()"
+    (cancelled)="onDeleteCancelled()"
+  ></app-confirm-delete-modal>
 </section>

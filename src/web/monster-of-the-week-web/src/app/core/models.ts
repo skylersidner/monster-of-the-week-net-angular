@@ -94,12 +94,12 @@ export interface MonsterListItemResponse {
   name: string;
   description: string | null;
   harmCapacity: number;
-  monsterTypeId: string;
-  monsterTypeName: string | null;
+  monsterType: TypeRefResponse;
   attackCount: number;
   powerCount: number;
   armorCount: number;
   weaknessCount: number;
+  minionCount: number;
   createdAt: string;
 }
 

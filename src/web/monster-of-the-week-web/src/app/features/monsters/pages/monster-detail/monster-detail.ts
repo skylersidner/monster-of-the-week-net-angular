@@ -6,6 +6,9 @@ import { forkJoin, Observable, of, switchMap } from 'rxjs';
 import { MonsterService } from '../../../../core/monster';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
+import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import { CustomSelectComponent } from '../../../../shared/custom-select.component';
+import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
 import {
   MonsterDetailResponse,
   MonsterAttackResponse,
@@ -20,7 +23,7 @@ import {
 
 @Component({
   selector: 'app-monster-detail-component',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, CustomSelectComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent],
   templateUrl: './monster-detail.html',
   styleUrl: './monster-detail.scss',
 })
@@ -34,6 +37,7 @@ export class MonsterDetailComponent implements OnInit {
   readonly isLoading = signal(true);
   readonly activeMutation = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
+  readonly pendingDelete = signal<{ label: string; perform: () => void } | null>(null);
   readonly mysteryId = signal<string | null>(null);
   readonly isMutating = computed(() => this.activeMutation() !== null);
 
@@ -196,12 +200,15 @@ export class MonsterDetailComponent implements OnInit {
       });
   }
 
-  deleteAttack(attackId: string): void {
-    if (!this.confirmDelete('Delete this attack?')) {
-      return;
-    }
-
-    this.runAndRefresh((monsterId) => this.monsterService.deleteAttack(monsterId, attackId), 'Unable to delete attack.');
+  requestDeleteAttack(attackId: string, name: string): void {
+    this.pendingDelete.set({
+      label: name,
+      perform: () =>
+        this.runAndRefresh(
+          (monsterId) => this.monsterService.deleteAttack(monsterId, attackId),
+          'Unable to delete attack.'
+        ),
+    });
   }
 
   createPower(): void {
@@ -223,12 +230,15 @@ export class MonsterDetailComponent implements OnInit {
     );
   }
 
-  deletePower(powerId: string): void {
-    if (!this.confirmDelete('Delete this power?')) {
-      return;
-    }
-
-    this.runAndRefresh((monsterId) => this.monsterService.deletePower(monsterId, powerId), 'Unable to delete power.');
+  requestDeletePower(powerId: string, name: string): void {
+    this.pendingDelete.set({
+      label: name,
+      perform: () =>
+        this.runAndRefresh(
+          (monsterId) => this.monsterService.deletePower(monsterId, powerId),
+          'Unable to delete power.'
+        ),
+    });
   }
 
   createArmor(): void {
@@ -253,12 +263,15 @@ export class MonsterDetailComponent implements OnInit {
     );
   }
 
-  deleteArmor(armorId: string): void {
-    if (!this.confirmDelete('Delete this armor?')) {
-      return;
-    }
-
-    this.runAndRefresh((monsterId) => this.monsterService.deleteArmor(monsterId, armorId), 'Unable to delete armor.');
+  requestDeleteArmor(armorId: string, name: string): void {
+    this.pendingDelete.set({
+      label: name,
+      perform: () =>
+        this.runAndRefresh(
+          (monsterId) => this.monsterService.deleteArmor(monsterId, armorId),
+          'Unable to delete armor.'
+        ),
+    });
   }
 
   createWeakness(): void {
@@ -280,15 +293,15 @@ export class MonsterDetailComponent implements OnInit {
     );
   }
 
-  deleteWeakness(weaknessId: string): void {
-    if (!this.confirmDelete('Delete this weakness?')) {
-      return;
-    }
-
-    this.runAndRefresh(
-      (monsterId) => this.monsterService.deleteWeakness(monsterId, weaknessId),
-      'Unable to delete weakness.'
-    );
+  requestDeleteWeakness(weaknessId: string, name: string): void {
+    this.pendingDelete.set({
+      label: name,
+      perform: () =>
+        this.runAndRefresh(
+          (monsterId) => this.monsterService.deleteWeakness(monsterId, weaknessId),
+          'Unable to delete weakness.'
+        ),
+    });
   }
 
   private runAndRefresh(
@@ -346,7 +359,13 @@ export class MonsterDetailComponent implements OnInit {
     return attack.weaponTags.map((tag) => tag.name).join(', ');
   }
 
-  private confirmDelete(message: string): boolean {
-    return window.confirm(message);
+  onDeleteConfirmed(): void {
+    const pending = this.pendingDelete();
+    this.pendingDelete.set(null);
+    pending?.perform();
+  }
+
+  onDeleteCancelled(): void {
+    this.pendingDelete.set(null);
   }
 }

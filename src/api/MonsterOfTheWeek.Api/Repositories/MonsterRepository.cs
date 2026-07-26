@@ -29,12 +29,12 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
                 x.Name,
                 x.Description,
                 x.HarmCapacity,
-                x.MonsterTypeId,
-                x.MonsterType != null ? x.MonsterType.Name : null,
+                new TypeRefResponse(x.MonsterTypeId, x.MonsterType.Name, x.MonsterType.Motivation),
                 x.Attacks.Count,
                 x.Powers.Count,
                 x.Armors.Count,
                 x.Weaknesses.Count,
+                x.Minions.Count,
                 x.CreatedAt))
             .ToListAsync(cancellationToken);
 
@@ -49,12 +49,12 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
                 x.Name,
                 x.Description,
                 x.HarmCapacity,
-                x.MonsterTypeId,
-                x.MonsterType != null ? x.MonsterType.Name : null,
+                new TypeRefResponse(x.MonsterTypeId, x.MonsterType.Name, x.MonsterType.Motivation),
                 x.Attacks.Count,
                 x.Powers.Count,
                 x.Armors.Count,
                 x.Weaknesses.Count,
+                x.Minions.Count,
                 x.CreatedAt))
             .ToListAsync(cancellationToken);
 

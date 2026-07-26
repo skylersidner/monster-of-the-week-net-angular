@@ -45,6 +45,14 @@ export class CustomSelectComponent<T> implements ControlValueAccessor {
     return selectedOption ? this.optionLabel(selectedOption) : this.placeholder;
   });
 
+  readonly selectedTriggerSubLabel = computed(() => {
+    if (this.multiple) return null;
+    const currentValue = this.selectedValue();
+    if (!currentValue) return null;
+    const selectedOption = this.options.find((option) => this.optionValue(option) === currentValue);
+    return selectedOption ? this.optionSubLabel(selectedOption) : null;
+  });
+
   private resolveOptionValue(option: T): string {
     const record = option as Record<string, unknown>;
     const value = record['id'];

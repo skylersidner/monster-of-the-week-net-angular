@@ -1,0 +1,16 @@
+// Breakpoints
+// -----------
+// $bp-lg  : 4-column → 2-column grids (sub-resource panels)
+// $bp-sm  : 2-column → 1-column grids
+// $bp-form: inline form rows collapse to stacked
+
+$bp-lg:   1200px;
+$bp-sm:    540px;
+$bp-form:  768px;
+
+/// Emit a max-width media query for the given breakpoint value.
+@mixin below($bp) {
+  @media (max-width: $bp) {
+    @content;
+  }
+}

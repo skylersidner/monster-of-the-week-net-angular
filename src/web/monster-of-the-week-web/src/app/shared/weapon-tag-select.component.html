@@ -1,0 +1,17 @@
+<div class="weapon-tag-select">
+  @if (selectedTags().length > 0) {
+    <div class="weapon-tag-chips">
+      @for (tag of selectedTags(); track tag.id) {
+        <span class="weapon-tag-chip">{{ tag.name }}</span>
+      }
+    </div>
+  }
+  <span class="weapon-tag-label">Weapon Tags</span>
+  <app-custom-select
+    [formControl]="innerControl"
+    [options]="options"
+    [multiple]="true"
+    [searchable]="true"
+    [placeholder]="placeholder"
+  ></app-custom-select>
+</div>

@@ -1,6 +1,11 @@
 <div class="custom-select" [class.is-open]="isOpen()" [class.is-disabled]="disabled" [class.multiple-select]="multiple">
   <button type="button" class="custom-select__trigger" [disabled]="disabled" (click)="toggleOpen()" [attr.aria-expanded]="isOpen()">
-    <span class="custom-select__label">{{ displayText() }}</span>
+    <span class="custom-select__label">
+      {{ displayText() }}
+      @if (selectedTriggerSubLabel()) {
+        <span class="custom-select__trigger-sublabel">({{ selectedTriggerSubLabel() }})</span>
+      }
+    </span>
     <span class="custom-select__caret">▾</span>
   </button>
 
