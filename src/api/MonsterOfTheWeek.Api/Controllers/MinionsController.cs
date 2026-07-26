@@ -7,6 +7,10 @@ namespace MonsterOfTheWeek.Api.Controllers;
 [ApiController]
 public sealed class MinionsController(IMinionService minionService) : ControllerBase
 {
+    [HttpGet("api/minions")]
+    public async Task<ActionResult<IReadOnlyList<MinionListItemResponse>>> GetAll(CancellationToken cancellationToken) =>
+        Ok(await minionService.GetAllAsync(cancellationToken));
+
     [HttpGet("api/monsters/{monsterId:guid}/minions")]
     public async Task<ActionResult<IReadOnlyList<MinionListItemResponse>>> GetByMonster(Guid monsterId, CancellationToken cancellationToken) =>
         ToActionResult(await minionService.GetByMonsterAsync(monsterId, cancellationToken));

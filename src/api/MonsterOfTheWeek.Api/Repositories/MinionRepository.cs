@@ -26,6 +26,29 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
             .OrderBy(x => x.Name)
             .Select(x => new MinionListItemResponse(
                 x.Id,
+                x.MonsterId,
+                x.Monster.Name,
+                x.Name,
+                x.Description,
+                x.HarmCapacity,
+                x.MinionTypeId,
+                x.MinionType.Name,
+                x.Attacks.Count,
+                x.Powers.Count,
+                x.Armors.Count,
+                x.Weaknesses.Count,
+                x.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
+        await dbContext.Minions
+            .AsNoTracking()
+            .OrderBy(x => x.Monster.Name)
+            .ThenBy(x => x.Name)
+            .Select(x => new MinionListItemResponse(
+                x.Id,
+                x.MonsterId,
+                x.Monster.Name,
                 x.Name,
                 x.Description,
                 x.HarmCapacity,

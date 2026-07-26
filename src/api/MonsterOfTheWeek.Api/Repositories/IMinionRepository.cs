@@ -11,6 +11,7 @@ public interface IMinionRepository
     Task<bool> WeaponTagExistsAsync(Guid id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<MinionListItemResponse>> GetByMonsterIdAsync(Guid monsterId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken);
     Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken);
     Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task AddAsync(Minion minion, CancellationToken cancellationToken);

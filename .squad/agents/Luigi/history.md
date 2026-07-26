@@ -139,3 +139,20 @@ Store owns `persist()` / `restore()` over sessionStorage. Only committed arrays 
 - Template: `src/app/features/mysteries/pages/mystery-create/mystery-create.html`
 - Styles: `src/app/features/mysteries/pages/mystery-create/mystery-create.scss`
 
+---
+
+## 2026-07-25 — Phase 8a: MinionService update methods + model extension
+
+### Task (requested by Skyler Sidner)
+Extend the Angular minion model and service to support the top-level `/minions` list page and full CRUD on sub-entities.
+
+### Files Modified
+- `src/app/core/models.ts` — Added `monsterId` and `monsterName` fields to `MinionListItemResponse` (after `id`)
+- `src/app/core/minion.ts` — Added `getAll()`, `updateAttack()`, `removeAttackWeaponTag()`, `updatePower()`, `updateArmor()`, `updateWeakness()` methods to `MinionService`
+
+## Learnings
+- Phase 8a: extended `MinionListItemResponse` with `monsterId`/`monsterName` so the top-level minions list can show which monster owns each minion without a secondary fetch
+- Added `getAll()` (GET `/api/minions`), `updateAttack()`, `removeAttackWeaponTag()`, `updatePower()`, `updateArmor()`, `updateWeakness()` to `MinionService`
+- Angular service update pattern: `apiService.put<TRequest, TResponse>(url, body)` — matches the existing `ApiService.put<TRequest, TResponse>` signature
+- Build failure on this run was a pre-existing CSS budget overage in `mystery-create.scss` (8.27 kB vs 8 kB limit), not caused by these changes; TypeScript compilation was clean
+

@@ -4,6 +4,7 @@ namespace MonsterOfTheWeek.Api.Services;
 
 public interface IMinionService
 {
+    Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken);
     Task<ServiceResult<IReadOnlyList<MinionListItemResponse>>> GetByMonsterAsync(Guid monsterId, CancellationToken cancellationToken);
     Task<ServiceResult<MinionDetailResponse>> CreateAsync(Guid monsterId, UpsertMinionRequest request, CancellationToken cancellationToken);
     Task<MinionDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken);

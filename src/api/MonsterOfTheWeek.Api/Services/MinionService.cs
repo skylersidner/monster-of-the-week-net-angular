@@ -6,6 +6,9 @@ namespace MonsterOfTheWeek.Api.Services;
 
 public sealed class MinionService(IMinionRepository minionRepository) : IMinionService
 {
+    public Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
+        minionRepository.GetAllAsync(cancellationToken);
+
     public async Task<ServiceResult<IReadOnlyList<MinionListItemResponse>>> GetByMonsterAsync(Guid monsterId, CancellationToken cancellationToken)
     {
         if (!await minionRepository.MonsterExistsAsync(monsterId, cancellationToken))

@@ -189,6 +189,8 @@ export interface UpsertCustomMoveRequest {
 
 export interface MinionListItemResponse {
   id: string;
+  monsterId: string;
+  monsterName: string;
   name: string;
   description: string | null;
   harmCapacity: number;

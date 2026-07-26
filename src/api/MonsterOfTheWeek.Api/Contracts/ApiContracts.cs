@@ -115,6 +115,8 @@ public sealed record UpsertCustomMoveRequest(string Name, string? Description);
 
 public sealed record MinionListItemResponse(
     Guid Id,
+    Guid MonsterId,
+    string MonsterName,
     string Name,
     string? Description,
     int HarmCapacity,

@@ -22,6 +22,10 @@ import {
 export class MinionService {
   constructor(private readonly apiService: ApiService) {}
 
+  getAll(): Observable<MinionListItemResponse[]> {
+    return this.apiService.get<MinionListItemResponse[]>(`/api/minions`);
+  }
+
   getByMonster(monsterId: string): Observable<MinionListItemResponse[]> {
     return this.apiService.get<MinionListItemResponse[]>(`/api/monsters/${monsterId}/minions`);
   }
@@ -48,6 +52,13 @@ export class MinionService {
     );
   }
 
+  updateAttack(minionId: string, attackId: string, request: UpsertMinionAttackRequest): Observable<MinionAttackResponse> {
+    return this.apiService.put<UpsertMinionAttackRequest, MinionAttackResponse>(
+      `/api/minions/${minionId}/attacks/${attackId}`,
+      request
+    );
+  }
+
   deleteAttack(minionId: string, attackId: string): Observable<void> {
     return this.apiService.delete(`/api/minions/${minionId}/attacks/${attackId}`);
   }
@@ -60,9 +71,20 @@ export class MinionService {
     );
   }
 
+  removeAttackWeaponTag(minionId: string, attackId: string, tagId: string): Observable<void> {
+    return this.apiService.delete(`/api/minions/${minionId}/attacks/${attackId}/weapon-tags/${tagId}`);
+  }
+
   createPower(minionId: string, request: UpsertMinionPowerRequest): Observable<MinionPowerResponse> {
     return this.apiService.post<UpsertMinionPowerRequest, MinionPowerResponse>(
       `/api/minions/${minionId}/powers`,
+      request
+    );
+  }
+
+  updatePower(minionId: string, powerId: string, request: UpsertMinionPowerRequest): Observable<MinionPowerResponse> {
+    return this.apiService.put<UpsertMinionPowerRequest, MinionPowerResponse>(
+      `/api/minions/${minionId}/powers/${powerId}`,
       request
     );
   }
@@ -78,6 +100,13 @@ export class MinionService {
     );
   }
 
+  updateArmor(minionId: string, armorId: string, request: UpsertMinionArmorRequest): Observable<MinionArmorResponse> {
+    return this.apiService.put<UpsertMinionArmorRequest, MinionArmorResponse>(
+      `/api/minions/${minionId}/armors/${armorId}`,
+      request
+    );
+  }
+
   deleteArmor(minionId: string, armorId: string): Observable<void> {
     return this.apiService.delete(`/api/minions/${minionId}/armors/${armorId}`);
   }
@@ -85,6 +114,13 @@ export class MinionService {
   createWeakness(minionId: string, request: UpsertMinionWeaknessRequest): Observable<MinionWeaknessResponse> {
     return this.apiService.post<UpsertMinionWeaknessRequest, MinionWeaknessResponse>(
       `/api/minions/${minionId}/weaknesses`,
+      request
+    );
+  }
+
+  updateWeakness(minionId: string, weaknessId: string, request: UpsertMinionWeaknessRequest): Observable<MinionWeaknessResponse> {
+    return this.apiService.put<UpsertMinionWeaknessRequest, MinionWeaknessResponse>(
+      `/api/minions/${minionId}/weaknesses/${weaknessId}`,
       request
     );
   }
