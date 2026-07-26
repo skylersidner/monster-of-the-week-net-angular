@@ -788,7 +788,23 @@ Everything else moves inline using Pattern 5 (Entity Card) and Pattern 6 (Detail
 
 ---
 
-### Phase 7 — The Wizard (`mystery-create.scss`)
+### Phase 7 — The Wizard (`mystery-create.scss`) ✅ COMPLETE
+
+**Completed:** 2026-07-26 — commit `cb88d55` — 9 files changed, 316 insertions, 801 deletions
+
+**What was done:**
+- `mystery-create.scss` reduced from 550 lines to 68-line stub. Retained: CSS subgrid tracker layout, `phase-bubble` / `step-dot` compound active/complete states (via `@apply` + SCSS nesting), and the `fadeSlideIn` keyframe animation for dossier sections.
+- `mystery-create.html` — wizard shell fully inlined; `form-panel`, `dossier-panel`, `step-label`, `step-title`, `step-blurb`, `nav-buttons`, `btn-back`, `btn-next`, `submit-error` all inlined.
+- `mystery-create-tracker.html` — `tracker` header gets Tailwind decoration (`bg-white shadow-sm shrink-0 min-h-[80px] py-3 px-8`) alongside the `tracker` class kept for SCSS subgrid. `phase-name` and `step-dots` divs fully inlined.
+- `mystery-create-dossier.html` — all `dossier-section`, `dossier-heading`, `dossier-field`, `field-label`, `dossier-list`, `sub-item-description` etc. inlined. `dossier-section` class kept for `fadeSlideIn` animation.
+- `mystery-create-mystery-phase.html` — all `field`, `field-error`, `required`, countdown grid inlined.
+- `mystery-create-monster-phase.html` — all `sub-items`, `sub-item-row`, `add-sub-item-form`, `weapon-tag-chips/chip`, `remove-btn`, `btn-add`, `phase-note`, `checkbox-inline` inlined. 274 lines → 225 lines.
+- `mystery-create-locations-phase.html` + `mystery-create-bystanders-phase.html` — `added-items`, `added-item-row`, `empty-hint`, `add-item-form` inlined.
+- `angular.json` — `anyComponentStyle` budget: warning 2kB, error 8kB. Two expected warnings remain: `custom-select.component.scss` (5.17kB — pre-existing complex UI component, outside migration scope) and `mystery-create.scss` (3.06kB compiled — `@apply` expansion of state-based selectors inflates the compiled output beyond the source stub size).
+
+**Key insight:** `mystery-create.ts` uses `ViewEncapsulation.None`, making its styles global. All 7 component templates (main + 6 sub-components) required Tailwind class additions.
+
+
 
 **Goal:** `mystery-create.scss` is migrated to Tailwind as comprehensively as possible. The tracker's `subgrid` layout is intentionally preserved as a ~20-line SCSS remnant. Everything else uses inline Tailwind.
 
