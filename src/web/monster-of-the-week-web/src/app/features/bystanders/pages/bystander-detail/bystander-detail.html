@@ -15,11 +15,11 @@
     <form class="grid gap-[0.6rem] my-4 max-w-[30rem]" [formGroup]="form" (ngSubmit)="save()">
       <label class="grid font-medium gap-1">
         Name
-        <input class="border border-[#c9d4e6] rounded-[0.35rem] px-[0.6rem] py-[0.45rem] w-full" type="text" formControlName="name" />
+        <input class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" type="text" formControlName="name" />
       </label>
       <label class="grid font-medium gap-1">
         Description
-        <textarea class="border border-[#c9d4e6] rounded-[0.35rem] px-[0.6rem] py-[0.45rem] w-full" formControlName="description" rows="9"></textarea>
+        <textarea class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" formControlName="description" rows="9"></textarea>
       </label>
       <label class="grid font-medium gap-1">
         Bystander Type
