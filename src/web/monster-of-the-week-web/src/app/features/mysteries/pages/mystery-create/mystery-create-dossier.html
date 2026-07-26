@@ -1,41 +1,41 @@
 @if (!store.mysteryPreview().name) {
-  <p class="dossier-empty">Your mystery will take shape here as you work through each step.</p>
+  <p class="text-slate-400 text-sm italic">Your mystery will take shape here as you work through each step.</p>
 }
 
 @if (store.mysteryPreview().name) {
-  <section class="dossier-section">
-    <h3 class="dossier-heading">
-      <span class="heading-with-icon">
+  <section class="dossier-section bg-white border border-slate-200 rounded-lg mb-5 p-5">
+    <h3 class="border-b border-slate-200 text-indigo-600 text-[0.8rem] font-bold tracking-[0.06em] m-0 mb-[0.85rem] pb-2 uppercase">
+      <span class="inline-flex items-center gap-[0.45rem]">
         <app-mystery-section-icon kind="mystery" />
         <span>Mystery</span>
       </span>
     </h3>
-    <p class="dossier-field"><span class="field-label">Name</span> {{ store.mysteryPreview().name }}</p>
+    <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Name</span> {{ store.mysteryPreview().name }}</p>
     @if (store.mysteryPreview().concept) {
-      <p class="dossier-field"><span class="field-label">Concept</span> {{ store.mysteryPreview().concept }}</p>
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Concept</span> {{ store.mysteryPreview().concept }}</p>
     }
     @if (store.mysteryPreview().hook) {
-      <p class="dossier-field"><span class="field-label">Hook</span> {{ store.mysteryPreview().hook }}</p>
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Hook</span> {{ store.mysteryPreview().hook }}</p>
     }
     @if (store.mysteryPreview().overview) {
-      <p class="dossier-field"><span class="field-label">Overview</span> {{ store.mysteryPreview().overview }}</p>
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Overview</span> {{ store.mysteryPreview().overview }}</p>
     }
   </section>
 }
 
 @if (store.phaseComplete()[0]) {
-  <section class="dossier-section">
-    <h3 class="dossier-heading">
-      <span class="heading-with-icon">
+  <section class="dossier-section bg-white border border-slate-200 rounded-lg mb-5 p-5">
+    <h3 class="border-b border-slate-200 text-indigo-600 text-[0.8rem] font-bold tracking-[0.06em] m-0 mb-[0.85rem] pb-2 uppercase">
+      <span class="inline-flex items-center gap-[0.45rem]">
         <app-mystery-section-icon kind="countdown" />
         <span>Countdown</span>
       </span>
     </h3>
-    <div class="countdown-dossier-grid">
+    <div class="grid gap-2">
       @for (stage of countdownStages; track stage.key) {
         @if (store.mysteryPreview().countdown?.[stage.key]) {
-          <p class="dossier-field">
-            <span class="field-label field-label-with-icon">
+          <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2">
+            <span class="inline-flex items-center gap-[0.35rem] text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] uppercase">
               <app-mystery-section-icon [kind]="stage.icon" />
               <span>{{ stage.label }}</span>
             </span>
@@ -48,66 +48,66 @@
 }
 
 @if (store.currentPhase() >= 1 && store.monsterPreview().name) {
-  <section class="dossier-section">
-    <h3 class="dossier-heading">
-      <span class="heading-with-icon">
+  <section class="dossier-section bg-white border border-slate-200 rounded-lg mb-5 p-5">
+    <h3 class="border-b border-slate-200 text-indigo-600 text-[0.8rem] font-bold tracking-[0.06em] m-0 mb-[0.85rem] pb-2 uppercase">
+      <span class="inline-flex items-center gap-[0.45rem]">
         <app-mystery-section-icon kind="monster" />
         <span>The Monster</span>
       </span>
     </h3>
-    <p class="dossier-field"><span class="field-label">Name</span> {{ store.monsterPreview().name }}</p>
+    <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Name</span> {{ store.monsterPreview().name }}</p>
     @if (store.monsterPreview().typeName) {
-      <p class="dossier-field"><span class="field-label">Type</span> {{ store.monsterPreview().typeName }}</p>
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Type</span> {{ store.monsterPreview().typeName }}</p>
     }
-    <p class="dossier-field"><span class="field-label">Harm Capacity</span> {{ store.monsterPreview().harmCapacity }}</p>
+    <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Harm Capacity</span> {{ store.monsterPreview().harmCapacity }}</p>
     @if (store.monsterPreview().description) {
-      <p class="dossier-field"><span class="field-label">Description</span> {{ store.monsterPreview().description }}</p>
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Description</span> {{ store.monsterPreview().description }}</p>
     }
     @if (store.monsterPreview().attacks.length > 0) {
-      <p class="dossier-field"><span class="field-label">Attacks</span></p>
-      <ul class="dossier-list">
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Attacks</span></p>
+      <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
         @for (attack of store.monsterPreview().attacks; track $index) {
           <li>{{ attack.name }} ({{ attack.harm }} harm)</li>
         }
       </ul>
     }
     @if (store.monsterPreview().powers.length > 0) {
-      <p class="dossier-field"><span class="field-label">Powers</span></p>
-      <ul class="dossier-list">
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Powers</span></p>
+      <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
         @for (power of store.monsterPreview().powers; track $index) {
           <li>
             <span>{{ power.name }}</span>
             @if (power.description) {
-              <div class="sub-item-description">{{ power.description }}</div>
+              <div class="text-slate-500 text-[0.8rem] leading-[1.4]">{{ power.description }}</div>
             }
           </li>
         }
       </ul>
     }
     @if (store.monsterPreview().weaknesses.length > 0) {
-      <p class="dossier-field"><span class="field-label">Weaknesses</span></p>
-      <ul class="dossier-list">
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Weaknesses</span></p>
+      <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
         @for (weakness of store.monsterPreview().weaknesses; track $index) {
           <li>
             <span>{{ weakness.name }}</span>
             @if (weakness.description) {
-              <div class="sub-item-description">{{ weakness.description }}</div>
+              <div class="text-slate-500 text-[0.8rem] leading-[1.4]">{{ weakness.description }}</div>
             }
           </li>
         }
       </ul>
     }
     @if (store.monsterPreview().armors.length > 0) {
-      <p class="dossier-field"><span class="field-label">Armor</span></p>
-      <ul class="dossier-list">
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Armor</span></p>
+      <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
         @for (armor of store.monsterPreview().armors; track $index) {
           <li>
             <span>{{ armor.name }} ({{ armor.harmSoak }} harm soak)</span>
             @if (armor.isSpecial && armor.specialDescription) {
-              <div class="sub-item-description">Special: {{ armor.specialDescription }}</div>
+              <div class="text-slate-500 text-[0.8rem] leading-[1.4]">Special: {{ armor.specialDescription }}</div>
             }
             @if (!armor.isSpecial && armor.description) {
-              <div class="sub-item-description">{{ armor.description }}</div>
+              <div class="text-slate-500 text-[0.8rem] leading-[1.4]">{{ armor.description }}</div>
             }
           </li>
         }
@@ -117,66 +117,66 @@
 }
 
 @if (store.currentPhase() >= 1 && store.minionPreview().name) {
-  <section class="dossier-section">
-    <h3 class="dossier-heading">
-      <span class="heading-with-icon">
+  <section class="dossier-section bg-white border border-slate-200 rounded-lg mb-5 p-5">
+    <h3 class="border-b border-slate-200 text-indigo-600 text-[0.8rem] font-bold tracking-[0.06em] m-0 mb-[0.85rem] pb-2 uppercase">
+      <span class="inline-flex items-center gap-[0.45rem]">
         <app-mystery-section-icon kind="minions" />
         <span>Minions</span>
       </span>
     </h3>
-    <p class="dossier-field"><span class="field-label">Name</span> {{ store.minionPreview().name }}</p>
+    <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Name</span> {{ store.minionPreview().name }}</p>
     @if (store.minionPreview().typeName) {
-      <p class="dossier-field"><span class="field-label">Type</span> {{ store.minionPreview().typeName }}</p>
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Type</span> {{ store.minionPreview().typeName }}</p>
     }
-    <p class="dossier-field"><span class="field-label">Harm Capacity</span> {{ store.minionPreview().harmCapacity }}</p>
+    <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Harm Capacity</span> {{ store.minionPreview().harmCapacity }}</p>
     @if (store.minionPreview().description) {
-      <p class="dossier-field"><span class="field-label">Description</span> {{ store.minionPreview().description }}</p>
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Description</span> {{ store.minionPreview().description }}</p>
     }
     @if (store.minionPreview().attacks.length > 0) {
-      <p class="dossier-field"><span class="field-label">Attacks</span></p>
-      <ul class="dossier-list">
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Attacks</span></p>
+      <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
         @for (attack of store.minionPreview().attacks; track $index) {
           <li>{{ attack.name }} ({{ attack.harm }} harm)</li>
         }
       </ul>
     }
     @if (store.minionPreview().powers.length > 0) {
-      <p class="dossier-field"><span class="field-label">Powers</span></p>
-      <ul class="dossier-list">
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Powers</span></p>
+      <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
         @for (power of store.minionPreview().powers; track $index) {
           <li>
             <span>{{ power.name }}</span>
             @if (power.description) {
-              <div class="sub-item-description">{{ power.description }}</div>
+              <div class="text-slate-500 text-[0.8rem] leading-[1.4]">{{ power.description }}</div>
             }
           </li>
         }
       </ul>
     }
     @if (store.minionPreview().weaknesses.length > 0) {
-      <p class="dossier-field"><span class="field-label">Weaknesses</span></p>
-      <ul class="dossier-list">
-        @for (weakness of store.minionPreview().weaknesses; track $index) {
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Weaknesses</span></p>
+      <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
+        @for (weakness of store.minionWeaknesses(); track $index) {
           <li>
             <span>{{ weakness.name }}</span>
             @if (weakness.description) {
-              <div class="sub-item-description">{{ weakness.description }}</div>
+              <div class="text-slate-500 text-[0.8rem] leading-[1.4]">{{ weakness.description }}</div>
             }
           </li>
         }
       </ul>
     }
     @if (store.minionPreview().armors.length > 0) {
-      <p class="dossier-field"><span class="field-label">Armor</span></p>
-      <ul class="dossier-list">
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Armor</span></p>
+      <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
         @for (armor of store.minionPreview().armors; track $index) {
           <li>
             <span>{{ armor.name }} ({{ armor.harmSoak }} harm soak)</span>
             @if (armor.isSpecial && armor.specialDescription) {
-              <div class="sub-item-description">Special: {{ armor.specialDescription }}</div>
+              <div class="text-slate-500 text-[0.8rem] leading-[1.4]">Special: {{ armor.specialDescription }}</div>
             }
             @if (!armor.isSpecial && armor.description) {
-              <div class="sub-item-description">{{ armor.description }}</div>
+              <div class="text-slate-500 text-[0.8rem] leading-[1.4]">{{ armor.description }}</div>
             }
           </li>
         }
@@ -186,14 +186,14 @@
 }
 
 @if ((store.phaseComplete()[2] || store.currentPhase() >= 2) && store.locations().length > 0) {
-  <section class="dossier-section">
-    <h3 class="dossier-heading">
-      <span class="heading-with-icon">
+  <section class="dossier-section bg-white border border-slate-200 rounded-lg mb-5 p-5">
+    <h3 class="border-b border-slate-200 text-indigo-600 text-[0.8rem] font-bold tracking-[0.06em] m-0 mb-[0.85rem] pb-2 uppercase">
+      <span class="inline-flex items-center gap-[0.45rem]">
         <app-mystery-section-icon kind="locations" />
         <span>Locations</span>
       </span>
     </h3>
-    <ul class="dossier-list">
+    <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
       @for (location of store.locations(); track $index) {
         <li>{{ location.name }}</li>
       }
@@ -202,14 +202,14 @@
 }
 
 @if ((store.phaseComplete()[3] || store.currentPhase() >= 3) && store.bystanders().length > 0) {
-  <section class="dossier-section">
-    <h3 class="dossier-heading">
-      <span class="heading-with-icon">
+  <section class="dossier-section bg-white border border-slate-200 rounded-lg mb-5 p-5">
+    <h3 class="border-b border-slate-200 text-indigo-600 text-[0.8rem] font-bold tracking-[0.06em] m-0 mb-[0.85rem] pb-2 uppercase">
+      <span class="inline-flex items-center gap-[0.45rem]">
         <app-mystery-section-icon kind="bystanders" />
         <span>Bystanders</span>
       </span>
     </h3>
-    <ul class="dossier-list">
+    <ul class="text-sm leading-[1.6] mt-1 mb-0 pl-5">
       @for (bystander of store.bystanders(); track $index) {
         <li>{{ bystander.name }}</li>
       }
