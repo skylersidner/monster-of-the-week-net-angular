@@ -19,9 +19,6 @@
               @if (monster.monsterTypeName) {
                 <span class="type-badge type-badge--monster">Monster Type: {{ monster.monsterTypeName }}</span>
               }
-              @if (monster.minionTypeName) {
-                <span class="type-badge type-badge--minion">Minion Type: {{ monster.minionTypeName }}</span>
-              }
             </div>
             <p>{{ monster.description || 'No description provided' }}</p>
             <small>

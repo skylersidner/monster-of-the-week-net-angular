@@ -67,10 +67,8 @@ public sealed record MonsterListItemResponse(
     string Name,
     string? Description,
     int HarmCapacity,
-    Guid? MonsterTypeId,
+    Guid MonsterTypeId,
     string? MonsterTypeName,
-    Guid? MinionTypeId,
-    string? MinionTypeName,
     int AttackCount,
     int PowerCount,
     int ArmorCount,
@@ -94,10 +92,8 @@ public sealed record MonsterDetailResponse(
     string Name,
     string? Description,
     int HarmCapacity,
-    Guid? MonsterTypeId,
+    Guid MonsterTypeId,
     string? MonsterTypeName,
-    Guid? MinionTypeId,
-    string? MinionTypeName,
     IReadOnlyList<MonsterAttackResponse> Attacks,
     IReadOnlyList<MonsterPowerResponse> Powers,
     IReadOnlyList<MonsterArmorResponse> Armors,
@@ -108,8 +104,7 @@ public sealed record UpsertMonsterRequest(
     string Name,
     string? Description,
     int HarmCapacity,
-    Guid? MonsterTypeId,
-    Guid? MinionTypeId);
+    Guid MonsterTypeId);
 
 public sealed record UpsertMonsterAttackRequest(string Name, string? Description, int Harm);
 public sealed record AssignWeaponTagRequest(Guid WeaponTagId);
@@ -117,6 +112,54 @@ public sealed record UpsertMonsterPowerRequest(string Name, string? Description)
 public sealed record UpsertMonsterArmorRequest(string Name, string? Description, int HarmSoak, bool IsSpecial, string? SpecialDescription);
 public sealed record UpsertMonsterWeaknessRequest(string Name, string? Description);
 public sealed record UpsertCustomMoveRequest(string Name, string? Description);
+
+public sealed record MinionListItemResponse(
+    Guid Id,
+    string Name,
+    string? Description,
+    int HarmCapacity,
+    Guid MinionTypeId,
+    string MinionTypeName,
+    int AttackCount,
+    int PowerCount,
+    int ArmorCount,
+    int WeaknessCount,
+    DateTimeOffset CreatedAt);
+
+public sealed record MinionAttackResponse(
+    Guid Id,
+    string Name,
+    string? Description,
+    int Harm,
+    IReadOnlyList<WeaponTagRefResponse> WeaponTags);
+
+public sealed record MinionPowerResponse(Guid Id, string Name, string? Description);
+public sealed record MinionArmorResponse(Guid Id, string Name, string? Description, int HarmSoak, bool IsSpecial, string? SpecialDescription);
+public sealed record MinionWeaknessResponse(Guid Id, string Name, string? Description);
+
+public sealed record MinionDetailResponse(
+    Guid Id,
+    string Name,
+    string? Description,
+    int HarmCapacity,
+    Guid MinionTypeId,
+    string MinionTypeName,
+    IReadOnlyList<MinionAttackResponse> Attacks,
+    IReadOnlyList<MinionPowerResponse> Powers,
+    IReadOnlyList<MinionArmorResponse> Armors,
+    IReadOnlyList<MinionWeaknessResponse> Weaknesses,
+    IReadOnlyList<CustomMoveResponse> CustomMoves);
+
+public sealed record UpsertMinionRequest(
+    string Name,
+    string? Description,
+    int HarmCapacity,
+    Guid MinionTypeId);
+
+public sealed record UpsertMinionAttackRequest(string Name, string? Description, int Harm);
+public sealed record UpsertMinionPowerRequest(string Name, string? Description);
+public sealed record UpsertMinionArmorRequest(string Name, string? Description, int HarmSoak, bool IsSpecial, string? SpecialDescription);
+public sealed record UpsertMinionWeaknessRequest(string Name, string? Description);
 
 public sealed record LocationListItemResponse(
     Guid Id,

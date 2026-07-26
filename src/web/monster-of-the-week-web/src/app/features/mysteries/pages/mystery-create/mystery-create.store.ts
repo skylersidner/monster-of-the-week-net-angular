@@ -8,14 +8,17 @@ import { ApiService } from '../../../../core/api';
 import {
   BystanderListItemResponse,
   LocationListItemResponse,
+  MinionDetailResponse,
   TypeRefResponse,
   UpsertBystanderRequest,
   UpsertCountdownRequest,
   UpsertLocationRequest,
+  UpsertMinionRequest,
   UpsertMonsterRequest,
   UpsertMysteryRequest,
   WeaponTagRefResponse,
 } from '../../../../core/models';
+import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
@@ -163,6 +166,7 @@ export class MysteryCreateStore {
   private readonly apiService = inject(ApiService);
   private readonly mysteryService = inject(MysteryService);
   private readonly monsterService = inject(MonsterService);
+  private readonly minionService = inject(MinionService);
   private readonly referenceDataService = inject(ReferenceDataService);
   private readonly notificationService = inject(NotificationService);
 
@@ -240,7 +244,7 @@ export class MysteryCreateStore {
     name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
     harmCapacity: this.fb.nonNullable.control(7, [Validators.min(0)]),
-    monsterTypeId: this.fb.nonNullable.control(''),
+    monsterTypeId: this.fb.nonNullable.control('', [Validators.required]),
   });
 
   readonly minionForm = this.fb.group({
@@ -574,8 +578,7 @@ export class MysteryCreateStore {
             bystanders.map((b) => ({ name: b.name, description: b.description ?? '', bystanderTypeId: b.bystanderTypeId }))
           );
 
-          const pureMonster = monsters.find((m) => m.minionTypeId == null) ?? null;
-          const minion = monsters.find((m) => m.minionTypeId != null) ?? null;
+          const pureMonster = monsters[0] ?? null;
 
           this.phaseComplete.set([
             mystery.name.trim().length > 0,
@@ -586,12 +589,16 @@ export class MysteryCreateStore {
 
           return forkJoin({
             pureMonster: pureMonster ? this.monsterService.getById(pureMonster.id) : of(null),
-            minion: minion ? this.monsterService.getById(minion.id) : of(null),
+            minion: pureMonster
+              ? this.minionService.getByMonster(pureMonster.id).pipe(
+                  switchMap((minions) => (minions.length > 0 ? this.minionService.getById(minions[0].id) : of(null)))
+                )
+              : of(null),
           });
         }),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe(({ pureMonster, minion }) => {
+      .subscribe(({ pureMonster, minion }: { pureMonster: import('../../../../core/models').MonsterDetailResponse | null; minion: MinionDetailResponse | null }) => {
         if (pureMonster) {
           this.editingMonsterId.set(pureMonster.id);
           this.existingMonsterAttackIds.set(pureMonster.attacks.map((a) => a.id));
@@ -602,7 +609,7 @@ export class MysteryCreateStore {
             name: pureMonster.name,
             description: pureMonster.description ?? '',
             harmCapacity: pureMonster.harmCapacity,
-            monsterTypeId: pureMonster.monsterTypeId ?? '',
+            monsterTypeId: pureMonster.monsterTypeId,
           });
           this.monsterAttacks.set(
             pureMonster.attacks.map((a) => ({
@@ -635,7 +642,7 @@ export class MysteryCreateStore {
             name: minion.name,
             description: minion.description ?? '',
             harmCapacity: minion.harmCapacity,
-            minionTypeId: minion.minionTypeId ?? '',
+            minionTypeId: minion.minionTypeId,
           });
           this.minionAttacks.set(
             minion.attacks.map((a) => ({
@@ -901,8 +908,7 @@ export class MysteryCreateStore {
       name: this.monsterForm.controls.name.value.trim(),
       description: this.toNullable(this.monsterForm.controls.description.value),
       harmCapacity: this.monsterForm.controls.harmCapacity.value,
-      monsterTypeId: this.toNullable(this.monsterForm.controls.monsterTypeId.value),
-      minionTypeId: null,
+      monsterTypeId: this.monsterForm.controls.monsterTypeId.value,
     };
 
     const monsterSave$ = editingMonsterId
@@ -927,46 +933,51 @@ export class MysteryCreateStore {
                 this.monsterWeaknesses(),
                 this.monsterArmors()
               )
-            )
-          );
-        }),
-        switchMap(() => {
-          const minionName = this.minionForm.controls.name.value.trim();
-          const editingMinionId = this.editingMinionId();
-          if (!minionName) {
-            return of(null);
-          }
+            ),
+            switchMap(() => {
+              const minionName = this.minionForm.controls.name.value.trim();
+              const editingMinionId = this.editingMinionId();
+              if (!minionName) {
+                return of(null);
+              }
 
-          const minionRequest: UpsertMonsterRequest = {
-            name: minionName,
-            description: this.toNullable(this.minionForm.controls.description.value),
-            harmCapacity: this.minionForm.controls.harmCapacity.value,
-            monsterTypeId: null,
-            minionTypeId: this.toNullable(this.minionForm.controls.minionTypeId.value),
-          };
+              const minionTypeId = this.minionForm.controls.minionTypeId.value;
+              if (!minionTypeId) {
+                this.handleSubmitError('A minion type is required when adding a minion.');
+                return of(null);
+              }
 
-          const minionSave$ = editingMinionId
-            ? this.monsterService.update(editingMinionId, minionRequest)
-            : this.monsterService.create(mysteryId, minionRequest);
+              const minionRequest: UpsertMinionRequest = {
+                name: minionName,
+                description: this.toNullable(this.minionForm.controls.description.value),
+                harmCapacity: this.minionForm.controls.harmCapacity.value,
+                minionTypeId: minionTypeId,
+              };
 
-          return minionSave$.pipe(
-            switchMap((minion) => {
-              const deleteMinionOps: Observable<unknown>[] = [
-                ...this.existingMinionAttackIds().map((id) => this.monsterService.deleteAttack(minion.id, id)),
-                ...this.existingMinionPowerIds().map((id) => this.monsterService.deletePower(minion.id, id)),
-                ...this.existingMinionWeaknessIds().map((id) => this.monsterService.deleteWeakness(minion.id, id)),
-                ...this.existingMinionArmorIds().map((id) => this.monsterService.deleteArmor(minion.id, id)),
-              ];
-              return this.runBatch(deleteMinionOps).pipe(
-                switchMap(() =>
-                  this.saveThreatCollections(
-                    minion.id,
-                    this.minionAttacks(),
-                    this.minionPowers(),
-                    this.minionWeaknesses(),
-                    this.minionArmors()
-                  )
-                )
+              const minionSave$ = editingMinionId
+                ? this.minionService.update(editingMinionId, minionRequest)
+                : this.minionService.create(monster.id, minionRequest);
+
+              return minionSave$.pipe(
+                switchMap((minion) => {
+                  const deleteMinionOps: Observable<unknown>[] = [
+                    ...this.existingMinionAttackIds().map((id) => this.minionService.deleteAttack(minion.id, id)),
+                    ...this.existingMinionPowerIds().map((id) => this.minionService.deletePower(minion.id, id)),
+                    ...this.existingMinionWeaknessIds().map((id) => this.minionService.deleteWeakness(minion.id, id)),
+                    ...this.existingMinionArmorIds().map((id) => this.minionService.deleteArmor(minion.id, id)),
+                  ];
+                  return this.runBatch(deleteMinionOps).pipe(
+                    switchMap(() =>
+                      this.saveMinionCollections(
+                        minion.id,
+                        this.minionAttacks(),
+                        this.minionPowers(),
+                        this.minionWeaknesses(),
+                        this.minionArmors()
+                      )
+                    )
+                  );
+                })
               );
             })
           );
@@ -1043,6 +1054,60 @@ export class MysteryCreateStore {
         },
         error: () => this.handleSubmitError('Could not save bystanders. Please try again.'),
       });
+  }
+
+  private saveMinionCollections(
+    minionId: string,
+    attacks: AttackDraft[],
+    powers: PowerDraft[],
+    weaknesses: WeaknessDraft[],
+    armors: ArmorDraft[]
+  ): Observable<unknown[]> {
+    const requests: Observable<unknown>[] = [
+      ...attacks.map((attack) =>
+        this.minionService.createAttack(minionId, {
+          name: attack.name,
+          description: this.toNullable(attack.description),
+          harm: attack.harm,
+        }).pipe(
+          switchMap((createdAttack) => {
+            const selectedTagIds = attack.weaponTagIds.filter((tagId) => tagId.length > 0);
+            if (selectedTagIds.length === 0) {
+              return of(createdAttack);
+            }
+
+            return forkJoin(
+              selectedTagIds.map((weaponTagId) =>
+                this.minionService.assignAttackWeaponTag(minionId, createdAttack.id, weaponTagId)
+              )
+            ).pipe(switchMap(() => of(createdAttack)));
+          })
+        )
+      ),
+      ...powers.map((power) =>
+        this.minionService.createPower(minionId, {
+          name: power.name,
+          description: this.toNullable(power.description),
+        })
+      ),
+      ...weaknesses.map((weakness) =>
+        this.minionService.createWeakness(minionId, {
+          name: weakness.name,
+          description: this.toNullable(weakness.description),
+        })
+      ),
+      ...armors.map((armor) =>
+        this.minionService.createArmor(minionId, {
+          name: armor.name,
+          description: this.toNullable(armor.description),
+          harmSoak: armor.harmSoak,
+          isSpecial: armor.isSpecial,
+          specialDescription: this.toNullable(armor.specialDescription),
+        })
+      ),
+    ];
+
+    return this.runBatch(requests);
   }
 
   private saveThreatCollections(

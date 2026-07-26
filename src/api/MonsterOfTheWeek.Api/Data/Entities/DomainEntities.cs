@@ -53,28 +53,27 @@ public sealed class MinionType
     public required string Name { get; set; }
     public required string Motivation { get; set; }
 
-    public ICollection<Monster> Monsters { get; set; } = [];
+    public ICollection<Minion> Minions { get; set; } = [];
 }
 
 public sealed class Monster : ITimestamped
 {
     public Guid Id { get; init; } = Guid.NewGuid();
-    public Guid? MonsterTypeId { get; set; }
-    public Guid? MinionTypeId { get; set; }
+    public Guid MonsterTypeId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
     public int HarmCapacity { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
-    public MonsterType? MonsterType { get; set; }
-    public MinionType? MinionType { get; set; }
+    public MonsterType MonsterType { get; set; } = null!;
     public ICollection<MysteryMonster> Mysteries { get; set; } = [];
     public ICollection<MonsterAttack> Attacks { get; set; } = [];
     public ICollection<MonsterPower> Powers { get; set; } = [];
     public ICollection<MonsterArmor> Armors { get; set; } = [];
     public ICollection<MonsterWeakness> Weaknesses { get; set; } = [];
     public ICollection<MonsterCustomMove> CustomMoves { get; set; } = [];
+    public ICollection<Minion> Minions { get; set; } = [];
 }
 
 public sealed class MonsterAttack
@@ -105,6 +104,7 @@ public sealed class WeaponTag
     public string? Description { get; set; }
 
     public ICollection<MonsterAttackWeaponTag> MonsterAttackWeaponTags { get; set; } = [];
+    public ICollection<MinionAttackWeaponTag> MinionAttackWeaponTags { get; set; } = [];
 }
 
 public sealed class MonsterPower
@@ -247,4 +247,88 @@ public sealed class MysteryBystander
 
     public Mystery Mystery { get; set; } = null!;
     public Bystander Bystander { get; set; } = null!;
+}
+
+public sealed class Minion : ITimestamped
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid MonsterId { get; set; }
+    public Guid MinionTypeId { get; set; }
+    public required string Name { get; set; }
+    public string? Description { get; set; }
+    public int HarmCapacity { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    public Monster Monster { get; set; } = null!;
+    public MinionType MinionType { get; set; } = null!;
+    public ICollection<MinionAttack> Attacks { get; set; } = [];
+    public ICollection<MinionPower> Powers { get; set; } = [];
+    public ICollection<MinionArmor> Armors { get; set; } = [];
+    public ICollection<MinionWeakness> Weaknesses { get; set; } = [];
+    public ICollection<MinionCustomMove> CustomMoves { get; set; } = [];
+}
+
+public sealed class MinionAttack
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid MinionId { get; set; }
+    public required string Name { get; set; }
+    public string? Description { get; set; }
+    public int Harm { get; set; }
+
+    public Minion Minion { get; set; } = null!;
+    public ICollection<MinionAttackWeaponTag> MinionAttackWeaponTags { get; set; } = [];
+}
+
+public sealed class MinionAttackWeaponTag
+{
+    public Guid MinionAttackId { get; set; }
+    public Guid WeaponTagId { get; set; }
+
+    public MinionAttack MinionAttack { get; set; } = null!;
+    public WeaponTag WeaponTag { get; set; } = null!;
+}
+
+public sealed class MinionPower
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid MinionId { get; set; }
+    public required string Name { get; set; }
+    public string? Description { get; set; }
+
+    public Minion Minion { get; set; } = null!;
+}
+
+public sealed class MinionArmor
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid MinionId { get; set; }
+    public required string Name { get; set; }
+    public string? Description { get; set; }
+    public int HarmSoak { get; set; }
+    public bool IsSpecial { get; set; }
+    public string? SpecialDescription { get; set; }
+
+    public Minion Minion { get; set; } = null!;
+}
+
+public sealed class MinionWeakness
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid MinionId { get; set; }
+    public required string Name { get; set; }
+    public string? Description { get; set; }
+
+    public Minion Minion { get; set; } = null!;
+}
+
+public sealed class MinionCustomMove
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid MinionId { get; set; }
+    public required string Name { get; set; }
+    public string? Description { get; set; }
+
+    public Minion Minion { get; set; } = null!;
 }

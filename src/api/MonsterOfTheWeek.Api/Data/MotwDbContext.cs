@@ -27,6 +27,13 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
     public DbSet<MysteryMonster> MysteryMonsters => Set<MysteryMonster>();
     public DbSet<MysteryLocation> MysteryLocations => Set<MysteryLocation>();
     public DbSet<MysteryBystander> MysteryBystanders => Set<MysteryBystander>();
+    public DbSet<Minion> Minions => Set<Minion>();
+    public DbSet<MinionAttack> MinionAttacks => Set<MinionAttack>();
+    public DbSet<MinionAttackWeaponTag> MinionAttackWeaponTags => Set<MinionAttackWeaponTag>();
+    public DbSet<MinionPower> MinionPowers => Set<MinionPower>();
+    public DbSet<MinionArmor> MinionArmors => Set<MinionArmor>();
+    public DbSet<MinionWeakness> MinionWeaknesses => Set<MinionWeakness>();
+    public DbSet<MinionCustomMove> MinionCustomMoves => Set<MinionCustomMove>();
 
     public override int SaveChanges()
     {
@@ -95,18 +102,14 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.ToTable("monsters");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MonsterTypeId).HasColumnName("monster_type_id");
-            entity.Property(e => e.MinionTypeId).HasColumnName("minion_type_id");
+            entity.Property(e => e.MonsterTypeId).HasColumnName("monster_type_id").IsRequired();
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.HarmCapacity).HasColumnName("harm_capacity");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
-            entity.HasOne(e => e.MonsterType).WithMany(e => e.Monsters).HasForeignKey(e => e.MonsterTypeId)
-                .OnDelete(DeleteBehavior.SetNull);
-            entity.HasOne(e => e.MinionType).WithMany(e => e.Monsters).HasForeignKey(e => e.MinionTypeId)
-                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.MonsterType).WithMany(e => e.Monsters).HasForeignKey(e => e.MonsterTypeId);
         });
 
         modelBuilder.Entity<MonsterAttack>(entity =>
@@ -292,6 +295,102 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.Property(e => e.BystanderId).HasColumnName("bystander_id");
             entity.HasOne(e => e.Mystery).WithMany(e => e.MysteryBystanders).HasForeignKey(e => e.MysteryId);
             entity.HasOne(e => e.Bystander).WithMany(e => e.Mysteries).HasForeignKey(e => e.BystanderId);
+        });
+
+        modelBuilder.Entity<Minion>(entity =>
+        {
+            entity.ToTable("minions");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.MonsterId).HasColumnName("monster_id").IsRequired();
+            entity.Property(e => e.MinionTypeId).HasColumnName("minion_type_id").IsRequired();
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.HarmCapacity).HasColumnName("harm_capacity");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasOne(e => e.Monster).WithMany(e => e.Minions).HasForeignKey(e => e.MonsterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.MinionType).WithMany(e => e.Minions).HasForeignKey(e => e.MinionTypeId);
+            entity.HasIndex(e => e.MonsterId).HasDatabaseName("idx_minions_monster_id");
+            entity.HasIndex(e => e.MinionTypeId).HasDatabaseName("idx_minions_minion_type_id");
+        });
+
+        modelBuilder.Entity<MinionAttack>(entity =>
+        {
+            entity.ToTable("minion_attacks");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.MinionId).HasColumnName("minion_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.Harm).HasColumnName("harm");
+            entity.HasOne(e => e.Minion).WithMany(e => e.Attacks).HasForeignKey(e => e.MinionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MinionAttackWeaponTag>(entity =>
+        {
+            entity.ToTable("minion_attack_weapon_tags");
+            entity.HasKey(e => new { e.MinionAttackId, e.WeaponTagId });
+            entity.Property(e => e.MinionAttackId).HasColumnName("minion_attack_id");
+            entity.Property(e => e.WeaponTagId).HasColumnName("weapon_tag_id");
+            entity.HasOne(e => e.MinionAttack).WithMany(e => e.MinionAttackWeaponTags)
+                .HasForeignKey(e => e.MinionAttackId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.WeaponTag).WithMany(e => e.MinionAttackWeaponTags)
+                .HasForeignKey(e => e.WeaponTagId);
+        });
+
+        modelBuilder.Entity<MinionPower>(entity =>
+        {
+            entity.ToTable("minion_powers");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.MinionId).HasColumnName("minion_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.HasOne(e => e.Minion).WithMany(e => e.Powers).HasForeignKey(e => e.MinionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MinionArmor>(entity =>
+        {
+            entity.ToTable("minion_armors");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.MinionId).HasColumnName("minion_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.HarmSoak).HasColumnName("harm_soak");
+            entity.Property(e => e.IsSpecial).HasColumnName("is_special");
+            entity.Property(e => e.SpecialDescription).HasColumnName("special_description");
+            entity.HasOne(e => e.Minion).WithMany(e => e.Armors).HasForeignKey(e => e.MinionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MinionWeakness>(entity =>
+        {
+            entity.ToTable("minion_weaknesses");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.MinionId).HasColumnName("minion_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.HasOne(e => e.Minion).WithMany(e => e.Weaknesses).HasForeignKey(e => e.MinionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MinionCustomMove>(entity =>
+        {
+            entity.ToTable("minion_custom_moves");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.MinionId).HasColumnName("minion_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.HasOne(e => e.Minion).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MinionId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

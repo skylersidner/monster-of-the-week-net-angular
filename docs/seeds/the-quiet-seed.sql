@@ -9,7 +9,7 @@ DECLARE
   v_mystery_id    uuid := gen_random_uuid();
   v_countdown_id  uuid := gen_random_uuid();
   v_monster1_id   uuid := gen_random_uuid();   -- All-Father Stillness
-  v_monster2_id   uuid := gen_random_uuid();   -- The Disembodied Quiet
+  v_minion1_id    uuid := gen_random_uuid();   -- The Disembodied Quiet
   v_location1_id  uuid := gen_random_uuid();   -- Alton's Bend
   v_location2_id  uuid := gen_random_uuid();   -- One Stop Grocery & Shop
   v_location3_id  uuid := gen_random_uuid();   -- The Quiet Commune
@@ -55,11 +55,10 @@ BEGIN
   -- -------------------------------------------------------------------------
   -- Monster 1: All-Father Stillness  (MonsterType = "Queen")
   -- -------------------------------------------------------------------------
-  INSERT INTO monsters (id, monster_type_id, minion_type_id, name, description, harm_capacity)
+  INSERT INTO monsters (id, monster_type_id, name, description, harm_capacity)
   VALUES (
     v_monster1_id,
     (SELECT id FROM monster_types WHERE name = 'Queen'),
-    NULL,
     'All-Father Stillness',
     'Dr. Jon Hansen (or "All-Father Stillness") gathered followers under a movement he named "The Quiet." The Quiet was dedicated to shedding the physical world through meditation. Hansen was the first to achieve this willful separation of his spirit from his body. After this revelation, he brought the most proficient practitioners of his methods to the desert with him. After a year of training and preparation, they were cemented inside concrete domes with no doors or windows in an attempt to shut out the outside world completely. The members of The Quiet would succeed in transcendence or die in failure. All-Father Stillness walked deep into the desert and abandoned his body, committing himself fully to walking the Earth eternally as a spirit. After a long journey, he found his way back to the commune and waited for his followers to join him in their spirit forms. Once they gathered together, they would show the world what they had done and bring their "gift" to all. The All-Father will not show himself to the hunters until after at least two of his followers have been destroyed.',
     12
@@ -103,39 +102,41 @@ BEGIN
   WHERE NOT EXISTS (SELECT 1 FROM minion_types WHERE name = 'Parasite');
 
   -- -------------------------------------------------------------------------
-  -- Monster 2: The Disembodied Quiet  (MinionType = "Parasite") (continued)
+  -- Minion: The Disembodied Quiet  (MinionType = "Parasite", parent = All-Father Stillness)
   -- -------------------------------------------------------------------------
-  INSERT INTO monsters (id, monster_type_id, minion_type_id, name, description, harm_capacity)
+  INSERT INTO minions (id, monster_id, minion_type_id, name, description, harm_capacity, created_at, updated_at)
   VALUES (
-    v_monster2_id,
-    NULL,
+    v_minion1_id,
+    v_monster1_id,
     (SELECT id FROM minion_types WHERE name = 'Parasite'),
     'The Disembodied Quiet',
     'The members of The Quiet achieved transcendence and have gathered with All-Father Stillness in their spiritual form. Unfortunately they only transcended to being ghosts, trapped and unable to return to life or move on. Their only focus is to spread the "the gift" to anyone they see. Any noise provokes them to rage and to attempt to silence its source. Over the years, the distance they are able to roam has extended from the cement structures in which they died, putting Alton''s Bend in their path. They appear as semi-transparent versions of their human form, with long hair and naked bodies thinned by starvation. They stand still with disturbingly blank stares and will only move when unseen. Should anyone observing them turn away, or even blink, The Disembodied will suddenly be closer until they reach their ghostly hands deep into their victim''s throats.',
-    5
+    5,
+    now(),
+    now()
   );
 
   -- Powers — The Disembodied Quiet
-  INSERT INTO monster_powers (id, monster_id, name, description)
+  INSERT INTO minion_powers (id, minion_id, name, description)
   VALUES
-    (gen_random_uuid(), v_monster2_id,
+    (gen_random_uuid(), v_minion1_id,
      'Incorporeal',
      'The Disembodied Quiet are incorporeal forms who should be treated as having 3-armour (against any harm) unless their weakness is being exploited.');
 
   -- Attacks — The Disembodied Quiet
-  INSERT INTO monster_attacks (id, monster_id, name, description, harm)
+  INSERT INTO minion_attacks (id, minion_id, name, description, harm)
   VALUES
-    (gen_random_uuid(), v_monster2_id, 'Choke', '3-harm close ignore-armour.', 3);
+    (gen_random_uuid(), v_minion1_id, 'Choke', '3-harm close ignore-armour.', 3);
 
   -- Armor — The Disembodied Quiet
-  INSERT INTO monster_armors (id, monster_id, name, description, harm_soak, is_special, special_description)
+  INSERT INTO minion_armors (id, minion_id, name, description, harm_soak, is_special, special_description)
   VALUES
-    (gen_random_uuid(), v_monster2_id, 'Spectral Form', NULL, 3, true, 'Incorporeal.');
+    (gen_random_uuid(), v_minion1_id, 'Spectral Form', NULL, 3, true, 'Incorporeal.');
 
   -- Weakness — The Disembodied Quiet
-  INSERT INTO monster_weaknesses (id, monster_id, name, description)
+  INSERT INTO minion_weaknesses (id, minion_id, name, description)
   VALUES
-    (gen_random_uuid(), v_monster2_id,
+    (gen_random_uuid(), v_minion1_id,
      'Noise',
      'Loud noises will distract the spirits to the point that their forms waver and they become vulnerable to attack. Their bodies (inside the cement structures) are vulnerable to physical destruction, which will also destroy the spirit.');
 
@@ -182,9 +183,9 @@ BEGIN
   -- -------------------------------------------------------------------------
   -- Bridge table links: associate monsters, locations, bystander with mystery
   -- -------------------------------------------------------------------------
+  -- Only the true monster links to the mystery; minions are accessed via their parent monster
   INSERT INTO mystery_monsters (mystery_id, monster_id) VALUES
-    (v_mystery_id, v_monster1_id),
-    (v_mystery_id, v_monster2_id);
+    (v_mystery_id, v_monster1_id);
 
   INSERT INTO mystery_locations (mystery_id, location_id) VALUES
     (v_mystery_id, v_location1_id),

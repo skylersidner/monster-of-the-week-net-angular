@@ -16,9 +16,6 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
     public Task<bool> MonsterTypeExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.MonsterTypes.AnyAsync(x => x.Id == id, cancellationToken);
 
-    public Task<bool> MinionTypeExistsAsync(Guid id, CancellationToken cancellationToken) =>
-        dbContext.MinionTypes.AnyAsync(x => x.Id == id, cancellationToken);
-
     public Task<bool> WeaponTagExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.WeaponTags.AnyAsync(x => x.Id == id, cancellationToken);
 
@@ -34,8 +31,6 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
                 x.HarmCapacity,
                 x.MonsterTypeId,
                 x.MonsterType != null ? x.MonsterType.Name : null,
-                x.MinionTypeId,
-                x.MinionType != null ? x.MinionType.Name : null,
                 x.Attacks.Count,
                 x.Powers.Count,
                 x.Armors.Count,
@@ -56,8 +51,6 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
                 x.HarmCapacity,
                 x.MonsterTypeId,
                 x.MonsterType != null ? x.MonsterType.Name : null,
-                x.MinionTypeId,
-                x.MinionType != null ? x.MinionType.Name : null,
                 x.Attacks.Count,
                 x.Powers.Count,
                 x.Armors.Count,
@@ -69,7 +62,6 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
         dbContext.Monsters
             .AsNoTracking()
             .Include(x => x.MonsterType)
-            .Include(x => x.MinionType)
             .Include(x => x.Mysteries)
             .Include(x => x.Attacks)
             .ThenInclude(x => x.MonsterAttackWeaponTags)

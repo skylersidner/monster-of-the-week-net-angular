@@ -30,10 +30,9 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
             return ServiceResult<MonsterDetailResponse>.NotFound($"Mystery {mysteryId} was not found.");
         }
 
-        var validation = await ValidateTypesAsync(request.MonsterTypeId, request.MinionTypeId, cancellationToken);
-        if (validation is not null)
+        if (!await monsterRepository.MonsterTypeExistsAsync(request.MonsterTypeId, cancellationToken))
         {
-            return ServiceResult<MonsterDetailResponse>.Validation(validation);
+            return ServiceResult<MonsterDetailResponse>.Validation($"MonsterType {request.MonsterTypeId} does not exist.");
         }
 
         var monster = new Monster
@@ -42,7 +41,6 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
             Description = request.Description?.Trim(),
             HarmCapacity = request.HarmCapacity,
             MonsterTypeId = request.MonsterTypeId,
-            MinionTypeId = request.MinionTypeId
         };
 
         await monsterRepository.AddMonsterAsync(monster, cancellationToken);
@@ -72,17 +70,15 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
             return ServiceResult<MonsterDetailResponse>.NotFound($"Monster {id} was not found.");
         }
 
-        var validation = await ValidateTypesAsync(request.MonsterTypeId, request.MinionTypeId, cancellationToken);
-        if (validation is not null)
+        if (!await monsterRepository.MonsterTypeExistsAsync(request.MonsterTypeId, cancellationToken))
         {
-            return ServiceResult<MonsterDetailResponse>.Validation(validation);
+            return ServiceResult<MonsterDetailResponse>.Validation($"MonsterType {request.MonsterTypeId} does not exist.");
         }
 
         monster.Name = request.Name.Trim();
         monster.Description = request.Description?.Trim();
         monster.HarmCapacity = request.HarmCapacity;
         monster.MonsterTypeId = request.MonsterTypeId;
-        monster.MinionTypeId = request.MinionTypeId;
         await monsterRepository.SaveChangesAsync(cancellationToken);
 
         var detail = await GetByIdAsync(id, cancellationToken);
@@ -398,21 +394,6 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
     public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
         await monsterRepository.DeleteCustomMoveAsync(id, moveId, cancellationToken) > 0;
 
-    private async Task<string?> ValidateTypesAsync(Guid? monsterTypeId, Guid? minionTypeId, CancellationToken cancellationToken)
-    {
-        if (monsterTypeId.HasValue && !await monsterRepository.MonsterTypeExistsAsync(monsterTypeId.Value, cancellationToken))
-        {
-            return $"MonsterType {monsterTypeId.Value} does not exist.";
-        }
-
-        if (minionTypeId.HasValue && !await monsterRepository.MinionTypeExistsAsync(minionTypeId.Value, cancellationToken))
-        {
-            return $"MinionType {minionTypeId.Value} does not exist.";
-        }
-
-        return null;
-    }
-
     private static MonsterDetailResponse ToDetailResponse(Monster monster) =>
         new(
             monster.Id,
@@ -422,8 +403,6 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
             monster.HarmCapacity,
             monster.MonsterTypeId,
             monster.MonsterType?.Name,
-            monster.MinionTypeId,
-            monster.MinionType?.Name,
             monster.Attacks.Select(x => x.ToResponse()).ToList(),
             monster.Powers.Select(x => x.ToResponse()).ToList(),
             monster.Armors.Select(x => x.ToResponse()).ToList(),

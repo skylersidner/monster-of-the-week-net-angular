@@ -8,7 +8,6 @@ public interface IMonsterRepository
     Task<bool> MysteryExistsAsync(Guid mysteryId, CancellationToken cancellationToken);
     Task<bool> MonsterExistsAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> MonsterTypeExistsAsync(Guid id, CancellationToken cancellationToken);
-    Task<bool> MinionTypeExistsAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> WeaponTagExistsAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<MonsterListItemResponse>> GetMonstersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken);

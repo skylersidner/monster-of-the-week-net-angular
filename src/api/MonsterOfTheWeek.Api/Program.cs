@@ -23,6 +23,8 @@ builder.Services.AddScoped<IBystanderRepository, BystanderRepository>();
 builder.Services.AddScoped<IReferenceRepository, ReferenceRepository>();
 builder.Services.AddScoped<IMysteryService, MysteryService>();
 builder.Services.AddScoped<IMonsterService, MonsterService>();
+builder.Services.AddScoped<IMinionRepository, MinionRepository>();
+builder.Services.AddScoped<IMinionService, MinionService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IBystanderService, BystanderService>();
 builder.Services.AddScoped<IReferenceService, ReferenceService>();

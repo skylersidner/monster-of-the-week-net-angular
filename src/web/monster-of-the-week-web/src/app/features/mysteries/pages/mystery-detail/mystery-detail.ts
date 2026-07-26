@@ -1,8 +1,9 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { forkJoin, switchMap } from 'rxjs';
+import { forkJoin, of, switchMap } from 'rxjs';
 import { ApiService } from '../../../../core/api';
+import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
 import { MysterySectionIconComponent } from '../../shared/mystery-section-icon';
@@ -10,6 +11,7 @@ import { MYSTERY_COUNTDOWN_STAGES } from '../../shared/mystery-countdown-stage';
 import {
   BystanderListItemResponse,
   LocationListItemResponse,
+  MinionListItemResponse,
   MonsterListItemResponse,
   MysteryDetailResponse,
 } from '../../../../core/models';
@@ -26,8 +28,8 @@ export class MysteryDetailComponent implements OnInit {
 
   readonly mystery = signal<MysteryDetailResponse | null>(null);
   readonly monsters = signal<MonsterListItemResponse[]>([]);
-  readonly pureMonsters = computed(() => this.monsters().filter((m) => m.minionTypeId == null));
-  readonly minions = computed(() => this.monsters().filter((m) => m.minionTypeId != null));
+  readonly minions = signal<MinionListItemResponse[]>([]);
+  readonly pureMonsters = computed(() => this.monsters());
   readonly locations = signal<LocationListItemResponse[]>([]);
   readonly bystanders = signal<BystanderListItemResponse[]>([]);
   readonly isLoading = signal(true);
@@ -37,6 +39,7 @@ export class MysteryDetailComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly mysteryService: MysteryService,
     private readonly monsterService: MonsterService,
+    private readonly minionService: MinionService,
     private readonly apiService: ApiService
   ) {}
 
@@ -58,14 +61,27 @@ export class MysteryDetailComponent implements OnInit {
             locations: this.apiService.get<LocationListItemResponse[]>(`/api/mysteries/${id}/locations`),
             bystanders: this.apiService.get<BystanderListItemResponse[]>(`/api/mysteries/${id}/bystanders`),
           });
-        })
-      )
-      .subscribe({
-        next: ({ mystery, monsters, locations, bystanders }) => {
+        }),
+        switchMap(({ mystery, monsters, locations, bystanders }) => {
           this.mystery.set(mystery);
           this.monsters.set(monsters);
           this.locations.set(locations);
           this.bystanders.set(bystanders);
+
+          if (monsters.length === 0) {
+            return of({ minions: [] as MinionListItemResponse[] });
+          }
+
+          return forkJoin(
+            monsters.map((m) => this.minionService.getByMonster(m.id))
+          ).pipe(
+            switchMap((minionGroups) => of({ minions: minionGroups.flat() }))
+          );
+        })
+      )
+      .subscribe({
+        next: ({ minions }) => {
+          this.minions.set(minions);
           this.isLoading.set(false);
         },
         error: () => {

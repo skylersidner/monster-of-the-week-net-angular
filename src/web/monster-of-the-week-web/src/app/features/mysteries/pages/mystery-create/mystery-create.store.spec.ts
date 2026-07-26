@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { of } from 'rxjs';
 
 import { ApiService } from '../../../../core/api';
+import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
@@ -25,6 +26,10 @@ describe('MysteryCreateStore', () => {
     createWeakness: ReturnType<typeof vi.fn>;
     createArmor: ReturnType<typeof vi.fn>;
   };
+  let minionService: {
+    create: ReturnType<typeof vi.fn>;
+    createAttack: ReturnType<typeof vi.fn>;
+  };
   let apiService: {
     post: ReturnType<typeof vi.fn>;
   };
@@ -37,14 +42,16 @@ describe('MysteryCreateStore', () => {
       upsertCountdown: vi.fn(() => of({ id: 'countdown-1' })),
     };
     monsterService = {
-      create: vi.fn()
-        .mockReturnValueOnce(of({ id: 'monster-1' }))
-        .mockReturnValueOnce(of({ id: 'minion-1' })),
+      create: vi.fn(() => of({ id: 'monster-1' })),
       createAttack: vi.fn(() => of({ id: 'attack-1' })),
       assignAttackWeaponTag: vi.fn(() => of({})),
       createPower: vi.fn(() => of({ id: 'power-1' })),
       createWeakness: vi.fn(() => of({ id: 'weakness-1' })),
       createArmor: vi.fn(() => of({ id: 'armor-1' })),
+    };
+    minionService = {
+      create: vi.fn(() => of({ id: 'minion-1' })),
+      createAttack: vi.fn(() => of({ id: 'minion-attack-1' })),
     };
     apiService = {
       post: vi.fn(() => of({})),
@@ -67,6 +74,7 @@ describe('MysteryCreateStore', () => {
         { provide: NotificationService, useValue: notificationService },
         { provide: MysteryService, useValue: mysteryService },
         { provide: MonsterService, useValue: monsterService },
+        { provide: MinionService, useValue: minionService },
         { provide: ApiService, useValue: apiService },
       ],
     });
@@ -160,12 +168,11 @@ describe('MysteryCreateStore', () => {
       overview: 'A dead conductor is using the choir to open a gate.',
       notes: null,
     });
-    expect(monsterService.create).toHaveBeenNthCalledWith(1, 'mystery-1', {
+    expect(monsterService.create).toHaveBeenCalledWith('mystery-1', {
       name: 'Maestro Vey',
       description: 'A spectral conductor',
       harmCapacity: 8,
       monsterTypeId: 'monster-type-1',
-      minionTypeId: null,
     });
     expect(monsterService.createPower).toHaveBeenCalledWith('monster-1', {
       name: 'Shadow Step',
@@ -175,12 +182,16 @@ describe('MysteryCreateStore', () => {
       name: 'Silver',
       description: 'Silver seals the curse',
     });
-    expect(monsterService.create).toHaveBeenNthCalledWith(2, 'mystery-1', {
+    expect(minionService.create).toHaveBeenCalledWith('monster-1', {
       name: 'Choir Thrall',
       description: 'Possessed singer',
       harmCapacity: 3,
-      monsterTypeId: null,
       minionTypeId: 'minion-type-1',
+    });
+    expect(minionService.createAttack).toHaveBeenCalledWith('minion-1', {
+      name: 'Jagged Hymn',
+      harm: 1,
+      description: null,
     });
     expect(monsterService.assignAttackWeaponTag).toHaveBeenCalledWith('monster-1', 'attack-1', 'weapon-tag-1');
     expect(apiService.post).toHaveBeenCalledWith('/api/mysteries/mystery-1/locations', {

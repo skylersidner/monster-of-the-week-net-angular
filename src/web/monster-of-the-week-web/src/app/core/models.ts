@@ -94,10 +94,8 @@ export interface MonsterListItemResponse {
   name: string;
   description: string | null;
   harmCapacity: number;
-  monsterTypeId: string | null;
+  monsterTypeId: string;
   monsterTypeName: string | null;
-  minionTypeId: string | null;
-  minionTypeName: string | null;
   attackCount: number;
   powerCount: number;
   armorCount: number;
@@ -140,10 +138,8 @@ export interface MonsterDetailResponse {
   name: string;
   description: string | null;
   harmCapacity: number;
-  monsterTypeId: string | null;
+  monsterTypeId: string;
   monsterTypeName: string | null;
-  minionTypeId: string | null;
-  minionTypeName: string | null;
   attacks: MonsterAttackResponse[];
   powers: MonsterPowerResponse[];
   armors: MonsterArmorResponse[];
@@ -155,8 +151,7 @@ export interface UpsertMonsterRequest {
   name: string;
   description: string | null;
   harmCapacity: number;
-  monsterTypeId: string | null;
-  minionTypeId: string | null;
+  monsterTypeId: string;
 }
 
 export interface UpsertMonsterAttackRequest {
@@ -188,6 +183,94 @@ export interface UpsertMonsterWeaknessRequest {
 }
 
 export interface UpsertCustomMoveRequest {
+  name: string;
+  description: string | null;
+}
+
+export interface MinionListItemResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  harmCapacity: number;
+  minionTypeId: string;
+  minionTypeName: string;
+  attackCount: number;
+  powerCount: number;
+  armorCount: number;
+  weaknessCount: number;
+  createdAt: string;
+}
+
+export interface MinionAttackResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  harm: number;
+  weaponTags: WeaponTagRefResponse[];
+}
+
+export interface MinionPowerResponse {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+export interface MinionArmorResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  harmSoak: number;
+  isSpecial: boolean;
+  specialDescription: string | null;
+}
+
+export interface MinionWeaknessResponse {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+export interface MinionDetailResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  harmCapacity: number;
+  minionTypeId: string;
+  minionTypeName: string;
+  attacks: MinionAttackResponse[];
+  powers: MinionPowerResponse[];
+  armors: MinionArmorResponse[];
+  weaknesses: MinionWeaknessResponse[];
+  customMoves: CustomMoveResponse[];
+}
+
+export interface UpsertMinionRequest {
+  name: string;
+  description: string | null;
+  harmCapacity: number;
+  minionTypeId: string;
+}
+
+export interface UpsertMinionAttackRequest {
+  name: string;
+  description: string | null;
+  harm: number;
+}
+
+export interface UpsertMinionPowerRequest {
+  name: string;
+  description: string | null;
+}
+
+export interface UpsertMinionArmorRequest {
+  name: string;
+  description: string | null;
+  harmSoak: number;
+  isSpecial: boolean;
+  specialDescription: string | null;
+}
+
+export interface UpsertMinionWeaknessRequest {
   name: string;
   description: string | null;
 }

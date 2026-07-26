@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 
 import { ApiService } from '../../../../core/api';
+import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryDetailComponent } from './mystery-detail';
 import { MysteryService } from '../../../../core/mystery';
@@ -64,19 +65,32 @@ describe('MysteryDetailComponent', () => {
                   harmCapacity: 8,
                   monsterTypeId: 'monster-type-1',
                   monsterTypeName: 'Ghost',
-                  minionTypeId: null,
-                  minionTypeName: null,
+                  attackCount: 0,
+                  powerCount: 0,
+                  armorCount: 0,
+                  weaknessCount: 0,
+                  createdAt: new Date().toISOString(),
                 },
+              ]),
+          },
+        },
+        {
+          provide: MinionService,
+          useValue: {
+            getByMonster: () =>
+              of([
                 {
                   id: 'minion-1',
-                  mysteryIds: ['mystery-1'],
                   name: 'Echo Thrall',
                   description: null,
                   harmCapacity: 3,
-                  monsterTypeId: null,
-                  monsterTypeName: null,
                   minionTypeId: 'minion-type-1',
                   minionTypeName: 'Servant',
+                  attackCount: 0,
+                  powerCount: 0,
+                  armorCount: 0,
+                  weaknessCount: 0,
+                  createdAt: new Date().toISOString(),
                 },
               ]),
           },

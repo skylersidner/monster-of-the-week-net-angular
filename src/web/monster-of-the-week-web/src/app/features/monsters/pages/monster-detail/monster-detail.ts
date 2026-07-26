@@ -30,7 +30,6 @@ export class MonsterDetailComponent implements OnInit {
 
   readonly monster = signal<MonsterDetailResponse | null>(null);
   readonly monsterTypes = signal<TypeRefResponse[]>([]);
-  readonly minionTypes = signal<TypeRefResponse[]>([]);
   readonly weaponTags = signal<WeaponTagRefResponse[]>([]);
   readonly isLoading = signal(true);
   readonly activeMutation = signal<string | null>(null);
@@ -45,7 +44,6 @@ export class MonsterDetailComponent implements OnInit {
     description: this.formBuilder.control(''),
     harmCapacity: this.formBuilder.nonNullable.control(0, [Validators.required, Validators.min(0)]),
     monsterTypeId: this.formBuilder.nonNullable.control(''),
-    minionTypeId: this.formBuilder.nonNullable.control(''),
   });
 
   readonly attackForm = this.formBuilder.group({
@@ -98,16 +96,14 @@ export class MonsterDetailComponent implements OnInit {
           return forkJoin({
             monster: this.monsterService.getById(monsterId),
             monsterTypes: this.referenceDataService.getMonsterTypes(),
-            minionTypes: this.referenceDataService.getMinionTypes(),
             weaponTags: this.referenceDataService.getWeaponTags(),
           });
         })
       )
       .subscribe({
-        next: ({ monster, monsterTypes, minionTypes, weaponTags }) => {
+        next: ({ monster, monsterTypes, weaponTags }) => {
           this.monster.set(monster);
           this.monsterTypes.set(monsterTypes);
-          this.minionTypes.set(minionTypes);
           this.weaponTags.set(weaponTags);
           this.populateMonsterForm(monster);
           this.isLoading.set(false);
@@ -129,8 +125,7 @@ export class MonsterDetailComponent implements OnInit {
       name: this.monsterForm.controls.name.value.trim(),
       description: this.toNullable(this.monsterForm.controls.description.value),
       harmCapacity: this.monsterForm.controls.harmCapacity.value,
-      monsterTypeId: this.toNullable(this.monsterForm.controls.monsterTypeId.value),
-      minionTypeId: this.toNullable(this.monsterForm.controls.minionTypeId.value),
+      monsterTypeId: this.monsterForm.controls.monsterTypeId.value,
     };
 
     this.activeMutation.set('Saving monster...');
@@ -334,8 +329,7 @@ export class MonsterDetailComponent implements OnInit {
       name: monster.name,
       description: monster.description ?? '',
       harmCapacity: monster.harmCapacity,
-      monsterTypeId: monster.monsterTypeId ?? '',
-      minionTypeId: monster.minionTypeId ?? '',
+      monsterTypeId: monster.monsterTypeId,
     });
   }
 

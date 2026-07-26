@@ -35,15 +35,6 @@
           }
         </select>
       </label>
-      <label>
-        Minion Type
-        <select formControlName="minionTypeId">
-          <option value="">None</option>
-          @for (type of minionTypes(); track type.id) {
-            <option [value]="type.id">{{ type.name }}</option>
-          }
-        </select>
-      </label>
       <button type="submit" [disabled]="isMutating()">Save Monster</button>
     </form>
 
