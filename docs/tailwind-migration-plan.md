@@ -1039,8 +1039,9 @@ The production build emits a warning that `mystery-create.scss` exceeds the 6kB 
 
 #### Impact on future phases
 - All phases referencing `styles.scss` should use `styles.css` instead
-- `vite.config.ts` is now a committed project file — do not delete it
-- Tailwind utilities are available in templates immediately; smoke-test by adding `class="text-red-500"` to any element and verifying it renders red before each phase begins
+- `vite.config.ts` was **deleted** in Phase 2 — the `@tailwindcss/vite` approach only fires during production bundling and does not work with `ng serve`. Use the PostCSS path (`.postcssrc.json`) instead
+- The required PostCSS config filename is **`.postcssrc.json`** — `postcss.config.mjs` is silently ignored by Angular's build pipeline
+- Tailwind utilities are available in templates immediately; smoke-test by checking `getComputedStyle(document.querySelector('[class*="flex"]')).display` equals `"flex"` in the browser console before each phase begins
 
 ---
 
@@ -1088,7 +1089,7 @@ The plan called for deleting `_breakpoints.scss` in Phase 1. That is not possibl
 
 **`routerLinkActive`:** Changed from `routerLinkActive="sidebar-link-active"` to `routerLinkActive="bg-blue-800/65"`. Angular's `routerLinkActive` directive accepts Tailwind classes directly — this works cleanly.
 
-**SVG sizing:** Added `class="h-full w-full"` to every `<svg>` inside `.sidebar-link-icon` spans. Eliminated the child combinator rule entirely — no SCSS remnant needed.
+**SVG sizing:** Added `class="h-5 w-5" width="20" height="20"` to every nav `<svg>`. The HTML `width`/`height` attributes are required as a fallback — see Quirks below.
 
 **Toast background colors:** The original used `[class.toast-error]` toggling a CSS class. With two classes competing for `background-color` in Tailwind's utility layer, source-order determines which wins — unreliable. Used `[style.background-color]` binding instead: `[style.background-color]="notification.kind === 'error' ? '#a10808' : '#1b6f2a'"`. This is explicit, unambiguous, and requires no CSS.
 
@@ -1104,7 +1105,29 @@ The plan called for deleting `_breakpoints.scss` in Phase 1. That is not possibl
 
 #### Quirks & Deviations
 
-None significant. The migration went exactly as planned. The `[class.toast-error]` → `[style.background-color]` swap is a minor pattern deviation that's actually cleaner than the original.
+**Root issue: Tailwind utilities were not generated at all (PostCSS config filename)**
+After Phase 2 was committed, no Tailwind utility classes were applied in the browser — the sidebar was unstyled, the layout was broken. Investigation revealed that Angular's build pipeline (`@angular/build:application`, Vite-based) silently ignores `postcss.config.mjs`. The only filename it recognises is `.postcssrc.json`. 
+
+Fix: created `.postcssrc.json` at the project root with `{"plugins": {"@tailwindcss/postcss": {}}}` and deleted `postcss.config.mjs`. This resolved both `ng serve` (Vite dev server) and `ng build` (esbuild production). Confirmed working by checking `getComputedStyle(document.querySelector('[class*="flex"]')).display === "flex"` in the browser console.
+
+Verification command:
+```powershell
+$f=(Get-ChildItem dist/.../styles-*.css | Select-Object -First 1).FullName
+$c=Get-Content $f -Raw
+"Has .flex:$($c.Contains('.flex')) | Has .hidden:$($c.Contains('.hidden'))"
+```
+
+**Root issue: `vite.config.ts` (@tailwindcss/vite) did not work for dev server**
+The `vite.config.ts` created in Phase 0 (using `@tailwindcss/vite`) fires only during production bundling — it does not intercept CSS during `ng serve`. This meant utilities appeared to work in production builds but the dev server served unstyled HTML. `vite.config.ts` was deleted; PostCSS (via `.postcssrc.json`) is the correct integration path for both modes.
+
+**SVG icons rendering at 300×150 px**
+With Tailwind utilities not loading, `h-5 w-5` had no effect and browser-default SVG intrinsic sizing took over: 300 × 150 px per icon, completely breaking the sidebar layout. Two-part fix applied:
+1. Changed CSS class from `h-full w-full` to `h-5 w-5` (appropriate fixed size for nav icons)
+2. Added HTML `width="20" height="20"` attributes directly on every nav `<svg>` element
+
+The HTML attributes are an essential defensive measure — they constrain the SVG to 20 × 20 px at the element level, before any CSS is applied. Relying solely on CSS classes means a broken stylesheet causes oversized icons. **Going forward, all inline SVGs in this app must carry both Tailwind size classes AND matching `width`/`height` HTML attributes.**
+
+The `[class.toast-error]` → `[style.background-color]` swap is a minor pattern deviation that is actually cleaner than the original.
 
 #### Build output
 - `main-*.js`: **291.66 kB** (down 2.2 kB from Phase 1 — template bytes removed from JS bundle)
