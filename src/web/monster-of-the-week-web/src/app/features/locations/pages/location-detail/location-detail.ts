@@ -30,7 +30,14 @@ export class LocationDetailComponent implements OnInit {
     locationTypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
   });
 
-  readonly backLink = computed(() => ['/locations']);
+  readonly mysteryId = signal<string | null>(null);
+
+  readonly backLink = computed(() =>
+    this.mysteryId() ? ['/mysteries', this.mysteryId()] : ['/locations']
+  );
+  readonly backLabel = computed(() =>
+    this.mysteryId() ? '← Back to mystery' : '← Back to locations'
+  );
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -49,6 +56,8 @@ export class LocationDetailComponent implements OnInit {
             throw new Error('Location id is required.');
           }
 
+          const mysteryId = params.get('mysteryId');
+          this.mysteryId.set(mysteryId);
           this.isLoading.set(true);
           this.errorMessage.set(null);
 

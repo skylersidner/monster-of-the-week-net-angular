@@ -101,7 +101,9 @@
         } @else {
           <ul>
             @for (minion of minions(); track minion.id) {
-              <li>{{ minion.name }}</li>
+              <li>
+                <a [routerLink]="['/mysteries', mystery()!.id, 'minions', minion.id]">{{ minion.name }}</a>
+              </li>
             }
           </ul>
         }

@@ -1,5 +1,5 @@
 <section>
-  <a [routerLink]="backLink()">← Back to monsters</a>
+  <a [routerLink]="backLink()">{{ backLabel() }}</a>
 
   @if (isLoading()) {
     <p>Loading monster...</p>
@@ -17,7 +17,7 @@
           @for (minion of minions(); track minion.id) {
             <li>
               <div class="minion-name-row">
-                <a [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
+                <a [routerLink]="['/monsters', monster()!.id, 'minions', minion.id]">{{ minion.name }}</a>
                 <span class="type-badge type-badge--minion">{{ minion.minionType.name }}: {{ minion.minionType.motivation }}</span>
               </div>
               <small>

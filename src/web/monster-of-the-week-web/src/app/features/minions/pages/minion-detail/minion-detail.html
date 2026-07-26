@@ -1,5 +1,5 @@
 <section>
-  <a [routerLink]="backLink()">← Back to minions</a>
+  <a [routerLink]="backLink()">{{ backLabel() }}</a>
 
   @if (isLoading()) {
     <p>Loading minion...</p>

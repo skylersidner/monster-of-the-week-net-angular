@@ -30,7 +30,14 @@ export class BystanderDetailComponent implements OnInit {
     bystanderTypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
   });
 
-  readonly backLink = computed(() => ['/bystanders']);
+  readonly mysteryId = signal<string | null>(null);
+
+  readonly backLink = computed(() =>
+    this.mysteryId() ? ['/mysteries', this.mysteryId()] : ['/bystanders']
+  );
+  readonly backLabel = computed(() =>
+    this.mysteryId() ? '← Back to mystery' : '← Back to bystanders'
+  );
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -49,6 +56,8 @@ export class BystanderDetailComponent implements OnInit {
             throw new Error('Bystander id is required.');
           }
 
+          const mysteryId = params.get('mysteryId');
+          this.mysteryId.set(mysteryId);
           this.isLoading.set(true);
           this.errorMessage.set(null);
 

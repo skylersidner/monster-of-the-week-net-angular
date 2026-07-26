@@ -44,7 +44,12 @@ export class MonsterDetailComponent implements OnInit {
   readonly mysteryId = signal<string | null>(null);
   readonly isMutating = computed(() => this.activeMutation() !== null);
 
-  readonly backLink = computed(() => ['/monsters']);
+  readonly backLink = computed(() =>
+    this.mysteryId() ? ['/mysteries', this.mysteryId()] : ['/monsters']
+  );
+  readonly backLabel = computed(() =>
+    this.mysteryId() ? '← Back to mystery' : '← Back to monsters'
+  );
 
   readonly monsterForm = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [Validators.required]),

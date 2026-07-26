@@ -38,9 +38,20 @@ export class MinionDetailComponent implements OnInit {
   readonly activeMutation = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
   readonly pendingDelete = signal<{ label: string; perform: () => void } | null>(null);
+  readonly mysteryId = signal<string | null>(null);
+  readonly monsterId = signal<string | null>(null);
   readonly isMutating = computed(() => this.activeMutation() !== null);
 
-  readonly backLink = computed(() => ['/minions']);
+  readonly backLink = computed(() => {
+    if (this.mysteryId()) return ['/mysteries', this.mysteryId()];
+    if (this.monsterId()) return ['/monsters', this.monsterId()];
+    return ['/minions'];
+  });
+  readonly backLabel = computed(() => {
+    if (this.mysteryId()) return '← Back to mystery';
+    if (this.monsterId()) return '← Back to monster';
+    return '← Back to minions';
+  });
 
   readonly minionForm = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [Validators.required]),
@@ -91,6 +102,10 @@ export class MinionDetailComponent implements OnInit {
             throw new Error('Minion id is required.');
           }
 
+          const mysteryId = params.get('mysteryId');
+          this.mysteryId.set(mysteryId);
+          const monsterId = params.get('monsterId');
+          this.monsterId.set(monsterId);
           this.isLoading.set(true);
           this.errorMessage.set(null);
 

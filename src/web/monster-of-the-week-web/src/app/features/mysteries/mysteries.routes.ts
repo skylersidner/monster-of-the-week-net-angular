@@ -24,6 +24,11 @@ export const MYSTERIES_ROUTES: Routes = [
       import('../bystanders/pages/bystander-detail/bystander-detail').then((m) => m.BystanderDetailComponent),
   },
   {
+    path: ':mysteryId/minions/:minionId',
+    loadComponent: () =>
+      import('../minions/pages/minion-detail/minion-detail').then((m) => m.MinionDetailComponent),
+  },
+  {
     path: ':id/edit',
     loadComponent: () => import('./pages/mystery-create/mystery-create').then((m) => m.MysteryCreateComponent),
   },

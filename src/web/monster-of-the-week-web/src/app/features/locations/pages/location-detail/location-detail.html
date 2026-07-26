@@ -1,5 +1,5 @@
 <section>
-  <a [routerLink]="backLink()">← Back to locations</a>
+  <a [routerLink]="backLink()">{{ backLabel() }}</a>
 
   @if (isLoading()) {
     <p>Loading location...</p>
