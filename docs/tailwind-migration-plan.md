@@ -1177,3 +1177,140 @@ Tailwind v4 cannot resolve `@apply` in a component SCSS file unless the file dec
 - Any component SCSS file that uses `@apply` must start with `@reference "tailwindcss";`
 - The `custom-select__*` class names that remain in the template are load-bearing for SCSS compound selectors — do not remove them during future refactors
 - The `confirm-delete-modal` and `weapon-tag-select` patterns (full inline migration) can be used as templates for other simple shared components
+
+---
+
+### Phase 4 — Simple Detail Pages ✅
+
+**Date completed:** 2026-07-26  
+**Status:** Complete — clean production build, zero warnings.
+
+#### What was done
+- Rewrote `bystander-detail.html` with full inline Tailwind; deleted SCSS; removed `styleUrl`
+- Rewrote `location-detail.html` with full inline Tailwind; deleted SCSS; removed `styleUrl`
+- Rewrote `minion-detail.html` with inline Tailwind; reduced `minion-detail.scss` from ~80 lines to an 8-line stub; retained `styleUrl`
+
+#### Class mapping decisions
+
+**Form pattern (bystander-detail, location-detail):**
+```html
+<form class="grid gap-[0.6rem] my-4 max-w-[30rem]">
+  <label class="grid font-medium gap-1">
+    Field Name
+    <input class="border border-[#c9d4e6] rounded-[0.35rem] px-[0.6rem] py-[0.45rem] w-full">
+  </label>
+  <button class="bg-blue-900 border-0 rounded-[0.35rem] text-white cursor-pointer px-3 py-[0.45rem] w-fit">
+    Save
+  </button>
+</form>
+```
+
+**minion-detail sub-resource grid:** `class="grid gap-4 grid-cols-4 max-xl:grid-cols-2 max-sm:grid-cols-1"`
+
+**minion-detail name row:** `class="grid gap-[0.6rem] grid-cols-[2fr_1fr_1fr] max-md:grid-cols-1"`
+
+**Sub-resource article cards:** `class="bg-white border border-slate-200 rounded-lg p-3"`
+
+**Sub-resource list items:** `class="flex items-start justify-between border-b border-[#edf1f8] py-[0.45rem] last:border-0"`
+
+**Action buttons in minion-detail:** Kept `action-btn action-btn--delete` class names alongside inline Tailwind base classes. The hover state uses a `:hover:not(:disabled)` compound selector which cannot be expressed as a Tailwind variant — it stays in the SCSS stub.
+
+**minion-detail.scss stub (8 lines):**
+```scss
+@reference "tailwindcss";
+
+.action-btn:hover:not(:disabled) {
+  @apply bg-gray-100;
+}
+
+.action-btn:disabled {
+  @apply cursor-not-allowed opacity-40;
+}
+```
+
+#### Quirks & Deviations
+
+**`@use 'breakpoints'` removed from minion-detail.scss** — the stub no longer needs the Sass breakpoint mixin, so the `@use` import was dropped. `_breakpoints.scss` is still needed by `monster-detail.scss` (Phase 6) but not here.
+
+**`last:border-0` instead of `:last-child { border-bottom: 0 }`** — Tailwind's `last:` variant works cleanly on `<li>` items in the sub-resource lists, eliminating the one rule that was in the original SCSS for this purpose.
+
+**`disabled:cursor-not-allowed disabled:opacity-40` added inline** — these simple disabled-state rules can be expressed inline; only the `:hover:not(:disabled)` compound selector requires SCSS.
+
+#### Build output
+- Clean production build, zero errors, zero warnings
+- Build time: ~2.8 seconds
+
+#### Impact on future phases
+- The form pattern (grid gap labels, `border-[#c9d4e6]` inputs, `bg-blue-900` save button) is now the canonical detail-page form — apply consistently in monster-detail and mystery-detail
+- `last:` variant replaces `:last-child { border-bottom: 0 }` cleanly — reuse in monster-detail
+- The 8-line SCSS stub pattern (retain class names + SCSS for `hover:not(:disabled)`) applies to monsters-list (Phase 5) and monster-detail (Phase 6)
+
+---
+
+### Phase 5 — List Pages ✅
+
+**Date completed:** 2026-07-26  
+**Status:** Complete — clean production build, zero warnings. Net: 430 lines removed, 4 SCSS files deleted.
+
+#### What was done
+- `bystanders-list`: fully inlined, SCSS deleted, `styleUrl` removed
+- `locations-list`: fully inlined, SCSS deleted, `styleUrl` removed
+- `mysteries-list`: fully inlined (including create/edit/delete button variants), SCSS deleted, `styleUrl` removed
+- `minions-list`: fully inlined (no action buttons; `.minion-parent` paragraph and link inlined), SCSS deleted, `styleUrl` removed
+- `monsters-list`: HTML inlined; SCSS reduced to 8-line stub (delete button has `[disabled]="isLoadingMinions()"`), `styleUrl` retained
+
+#### Class mapping decisions
+
+**Common list card:**
+```html
+<li class="flex items-center bg-white border border-[#e5e9f2] rounded-lg gap-4 justify-between p-4">
+```
+
+**List grid `<ul>`:** `class="grid gap-4 list-none p-0"`
+
+**Info div:** `class="flex-1 min-w-0"`
+
+**Name row:** `class="flex flex-wrap items-baseline gap-2 mb-1"`
+
+**Actions div:** `class="flex items-center shrink-0 gap-1"`
+
+**Action button base:** `class="flex items-center bg-transparent border-0 rounded-md text-gray-500 cursor-pointer justify-center p-[0.375rem] no-underline transition-colors"`
+
+**Type badge colors per entity:**
+| Entity | Background | Text |
+|--------|-----------|------|
+| Bystander | `bg-blue-100` | `text-blue-800` |
+| Location | `bg-green-100` | `text-green-900` |
+| Monster | `bg-red-100` | `text-red-700` |
+| Minion | `bg-[#fde8d8]` | `text-orange-800` |
+
+Note: Tailwind `bg-orange-100` is `#ffedd5`, not the original `#fde8d8` — using arbitrary value for exact match.
+
+**mysteries-list create button:** `class="bg-blue-700 hover:bg-blue-800 rounded-lg text-white text-[0.9rem] font-semibold py-[0.55rem] px-5 no-underline transition-colors whitespace-nowrap"`
+
+**mysteries-list edit button (is an `<a>`):** adds `hover:bg-violet-100 hover:text-indigo-600` — no `:not(:disabled)` guard needed (no disabled state on `<a>` elements)
+
+**mysteries-list delete button:** adds `hover:bg-red-100 hover:text-red-600` — original SCSS had no `:not(:disabled)` guard here either, so no SCSS needed
+
+**bystanders-list / locations-list delete buttons:** adds `hover:bg-gray-100` inline — no disabled binding on these buttons, no SCSS stub needed
+
+**minions-list `.minion-parent` paragraph:** `class="text-gray-500 text-[0.82rem] mt-[0.15rem] mb-[0.25rem]"`
+
+**minions-list `.minion-parent a`:** `class="text-inherit underline"` directly on the `<a>` (Tailwind preflight does not reset link color, so `text-inherit` is explicit)
+
+**monsters-list delete button:** keeps `action-btn action-btn--delete` class names alongside inline base styles; hover stays in SCSS stub (same 8-line pattern as minion-detail)
+
+#### Quirks & Deviations
+
+**`error` class was unstyled in some components** — the original SCSS for bystanders-list and locations-list did not define `.error`. The class applied browser-default black text (likely an oversight). Replacing with explicit `class="text-red-800"` is a visual improvement.
+
+**`concept` vs `description` field** — mysteries-list displays `mystery.concept` rather than `mystery.description`. The `<p>` gets `class="my-2"` to match the original `.mystery-list p { margin: 0.5rem 0 }` rule. Other list pages omit this since they had no equivalent SCSS rule.
+
+#### Build output
+- Clean production build, zero errors, zero warnings
+- 14 files changed, 430 deletions (net), 4 SCSS files deleted
+- Build time: ~2.9 seconds
+
+#### Impact on future phases
+- All list-page patterns are now established; Phase 6 detail pages and admin pages can reuse the action-button base, card, and badge patterns
+- `_breakpoints.scss` can be deleted after `monster-detail.scss` is migrated in Phase 6 (it is the last consumer)
