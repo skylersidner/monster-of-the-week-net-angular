@@ -988,7 +988,7 @@ Any component SCSS file above 1kB after migration is worth investigating.
 
 **HMR works.** The `@tailwindcss/vite` plugin supports full Hot Module Replacement. Adding a class to a template updates the browser instantly without a page reload.
 
-**Import order in `styles.scss` is mandatory.** `@import "tailwindcss"` must be the first CSS statement. `@theme` and `@layer base` must appear after it.
+**Note (discovered during Phase 0):** `styles.scss` is renamed to `styles.css` so Sass does not process it. Angular's Sass compiler (`angular-sass` plugin) emits a deprecation warning on `@import "tailwindcss"` because Sass sees CSS `@import` syntax as its own deprecated import mechanism before the Tailwind Vite plugin can intercept it. As a `.css` file, Sass ignores it entirely and the Tailwind Vite plugin processes it directly. Update the reference in `angular.json` accordingly (`"src/styles.css"`).
 
 **Style budget enforcement.** The `anyComponentStyle` budget only runs in production configuration. Development builds are unaffected. Wait until Phase 7 is complete before tightening the budget.
 
@@ -1000,3 +1000,44 @@ Any component SCSS file above 1kB after migration is worth investigating.
 5. `ng serve` in development, inspect visually
 6. Commit atomically: `feat: migrate {component-name} to Tailwind v4`
 7. `ng build --configuration production` before moving to next component
+
+---
+
+## Phase Log
+
+This section records implementation notes for each completed phase — quirks discovered, deviations from the plan, and anything that may affect subsequent phases.
+
+---
+
+### Phase 0 — Infrastructure & Coexistence Baseline ✅
+
+**Date completed:** 2026-07-26  
+**Status:** Complete — clean production build, Tailwind utilities active.
+
+#### What was done
+- Installed `tailwindcss` and `@tailwindcss/vite` (20 packages added)
+- Created `vite.config.ts` at the project root (Path B) — `angular.json` `plugins` array was not attempted since Path B is more reliably documented for Angular 22
+- Updated `styles.scss` with the Tailwind import, `@theme` block, and `@layer base` reset
+- Renamed `styles.scss` → `styles.css` and updated `angular.json` to reference `src/styles.css`
+
+#### Quirks & Deviations
+
+**`styles.scss` renamed to `styles.css` (plan update required)**  
+The plan described `styles.scss` as the Tailwind entry point. In practice, Angular's Sass compiler (`angular-sass` plugin) sees `@import "tailwindcss"` as a Sass import statement and emits a Sass deprecation warning, even though the Tailwind Vite plugin intercepts it first and the build succeeds. Renaming the file to `styles.css` eliminates the warning entirely — Sass ignores `.css` files and the Vite plugin processes it directly. This is a net improvement: the file does not use any Sass features, so `.scss` was never appropriate. The plan's references to `styles.scss` should be read as `styles.css`.
+
+**`vite.config.ts` used (Path B) rather than `angular.json` plugins (Path A)**  
+Path A was not attempted. Path B (`vite.config.ts`) is the established, documented approach for Angular 22 + custom Vite plugins and works cleanly. No reason to prefer Path A.
+
+**Pre-existing `mystery-create.scss` budget warning persists**  
+The production build emits a warning that `mystery-create.scss` exceeds the 6kB warning threshold (8.27kB). This warning predates Phase 0 and is unrelated to Tailwind. It will be addressed when Phase 7 tightens the budget after the wizard migration.
+
+#### Build output
+- `styles-*.css`: **21.68 kB** (includes Tailwind's utility sheet — expected)
+- `main-*.js`: 293.84 kB (unchanged from pre-migration)
+- Zero errors, one pre-existing warning (mystery-create budget)
+- Build time: 2.856 seconds
+
+#### Impact on future phases
+- All phases referencing `styles.scss` should use `styles.css` instead
+- `vite.config.ts` is now a committed project file — do not delete it
+- Tailwind utilities are available in templates immediately; smoke-test by adding `class="text-red-500"` to any element and verifying it renders red before each phase begins

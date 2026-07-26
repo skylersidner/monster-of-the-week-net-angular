@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  /* Pin brand color to hex for DevTools clarity (Tailwind v4 defaults to oklch) */
+  --color-indigo-700: #4338ca;
+
+  /* Font stack — defines the `font-sans` utility */
+  --font-sans: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Custom breakpoints matching existing SCSS variables */
+  --breakpoint-sm: 540px;   /* was $bp-sm — overrides Tailwind default 640px */
+  --breakpoint-xl: 1200px;  /* was $bp-lg — overrides Tailwind default 1280px */
+  /* --breakpoint-md is already 768px in Tailwind — no override needed */
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    font-family: theme(--font-sans);
+  }
+}
