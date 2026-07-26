@@ -3,6 +3,17 @@
 
 ## Learnings
 
+### 2026-07-26 — Tailwind v4 Migration Analysis
+
+- Angular 22 + @tailwindcss/vite: no `tailwind.config.js` needed; plugin wired via `angular.json` `plugins` array or `vite.config.ts`
+- `@theme` block in `styles.scss` handles `font-sans`, custom breakpoints (`sm=540px`, `xl=1200px`), and brand color pin
+- 19 SCSS files analyzed; 14 can be fully deleted, 3 shrink significantly, 2 are permanent survivors
+- `mystery-create.scss`: `grid-template-rows: subgrid` has no Tailwind utility — 20-line remnant is the correct outcome
+- `custom-select.component.scss`: compound parent-state selectors (`.is-open`, `.is-disabled`) must stay in SCSS with `@apply`
+- `:hover:not(:disabled)` pattern cannot be expressed in Tailwind — must stay in SCSS
+- `:nth-child` table row striping with `!important` must stay in SCSS
+- The existing color palette is an almost-exact match to Tailwind defaults — no custom color tokens needed
+
 - Phase 8c: built full minion-detail component mirroring monster-detail — all three files (ts, html, scss) at `features/minions/pages/minion-detail/`
 - runAndRefresh helper pattern: operation → switchMap(getById) → update signal, toast, reset form; lives as private method taking `(minionId: string) => Observable<unknown>`
 - Attack create flow: createAttack → if tags: forkJoin(assignAttackWeaponTag) → switchMap(getById) to refresh full minion

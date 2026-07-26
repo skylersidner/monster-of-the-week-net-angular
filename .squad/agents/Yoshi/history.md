@@ -1,5 +1,15 @@
 ## Learnings
 
+### 2026-07-26 — Tailwind v4 Architectural Phasing
+
+- Angular's emulated encapsulation shields component styles from Tailwind preflight — import full Tailwind immediately, coexistence is safe
+- Phasing order: infrastructure → global → layout shell → shared components → simple detail pages → list pages → medium pages → wizard last
+- Phase 2 (shell layout) is highest risk — should run in a feature branch
+- Phase 7 (mystery wizard) is highest functional risk — test in a feature branch
+- `custom-select.component.scss`: `@apply` is correct choice over Tailwind `group` modifier (avoids template restructuring for an already-programmatic widget)
+- Tailwind v4 uses `oklch()` for colors in DevTools; `@theme` override pins hex for clarity
+- Component style budget should only be tightened after Phase 7 is fully complete
+
 ### Phase 8 Planning — Minions UI Flow (2026-07-25)
 
 - **No flat list API endpoint**: `GET /api/minions` does not exist. Only `GET /api/monsters/{monsterId}/minions` is available. Any top-level Minions list view requires adding a new API endpoint — this is the primary architectural fork (Option A vs B).
