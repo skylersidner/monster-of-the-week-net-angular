@@ -14,7 +14,7 @@ interface NavItem {
   selector: 'app-page-layout',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './page-layout.html',
-  styleUrl: './page-layout.scss',
+  host: { class: 'block h-full' },
 })
 export class PageLayoutComponent implements OnInit {
   readonly navItems: readonly NavItem[] = [

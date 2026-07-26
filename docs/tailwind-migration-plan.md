@@ -1070,3 +1070,48 @@ The plan called for deleting `_breakpoints.scss` in Phase 1. That is not possibl
 #### Impact on future phases
 - `_breakpoints.scss` must remain until both `minion-detail.scss` and `monster-detail.scss` are migrated
 - Budget warnings are now suppressed for the remainder of the migration — restore to tighter values after Phase 7
+
+---
+
+### Phase 2 — Shell Layout ✅
+
+**Date completed:** 2026-07-26  
+**Status:** Complete — clean production build, zero warnings. Shell is fully on Tailwind.
+
+#### What was done
+- Rewrote `page-layout.html` entirely — all 19 SCSS class references replaced with Tailwind utilities inline
+- Added `host: { class: 'block h-full' }` to `PageLayoutComponent`, removed `styleUrl`
+- Deleted `page-layout.scss` (335 lines gone)
+- `page-layout.spec.ts` continues to reference the component correctly — no test changes needed
+
+#### Class mapping decisions
+
+**`routerLinkActive`:** Changed from `routerLinkActive="sidebar-link-active"` to `routerLinkActive="bg-blue-800/65"`. Angular's `routerLinkActive` directive accepts Tailwind classes directly — this works cleanly.
+
+**SVG sizing:** Added `class="h-full w-full"` to every `<svg>` inside `.sidebar-link-icon` spans. Eliminated the child combinator rule entirely — no SCSS remnant needed.
+
+**Toast background colors:** The original used `[class.toast-error]` toggling a CSS class. With two classes competing for `background-color` in Tailwind's utility layer, source-order determines which wins — unreliable. Used `[style.background-color]` binding instead: `[style.background-color]="notification.kind === 'error' ? '#a10808' : '#1b6f2a'"`. This is explicit, unambiguous, and requires no CSS.
+
+**Search input:** Focus ring uses `focus:shadow-[0_0_0_2px_rgba(99,102,241,0.18)] focus:border-indigo-500 focus:outline-none` directly on the `<input>`. No SCSS remnant needed.
+
+**User menu panel links:** Added `block` to each `<a>` (`block rounded-[0.4rem] ...`) since Tailwind's preflight resets `<a>` to no display value and the hover background needs the element to be block-level.
+
+**`search-form` class:** Was present in the template but had no corresponding SCSS rule — removed entirely. The form now has `class="flex-1 min-w-0"` so it fills the header flex container.
+
+**API modal:** Already used inline styles. Only change: added `class="m-0"` to the `<h2>` to replace the `api-modal h2 { margin: 0 }` child combinator rule.
+
+**"Soon" badge spans:** The disabled nav items had `style="color: rgba(219,234,254,.72); cursor: default;"` inline already. Removed and replaced with Tailwind's `text-blue-100/70 cursor-default` (opacity modifier handles the 72% alpha directly).
+
+#### Quirks & Deviations
+
+None significant. The migration went exactly as planned. The `[class.toast-error]` → `[style.background-color]` swap is a minor pattern deviation that's actually cleaner than the original.
+
+#### Build output
+- `main-*.js`: **291.66 kB** (down 2.2 kB from Phase 1 — template bytes removed from JS bundle)
+- `styles-*.css`: 21.68 kB (Tailwind sheet unchanged — new utility classes were already in the scan)
+- Zero errors, zero warnings
+- Build time: 2.793 seconds
+
+#### Impact on future phases
+- The shell layout is the visual baseline for inspecting all remaining phases
+- `routerLinkActive` with Tailwind class names is confirmed working — reuse this pattern in any future components that need active-state styling
