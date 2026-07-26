@@ -8,7 +8,6 @@ import { MysteryListItemResponse } from '../../core/models';
   selector: 'app-dashboard-page',
   imports: [DatePipe, RouterLink],
   templateUrl: './dashboard.html',
-  styleUrl: './dashboard.scss',
 })
 export class DashboardPageComponent implements OnInit {
   readonly mysteries = signal<MysteryListItemResponse[]>([]);
