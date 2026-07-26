@@ -1,0 +1,190 @@
+<section>
+  <a [routerLink]="backLink()">← Back to minions</a>
+
+  @if (isLoading()) {
+    <p>Loading minion...</p>
+  } @else if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  } @else if (minion()) {
+    <h2>{{ minion()!.name }}</h2>
+
+    @if (activeMutation()) {
+      <p class="mutating">{{ activeMutation() }}</p>
+    }
+
+    <form [formGroup]="minionForm" (ngSubmit)="saveMinion()">
+      <h3>Details</h3>
+      <div class="name-row">
+        <label>
+          Name
+          <input type="text" formControlName="name" />
+        </label>
+        <label>
+          Harm Capacity
+          <input type="number" formControlName="harmCapacity" min="0" />
+        </label>
+        <label>
+          Minion Type
+          <app-custom-select
+            formControlName="minionTypeId"
+            [options]="minionTypes()"
+            placeholder="Select a type..."
+          ></app-custom-select>
+        </label>
+      </div>
+      <label>
+        Description
+        <textarea formControlName="description" rows="9"></textarea>
+      </label>
+      <button type="submit" [disabled]="isMutating()">Save Minion</button>
+    </form>
+
+    <div class="sub-resource-grid">
+      <article>
+        <h3>Attacks</h3>
+        <ul>
+          @for (attack of minion()!.attacks; track attack.id) {
+            <li>
+              <div>
+                <strong>{{ attack.name }}</strong> (Harm {{ attack.harm }})
+                @if (attack.weaponTags.length > 0) {
+                  <div class="weapon-tag-chips">
+                    @for (tag of attack.weaponTags; track tag.id) {
+                      <span class="weapon-tag-chip">{{ tag.name }}</span>
+                    }
+                  </div>
+                }
+                @if (attack.description) {
+                  <p class="item-description">{{ attack.description }}</p>
+                }
+              </div>
+              <button type="button" (click)="requestDeleteAttack(attack.id, attack.name)" [disabled]="isMutating()">Delete</button>
+            </li>
+          }
+        </ul>
+        <form [formGroup]="attackForm" (ngSubmit)="createAttack()">
+          <label>
+            Name
+            <input type="text" formControlName="name" />
+          </label>
+          <label>
+            Description
+            <textarea formControlName="description" rows="9"></textarea>
+          </label>
+          <label>
+            Harm
+            <input type="number" formControlName="harm" min="0" />
+          </label>
+          <app-weapon-tag-select
+            formControlName="weaponTagIds"
+            [options]="weaponTags()"
+          ></app-weapon-tag-select>
+          <button type="submit" [disabled]="isMutating()">Add Attack</button>
+        </form>
+      </article>
+
+      <article>
+        <h3>Powers</h3>
+        <ul>
+          @for (power of minion()!.powers; track power.id) {
+            <li>
+              <div>
+                <strong>{{ power.name }}</strong>
+                @if (power.description) {
+                  <p class="item-description">{{ power.description }}</p>
+                }
+              </div>
+              <button type="button" (click)="requestDeletePower(power.id, power.name)" [disabled]="isMutating()">Delete</button>
+            </li>
+          }
+        </ul>
+        <form [formGroup]="powerForm" (ngSubmit)="createPower()">
+          <label>
+            Name
+            <input type="text" formControlName="name" />
+          </label>
+          <label>
+            Description
+            <textarea formControlName="description" rows="9"></textarea>
+          </label>
+          <button type="submit" [disabled]="isMutating()">Add Power</button>
+        </form>
+      </article>
+
+      <article>
+        <h3>Armors</h3>
+        <ul>
+          @for (armor of minion()!.armors; track armor.id) {
+            <li>
+              <div>
+                <strong>{{ armor.name }}</strong> (Soak {{ armor.harmSoak }})
+                @if (armor.description) {
+                  <p class="item-description">{{ armor.description }}</p>
+                }
+              </div>
+              <button type="button" (click)="requestDeleteArmor(armor.id, armor.name)" [disabled]="isMutating()">Delete</button>
+            </li>
+          }
+        </ul>
+        <form [formGroup]="armorForm" (ngSubmit)="createArmor()">
+          <label>
+            Name
+            <input type="text" formControlName="name" />
+          </label>
+          <label>
+            Description
+            <textarea formControlName="description" rows="9"></textarea>
+          </label>
+          <label>
+            Harm Soak
+            <input type="number" formControlName="harmSoak" min="0" />
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" formControlName="isSpecial" />
+            Special
+          </label>
+          <label>
+            Special Description
+            <textarea formControlName="specialDescription" rows="9"></textarea>
+          </label>
+          <button type="submit" [disabled]="isMutating()">Add Armor</button>
+        </form>
+      </article>
+
+      <article>
+        <h3>Weaknesses</h3>
+        <ul>
+          @for (weakness of minion()!.weaknesses; track weakness.id) {
+            <li>
+              <div>
+                <strong>{{ weakness.name }}</strong>
+                @if (weakness.description) {
+                  <p class="item-description">{{ weakness.description }}</p>
+                }
+              </div>
+              <button type="button" (click)="requestDeleteWeakness(weakness.id, weakness.name)" [disabled]="isMutating()">Delete</button>
+            </li>
+          }
+        </ul>
+        <form [formGroup]="weaknessForm" (ngSubmit)="createWeakness()">
+          <label>
+            Name
+            <input type="text" formControlName="name" />
+          </label>
+          <label>
+            Description
+            <textarea formControlName="description" rows="9"></textarea>
+          </label>
+          <button type="submit" [disabled]="isMutating()">Add Weakness</button>
+        </form>
+      </article>
+    </div>
+  }
+
+  <app-confirm-delete-modal
+    [visible]="pendingDelete() !== null"
+    [itemName]="pendingDelete()?.label ?? ''"
+    (confirmed)="onDeleteConfirmed()"
+    (cancelled)="onDeleteCancelled()"
+  ></app-confirm-delete-modal>
+</section>

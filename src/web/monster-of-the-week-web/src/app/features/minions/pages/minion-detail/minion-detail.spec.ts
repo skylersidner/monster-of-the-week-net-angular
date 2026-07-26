@@ -3,40 +3,39 @@ import { convertToParamMap, provideRouter } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 
-import { MonsterService } from '../../../../core/monster';
+import { MinionService } from '../../../../core/minion';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
-import { MonsterDetailComponent } from './monster-detail';
+import { MinionDetailComponent } from './minion-detail';
 
-describe('MonsterDetailComponent', () => {
-  let component: MonsterDetailComponent;
-  let fixture: ComponentFixture<MonsterDetailComponent>;
+describe('MinionDetailComponent', () => {
+  let component: MinionDetailComponent;
+  let fixture: ComponentFixture<MinionDetailComponent>;
   let deleteAttackCalls = 0;
 
   beforeEach(async () => {
     deleteAttackCalls = 0;
     await TestBed.configureTestingModule({
-      imports: [MonsterDetailComponent],
+      imports: [MinionDetailComponent],
       providers: [
         provideRouter([]),
         {
           provide: ActivatedRoute,
           useValue: {
-            paramMap: of(convertToParamMap({ mysteryId: 'm1', monsterId: 'mo1' })),
+            paramMap: of(convertToParamMap({ minionId: 'mn1' })),
           },
         },
         {
-          provide: MonsterService,
+          provide: MinionService,
           useValue: {
             getById: () =>
               of({
-                id: 'mo1',
-                mysteryIds: ['m1'],
-                name: 'Monster',
+                id: 'mn1',
+                name: 'Test Minion',
                 description: null,
-                harmCapacity: 7,
-                monsterTypeId: 'monster-type-1',
-                monsterTypeName: null,
+                harmCapacity: 3,
+                minionTypeId: 'mt1',
+                minionTypeName: 'Torturer',
                 attacks: [],
                 powers: [],
                 armors: [],
@@ -44,7 +43,7 @@ describe('MonsterDetailComponent', () => {
                 customMoves: [],
               }),
             update: () => of({}),
-            createAttack: () => of({ id: 'a1' }),
+            createAttack: () => of({ id: 'a1', name: '', description: null, harm: 0, weaponTags: [] }),
             assignAttackWeaponTag: () => of({}),
             createPower: () => of({}),
             createArmor: () => of({}),
@@ -61,7 +60,7 @@ describe('MonsterDetailComponent', () => {
         {
           provide: ReferenceDataService,
           useValue: {
-            getMonsterTypes: () => of([]),
+            getMinionTypes: () => of([]),
             getWeaponTags: () => of([]),
           },
         },
@@ -77,7 +76,7 @@ describe('MonsterDetailComponent', () => {
       ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(MonsterDetailComponent);
+    fixture = TestBed.createComponent(MinionDetailComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
@@ -86,8 +85,14 @@ describe('MonsterDetailComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  it('loads the minion and patches the form', () => {
+    expect(component.minion()).not.toBeNull();
+    expect(component.minionForm.controls.name.value).toBe('Test Minion');
+    expect(component.minionForm.controls.harmCapacity.value).toBe(3);
+  });
+
   it('does not delete attack when cancelled', () => {
-    component.requestDeleteAttack('attack-1', 'Test Attack');
+    component.requestDeleteAttack('a1', 'Test Attack');
     expect(component.pendingDelete()).not.toBeNull();
     component.onDeleteCancelled();
     expect(component.pendingDelete()).toBeNull();
@@ -95,7 +100,7 @@ describe('MonsterDetailComponent', () => {
   });
 
   it('deletes attack when confirmed', () => {
-    component.requestDeleteAttack('attack-1', 'Test Attack');
+    component.requestDeleteAttack('a1', 'Test Attack');
     component.onDeleteConfirmed();
     expect(deleteAttackCalls).toBe(1);
   });

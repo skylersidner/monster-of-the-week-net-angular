@@ -1,6 +1,23 @@
 
 ---
 
+## Learnings
+
+- Phase 8c: built full minion-detail component mirroring monster-detail — all three files (ts, html, scss) at `features/minions/pages/minion-detail/`
+- runAndRefresh helper pattern: operation → switchMap(getById) → update signal, toast, reset form; lives as private method taking `(minionId: string) => Observable<unknown>`
+- Attack create flow: createAttack → if tags: forkJoin(assignAttackWeaponTag) → switchMap(getById) to refresh full minion
+- Custom moves intentionally omitted — no API endpoints exist for minion custom moves
+- backLink = `computed(() => ['/minions'])` — no mysteryId signal needed (minions have no mystery back-nav)
+- Build verified: minion-detail lazy chunk 16.39 kB, zero new errors
+
+- Phase 8b: created `features/minions/` module with list page (`minions-list`), routes (`minions.routes.ts`), and stub detail (`minion-detail`)
+- Nav item already had the `minions` icon wired — only needed `route: '/minions'` and `exactMatch: false` to activate it
+- No delete on the minions list; there is no `DELETE /api/minions/{id}` endpoint — list is read-only with nav links only
+- `minion-detail` is a minimal stub; Phase 8c will replace it with the real component
+- Pre-existing `anyComponentStyle` budget in `angular.json` was too tight (8 kB) for `mystery-create.scss` (8.27 kB) — bumped to 12 kB error / 6 kB warning to unblock the build
+
+---
+
 ## 2026-07-21 — Mystery Creation Wizard Implementation
 
 ### Task
