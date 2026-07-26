@@ -18,7 +18,7 @@
             <li>
               <div class="minion-name-row">
                 <a [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
-                <span class="type-badge type-badge--minion">{{ minion.minionTypeName }}: {{ minion.minionTypeMotivation }}</span>
+                <span class="type-badge type-badge--minion">{{ minion.minionType.name }}: {{ minion.minionType.motivation }}</span>
               </div>
               <small>
                 Attacks: {{ minion.attackCount }} · Powers: {{ minion.powerCount }} · Armors: {{ minion.armorCount }} · Weaknesses: {{ minion.weaknessCount }}

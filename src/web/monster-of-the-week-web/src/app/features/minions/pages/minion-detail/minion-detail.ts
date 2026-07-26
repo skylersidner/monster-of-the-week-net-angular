@@ -339,7 +339,7 @@ export class MinionDetailComponent implements OnInit {
       name: minion.name,
       description: minion.description ?? '',
       harmCapacity: minion.harmCapacity,
-      minionTypeId: minion.minionTypeId,
+      minionTypeId: minion.minionType.id,
     });
   }
 

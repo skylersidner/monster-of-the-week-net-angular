@@ -642,7 +642,7 @@ export class MysteryCreateStore {
             name: minion.name,
             description: minion.description ?? '',
             harmCapacity: minion.harmCapacity,
-            minionTypeId: minion.minionTypeId,
+            minionTypeId: minion.minionType.id,
           });
           this.minionAttacks.set(
             minion.attacks.map((a) => ({

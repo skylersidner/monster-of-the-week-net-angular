@@ -194,9 +194,7 @@ export interface MinionListItemResponse {
   name: string;
   description: string | null;
   harmCapacity: number;
-  minionTypeId: string;
-  minionTypeName: string;
-  minionTypeMotivation: string;
+  minionType: TypeRefResponse;
   attackCount: number;
   powerCount: number;
   armorCount: number;
@@ -240,8 +238,7 @@ export interface MinionDetailResponse {
   name: string;
   description: string | null;
   harmCapacity: number;
-  minionTypeId: string;
-  minionTypeName: string;
+  minionType: TypeRefResponse;
   attacks: MinionAttackResponse[];
   powers: MinionPowerResponse[];
   armors: MinionArmorResponse[];
