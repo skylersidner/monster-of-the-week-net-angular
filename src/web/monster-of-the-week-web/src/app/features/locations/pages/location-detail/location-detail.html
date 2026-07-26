@@ -1,5 +1,5 @@
 <section>
-  <a [routerLink]="backLink()">← Back to mystery</a>
+  <a [routerLink]="backLink()">← Back to locations</a>
 
   @if (isLoading()) {
     <p>Loading location...</p>
@@ -23,11 +23,11 @@
       </label>
       <label>
         Location Type
-        <select formControlName="locationTypeId">
-          @for (type of locationTypes(); track type.id) {
-            <option [value]="type.id">{{ type.name }}</option>
-          }
-        </select>
+        <app-custom-select
+          formControlName="locationTypeId"
+          [options]="locationTypes()"
+          placeholder="Select a type..."
+        ></app-custom-select>
       </label>
       <button type="submit" [disabled]="isSaving()">Save Location</button>
     </form>

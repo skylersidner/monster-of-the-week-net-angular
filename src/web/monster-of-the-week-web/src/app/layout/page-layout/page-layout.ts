@@ -22,8 +22,8 @@ export class PageLayoutComponent implements OnInit {
     { label: 'Mysteries', route: '/mysteries', icon: 'mysteries', exactMatch: false },
     { label: 'Monsters', route: '/monsters', icon: 'monsters', exactMatch: false },
     { label: 'Minions', route: '/minions', icon: 'minions', exactMatch: false },
-    { label: 'Locations', route: null, icon: 'locations' },
-    { label: 'Bystanders', route: null, icon: 'bystanders' },
+    { label: 'Locations', route: '/locations', icon: 'locations', exactMatch: false },
+    { label: 'Bystanders', route: '/bystanders', icon: 'bystanders', exactMatch: false },
     { label: 'Data Admin', route: '/data-admin', icon: 'data-admin', exactMatch: true },
   ];
 

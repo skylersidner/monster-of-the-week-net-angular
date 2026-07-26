@@ -3,7 +3,7 @@ import { convertToParamMap, provideRouter } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { of, Subject } from 'rxjs';
 
-import { ApiService } from '../../../../core/api';
+import { BystanderService } from '../../../../core/bystander';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { BystanderDetailComponent } from './bystander-detail';
@@ -25,16 +25,16 @@ describe('BystanderDetailComponent', () => {
         {
           provide: ActivatedRoute,
           useValue: {
-            paramMap: of(convertToParamMap({ mysteryId: 'm1', bystanderId: 'b1' })),
+            paramMap: of(convertToParamMap({ bystanderId: 'b1' })),
           },
         },
         {
-          provide: ApiService,
+          provide: BystanderService,
           useValue: {
-            get: () =>
+            getById: () =>
               of({
                 id: 'b1',
-                mysteryIds: ['m1'],
+                mysteryIds: [],
                 name: 'Bystander',
                 description: null,
                 bystanderTypeId: 'bt1',
@@ -42,7 +42,7 @@ describe('BystanderDetailComponent', () => {
                 bystanderTypeMotivation: 'Test',
                 customMoves: [],
               }),
-            put: () => putSubject,
+            update: () => putSubject,
           },
         },
         {

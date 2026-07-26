@@ -79,6 +79,17 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
     public Task<int> DeleteLocationCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
         dbContext.LocationCustomMoves.Where(x => x.Id == moveId && x.LocationId == id).ExecuteDeleteAsync(cancellationToken);
 
+    public Task<int> DeleteLocationAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.Locations.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Location>> GetAllLocationsAsync(CancellationToken cancellationToken) =>
+        await dbContext.Locations
+            .AsNoTracking()
+            .Include(x => x.LocationType)
+            .Include(x => x.Mysteries)
+            .OrderBy(x => x.Name)
+            .ToListAsync(cancellationToken);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 }

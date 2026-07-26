@@ -52,14 +52,13 @@ describe('PageLayoutComponent', () => {
     expect(element.textContent).toContain('Data Admin');
   });
 
-  it('renders placeholder nav entries', () => {
+  it('renders nav entries for all entity routes', () => {
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
     expect(element.textContent).toContain('Monsters');
     expect(element.textContent).toContain('Minions');
     expect(element.textContent).toContain('Locations');
     expect(element.textContent).toContain('Bystanders');
-    expect(element.textContent).toContain('Soon');
   });
 
   it('opens and closes the mobile menu', () => {

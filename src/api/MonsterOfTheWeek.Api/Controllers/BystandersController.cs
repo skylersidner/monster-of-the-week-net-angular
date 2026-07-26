@@ -7,6 +7,13 @@ namespace MonsterOfTheWeek.Api.Controllers;
 [ApiController]
 public sealed class BystandersController(IBystanderService bystanderService) : ControllerBase
 {
+    [HttpGet("api/bystanders")]
+    public async Task<ActionResult<IReadOnlyList<BystanderListItemResponse>>> GetAll(CancellationToken cancellationToken)
+    {
+        var result = await bystanderService.GetAllAsync(cancellationToken);
+        return Ok(result);
+    }
+
     [HttpGet("api/mysteries/{mysteryId:guid}/bystanders")]
     public async Task<ActionResult<IReadOnlyList<BystanderListItemResponse>>> GetByMystery(
         Guid mysteryId,
@@ -62,6 +69,10 @@ public sealed class BystandersController(IBystanderService bystanderService) : C
 
         return Ok(result.Value);
     }
+
+    [HttpDelete("api/bystanders/{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
+        await bystanderService.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
 
     [HttpDelete("api/mysteries/{mysteryId:guid}/bystanders/{id:guid}")]
     public async Task<IActionResult> UnlinkFromMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>

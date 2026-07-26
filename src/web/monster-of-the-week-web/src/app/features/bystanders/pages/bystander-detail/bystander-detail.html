@@ -1,5 +1,5 @@
 <section>
-  <a [routerLink]="backLink()">← Back to mystery</a>
+  <a [routerLink]="backLink()">← Back to bystanders</a>
 
   @if (isLoading()) {
     <p>Loading bystander...</p>
@@ -23,11 +23,11 @@
       </label>
       <label>
         Bystander Type
-        <select formControlName="bystanderTypeId">
-          @for (type of bystanderTypes(); track type.id) {
-            <option [value]="type.id">{{ type.name }}</option>
-          }
-        </select>
+        <app-custom-select
+          formControlName="bystanderTypeId"
+          [options]="bystanderTypes()"
+          placeholder="Select a type..."
+        ></app-custom-select>
       </label>
       <button type="submit" [disabled]="isSaving()">Save Bystander</button>
     </form>

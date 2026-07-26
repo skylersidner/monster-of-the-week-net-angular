@@ -78,6 +78,17 @@ public sealed class BystanderRepository(MotwDbContext dbContext) : IBystanderRep
     public Task<int> DeleteBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
         dbContext.BystanderCustomMoves.Where(x => x.Id == moveId && x.BystanderId == id).ExecuteDeleteAsync(cancellationToken);
 
+    public Task<int> DeleteBystanderAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.Bystanders.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Bystander>> GetAllBystandersAsync(CancellationToken cancellationToken) =>
+        await dbContext.Bystanders
+            .AsNoTracking()
+            .Include(x => x.BystanderType)
+            .Include(x => x.Mysteries)
+            .OrderBy(x => x.Name)
+            .ToListAsync(cancellationToken);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 }

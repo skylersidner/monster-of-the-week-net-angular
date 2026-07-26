@@ -3,7 +3,7 @@ import { convertToParamMap, provideRouter } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { of, Subject } from 'rxjs';
 
-import { ApiService } from '../../../../core/api';
+import { LocationService } from '../../../../core/location';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { LocationDetailComponent } from './location-detail';
@@ -25,16 +25,16 @@ describe('LocationDetailComponent', () => {
         {
           provide: ActivatedRoute,
           useValue: {
-            paramMap: of(convertToParamMap({ mysteryId: 'm1', locationId: 'l1' })),
+            paramMap: of(convertToParamMap({ locationId: 'l1' })),
           },
         },
         {
-          provide: ApiService,
+          provide: LocationService,
           useValue: {
-            get: () =>
+            getById: () =>
               of({
                 id: 'l1',
-                mysteryIds: ['m1'],
+                mysteryIds: [],
                 name: 'Location',
                 description: null,
                 locationTypeId: 'lt1',
@@ -42,7 +42,7 @@ describe('LocationDetailComponent', () => {
                 locationTypeMotivation: 'Test',
                 customMoves: [],
               }),
-            put: () => putSubject,
+            update: () => putSubject,
           },
         },
         {

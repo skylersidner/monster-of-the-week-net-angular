@@ -169,7 +169,9 @@ public sealed record LocationListItemResponse(
     string Name,
     string? Description,
     Guid LocationTypeId,
-    string LocationTypeName);
+    string LocationTypeName,
+    string LocationTypeMotivation,
+    DateTimeOffset CreatedAt);
 
 public sealed record LocationDetailResponse(
     Guid Id,
@@ -189,7 +191,9 @@ public sealed record BystanderListItemResponse(
     string Name,
     string? Description,
     Guid BystanderTypeId,
-    string BystanderTypeName);
+    string BystanderTypeName,
+    string BystanderTypeMotivation,
+    DateTimeOffset CreatedAt);
 
 public sealed record BystanderDetailResponse(
     Guid Id,

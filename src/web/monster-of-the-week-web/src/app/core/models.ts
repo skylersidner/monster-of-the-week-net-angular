@@ -284,6 +284,8 @@ export interface LocationListItemResponse {
   description: string | null;
   locationTypeId: string;
   locationTypeName: string;
+  locationTypeMotivation: string;
+  createdAt: string;
 }
 
 export interface LocationDetailResponse {
@@ -310,6 +312,8 @@ export interface BystanderListItemResponse {
   description: string | null;
   bystanderTypeId: string;
   bystanderTypeName: string;
+  bystanderTypeMotivation: string;
+  createdAt: string;
 }
 
 export interface BystanderDetailResponse {

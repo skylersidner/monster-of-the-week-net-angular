@@ -6,6 +6,22 @@ namespace MonsterOfTheWeek.Api.Services;
 
 public sealed class BystanderService(IBystanderRepository bystanderRepository) : IBystanderService
 {
+    public async Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        var bystanders = await bystanderRepository.GetAllBystandersAsync(cancellationToken);
+        return bystanders
+            .Select(x => new BystanderListItemResponse(
+                x.Id,
+                x.Mysteries.Select(mb => mb.MysteryId).ToList(),
+                x.Name,
+                x.Description,
+                x.BystanderTypeId,
+                x.BystanderType.Name,
+                x.BystanderType.Motivation,
+                x.CreatedAt))
+            .ToList();
+    }
+
     public async Task<ServiceResult<IReadOnlyList<BystanderListItemResponse>>> GetByMysteryAsync(Guid mysteryId, CancellationToken cancellationToken)
     {
         if (!await bystanderRepository.MysteryExistsAsync(mysteryId, cancellationToken))
@@ -21,7 +37,9 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
                 x.Name,
                 x.Description,
                 x.BystanderTypeId,
-                x.BystanderType.Name))
+                x.BystanderType.Name,
+                x.BystanderType.Motivation,
+                x.CreatedAt))
             .ToList();
         return ServiceResult<IReadOnlyList<BystanderListItemResponse>>.Success(items);
     }
@@ -97,6 +115,9 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
         var response = await GetByIdAsync(id, cancellationToken);
         return ServiceResult<BystanderDetailResponse>.Success(response!);
     }
+
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
+        await bystanderRepository.DeleteBystanderAsync(id, cancellationToken) > 0;
 
     public async Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken)
     {

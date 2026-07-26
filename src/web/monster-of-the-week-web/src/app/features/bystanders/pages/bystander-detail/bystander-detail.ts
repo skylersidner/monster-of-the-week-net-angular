@@ -3,14 +3,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, switchMap } from 'rxjs';
-import { ApiService } from '../../../../core/api';
+import { BystanderService } from '../../../../core/bystander';
 import { BystanderDetailResponse, TypeRefResponse, UpsertBystanderRequest } from '../../../../core/models';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
+import { CustomSelectComponent } from '../../../../shared/custom-select.component';
 
 @Component({
   selector: 'app-bystander-detail-component',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, CustomSelectComponent],
   templateUrl: './bystander-detail.html',
   styleUrl: './bystander-detail.scss',
 })
@@ -23,22 +24,17 @@ export class BystanderDetailComponent implements OnInit {
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly mysteryId = signal<string | null>(null);
-
   readonly form = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [Validators.required]),
     description: this.formBuilder.control(''),
     bystanderTypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
   });
 
-  readonly backLink = computed(() => {
-    const id = this.mysteryId();
-    return id ? ['/mysteries', id] : ['/mysteries'];
-  });
+  readonly backLink = computed(() => ['/bystanders']);
 
   constructor(
     private readonly route: ActivatedRoute,
-    private readonly apiService: ApiService,
+    private readonly bystanderService: BystanderService,
     private readonly referenceDataService: ReferenceDataService,
     private readonly notificationService: NotificationService
   ) {}
@@ -48,18 +44,16 @@ export class BystanderDetailComponent implements OnInit {
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         switchMap((params) => {
-          const mysteryId = params.get('mysteryId');
           const bystanderId = params.get('bystanderId');
-          if (!mysteryId || !bystanderId) {
-            throw new Error('Mystery id and bystander id are required.');
+          if (!bystanderId) {
+            throw new Error('Bystander id is required.');
           }
 
-          this.mysteryId.set(mysteryId);
           this.isLoading.set(true);
           this.errorMessage.set(null);
 
           return forkJoin({
-            bystander: this.apiService.get<BystanderDetailResponse>(`/api/bystanders/${bystanderId}`),
+            bystander: this.bystanderService.getById(bystanderId),
             bystanderTypes: this.referenceDataService.getBystanderTypes(),
           });
         })
@@ -95,11 +89,8 @@ export class BystanderDetailComponent implements OnInit {
     };
 
     this.isSaving.set(true);
-    this.apiService
-      .put<UpsertBystanderRequest, BystanderDetailResponse>(
-        `/api/bystanders/${this.bystander()!.id}`,
-        payload
-      )
+    this.bystanderService
+      .update(this.bystander()!.id, payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (bystander) => {

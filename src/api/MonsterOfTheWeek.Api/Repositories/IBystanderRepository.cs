@@ -6,6 +6,7 @@ public interface IBystanderRepository
 {
     Task<bool> MysteryExistsAsync(Guid mysteryId, CancellationToken cancellationToken);
     Task<bool> BystanderTypeExistsAsync(Guid bystanderTypeId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Bystander>> GetAllBystandersAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<Bystander>> GetBystandersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken);
     Task AddBystanderAsync(Bystander bystander, CancellationToken cancellationToken);
     Task LinkBystanderToMysteryAsync(MysteryBystander link, CancellationToken cancellationToken);
@@ -17,5 +18,6 @@ public interface IBystanderRepository
     Task AddBystanderCustomMoveAsync(BystanderCustomMove move, CancellationToken cancellationToken);
     Task<BystanderCustomMove?> GetBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
     Task<int> DeleteBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
+    Task<int> DeleteBystanderAsync(Guid id, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

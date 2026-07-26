@@ -3,14 +3,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, switchMap } from 'rxjs';
-import { ApiService } from '../../../../core/api';
+import { LocationService } from '../../../../core/location';
 import { LocationDetailResponse, TypeRefResponse, UpsertLocationRequest } from '../../../../core/models';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
+import { CustomSelectComponent } from '../../../../shared/custom-select.component';
 
 @Component({
   selector: 'app-location-detail-component',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, CustomSelectComponent],
   templateUrl: './location-detail.html',
   styleUrl: './location-detail.scss',
 })
@@ -23,22 +24,17 @@ export class LocationDetailComponent implements OnInit {
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly mysteryId = signal<string | null>(null);
-
   readonly form = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [Validators.required]),
     description: this.formBuilder.control(''),
     locationTypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
   });
 
-  readonly backLink = computed(() => {
-    const id = this.mysteryId();
-    return id ? ['/mysteries', id] : ['/mysteries'];
-  });
+  readonly backLink = computed(() => ['/locations']);
 
   constructor(
     private readonly route: ActivatedRoute,
-    private readonly apiService: ApiService,
+    private readonly locationService: LocationService,
     private readonly referenceDataService: ReferenceDataService,
     private readonly notificationService: NotificationService
   ) {}
@@ -48,18 +44,16 @@ export class LocationDetailComponent implements OnInit {
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         switchMap((params) => {
-          const mysteryId = params.get('mysteryId');
           const locationId = params.get('locationId');
-          if (!mysteryId || !locationId) {
-            throw new Error('Mystery id and location id are required.');
+          if (!locationId) {
+            throw new Error('Location id is required.');
           }
 
-          this.mysteryId.set(mysteryId);
           this.isLoading.set(true);
           this.errorMessage.set(null);
 
           return forkJoin({
-            location: this.apiService.get<LocationDetailResponse>(`/api/locations/${locationId}`),
+            location: this.locationService.getById(locationId),
             locationTypes: this.referenceDataService.getLocationTypes(),
           });
         })
@@ -95,8 +89,8 @@ export class LocationDetailComponent implements OnInit {
     };
 
     this.isSaving.set(true);
-    this.apiService
-      .put<UpsertLocationRequest, LocationDetailResponse>(`/api/locations/${this.location()!.id}`, payload)
+    this.locationService
+      .update(this.location()!.id, payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (location) => {

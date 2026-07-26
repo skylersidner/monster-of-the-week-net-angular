@@ -7,6 +7,13 @@ namespace MonsterOfTheWeek.Api.Controllers;
 [ApiController]
 public sealed class LocationsController(ILocationService locationService) : ControllerBase
 {
+    [HttpGet("api/locations")]
+    public async Task<ActionResult<IReadOnlyList<LocationListItemResponse>>> GetAll(CancellationToken cancellationToken)
+    {
+        var result = await locationService.GetAllAsync(cancellationToken);
+        return Ok(result);
+    }
+
     [HttpGet("api/mysteries/{mysteryId:guid}/locations")]
     public async Task<ActionResult<IReadOnlyList<LocationListItemResponse>>> GetByMystery(
         Guid mysteryId,
@@ -67,6 +74,10 @@ public sealed class LocationsController(ILocationService locationService) : Cont
 
         return Ok(result.Value);
     }
+
+    [HttpDelete("api/locations/{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
+        await locationService.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
 
     [HttpDelete("api/mysteries/{mysteryId:guid}/locations/{id:guid}")]
     public async Task<IActionResult> UnlinkFromMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>

@@ -1,0 +1,94 @@
+.list-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.list-header h2 {
+  margin: 0;
+}
+
+.location-list {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+}
+
+.location-list li {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e5e9f2;
+  border-radius: 0.5rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.location-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.location-name-row {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.location-name-row a {
+  font-weight: 600;
+}
+
+.type-badge {
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.55rem;
+  white-space: nowrap;
+}
+
+.type-badge--location {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.location-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.25rem;
+}
+
+.action-btn {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: 0.375rem;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  padding: 0.375rem;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.action-btn svg {
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}

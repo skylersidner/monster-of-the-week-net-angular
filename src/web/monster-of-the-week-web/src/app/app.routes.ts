@@ -30,6 +30,16 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/minions/minions.routes').then((m) => m.MINIONS_ROUTES),
       },
+      {
+        path: 'bystanders',
+        loadChildren: () =>
+          import('./features/bystanders/bystanders.routes').then((m) => m.BYSTANDERS_ROUTES),
+      },
+      {
+        path: 'locations',
+        loadChildren: () =>
+          import('./features/locations/locations.routes').then((m) => m.LOCATIONS_ROUTES),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -159,12 +159,14 @@ public sealed class LocationType
     public ICollection<Location> Locations { get; set; } = [];
 }
 
-public sealed class Location
+public sealed class Location : ITimestamped
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid LocationTypeId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public LocationType LocationType { get; set; } = null!;
     public ICollection<MysteryLocation> Mysteries { get; set; } = [];
@@ -190,12 +192,14 @@ public sealed class BystanderType
     public ICollection<Bystander> Bystanders { get; set; } = [];
 }
 
-public sealed class Bystander
+public sealed class Bystander : ITimestamped
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid BystanderTypeId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public BystanderType BystanderType { get; set; } = null!;
     public ICollection<MysteryBystander> Mysteries { get; set; } = [];
