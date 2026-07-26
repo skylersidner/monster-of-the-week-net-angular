@@ -131,6 +131,68 @@
         <li>Add richer dashboard data via dedicated aggregate endpoint once scope allows.</li>
       </ul>
     </section>
+
+    <section>
+      <h2>Tailwind Migration Log</h2>
+      <p class="meta">Tracking incremental migration from SCSS to Tailwind CSS v4 (component by component).</p>
+      <ol>
+        <li>
+          <strong>Phase 0 — Infrastructure</strong>
+          <span class="meta"> · committed</span><br/>
+          Installed <code>tailwindcss@^4.3.3</code>, <code>@tailwindcss/postcss</code>, <code>postcss</code>.
+          Created <code>.postcssrc.json</code> (required by Angular; <code>postcss.config.mjs</code> is silently ignored).
+          Replaced <code>@import "tailwindcss/preflight"</code> approach with <code>@import "tailwindcss"</code> in <code>styles.css</code>.
+          Added <code>@theme</code> block (indigo-700, font-sans, breakpoints) and <code>@layer base</code> for html/body height.
+        </li>
+        <li>
+          <strong>Phase 1 — Global Foundations</strong>
+          <span class="meta"> · committed</span><br/>
+          Deleted <code>app.scss</code> (global styles moved to <code>styles.css</code>).
+          Added <code>host: { class: 'block h-full' }</code> to root AppComponent.
+          Updated Angular budget warnings for Tailwind output size.
+        </li>
+        <li>
+          <strong>Phase 2 — Shell Layout</strong>
+          <span class="meta"> · committed</span><br/>
+          Rewrote <code>page-layout.html</code> with full inline Tailwind.
+          Deleted <code>page-layout.scss</code>. Restored all 16 inline SVGs (required both <code>class="h-5 w-5"</code> AND
+          <code>width="20" height="20"</code> attributes). Deleted stray <code>vite.config.ts</code>.
+          Key lesson: <code>@tailwindcss/vite</code> fires only on prod builds; PostCSS is the correct integration path for <code>ng serve</code>.
+        </li>
+        <li>
+          <strong>Phase 3 — Shared Components</strong>
+          <span class="meta"> · committed</span><br/>
+          <code>confirm-delete-modal</code>: fully inlined, SCSS deleted, <code>styleUrl</code> removed.<br/>
+          <code>weapon-tag-select</code>: fully inlined, SCSS deleted, added <code>host: { class: 'block' }</code>.<br/>
+          <code>custom-select</code>: SCSS reduced 189→65 lines; compound state selectors
+          (<code>.custom-select.is-open .trigger</code>, <code>.option.is-selected</code>, <code>@keyframes dropdown-fade</code>)
+          kept in SCSS with <code>@apply</code>. First use of <code>@reference "tailwindcss";</code> (required as first line of any component SCSS using <code>@apply</code> in Tailwind v4).
+        </li>
+        <li>
+          <strong>Phase 4 — Simple Detail Pages</strong>
+          <span class="meta"> · committed</span><br/>
+          <code>bystander-detail</code>, <code>location-detail</code>: fully inlined, SCSS deleted.<br/>
+          <code>minion-detail</code>: SCSS reduced to 8-line stub for <code>:hover:not(:disabled)</code> compound selectors
+          (cannot be expressed as inline Tailwind variants). Sub-resource grid:
+          <code>grid-cols-4 max-xl:grid-cols-2 max-sm:grid-cols-1</code>. Name row:
+          <code>grid-cols-[2fr_1fr_1fr] max-md:grid-cols-1</code>.
+        </li>
+        <li>
+          <strong>Phase 5 — List Pages</strong>
+          <span class="meta"> · committed</span><br/>
+          All 5 list pages migrated. Common card pattern: <code>flex items-center bg-white border border-[#e5e9f2] rounded-lg gap-4 justify-between p-4</code>.<br/>
+          Entity badge colors: bystander <code>bg-blue-100 text-blue-800</code> · location <code>bg-green-100 text-green-900</code>
+          · monster <code>bg-red-100 text-red-700</code> · minion <code>bg-[#fde8d8] text-orange-800</code>.<br/>
+          <code>bystanders-list</code>, <code>locations-list</code>, <code>mysteries-list</code>, <code>minions-list</code>:
+          fully inlined, SCSS deleted, <code>styleUrl</code> removed.<br/>
+          <code>mysteries-list</code>: create-btn <code>bg-blue-700 hover:bg-blue-800</code>; edit <code>hover:bg-violet-100 hover:text-indigo-600</code>;
+          delete <code>hover:bg-red-100 hover:text-red-600</code>.<br/>
+          <code>monsters-list</code>: SCSS reduced to 8-line stub (delete button has <code>[disabled]="isLoadingMinions()"</code>).
+          Net: 430 lines removed, 4 SCSS files deleted.
+        </li>
+      </ol>
+      <p class="meta">Remaining: Phase 6 (mystery-detail, monster-detail, dashboard, data-admin, weapon-tag-admin) · Phase 7 (mystery-create wizard)</p>
+    </section>
   </main>
 </body>
 </html>
