@@ -13,7 +13,6 @@ import { CustomSelectComponent } from '../../../../shared/custom-select.componen
   selector: 'app-location-detail-component',
   imports: [ReactiveFormsModule, RouterLink, CustomSelectComponent],
   templateUrl: './location-detail.html',
-  styleUrl: './location-detail.scss',
 })
 export class LocationDetailComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);

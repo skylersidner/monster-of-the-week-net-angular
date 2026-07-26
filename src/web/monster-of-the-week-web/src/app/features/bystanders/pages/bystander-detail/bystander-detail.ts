@@ -13,7 +13,6 @@ import { CustomSelectComponent } from '../../../../shared/custom-select.componen
   selector: 'app-bystander-detail-component',
   imports: [ReactiveFormsModule, RouterLink, CustomSelectComponent],
   templateUrl: './bystander-detail.html',
-  styleUrl: './bystander-detail.scss',
 })
 export class BystanderDetailComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);

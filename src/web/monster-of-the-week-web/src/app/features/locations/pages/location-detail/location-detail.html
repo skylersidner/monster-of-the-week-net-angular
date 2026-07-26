@@ -4,24 +4,24 @@
   @if (isLoading()) {
     <p>Loading location...</p>
   } @else if (errorMessage()) {
-    <p class="error">{{ errorMessage() }}</p>
+    <p class="text-red-800">{{ errorMessage() }}</p>
   } @else if (location()) {
     <h2>{{ location()!.name }}</h2>
 
     @if (isSaving()) {
-      <p class="mutating">Saving location...</p>
+      <p class="text-blue-900 font-semibold">Saving location...</p>
     }
 
-    <form [formGroup]="form" (ngSubmit)="save()">
-      <label>
+    <form class="grid gap-[0.6rem] my-4 max-w-[30rem]" [formGroup]="form" (ngSubmit)="save()">
+      <label class="grid font-medium gap-1">
         Name
-        <input type="text" formControlName="name" />
+        <input class="border border-[#c9d4e6] rounded-[0.35rem] px-[0.6rem] py-[0.45rem] w-full" type="text" formControlName="name" />
       </label>
-      <label>
+      <label class="grid font-medium gap-1">
         Description
-        <textarea formControlName="description" rows="9"></textarea>
+        <textarea class="border border-[#c9d4e6] rounded-[0.35rem] px-[0.6rem] py-[0.45rem] w-full" formControlName="description" rows="9"></textarea>
       </label>
-      <label>
+      <label class="grid font-medium gap-1">
         Location Type
         <app-custom-select
           formControlName="locationTypeId"
@@ -29,7 +29,7 @@
           placeholder="Select a type..."
         ></app-custom-select>
       </label>
-      <button type="submit" [disabled]="isSaving()">Save Location</button>
+      <button class="bg-blue-900 border-0 rounded-[0.35rem] text-white cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isSaving()">Save Location</button>
     </form>
 
     <h3>Custom Moves</h3>
