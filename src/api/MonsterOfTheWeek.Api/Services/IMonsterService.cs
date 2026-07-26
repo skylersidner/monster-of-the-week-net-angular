@@ -10,6 +10,7 @@ public interface IMonsterService
     Task<MonsterDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<ServiceResult<MonsterDetailResponse>> UpdateAsync(Guid id, UpsertMonsterRequest request, CancellationToken cancellationToken);
     Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken);
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
 
     Task<ServiceResult<IReadOnlyList<MonsterAttackResponse>>> GetAttacksAsync(Guid id, CancellationToken cancellationToken);
     Task<ServiceResult<MonsterAttackResponse>> CreateAttackAsync(Guid id, UpsertMonsterAttackRequest request, CancellationToken cancellationToken);

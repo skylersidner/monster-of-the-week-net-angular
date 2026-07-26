@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MysteryService } from '../../../../core/mystery';
 import { MysteryListItemResponse } from '../../../../core/models';
-import { ConfirmDeleteModalComponent } from '../../shared/confirm-delete-modal.component';
+import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 
 @Component({
   selector: 'app-mysteries-list',

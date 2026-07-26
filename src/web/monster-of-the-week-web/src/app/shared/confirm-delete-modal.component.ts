@@ -9,6 +9,8 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 export class ConfirmDeleteModalComponent {
   @Input() itemName: string = '';
   @Input() visible: boolean = false;
+  @Input() message: string = 'This cannot be undone.';
+  @Input() items: string[] = [];
   @Output() confirmed = new EventEmitter<void>();
   @Output() cancelled = new EventEmitter<void>();
 

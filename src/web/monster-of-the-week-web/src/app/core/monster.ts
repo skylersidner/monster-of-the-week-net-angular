@@ -45,6 +45,10 @@ export class MonsterService {
     return this.apiService.put<UpsertMonsterRequest, MonsterDetailResponse>(`/api/monsters/${monsterId}`, request);
   }
 
+  delete(monsterId: string): Observable<void> {
+    return this.apiService.delete(`/api/monsters/${monsterId}`);
+  }
+
   createAttack(monsterId: string, request: UpsertMonsterAttackRequest): Observable<MonsterAttackResponse> {
     return this.apiService.post<UpsertMonsterAttackRequest, MonsterAttackResponse>(
       `/api/monsters/${monsterId}/attacks`,

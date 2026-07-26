@@ -88,6 +88,9 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
     public async Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
         await monsterRepository.UnlinkMonsterFromMysteryAsync(mysteryId, id, cancellationToken) > 0;
 
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
+        await monsterRepository.DeleteMonsterAsync(id, cancellationToken) > 0;
+
     public async Task<ServiceResult<IReadOnlyList<MonsterAttackResponse>>> GetAttacksAsync(Guid id, CancellationToken cancellationToken)
     {
         if (!await monsterRepository.MonsterExistsAsync(id, cancellationToken))

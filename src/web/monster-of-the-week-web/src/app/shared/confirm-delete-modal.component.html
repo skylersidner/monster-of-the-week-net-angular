@@ -8,7 +8,17 @@
       (click)="$event.stopPropagation()"
     >
       <h3 id="modal-title" class="modal-title">Delete "{{ itemName }}"?</h3>
-      <p class="modal-message">This cannot be undone.</p>
+      @if (items.length > 0) {
+        <p class="modal-message">{{ message }}</p>
+        <ul class="modal-items">
+          @for (item of items; track item) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+        <p class="modal-warning">This cannot be undone.</p>
+      } @else {
+        <p class="modal-message">{{ message }}</p>
+      }
       <div class="modal-actions">
         <button type="button" class="modal-btn modal-btn--cancel" (click)="onCancel()">Cancel</button>
         <button type="button" class="modal-btn modal-btn--delete" (click)="onConfirm()">Delete</button>

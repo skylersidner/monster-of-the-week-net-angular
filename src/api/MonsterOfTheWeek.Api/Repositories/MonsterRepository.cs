@@ -92,6 +92,11 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
             .Where(x => x.MysteryId == mysteryId && x.MonsterId == monsterId)
             .ExecuteDeleteAsync(cancellationToken);
 
+    public Task<int> DeleteMonsterAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.Monsters
+            .Where(x => x.Id == id)
+            .ExecuteDeleteAsync(cancellationToken);
+
     public Task<bool> MonsterLinkedToMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) =>
         dbContext.MysteryMonsters.AnyAsync(x => x.MysteryId == mysteryId && x.MonsterId == monsterId, cancellationToken);
 
