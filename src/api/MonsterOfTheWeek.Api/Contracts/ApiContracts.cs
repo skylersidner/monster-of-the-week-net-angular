@@ -122,6 +122,7 @@ public sealed record MinionListItemResponse(
     int HarmCapacity,
     Guid MinionTypeId,
     string MinionTypeName,
+    string MinionTypeMotivation,
     int AttackCount,
     int PowerCount,
     int ArmorCount,
@@ -141,6 +142,8 @@ public sealed record MinionWeaknessResponse(Guid Id, string Name, string? Descri
 
 public sealed record MinionDetailResponse(
     Guid Id,
+    Guid MonsterId,
+    string MonsterName,
     string Name,
     string? Description,
     int HarmCapacity,

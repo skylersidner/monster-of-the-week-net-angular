@@ -7,6 +7,9 @@
     <p class="error">{{ errorMessage() }}</p>
   } @else if (minion()) {
     <h2>{{ minion()!.name }}</h2>
+    <p class="minion-parent">
+      Belongs to: <a [routerLink]="['/monsters', minion()!.monsterId]">{{ minion()!.monsterName }}</a>
+    </p>
 
     @if (activeMutation()) {
       <p class="mutating">{{ activeMutation() }}</p>

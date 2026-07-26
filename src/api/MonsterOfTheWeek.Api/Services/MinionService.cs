@@ -344,6 +344,8 @@ public sealed class MinionService(IMinionRepository minionRepository) : IMinionS
     private static MinionDetailResponse ToDetailResponse(Minion minion) =>
         new(
             minion.Id,
+            minion.MonsterId,
+            minion.Monster.Name,
             minion.Name,
             minion.Description,
             minion.HarmCapacity,

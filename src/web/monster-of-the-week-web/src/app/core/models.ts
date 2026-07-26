@@ -196,6 +196,7 @@ export interface MinionListItemResponse {
   harmCapacity: number;
   minionTypeId: string;
   minionTypeName: string;
+  minionTypeMotivation: string;
   attackCount: number;
   powerCount: number;
   armorCount: number;
@@ -234,6 +235,8 @@ export interface MinionWeaknessResponse {
 
 export interface MinionDetailResponse {
   id: string;
+  monsterId: string;
+  monsterName: string;
   name: string;
   description: string | null;
   harmCapacity: number;

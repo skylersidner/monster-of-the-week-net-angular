@@ -16,7 +16,7 @@
           <div class="minion-info">
             <div class="minion-name-row">
               <a [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
-              <span class="type-badge type-badge--minion">{{ minion.minionTypeName }}</span>
+              <span class="type-badge type-badge--minion">{{ minion.minionTypeName }}: {{ minion.minionTypeMotivation }}</span>
             </div>
             <p class="minion-parent">
               Belongs to: <a [routerLink]="['/monsters', minion.monsterId]">{{ minion.monsterName }}</a>

@@ -31,6 +31,8 @@ describe('MinionDetailComponent', () => {
             getById: () =>
               of({
                 id: 'mn1',
+                monsterId: 'mo1',
+                monsterName: 'The Beast',
                 name: 'Test Minion',
                 description: null,
                 harmCapacity: 3,

@@ -33,6 +33,7 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
                 x.HarmCapacity,
                 x.MinionTypeId,
                 x.MinionType.Name,
+                x.MinionType.Motivation,
                 x.Attacks.Count,
                 x.Powers.Count,
                 x.Armors.Count,
@@ -54,6 +55,7 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
                 x.HarmCapacity,
                 x.MinionTypeId,
                 x.MinionType.Name,
+                x.MinionType.Motivation,
                 x.Attacks.Count,
                 x.Powers.Count,
                 x.Armors.Count,
@@ -64,6 +66,7 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
     public Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Minions
             .AsNoTracking()
+            .Include(x => x.Monster)
             .Include(x => x.MinionType)
             .Include(x => x.Attacks)
             .ThenInclude(x => x.MinionAttackWeaponTags)

@@ -28,7 +28,7 @@ describe('MinionsListComponent', () => {
                   harmCapacity: 2,
                   minionTypeId: 'mt1',
                   minionTypeName: 'Torturer',
-                  attackCount: 1,
+                  minionTypeMotivation: 'dominate',
                   powerCount: 0,
                   armorCount: 0,
                   weaknessCount: 0,
