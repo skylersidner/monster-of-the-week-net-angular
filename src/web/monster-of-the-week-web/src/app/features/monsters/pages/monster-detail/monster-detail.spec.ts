@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 
 import { MonsterService } from '../../../../core/monster';
+import { MinionService } from '../../../../core/minion';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { MonsterDetailComponent } from './monster-detail';
@@ -63,6 +64,12 @@ describe('MonsterDetailComponent', () => {
           useValue: {
             getMonsterTypes: () => of([]),
             getWeaponTags: () => of([]),
+          },
+        },
+        {
+          provide: MinionService,
+          useValue: {
+            getByMonster: () => of([]),
           },
         },
         {

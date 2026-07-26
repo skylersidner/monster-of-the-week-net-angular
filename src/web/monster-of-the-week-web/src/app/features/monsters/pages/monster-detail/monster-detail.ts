@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, Observable, of, switchMap } from 'rxjs';
+import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
@@ -10,6 +11,7 @@ import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-m
 import { CustomSelectComponent } from '../../../../shared/custom-select.component';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
 import {
+  MinionListItemResponse,
   MonsterDetailResponse,
   MonsterAttackResponse,
   TypeRefResponse,
@@ -34,6 +36,7 @@ export class MonsterDetailComponent implements OnInit {
   readonly monster = signal<MonsterDetailResponse | null>(null);
   readonly monsterTypes = signal<TypeRefResponse[]>([]);
   readonly weaponTags = signal<WeaponTagRefResponse[]>([]);
+  readonly minions = signal<MinionListItemResponse[]>([]);
   readonly isLoading = signal(true);
   readonly activeMutation = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
@@ -78,6 +81,7 @@ export class MonsterDetailComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly monsterService: MonsterService,
+    private readonly minionService: MinionService,
     private readonly referenceDataService: ReferenceDataService,
     private readonly notificationService: NotificationService
   ) {}
@@ -101,14 +105,16 @@ export class MonsterDetailComponent implements OnInit {
             monster: this.monsterService.getById(monsterId),
             monsterTypes: this.referenceDataService.getMonsterTypes(),
             weaponTags: this.referenceDataService.getWeaponTags(),
+            minions: this.minionService.getByMonster(monsterId),
           });
         })
       )
       .subscribe({
-        next: ({ monster, monsterTypes, weaponTags }) => {
+        next: ({ monster, monsterTypes, weaponTags, minions }) => {
           this.monster.set(monster);
           this.monsterTypes.set(monsterTypes);
           this.weaponTags.set(weaponTags);
+          this.minions.set(minions);
           this.populateMonsterForm(monster);
           this.isLoading.set(false);
         },

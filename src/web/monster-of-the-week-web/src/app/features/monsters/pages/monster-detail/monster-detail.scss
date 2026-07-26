@@ -130,3 +130,58 @@ li:last-child {
   display: flex;
   gap: 0.4rem;
 }
+
+.minions-section {
+  margin-top: 1.5rem;
+}
+
+.minions-section h3 {
+  margin-bottom: 0.5rem;
+}
+
+.minion-list {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+
+.minion-list li {
+  background: #fff;
+  border: 1px solid #e5e9f2;
+  border-bottom: 1px solid #e5e9f2;
+  border-radius: 0.4rem;
+  display: block;
+  padding: 0.6rem 0.75rem;
+}
+
+.minion-name-row {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.minion-name-row a {
+  font-weight: 600;
+}
+
+.type-badge {
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.55rem;
+  white-space: nowrap;
+}
+
+.type-badge--minion {
+  background: #fde8d8;
+  color: #9a3412;
+}
+
+.no-minions {
+  color: #6b7280;
+  font-size: 0.9rem;
+}

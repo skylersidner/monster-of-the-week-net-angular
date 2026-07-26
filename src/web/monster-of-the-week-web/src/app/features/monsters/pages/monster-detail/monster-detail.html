@@ -179,6 +179,27 @@
         </form>
       </article>
     </div>
+
+    <div class="minions-section">
+      <h3>Minions</h3>
+      @if (minions().length === 0) {
+        <p class="no-minions">No minions.</p>
+      } @else {
+        <ul class="minion-list">
+          @for (minion of minions(); track minion.id) {
+            <li>
+              <div class="minion-name-row">
+                <a [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
+                <span class="type-badge type-badge--minion">{{ minion.minionTypeName }}: {{ minion.minionTypeMotivation }}</span>
+              </div>
+              <small>
+                Attacks: {{ minion.attackCount }} · Powers: {{ minion.powerCount }} · Armors: {{ minion.armorCount }} · Weaknesses: {{ minion.weaknessCount }}
+              </small>
+            </li>
+          }
+        </ul>
+      }
+    </div>
   }
 
   <app-confirm-delete-modal
