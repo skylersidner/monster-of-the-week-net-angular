@@ -688,7 +688,23 @@ If the disabled hover protection is considered low priority, add `class="h-5 w-5
 
 ---
 
-### Phase 6 — Medium Pages & Admin
+### Phase 6 — Medium Pages & Admin ✅ COMPLETE
+
+**Completed:** 2026-07-26 — commit `a7b6e7b` — 12 files changed, 204 insertions, 852 deletions
+
+**What was done:**
+- `mystery-detail.html` — fully inlined; `mystery-narrative` → card panel, `countdown-list` → Tailwind list, `linked-entities` → auto-fit grid of article cards. SCSS stub retained for `--mystery-section-icon-size` custom properties on `.heading-with-icon` and `.countdown-stage-label`.
+- `dashboard.html` — fully inlined; skeleton animation switched to `animate-pulse`; KPI grid, dashboard body 2-col layout, recent mysteries list, aside card all inlined. `dashboard.ts` `styleUrl` removed. `dashboard.scss` **deleted**.
+- `weapon-tag-admin.html` — fully inlined; form, labels, inputs, textarea, validation errors, table th/td all inlined. SCSS stub retained for `records-table` nth-child row striping.
+- `data-admin.html` — fully inlined; selector card, form card, records card, table all inlined. SCSS stub retained for nth-child striping.
+- `monster-detail.html` — fully inlined; minions section, monster edit form (3-col name-row), 4 sub-resource articles (Attacks, Powers, Armors, Weaknesses) with action-btn hover preserved via SCSS. Weapon-tag chips inlined. SCSS stub retained for `.action-btn:hover:not(:disabled)` and `.action-btn--delete` hover.
+- `_breakpoints.scss` **deleted** — last consumer (`monster-detail.scss`) now uses Tailwind `max-xl:` and `max-sm:` responsive variants.
+
+**Key patterns established:**
+- `grid-cols-[repeat(auto-fit,minmax(N,1fr))]` for responsive auto-fit grids (linked-entities, KPI)
+- `animate-pulse` replaces hand-rolled skeleton animation keyframes
+- `last:border-b-0` for borderless last item in lists
+- `max-md:grid-cols-1` / `max-xl:grid-cols-2` / `max-sm:grid-cols-1` for responsive form/grid layouts using custom `@theme` breakpoints
 
 **Goal:** Mystery detail, monster detail, data admin, weapon-tag admin, and dashboard are migrated.
 
