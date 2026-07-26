@@ -10,8 +10,8 @@
 }
 
 .create-btn {
-  background: #4f46e5;
-  border-radius: 999px;
+  background: #1d4ed8;
+  border-radius: 0.5rem;
   color: #fff;
   font-size: 0.9rem;
   font-weight: 600;
@@ -22,7 +22,7 @@
 }
 
 .create-btn:hover {
-  background: #4338ca;
+  background: #1e40af;
 }
 
 .mystery-list {
@@ -88,11 +88,9 @@
   color: #dc2626;
 }
 
-.mystery-list a {
-  color: #1d3557;
+.mystery-info a {
   font-size: 1.1rem;
   font-weight: 600;
-  text-decoration: none;
 }
 
 .mystery-list p {

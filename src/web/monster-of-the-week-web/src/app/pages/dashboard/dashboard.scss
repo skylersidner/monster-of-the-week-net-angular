@@ -22,13 +22,19 @@
 }
 
 .dashboard-header a {
-  background: #4f46e5;
+  background: #1d4ed8;
   border-radius: 0.5rem;
   color: #fff;
   font-size: 0.9rem;
   font-weight: 600;
   padding: 0.45rem 0.8rem;
   text-decoration: none;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.dashboard-header a:hover {
+  background: #1e40af;
 }
 
 .kpi-grid {
