@@ -1138,3 +1138,42 @@ The `[class.toast-error]` → `[style.background-color]` swap is a minor pattern
 #### Impact on future phases
 - The shell layout is the visual baseline for inspecting all remaining phases
 - `routerLinkActive` with Tailwind class names is confirmed working — reuse this pattern in any future components that need active-state styling
+
+---
+
+### Phase 3 — Shared Components ✅
+
+**Date completed:** 2026-07-26  
+**Status:** Complete — clean production build, zero warnings. All three shared components migrated.
+
+#### What was done
+- Rewrote `confirm-delete-modal.component.html` with full inline Tailwind; removed `styleUrl`; deleted `confirm-delete-modal.component.scss`
+- Rewrote `weapon-tag-select.component.html` with full inline Tailwind; removed `styleUrl`; added `host: { class: 'block' }`; deleted `weapon-tag-select.component.scss`
+- Reduced `custom-select.component.scss` from 189 lines to 65 lines: compound state selectors and `@keyframes` stay in SCSS; all standalone element styles moved to inline template classes
+
+#### Class mapping decisions
+
+**`confirm-delete-modal`:** Backdrop and modal box fully inlined. Button pairs now carry all shared base classes (`border-none rounded-md cursor-pointer text-[0.9rem] font-semibold px-5 py-2 transition-colors`) plus their variant classes inline — simpler than the original `.modal-btn` + `.modal-btn--cancel` two-class approach. `<li>` items get `class="py-0.5"` directly.
+
+**`weapon-tag-select`:** `:host { display: block }` replaced with `host: { class: 'block' }` in component metadata. All four SCSS rules moved inline.
+
+**`custom-select` — compound state selectors kept in SCSS:** `.custom-select.is-open .custom-select__trigger`, `.custom-select.is-disabled .custom-select__trigger`, `.custom-select.is-open .custom-select__caret`, and `.custom-select__option.is-selected .custom-select__option-sublabel` cannot be expressed as Tailwind utilities without adding `group-*` or `has-*` plumbing to the template — cleaner to keep them in SCSS with `@apply`. The `@keyframes dropdown-fade` and its `animation:` rule also stay in SCSS. `font: inherit` on trigger and search input stays as raw CSS alongside `@apply`.
+
+**Panel positioning:** `.custom-select__panel` keeps its class name in the template (needed for the animation rule) and gains positioning as inline utilities: `absolute left-0 top-[calc(100%_+_0.1rem)] mt-[0.35rem] w-full ... z-20`.
+
+#### Quirks & Deviations
+
+**`@reference "tailwindcss"` required in component SCSS using `@apply`**  
+Tailwind v4 cannot resolve `@apply` in a component SCSS file unless the file declares where to find utility definitions. The fix is to add `@reference "tailwindcss";` as the first line of any component SCSS file that uses `@apply`. Without it, the build fails with: *"Cannot apply unknown utility class `bg-white`. Are you using CSS modules or similar and missing `@reference`?"*  
+**This applies to every remaining phase that keeps a SCSS file with `@apply`.**
+
+#### Build output
+- `main-*.js`: 291.61 kB (negligible change)
+- `styles-*.css`: 13.04 kB (unchanged — new utilities were already scanned)
+- Zero errors, zero warnings
+- Build time: 2.730 seconds
+
+#### Impact on future phases
+- Any component SCSS file that uses `@apply` must start with `@reference "tailwindcss";`
+- The `custom-select__*` class names that remain in the template are load-bearing for SCSS compound selectors — do not remove them during future refactors
+- The `confirm-delete-modal` and `weapon-tag-select` patterns (full inline migration) can be used as templates for other simple shared components
