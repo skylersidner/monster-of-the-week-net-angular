@@ -64,7 +64,7 @@ export class HeaderSearchComponent {
         this.isLoading.set(false);
         this.results.set(results);
         this.highlightedIndex.set(null);
-        this.isOpen.set(results.length > 0);
+        this.isOpen.set(true);
       });
   }
 

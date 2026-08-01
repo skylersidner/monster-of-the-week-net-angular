@@ -20,26 +20,32 @@
     (blur)="onBlur()"
   />
 
-  @if (isOpen() && results().length > 0) {
+  @if (isOpen()) {
     <ul
       [id]="listboxId"
       role="listbox"
       class="header-search__listbox absolute left-0 top-[calc(100%_+_0.35rem)] z-20 w-full bg-white border border-slate-200 rounded-[0.7rem] shadow-[0_16px_36px_rgba(15,23,42,0.14)] max-h-[280px] overflow-y-auto py-1"
       (mousedown)="$event.preventDefault()"
     >
-      @for (result of results(); track result.entityType + result.id; let i = $index) {
-        <li
-          [id]="'header-search-option-' + i"
-          role="option"
-          [attr.aria-selected]="highlightedIndex() === i"
-          [attr.aria-label]="result.entityType + ': ' + result.name"
-          class="header-search__option flex items-center gap-[0.6rem] px-[0.8rem] py-[0.6rem] cursor-pointer text-slate-950"
-          [class.is-highlighted]="highlightedIndex() === i"
-          (mouseenter)="setHighlighted(i)"
-          (click)="selectResult(result, i)"
-        >
-          <app-domain-icon [domain]="result.entityType" aria-hidden="true" />
-          <span aria-hidden="true" class="overflow-hidden text-ellipsis whitespace-nowrap">{{ result.name }}</span>
+      @if (results().length > 0) {
+        @for (result of results(); track result.entityType + result.id; let i = $index) {
+          <li
+            [id]="'header-search-option-' + i"
+            role="option"
+            [attr.aria-selected]="highlightedIndex() === i"
+            [attr.aria-label]="result.entityType + ': ' + result.name"
+            class="header-search__option flex items-center gap-[0.6rem] px-[0.8rem] py-[0.6rem] cursor-pointer text-slate-950"
+            [class.is-highlighted]="highlightedIndex() === i"
+            (mouseenter)="setHighlighted(i)"
+            (click)="selectResult(result, i)"
+          >
+            <app-domain-icon [domain]="result.entityType" aria-hidden="true" />
+            <span aria-hidden="true" class="overflow-hidden text-ellipsis whitespace-nowrap">{{ result.name }}</span>
+          </li>
+        }
+      } @else {
+        <li role="presentation" class="px-[0.8rem] py-[0.6rem] text-slate-500 text-[0.9rem] cursor-default">
+          No results found for "{{ query() }}"
         </li>
       }
     </ul>

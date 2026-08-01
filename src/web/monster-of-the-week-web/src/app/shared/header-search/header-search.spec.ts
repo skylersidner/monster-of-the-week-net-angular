@@ -109,14 +109,33 @@ describe('HeaderSearchComponent', () => {
     expect(component.isOpen()).toBe(true);
   });
 
-  it('stays closed when the response is empty', () => {
+  it('opens with a "no results" row when the response is empty', () => {
     quickSpy.mockReturnValue(of([]));
 
-    setInputValue('sto');
+    setInputValue('zzz');
     vi.advanceTimersByTime(200);
+    fixture.detectChanges();
 
     expect(component.results()).toEqual([]);
-    expect(component.isOpen()).toBe(false);
+    expect(component.isOpen()).toBe(true);
+    expect(component.highlightedIndex()).toBeNull();
+
+    const emptyRow = fixture.nativeElement.querySelector('[role="presentation"]');
+    expect(emptyRow?.textContent).toContain('No results found for "zzz"');
+    expect(fixture.nativeElement.querySelectorAll('[role="option"]').length).toBe(0);
+  });
+
+  it('does not move the highlight or navigate on Enter when the "no results" row is showing', () => {
+    quickSpy.mockReturnValue(of([]));
+
+    setInputValue('zzz');
+    vi.advanceTimersByTime(200);
+
+    dispatchKey('ArrowDown');
+    expect(component.highlightedIndex()).toBeNull();
+
+    dispatchKey('Enter');
+    expect(navigateSpy).toHaveBeenCalledWith(['/search'], { queryParams: { q: 'zzz' } });
   });
 
   it('moves highlightedIndex down with ArrowDown and does not wrap past the last item', () => {
@@ -169,6 +188,29 @@ describe('HeaderSearchComponent', () => {
 
     dispatchKey('ArrowUp');
     expect(component.highlightedIndex()).toBe(1);
+  });
+
+  it('applies the is-highlighted class to the active row for both keyboard and mouse highlighting', () => {
+    quickSpy.mockReturnValue(of([mysteryResult, monsterResult, locationResult]));
+    setInputValue('sto');
+    vi.advanceTimersByTime(200);
+    fixture.detectChanges();
+
+    dispatchKey('ArrowDown');
+    dispatchKey('ArrowDown');
+    fixture.detectChanges();
+
+    let options = fixture.nativeElement.querySelectorAll('[role="option"]');
+    expect(options[1].classList.contains('is-highlighted')).toBe(true);
+    expect(options[0].classList.contains('is-highlighted')).toBe(false);
+    expect(options[2].classList.contains('is-highlighted')).toBe(false);
+
+    options[2].dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.detectChanges();
+
+    options = fixture.nativeElement.querySelectorAll('[role="option"]');
+    expect(options[2].classList.contains('is-highlighted')).toBe(true);
+    expect(options[1].classList.contains('is-highlighted')).toBe(false);
   });
 
   it('Enter with a highlighted Monster result navigates to its detail route', () => {

@@ -53,6 +53,18 @@ export interface SearchResultItem {
   matchedField: string;
 }
 
+export interface SearchResultDetailItem extends SearchResultItem {
+  excerpt: string;
+  snippet: string | null;
+}
+
+export interface PagedSearchResult {
+  items: SearchResultDetailItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}
+
 export interface MysteryListItemResponse {
   id: string;
   name: string;

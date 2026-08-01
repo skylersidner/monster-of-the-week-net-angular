@@ -203,3 +203,27 @@ Extend the Angular minion model and service to support the top-level `/minions` 
 - Angular service update pattern: `apiService.put<TRequest, TResponse>(url, body)` — matches the existing `ApiService.put<TRequest, TResponse>` signature
 - Build failure on this run was a pre-existing CSS budget overage in `mystery-create.scss` (8.27 kB vs 8 kB limit), not caused by these changes; TypeScript compilation was clean
 
+---
+
+## 2026-08-01 — Global Search Phase 3: Full Search Results Page
+
+### Task
+Implemented Phase 3 (frontend-only) of global search per `docs/search/architecture.md` Section 6/7 and `docs/search/phases.md`'s Phase 3 checklist: `SearchResultDetailItem`/`PagedSearchResult` models, `SearchService.search()`, and `features/search/` — `SearchResultsComponent` reading `q`/`page` reactively off `ActivatedRoute.queryParamMap`, rendering paginated results with domain badges/icons/links and `snippet ?? excerpt`. Route registered in `app.routes.ts` via `loadChildren` (mirroring `mysteries`/`monsters`/etc., not the `phases.md` snippet's bare `component:` — codebase convention for feature list pages is `loadComponent` inside a `*.routes.ts`, confirmed against `locations.routes.ts`/`bystanders.routes.ts`).
+
+Baseline verified clean before starting: `npm run build` and `npm run test -- --watch=false` both passed (26 files / 85 tests) — Phase 1/2's pre-existing test breakage really was fixed by the owner as stated.
+
+### Key patterns confirmed
+- Feature list pages in this codebase have no `.scss` at all (Tailwind-only, post-migration); only `shared/header-search` (Phase 2) has one. Since the task explicitly listed `search-results.scss` as a file to create, added one anyway but kept it minimal (`@reference "tailwindcss"; :host { display: block; }`), matching `header-search.scss`'s style rather than the older per-component `.scss` files still full of now-largely-unused pre-migration CSS (e.g. `monsters-list.scss`).
+- Existing per-domain badge colors already established elsewhere in the app: Mystery → `amber-100/amber-700` (adventure-type badge), Monster → `red-100/red-700` (monster-type badge), Location → `green-100/green-900`, Bystander → `blue-100/blue-800`. No existing plain-Tailwind-class minion badge (minions-list uses a bespoke `bg-[#fde8d8] text-orange-800` hex), so picked `orange-100/orange-800` for Minion on the results page — same hue family as the existing minion badge, but a real Tailwind class pair rather than a custom hex, kept distinct from Monster's red.
+- `ActivatedRoute.queryParamMap` reactive pattern: subscribe once in the constructor (via `takeUntilDestroyed`), track `lastQuery` starting at `null` so the very first emission (initial page load, possibly deep-linked to `page=N>1`) is never mistaken for a "user changed q" event. Only reset to `page=1` via `Router.navigate` (not silent refetch) when `lastQuery !== null && q changed && page !== 1` — this is the guard that lets `/search?q=x&page=5` deep-link correctly while still catching an in-place address-bar edit from `?q=x&page=5` to `?q=y&page=5`.
+- Testing `ActivatedRoute.queryParamMap` reactivity: provide a `BehaviorSubject<ParamMap>` (via `convertToParamMap`) as the `queryParamMap` value on a mocked `ActivatedRoute`, then `.next()` new param maps mid-test to simulate address-bar edits / pagination. Spy on the *real* `Router` (`provideRouter([])` + `vi.spyOn(router, 'navigate')`) rather than swapping in a bare `{ navigate: fn }` stub, because the component's template uses `RouterLink` and a stub Router without `.events` etc. breaks `RouterLink`'s constructor.
+- Verified end-to-end against a live API + dev server: `GET /api/search?q=sto&page=1&pageSize=20` on the real dev DB returns real paged results (Location "One Stop Grocery & Shop" for query "sto"); `ng serve` correctly serves `/search?q=...` via the SPA history fallback (200, not 404). No headless-browser tool (e.g. Playwright) is set up in this repo, so interactive click-through (Prev/Next clicks, header-dropdown Enter landing on `/search`) was verified via the automated component spec + manual reasoning about the Router calls, not literal browser interaction — flagging this so it isn't assumed to be pixel-verified.
+- Found a stale `dotnet run` process (unrelated to this task, apparently left running from an earlier session) holding a file lock on `MonsterOfTheWeek.Api.exe`, pre-dating the Phase 1 search endpoints (returned 404 on `/api/search*` while `/api/monsters` worked). Killed it and started a fresh one to verify against current code — flagging in case the project owner had that old process running intentionally for something else.
+
+### Files
+- New: `core/search.ts` (extended, not new — `search()` method added), `features/search/{search.routes.ts, pages/search-results/{search-results.ts,.html,.scss,.spec.ts}}`
+- Modified: `core/models.ts` (`SearchResultDetailItem`, `PagedSearchResult`), `core/search.ts`, `app.routes.ts`
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings, unrelated). `npm run test -- --watch=false`: 27 files / 97 tests, all green (12 new specs). No `src/api/` files touched.
+

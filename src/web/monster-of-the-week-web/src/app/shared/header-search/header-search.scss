@@ -6,7 +6,7 @@
 }
 
 .header-search__option.is-highlighted {
-  @apply bg-indigo-50 text-indigo-700;
+  @apply bg-indigo-600 text-white;
 }
 
 @keyframes header-search-dropdown-fade {
