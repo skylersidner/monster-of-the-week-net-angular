@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
+using MonsterOfTheWeek.Api.Services.Search;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +29,12 @@ builder.Services.AddScoped<IMinionService, MinionService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IBystanderService, BystanderService>();
 builder.Services.AddScoped<IReferenceService, ReferenceService>();
+builder.Services.AddScoped<ISearchProvider, MysterySearchProvider>();
+builder.Services.AddScoped<ISearchProvider, MonsterSearchProvider>();
+builder.Services.AddScoped<ISearchProvider, MinionSearchProvider>();
+builder.Services.AddScoped<ISearchProvider, LocationSearchProvider>();
+builder.Services.AddScoped<ISearchProvider, BystanderSearchProvider>();
+builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendDev", policy =>
