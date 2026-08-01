@@ -15,6 +15,15 @@ public sealed class AdventureType
     public ICollection<Mystery> Mysteries { get; set; } = [];
 }
 
+public sealed class MonsterArchetype
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public required string Name { get; set; }
+    public required string Description { get; set; }
+
+    public ICollection<Monster> Monsters { get; set; } = [];
+}
+
 public sealed class Mystery : ITimestamped
 {
     public Guid Id { get; init; } = Guid.NewGuid();
@@ -71,6 +80,7 @@ public sealed class Monster : ITimestamped
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid MonsterTypeId { get; set; }
+    public Guid MonsterArchetypeId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
     public int HarmCapacity { get; set; }
@@ -78,6 +88,7 @@ public sealed class Monster : ITimestamped
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public MonsterType MonsterType { get; set; } = null!;
+    public MonsterArchetype MonsterArchetype { get; set; } = null!;
     public ICollection<MysteryMonster> Mysteries { get; set; } = [];
     public ICollection<MonsterAttack> Attacks { get; set; } = [];
     public ICollection<MonsterPower> Powers { get; set; } = [];

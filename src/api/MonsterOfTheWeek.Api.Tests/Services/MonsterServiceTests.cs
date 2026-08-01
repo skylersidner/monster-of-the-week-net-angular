@@ -56,6 +56,7 @@ public sealed class MonsterServiceTests
         public bool MysteryExists { get; init; }
         public bool MonsterExists { get; init; } = true;
         public bool MonsterTypeExists { get; init; } = true;
+        public bool MonsterArchetypeExists { get; init; } = true;
         public bool MinionTypeExists { get; init; } = true;
         public bool WeaponTagExists { get; init; }
         public bool AttackExists { get; init; }
@@ -66,12 +67,17 @@ public sealed class MonsterServiceTests
         public Task<bool> MysteryExistsAsync(Guid mysteryId, CancellationToken cancellationToken) => Task.FromResult(MysteryExists);
         public Task<bool> MonsterExistsAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(MonsterExists);
         public Task<bool> MonsterTypeExistsAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(MonsterTypeExists);
+        public Task<bool> MonsterArchetypeExistsAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(MonsterArchetypeExists);
         public Task<bool> MinionTypeExistsAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(MinionTypeExists);
         public Task<bool> WeaponTagExistsAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(WeaponTagExists);
-        public Task<IReadOnlyList<Monster>> GetMonstersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<Monster>>([]);
-        public Task<Monster?> GetMonsterDetailAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<Monster?>(new Monster { MysteryId = Guid.NewGuid(), Name = "Monster" });
-        public Task<Monster?> GetMonsterForUpdateAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<Monster?>(new Monster { MysteryId = Guid.NewGuid(), Name = "Monster" });
+        public Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<MonsterListItemResponse>>([]);
+        public Task<IReadOnlyList<MonsterListItemResponse>> GetMonstersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<MonsterListItemResponse>>([]);
+        public Task<Monster?> GetMonsterDetailAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<Monster?>(new Monster { Name = "Monster", MonsterType = new MonsterType { Name = "Type", Motivation = "Mot" }, MonsterArchetype = new MonsterArchetype { Name = "Heavy Hitter", Description = "It is the threat" } });
+        public Task<Monster?> GetMonsterForUpdateAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<Monster?>(new Monster { Name = "Monster" });
         public Task AddMonsterAsync(Monster monster, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task LinkMonsterToMysteryAsync(MysteryMonster link, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<int> UnlinkMonsterFromMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) => Task.FromResult(1);
+        public Task<bool> MonsterLinkedToMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<int> DeleteMonsterAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(1);
         public Task<IReadOnlyList<MonsterAttack>> GetAttacksAsync(Guid monsterId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<MonsterAttack>>([]);
         public Task<MonsterAttack?> GetAttackAsync(Guid monsterId, Guid attackId, bool includeTags, CancellationToken cancellationToken)

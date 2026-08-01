@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Reference Data Seed
 -- Populates all lookup / reference tables:
---   adventure_types, monster_types, minion_types, location_types, bystander_types, weapon_tags
+--   adventure_types, monster_archetypes, monster_types, minion_types, location_types, bystander_types, weapon_tags
 --
 -- Idempotent: uses ON CONFLICT (id) DO NOTHING so it is safe to re-run.
 -- UUIDs are fixed so data is consistent across environments.
@@ -15,6 +15,16 @@ INSERT INTO adventure_types (id, name, description) VALUES
   ('b2c3d4e5-6f7a-4b8c-9d0e-f01234567890', 'Collect',  'Hunters must get something important.'),
   ('c3d4e5f6-7a8b-4c9d-aef0-123456789012', 'Deliver',  'Hunters must transfer something important.'),
   ('d4e5f6a7-8b9c-4d0e-bf12-3456789abcde', 'Discover', 'Hunters must find something important.')
+ON CONFLICT (id) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Monster Archetypes
+-- -----------------------------------------------------------------------------
+INSERT INTO monster_archetypes (id, name, description) VALUES
+  ('f47ac10b-58cc-4372-a567-0e02b2c3d401', 'Heavy Hitter', 'It is the threat'),
+  ('f47ac10b-58cc-4372-a567-0e02b2c3d402', 'Racer',        'Trying to achieve something'),
+  ('f47ac10b-58cc-4372-a567-0e02b2c3d403', 'Chaser',       'Pursuing the hunters'),
+  ('f47ac10b-58cc-4372-a567-0e02b2c3d404', 'Shadow',       'Up to something behind the scenes')
 ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------

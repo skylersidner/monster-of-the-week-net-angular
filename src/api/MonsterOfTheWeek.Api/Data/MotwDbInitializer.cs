@@ -22,6 +22,15 @@ public static class MotwDbInitializer
                 new AdventureType { Id = Guid.Parse("d4e5f6a7-8b9c-4d0e-bf12-3456789abcde"), Name = "Discover", Description = "Hunters must find something important." });
         }
 
+        if (!await dbContext.MonsterArchetypes.AnyAsync(cancellationToken))
+        {
+            dbContext.MonsterArchetypes.AddRange(
+                new MonsterArchetype { Id = Guid.Parse("f47ac10b-58cc-4372-a567-0e02b2c3d401"), Name = "Heavy Hitter", Description = "It is the threat" },
+                new MonsterArchetype { Id = Guid.Parse("f47ac10b-58cc-4372-a567-0e02b2c3d402"), Name = "Racer",        Description = "Trying to achieve something" },
+                new MonsterArchetype { Id = Guid.Parse("f47ac10b-58cc-4372-a567-0e02b2c3d403"), Name = "Chaser",       Description = "Pursuing the hunters" },
+                new MonsterArchetype { Id = Guid.Parse("f47ac10b-58cc-4372-a567-0e02b2c3d404"), Name = "Shadow",       Description = "Up to something behind the scenes" });
+        }
+
         if (!await dbContext.MonsterTypes.AnyAsync(cancellationToken))
         {
             dbContext.MonsterTypes.AddRange(

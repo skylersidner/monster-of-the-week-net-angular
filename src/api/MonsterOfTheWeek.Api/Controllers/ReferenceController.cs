@@ -19,6 +19,17 @@ public sealed class ReferenceController(IReferenceService referenceService) : Co
         return Created($"/api/adventure-types/{created.Id}", created);
     }
 
+    [HttpGet("monster-archetypes")]
+    public async Task<ActionResult<IReadOnlyList<MonsterArchetypeResponse>>> GetMonsterArchetypes(CancellationToken cancellationToken) =>
+        Ok(await referenceService.GetMonsterArchetypesAsync(cancellationToken));
+
+    [HttpPost("monster-archetypes")]
+    public async Task<ActionResult<MonsterArchetypeResponse>> CreateMonsterArchetype([FromBody] CreateMonsterArchetypeRequest request, CancellationToken cancellationToken)
+    {
+        var created = await referenceService.CreateMonsterArchetypeAsync(request, cancellationToken);
+        return Created($"/api/monster-archetypes/{created.Id}", created);
+    }
+
     [HttpGet("monster-types")]
     public async Task<ActionResult<IReadOnlyList<TypeRefResponse>>> GetMonsterTypes(CancellationToken cancellationToken) =>
         Ok(await referenceService.GetMonsterTypesAsync(cancellationToken));

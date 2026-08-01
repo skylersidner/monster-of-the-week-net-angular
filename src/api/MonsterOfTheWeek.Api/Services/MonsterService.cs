@@ -35,12 +35,18 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
             return ServiceResult<MonsterDetailResponse>.Validation($"MonsterType {request.MonsterTypeId} does not exist.");
         }
 
+        if (!await monsterRepository.MonsterArchetypeExistsAsync(request.MonsterArchetypeId, cancellationToken))
+        {
+            return ServiceResult<MonsterDetailResponse>.Validation($"MonsterArchetype {request.MonsterArchetypeId} does not exist.");
+        }
+
         var monster = new Monster
         {
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
             HarmCapacity = request.HarmCapacity,
             MonsterTypeId = request.MonsterTypeId,
+            MonsterArchetypeId = request.MonsterArchetypeId,
         };
 
         await monsterRepository.AddMonsterAsync(monster, cancellationToken);
@@ -75,10 +81,16 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
             return ServiceResult<MonsterDetailResponse>.Validation($"MonsterType {request.MonsterTypeId} does not exist.");
         }
 
+        if (!await monsterRepository.MonsterArchetypeExistsAsync(request.MonsterArchetypeId, cancellationToken))
+        {
+            return ServiceResult<MonsterDetailResponse>.Validation($"MonsterArchetype {request.MonsterArchetypeId} does not exist.");
+        }
+
         monster.Name = request.Name.Trim();
         monster.Description = request.Description?.Trim();
         monster.HarmCapacity = request.HarmCapacity;
         monster.MonsterTypeId = request.MonsterTypeId;
+        monster.MonsterArchetypeId = request.MonsterArchetypeId;
         await monsterRepository.SaveChangesAsync(cancellationToken);
 
         var detail = await GetByIdAsync(id, cancellationToken);
@@ -406,6 +418,7 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
             monster.HarmCapacity,
             monster.MonsterTypeId,
             monster.MonsterType?.Name,
+            monster.MonsterArchetype.ToResponse(),
             monster.Attacks.Select(x => x.ToResponse()).ToList(),
             monster.Powers.Select(x => x.ToResponse()).ToList(),
             monster.Armors.Select(x => x.ToResponse()).ToList(),

@@ -7,6 +7,9 @@ public static class ApiMappers
     public static AdventureTypeResponse ToResponse(this AdventureType value) =>
         new(value.Id, value.Name, value.Description);
 
+    public static MonsterArchetypeResponse ToResponse(this MonsterArchetype value) =>
+        new(value.Id, value.Name, value.Description);
+
     public static CountdownResponse ToResponse(this Countdown value) =>
         new(
             value.Id,

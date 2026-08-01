@@ -7,6 +7,7 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
 {
     public DbSet<Mystery> Mysteries => Set<Mystery>();
     public DbSet<AdventureType> AdventureTypes => Set<AdventureType>();
+    public DbSet<MonsterArchetype> MonsterArchetypes => Set<MonsterArchetype>();
     public DbSet<Countdown> Countdowns => Set<Countdown>();
     public DbSet<Monster> Monsters => Set<Monster>();
     public DbSet<MonsterType> MonsterTypes => Set<MonsterType>();
@@ -101,6 +102,15 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.Property(e => e.Motivation).HasColumnName("motivation").IsRequired();
         });
 
+        modelBuilder.Entity<MonsterArchetype>(entity =>
+        {
+            entity.ToTable("monster_archetypes");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description").IsRequired();
+        });
+
         modelBuilder.Entity<MinionType>(entity =>
         {
             entity.ToTable("minion_types");
@@ -123,6 +133,8 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
             entity.HasOne(e => e.MonsterType).WithMany(e => e.Monsters).HasForeignKey(e => e.MonsterTypeId);
+            entity.Property(e => e.MonsterArchetypeId).HasColumnName("monster_archetype_id").IsRequired();
+            entity.HasOne(e => e.MonsterArchetype).WithMany(e => e.Monsters).HasForeignKey(e => e.MonsterArchetypeId);
         });
 
         modelBuilder.Entity<MonsterAttack>(entity =>

@@ -20,11 +20,25 @@ public sealed class MonsterRepositoryTests
         await using var context = new MotwDbContext(options);
         await context.Database.EnsureCreatedAsync();
 
+        var adventureTypeId = Guid.NewGuid();
+        var monsterTypeId = Guid.NewGuid();
+        var monsterArchetypeId = Guid.NewGuid();
         var mysteryId = Guid.NewGuid();
-        context.Mysteries.Add(new Mystery { Id = mysteryId, Name = "Mystery" });
-        context.Monsters.AddRange(
-            new Monster { MysteryId = mysteryId, Name = "Zulu", HarmCapacity = 1 },
-            new Monster { MysteryId = mysteryId, Name = "Alpha", HarmCapacity = 2 });
+
+        context.AdventureTypes.Add(new AdventureType { Id = adventureTypeId, Name = "Thwart", Description = "Hunters vs bad guy." });
+        context.MonsterTypes.Add(new MonsterType { Id = monsterTypeId, Name = "Devourer", Motivation = "To consume." });
+        context.MonsterArchetypes.Add(new MonsterArchetype { Id = monsterArchetypeId, Name = "Heavy Hitter", Description = "It is the threat" });
+        context.Mysteries.Add(new Mystery { Id = mysteryId, Name = "Mystery", AdventureTypeId = adventureTypeId });
+        await context.SaveChangesAsync();
+
+        var monsterZulu = new Monster { Name = "Zulu", HarmCapacity = 1, MonsterTypeId = monsterTypeId, MonsterArchetypeId = monsterArchetypeId };
+        var monsterAlpha = new Monster { Name = "Alpha", HarmCapacity = 2, MonsterTypeId = monsterTypeId, MonsterArchetypeId = monsterArchetypeId };
+        context.Monsters.AddRange(monsterZulu, monsterAlpha);
+        await context.SaveChangesAsync();
+
+        context.MysteryMonsters.AddRange(
+            new MysteryMonster { MysteryId = mysteryId, MonsterId = monsterZulu.Id },
+            new MysteryMonster { MysteryId = mysteryId, MonsterId = monsterAlpha.Id });
         await context.SaveChangesAsync();
 
         var repository = new MonsterRepository(context);
@@ -47,12 +61,16 @@ public sealed class MonsterRepositoryTests
         await using var context = new MotwDbContext(options);
         await context.Database.EnsureCreatedAsync();
 
-        var mystery = new Mystery { Name = "Mystery" };
-        var monster = new Monster { MysteryId = mystery.Id, Name = "Monster", HarmCapacity = 7 };
+        var monsterTypeId = Guid.NewGuid();
+        var monsterArchetypeId = Guid.NewGuid();
+        context.MonsterTypes.Add(new MonsterType { Id = monsterTypeId, Name = "Devourer", Motivation = "To consume." });
+        context.MonsterArchetypes.Add(new MonsterArchetype { Id = monsterArchetypeId, Name = "Heavy Hitter", Description = "It is the threat" });
+        await context.SaveChangesAsync();
+
+        var monster = new Monster { Name = "Monster", HarmCapacity = 7, MonsterTypeId = monsterTypeId, MonsterArchetypeId = monsterArchetypeId };
         var attack = new MonsterAttack { MonsterId = monster.Id, Name = "Claw", Harm = 3 };
         var tag = new WeaponTag { Name = "messy", Description = "Messy attack" };
 
-        context.Mysteries.Add(mystery);
         context.Monsters.Add(monster);
         context.MonsterAttacks.Add(attack);
         context.WeaponTags.Add(tag);
@@ -67,3 +85,4 @@ public sealed class MonsterRepositoryTests
         Assert.Equal("messy", loaded.MonsterAttackWeaponTags.First().WeaponTag.Name);
     }
 }
+

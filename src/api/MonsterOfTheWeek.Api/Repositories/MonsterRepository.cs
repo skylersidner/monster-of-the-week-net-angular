@@ -16,6 +16,9 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
     public Task<bool> MonsterTypeExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.MonsterTypes.AnyAsync(x => x.Id == id, cancellationToken);
 
+    public Task<bool> MonsterArchetypeExistsAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.MonsterArchetypes.AnyAsync(x => x.Id == id, cancellationToken);
+
     public Task<bool> WeaponTagExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.WeaponTags.AnyAsync(x => x.Id == id, cancellationToken);
 
@@ -30,6 +33,7 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
                 x.Description,
                 x.HarmCapacity,
                 new TypeRefResponse(x.MonsterTypeId, x.MonsterType.Name, x.MonsterType.Motivation),
+                new MonsterArchetypeResponse(x.MonsterArchetypeId, x.MonsterArchetype.Name, x.MonsterArchetype.Description),
                 x.Attacks.Count,
                 x.Powers.Count,
                 x.Armors.Count,
@@ -50,6 +54,7 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
                 x.Description,
                 x.HarmCapacity,
                 new TypeRefResponse(x.MonsterTypeId, x.MonsterType.Name, x.MonsterType.Motivation),
+                new MonsterArchetypeResponse(x.MonsterArchetypeId, x.MonsterArchetype.Name, x.MonsterArchetype.Description),
                 x.Attacks.Count,
                 x.Powers.Count,
                 x.Armors.Count,
@@ -62,6 +67,7 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
         dbContext.Monsters
             .AsNoTracking()
             .Include(x => x.MonsterType)
+            .Include(x => x.MonsterArchetype)
             .Include(x => x.Mysteries)
             .Include(x => x.Attacks)
             .ThenInclude(x => x.MonsterAttackWeaponTags)

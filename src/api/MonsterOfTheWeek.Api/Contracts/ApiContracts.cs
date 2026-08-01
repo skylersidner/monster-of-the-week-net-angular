@@ -14,6 +14,10 @@ public sealed record AdventureTypeResponse(Guid Id, string Name, string Descript
 public sealed record CreateAdventureTypeRequest(
     [param: Required, MinLength(3)] string Name,
     [param: Required, MinLength(5)] string Description);
+public sealed record MonsterArchetypeResponse(Guid Id, string Name, string Description);
+public sealed record CreateMonsterArchetypeRequest(
+    [param: Required, MinLength(3)] string Name,
+    [param: Required, MinLength(5)] string Description);
 public sealed record CustomMoveResponse(Guid Id, string Name, string? Description);
 
 public sealed record MysteryListItemResponse(
@@ -75,6 +79,7 @@ public sealed record MonsterListItemResponse(
     string? Description,
     int HarmCapacity,
     TypeRefResponse MonsterType,
+    MonsterArchetypeResponse MonsterArchetype,
     int AttackCount,
     int PowerCount,
     int ArmorCount,
@@ -101,6 +106,7 @@ public sealed record MonsterDetailResponse(
     int HarmCapacity,
     Guid MonsterTypeId,
     string? MonsterTypeName,
+    MonsterArchetypeResponse MonsterArchetype,
     IReadOnlyList<MonsterAttackResponse> Attacks,
     IReadOnlyList<MonsterPowerResponse> Powers,
     IReadOnlyList<MonsterArmorResponse> Armors,
@@ -111,7 +117,8 @@ public sealed record UpsertMonsterRequest(
     string Name,
     string? Description,
     int HarmCapacity,
-    Guid MonsterTypeId);
+    Guid MonsterTypeId,
+    Guid MonsterArchetypeId);
 
 public sealed record UpsertMonsterAttackRequest(string Name, string? Description, int Harm);
 public sealed record AssignWeaponTagRequest(Guid WeaponTagId);

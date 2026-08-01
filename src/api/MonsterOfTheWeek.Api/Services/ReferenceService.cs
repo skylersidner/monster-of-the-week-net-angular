@@ -10,6 +10,11 @@ public sealed class ReferenceService(IReferenceRepository referenceRepository) :
         .Select(x => new AdventureTypeResponse(x.Id, x.Name, x.Description))
         .ToList();
 
+    public async Task<IReadOnlyList<MonsterArchetypeResponse>> GetMonsterArchetypesAsync(CancellationToken cancellationToken) =>
+        (await referenceRepository.GetMonsterArchetypesAsync(cancellationToken))
+        .Select(x => new MonsterArchetypeResponse(x.Id, x.Name, x.Description))
+        .ToList();
+
     public async Task<IReadOnlyList<TypeRefResponse>> GetMonsterTypesAsync(CancellationToken cancellationToken) =>
         (await referenceRepository.GetMonsterTypesAsync(cancellationToken))
         .Select(x => new TypeRefResponse(x.Id, x.Name, x.Motivation))
@@ -46,6 +51,19 @@ public sealed class ReferenceService(IReferenceRepository referenceRepository) :
         await referenceRepository.AddAdventureTypeAsync(value, cancellationToken);
         await referenceRepository.SaveChangesAsync(cancellationToken);
         return new AdventureTypeResponse(value.Id, value.Name, value.Description);
+    }
+
+    public async Task<MonsterArchetypeResponse> CreateMonsterArchetypeAsync(CreateMonsterArchetypeRequest request, CancellationToken cancellationToken)
+    {
+        var value = new Data.Entities.MonsterArchetype
+        {
+            Name = request.Name.Trim(),
+            Description = request.Description.Trim()
+        };
+
+        await referenceRepository.AddMonsterArchetypeAsync(value, cancellationToken);
+        await referenceRepository.SaveChangesAsync(cancellationToken);
+        return new MonsterArchetypeResponse(value.Id, value.Name, value.Description);
     }
 
     public async Task<TypeRefResponse> CreateMonsterTypeAsync(CreateTypeRefRequest request, CancellationToken cancellationToken)
