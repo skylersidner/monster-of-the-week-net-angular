@@ -35,6 +35,7 @@ describe('MysteryDetailComponent', () => {
                 hook: 'The hunters are called in.',
                 overview: 'A vengeful spirit is escalating.',
                 notes: null,
+                adventureType: { id: 'adventure-type-1', name: 'Haunting', description: '' },
                 countdown: {
                   day: 'A chill settles in.',
                   shadows: null,

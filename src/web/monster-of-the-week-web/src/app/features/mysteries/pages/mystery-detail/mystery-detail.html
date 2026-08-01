@@ -54,7 +54,7 @@
       </span>
     </h3>
     @if (mystery()!.countdown) {
-      <ul class="bg-white border border-[#e5e9f2] rounded-lg list-none m-0 px-4 py-3">
+      <ul class="countdown-list bg-white border border-[#e5e9f2] rounded-lg list-none m-0 px-4 py-3">
         @for (stage of countdownStages; track stage.key) {
           <li class="my-[0.35rem]">
             <span class="flex flex-wrap items-center gap-[0.45rem]">

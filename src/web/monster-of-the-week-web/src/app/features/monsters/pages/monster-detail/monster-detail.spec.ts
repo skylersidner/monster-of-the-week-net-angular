@@ -38,6 +38,7 @@ describe('MonsterDetailComponent', () => {
                 harmCapacity: 7,
                 monsterTypeId: 'monster-type-1',
                 monsterTypeName: null,
+                monsterArchetype: { id: 'monster-archetype-1', name: 'Ghost', description: '' },
                 attacks: [],
                 powers: [],
                 armors: [],
@@ -63,6 +64,7 @@ describe('MonsterDetailComponent', () => {
           provide: ReferenceDataService,
           useValue: {
             getMonsterTypes: () => of([]),
+            getMonsterArchetypes: () => of([]),
             getWeaponTags: () => of([]),
           },
         },

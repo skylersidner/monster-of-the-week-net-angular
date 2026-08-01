@@ -51,7 +51,7 @@
 
 @if (store.currentStep() === 3) {
   <form [formGroup]="store.countdownForm">
-    <div class="grid gap-3">
+    <div class="countdown-grid grid gap-3">
       @for (stage of countdownStages; track stage.key) {
         <div class="mb-4">
           <label [attr.for]="stage.key" class="text-slate-950 block text-sm font-semibold mb-[0.35rem] mb-[0.45rem]">

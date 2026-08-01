@@ -107,7 +107,7 @@
         (click)="closeMobileMenu()"
         aria-label="Close sidebar overlay"
       ></button>
-      <aside class="flex flex-col bg-indigo-700 text-blue-100 relative z-10 max-w-[18rem] pt-3" aria-label="Mobile navigation">
+      <aside class="sidebar-mobile flex flex-col bg-indigo-700 text-blue-100 relative z-10 max-w-[18rem] pt-3" aria-label="Mobile navigation">
         <button
           type="button"
           class="inline-flex items-center justify-center bg-transparent border-0 text-white cursor-pointer h-[2.2rem] w-[2.2rem] ml-auto mr-2"
@@ -230,6 +230,7 @@
 
   @if (isApiUnavailable()) {
     <div
+      class="api-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="api-modal-title"

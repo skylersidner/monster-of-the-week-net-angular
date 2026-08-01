@@ -63,6 +63,8 @@ describe('MysteryCreateStore', () => {
         {
           provide: ReferenceDataService,
           useValue: {
+            getAdventureTypes: () => of([{ id: 'adventure-type-1', name: 'Haunting', description: '' }]),
+            getMonsterArchetypes: () => of([{ id: 'monster-archetype-1', name: 'Ghost', description: '' }]),
             getMonsterTypes: () => of([{ id: 'monster-type-1', name: 'Beast', motivation: '' }]),
             getMinionTypes: () => of([{ id: 'minion-type-1', name: 'Cultist', motivation: '' }]),
             getLocationTypes: () => of([{ id: 'location-type-1', name: 'Lair', motivation: '' }]),
@@ -105,7 +107,11 @@ describe('MysteryCreateStore', () => {
   });
 
   it('submits the full flow and routes to the created mystery', () => {
-    store.conceptForm.setValue({ name: 'The Hollow Choir', concept: 'Ghosts drown the choir loft in song.' });
+    store.conceptForm.setValue({
+      name: 'The Hollow Choir',
+      concept: 'Ghosts drown the choir loft in song.',
+      adventureTypeId: 'adventure-type-1',
+    });
     store.next();
     store.hookForm.setValue({ hook: 'The hunters are called to a midnight rehearsal.' });
     store.next();
@@ -126,6 +132,7 @@ describe('MysteryCreateStore', () => {
       description: 'A spectral conductor',
       harmCapacity: 8,
       monsterTypeId: 'monster-type-1',
+      monsterArchetypeId: 'monster-archetype-1',
     });
     store.monsterAttackForm.setValue({ name: 'Shattering Note', harm: 3, description: '', weaponTagIds: ['weapon-tag-1'] });
     store.addMonsterAttack();
@@ -167,12 +174,14 @@ describe('MysteryCreateStore', () => {
       hook: 'The hunters are called to a midnight rehearsal.',
       overview: 'A dead conductor is using the choir to open a gate.',
       notes: null,
+      adventureTypeId: 'adventure-type-1',
     });
     expect(monsterService.create).toHaveBeenCalledWith('mystery-1', {
       name: 'Maestro Vey',
       description: 'A spectral conductor',
       harmCapacity: 8,
       monsterTypeId: 'monster-type-1',
+      monsterArchetypeId: 'monster-archetype-1',
     });
     expect(monsterService.createPower).toHaveBeenCalledWith('monster-1', {
       name: 'Shadow Step',

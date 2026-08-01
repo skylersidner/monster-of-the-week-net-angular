@@ -10,6 +10,14 @@ import { ReferenceDataService } from '../../../../core/reference-data';
 import { MysteryCreateComponent } from './mystery-create';
 
 class MockReferenceDataService {
+  getAdventureTypes() {
+    return of([{ id: 'adventure-type-1', name: 'Haunting', description: '' }]);
+  }
+
+  getMonsterArchetypes() {
+    return of([{ id: 'monster-archetype-1', name: 'Ghost', description: '' }]);
+  }
+
   getMonsterTypes() {
     return of([{ id: 'monster-type-1', name: 'Beast', motivation: '' }]);
   }
@@ -113,6 +121,7 @@ describe('MysteryCreateComponent', () => {
 
   it('renders countdown stage icons in the countdown step and dossier preview', () => {
     component.store.conceptForm.controls.name.setValue('The Hollow Choir');
+    component.store.conceptForm.controls.adventureTypeId.setValue('adventure-type-1');
     component.store.next();
     component.store.hookForm.controls.hook.setValue('A choir sings after midnight.');
     component.store.next();

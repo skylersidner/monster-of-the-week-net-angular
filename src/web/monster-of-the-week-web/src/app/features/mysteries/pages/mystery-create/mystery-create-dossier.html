@@ -37,7 +37,7 @@
         <span>Countdown</span>
       </span>
     </h3>
-    <div class="grid gap-2">
+    <div class="countdown-dossier-grid grid gap-2">
       @for (stage of countdownStages; track stage.key) {
         @if (store.mysteryPreview().countdown?.[stage.key]) {
           <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2">
