@@ -17,6 +17,7 @@
             <div class="flex flex-wrap items-baseline gap-2 mb-1">
               <a class="font-semibold" [routerLink]="['/monsters', monster.id]">{{ monster.name }}</a>
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-red-100 text-red-700">{{ monster.monsterType.name }}: {{ monster.monsterType.motivation }}</span>
+              <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-purple-100 text-purple-700">{{ monster.monsterArchetype.name }}: {{ monster.monsterArchetype.description }}</span>
             </div>
             <p class="my-1">{{ monster.description || 'No description provided' }}</p>
             <small>

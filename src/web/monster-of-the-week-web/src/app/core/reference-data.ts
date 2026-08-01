@@ -6,6 +6,7 @@ import {
   AdventureTypeResponse,
   CreateTypeRefRequest,
   CreateWeaponTagRequest,
+  MonsterArchetypeResponse,
   ReferenceTypeTable,
   TypeRefResponse,
   WeaponTagRefResponse,
@@ -16,6 +17,7 @@ import {
 })
 export class ReferenceDataService {
   private adventureTypes$?: Observable<AdventureTypeResponse[]>;
+  private monsterArchetypes$?: Observable<MonsterArchetypeResponse[]>;
   private monsterTypes$?: Observable<TypeRefResponse[]>;
   private minionTypes$?: Observable<TypeRefResponse[]>;
   private locationTypes$?: Observable<TypeRefResponse[]>;
@@ -29,6 +31,13 @@ export class ReferenceDataService {
       .get<AdventureTypeResponse[]>('/api/adventure-types')
       .pipe(shareReplay({ bufferSize: 1, refCount: false }));
     return this.adventureTypes$;
+  }
+
+  getMonsterArchetypes(): Observable<MonsterArchetypeResponse[]> {
+    this.monsterArchetypes$ ??= this.apiService
+      .get<MonsterArchetypeResponse[]>('/api/monster-archetypes')
+      .pipe(shareReplay({ bufferSize: 1, refCount: false }));
+    return this.monsterArchetypes$;
   }
 
   getMonsterTypes(): Observable<TypeRefResponse[]> {

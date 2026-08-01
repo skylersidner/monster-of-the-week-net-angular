@@ -67,7 +67,7 @@ export class CustomSelectComponent<T> implements ControlValueAccessor {
 
   private resolveOptionSubLabel(option: T): string | null {
     const record = option as Record<string, unknown>;
-    const subLabel = record['motivation'];
+    const subLabel = record['motivation'] ?? record['description'];
     return typeof subLabel === 'string' && subLabel.length > 0 ? subLabel : null;
   }
 

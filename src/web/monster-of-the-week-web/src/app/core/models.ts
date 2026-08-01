@@ -34,6 +34,12 @@ export interface AdventureTypeResponse {
   description: string;
 }
 
+export interface MonsterArchetypeResponse {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface CustomMoveResponse {
   id: string;
   name: string;
@@ -104,6 +110,7 @@ export interface MonsterListItemResponse {
   description: string | null;
   harmCapacity: number;
   monsterType: TypeRefResponse;
+  monsterArchetype: MonsterArchetypeResponse;
   attackCount: number;
   powerCount: number;
   armorCount: number;
@@ -149,6 +156,7 @@ export interface MonsterDetailResponse {
   harmCapacity: number;
   monsterTypeId: string;
   monsterTypeName: string | null;
+  monsterArchetype: MonsterArchetypeResponse;
   attacks: MonsterAttackResponse[];
   powers: MonsterPowerResponse[];
   armors: MonsterArmorResponse[];
@@ -161,6 +169,7 @@ export interface UpsertMonsterRequest {
   description: string | null;
   harmCapacity: number;
   monsterTypeId: string;
+  monsterArchetypeId: string;
 }
 
 export interface UpsertMonsterAttackRequest {

@@ -22,6 +22,13 @@
       <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]" for="monsterType">Monster Type</label>
       <app-custom-select id="monsterType" formControlName="monsterTypeId" [options]="store.monsterTypes()" placeholder="Select a type..."></app-custom-select>
     </div>
+    <div class="mb-4">
+      <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]" for="monsterArchetype">Monster Archetype <span class="text-red-600">*</span></label>
+      <app-custom-select id="monsterArchetype" formControlName="monsterArchetypeId" [options]="store.monsterArchetypes()" placeholder="Select an archetype..."></app-custom-select>
+      @if (store.monsterForm.controls.monsterArchetypeId.invalid && store.monsterForm.controls.monsterArchetypeId.touched) {
+        <span class="text-red-600 block text-[0.8rem] mt-1">Archetype is required</span>
+      }
+    </div>
   </form>
 
   <div class="border border-[#e5e9f2] rounded-lg mb-4 p-3">

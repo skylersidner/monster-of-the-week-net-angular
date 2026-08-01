@@ -12,6 +12,7 @@ import { CustomSelectComponent } from '../../../../shared/custom-select.componen
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
 import {
   MinionListItemResponse,
+  MonsterArchetypeResponse,
   MonsterDetailResponse,
   MonsterAttackResponse,
   TypeRefResponse,
@@ -35,6 +36,7 @@ export class MonsterDetailComponent implements OnInit {
 
   readonly monster = signal<MonsterDetailResponse | null>(null);
   readonly monsterTypes = signal<TypeRefResponse[]>([]);
+  readonly monsterArchetypes = signal<MonsterArchetypeResponse[]>([]);
   readonly weaponTags = signal<WeaponTagRefResponse[]>([]);
   readonly minions = signal<MinionListItemResponse[]>([]);
   readonly isLoading = signal(true);
@@ -56,6 +58,7 @@ export class MonsterDetailComponent implements OnInit {
     description: this.formBuilder.control(''),
     harmCapacity: this.formBuilder.nonNullable.control(0, [Validators.required, Validators.min(0)]),
     monsterTypeId: this.formBuilder.nonNullable.control(''),
+    monsterArchetypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
   });
 
   readonly attackForm = this.formBuilder.group({
@@ -109,15 +112,17 @@ export class MonsterDetailComponent implements OnInit {
           return forkJoin({
             monster: this.monsterService.getById(monsterId),
             monsterTypes: this.referenceDataService.getMonsterTypes(),
+            monsterArchetypes: this.referenceDataService.getMonsterArchetypes(),
             weaponTags: this.referenceDataService.getWeaponTags(),
             minions: this.minionService.getByMonster(monsterId),
           });
         })
       )
       .subscribe({
-        next: ({ monster, monsterTypes, weaponTags, minions }) => {
+        next: ({ monster, monsterTypes, monsterArchetypes, weaponTags, minions }) => {
           this.monster.set(monster);
           this.monsterTypes.set(monsterTypes);
+          this.monsterArchetypes.set(monsterArchetypes);
           this.weaponTags.set(weaponTags);
           this.minions.set(minions);
           this.populateMonsterForm(monster);
@@ -141,6 +146,7 @@ export class MonsterDetailComponent implements OnInit {
       description: this.toNullable(this.monsterForm.controls.description.value),
       harmCapacity: this.monsterForm.controls.harmCapacity.value,
       monsterTypeId: this.monsterForm.controls.monsterTypeId.value,
+      monsterArchetypeId: this.monsterForm.controls.monsterArchetypeId.value,
     };
 
     this.activeMutation.set('Saving monster...');
@@ -354,6 +360,7 @@ export class MonsterDetailComponent implements OnInit {
       description: monster.description ?? '',
       harmCapacity: monster.harmCapacity,
       monsterTypeId: monster.monsterTypeId,
+      monsterArchetypeId: monster.monsterArchetype.id,
     });
   }
 

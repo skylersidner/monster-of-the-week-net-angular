@@ -7,6 +7,14 @@
     <p class="text-red-800">{{ errorMessage() }}</p>
   } @else if (monster()) {
     <h2>{{ monster()!.name }}</h2>
+    <div class="flex flex-wrap items-center gap-2 mt-1">
+      <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-red-100 text-red-700">
+        {{ monster()!.monsterTypeName }}
+      </span>
+      <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-purple-100 text-purple-700">
+        {{ monster()!.monsterArchetype.name }}
+      </span>
+    </div>
 
     <div class="mt-6">
       <h3 class="mb-2">Minions</h3>
@@ -35,7 +43,7 @@
 
     <form class="grid gap-[0.6rem] my-4" [formGroup]="monsterForm" (ngSubmit)="saveMonster()">
       <h3>Details</h3>
-      <div class="grid gap-[0.6rem] grid-cols-[2fr_1fr_1fr] max-md:grid-cols-1">
+      <div class="grid gap-[0.6rem] grid-cols-[2fr_1fr_1fr_1fr] max-md:grid-cols-1">
         <label class="grid font-medium gap-1">
           Name
           <input type="text" class="border border-slate-200 rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" formControlName="name" />
@@ -50,6 +58,14 @@
             formControlName="monsterTypeId"
             [options]="monsterTypes()"
             placeholder="Select a type..."
+          ></app-custom-select>
+        </label>
+        <label class="grid font-medium gap-1">
+          Monster Archetype
+          <app-custom-select
+            formControlName="monsterArchetypeId"
+            [options]="monsterArchetypes()"
+            placeholder="Select an archetype..."
           ></app-custom-select>
         </label>
       </div>

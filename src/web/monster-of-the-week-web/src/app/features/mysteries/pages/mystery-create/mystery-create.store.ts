@@ -10,6 +10,7 @@ import {
   BystanderListItemResponse,
   LocationListItemResponse,
   MinionDetailResponse,
+  MonsterArchetypeResponse,
   TypeRefResponse,
   UpsertBystanderRequest,
   UpsertCountdownRequest,
@@ -87,6 +88,7 @@ export interface MysteryCreateDraftState {
       description: string | null;
       harmCapacity: number;
       monsterTypeId: string;
+      monsterArchetypeId: string;
     };
     minion: {
       name: string;
@@ -189,6 +191,7 @@ export class MysteryCreateStore {
   readonly phaseComplete = signal([false, false, false, false]);
 
   readonly monsterTypes = signal<TypeRefResponse[]>([]);
+  readonly monsterArchetypes = signal<MonsterArchetypeResponse[]>([]);
   readonly minionTypes = signal<TypeRefResponse[]>([]);
   readonly locationTypes = signal<TypeRefResponse[]>([]);
   readonly bystanderTypes = signal<TypeRefResponse[]>([]);
@@ -248,6 +251,7 @@ export class MysteryCreateStore {
     description: this.fb.control(''),
     harmCapacity: this.fb.nonNullable.control(7, [Validators.min(0)]),
     monsterTypeId: this.fb.nonNullable.control('', [Validators.required]),
+    monsterArchetypeId: this.fb.nonNullable.control('', [Validators.required]),
   });
 
   readonly minionForm = this.fb.group({
@@ -375,7 +379,7 @@ export class MysteryCreateStore {
       ],
       // Phase 1 — Monsters (monster, minion)
       [
-        (this.monsterPreview()?.name ?? '').trim().length > 0,
+        (this.monsterPreview()?.name ?? '').trim().length > 0 && (this.monsterValue()?.monsterArchetypeId ?? '').length > 0,
         false, // minion is optional — never force-complete
       ],
       // Phase 2 — Locations
@@ -388,11 +392,14 @@ export class MysteryCreateStore {
   readonly monsterPreview = computed(() => {
     const typeId = this.monsterValue()?.monsterTypeId ?? '';
     const type = this.monsterTypes().find((item) => item.id === typeId);
+    const archetypeId = this.monsterValue()?.monsterArchetypeId ?? '';
+    const archetype = this.monsterArchetypes().find((a) => a.id === archetypeId);
     return {
       name: this.monsterValue()?.name ?? '',
       description: this.monsterValue()?.description ?? '',
       harmCapacity: this.monsterValue()?.harmCapacity ?? 7,
       typeName: type?.name ?? '',
+      archetypeName: archetype?.name ?? '',
       attacks: this.monsterAttacks(),
       powers: this.monsterPowers(),
       weaknesses: this.monsterWeaknesses(),
@@ -523,6 +530,7 @@ export class MysteryCreateStore {
   private loadReferenceData(): void {
     forkJoin({
       adventureTypes: this.referenceDataService.getAdventureTypes(),
+      monsterArchetypes: this.referenceDataService.getMonsterArchetypes(),
       monsterTypes: this.referenceDataService.getMonsterTypes(),
       minionTypes: this.referenceDataService.getMinionTypes(),
       locationTypes: this.referenceDataService.getLocationTypes(),
@@ -530,8 +538,9 @@ export class MysteryCreateStore {
       weaponTags: this.referenceDataService.getWeaponTags(),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(({ adventureTypes, monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags }) => {
+      .subscribe(({ adventureTypes, monsterArchetypes, monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags }) => {
         this.adventureTypes.set(adventureTypes);
+        this.monsterArchetypes.set(monsterArchetypes);
         this.monsterTypes.set(monsterTypes);
         this.minionTypes.set(minionTypes);
         this.locationTypes.set(locationTypes);
@@ -543,6 +552,7 @@ export class MysteryCreateStore {
   private loadEditData(mysteryId: string): void {
     forkJoin({
       adventureTypes: this.referenceDataService.getAdventureTypes(),
+      monsterArchetypes: this.referenceDataService.getMonsterArchetypes(),
       monsterTypes: this.referenceDataService.getMonsterTypes(),
       minionTypes: this.referenceDataService.getMinionTypes(),
       locationTypes: this.referenceDataService.getLocationTypes(),
@@ -554,8 +564,9 @@ export class MysteryCreateStore {
       bystanders: this.apiService.get<BystanderListItemResponse[]>(`/api/mysteries/${mysteryId}/bystanders`),
     })
       .pipe(
-        switchMap(({ adventureTypes, monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags, mystery, monsters, locations, bystanders }) => {
+        switchMap(({ adventureTypes, monsterArchetypes, monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags, mystery, monsters, locations, bystanders }) => {
           this.adventureTypes.set(adventureTypes);
+          this.monsterArchetypes.set(monsterArchetypes);
           this.monsterTypes.set(monsterTypes);
           this.minionTypes.set(minionTypes);
           this.locationTypes.set(locationTypes);
@@ -618,6 +629,7 @@ export class MysteryCreateStore {
             description: pureMonster.description ?? '',
             harmCapacity: pureMonster.harmCapacity,
             monsterTypeId: pureMonster.monsterTypeId,
+            monsterArchetypeId: pureMonster.monsterArchetype.id,
           });
           this.monsterAttacks.set(
             pureMonster.attacks.map((a) => ({
@@ -918,6 +930,7 @@ export class MysteryCreateStore {
       description: this.toNullable(this.monsterForm.controls.description.value),
       harmCapacity: this.monsterForm.controls.harmCapacity.value,
       monsterTypeId: this.monsterForm.controls.monsterTypeId.value,
+      monsterArchetypeId: this.monsterForm.controls.monsterArchetypeId.value,
     };
 
     const monsterSave$ = editingMonsterId

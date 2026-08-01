@@ -3,7 +3,15 @@
 
 ## Learnings
 
-### 2026-07-26 — Tailwind v4 Migration Analysis
+### 2026-08-01 — Monster Archetype UI Wiring
+
+- `MonsterArchetypeResponse` follows the exact same shape as `AdventureTypeResponse` — `{ id, name, description }` — so `CustomSelectComponent` accepts it without any adapter
+- `monsterArchetypeId` added as `Validators.required` to `monsterForm` in both `monster-detail.ts` and `mystery-create.store.ts`; the archetype is a required field by the API
+- `MonsterDetailResponse` has `monsterTypeId`/`monsterTypeName` scalars (not a nested object) — the detail badge uses `monster()!.monsterTypeName` directly; `MonsterListItemResponse` still has the nested `monsterType: TypeRefResponse` object
+- Purple badge color (`bg-purple-100 text-purple-700`) used for archetype badges project-wide to differentiate from red monster-type badges
+- `mystery-create.store.ts` `phaseStepComplete` Phase 1 step 0 now gates on BOTH name AND `monsterArchetypeId` being non-empty
+- Reference data caching pattern: `private monsterArchetypes$?: Observable<MonsterArchetypeResponse[]>` with `??=` lazy init + `shareReplay({ bufferSize: 1, refCount: false })`
+- `loadEditData` in the store patched via `pureMonster.monsterArchetype.id` (from `MonsterDetailResponse`, which has the nested object); `loadReferenceData` and `loadEditData` both include the `monsterArchetypes` key in their `forkJoin`
 
 - Angular 22 + @tailwindcss/vite: no `tailwind.config.js` needed; plugin wired via `angular.json` `plugins` array or `vite.config.ts`
 - `@theme` block in `styles.scss` handles `font-sans`, custom breakpoints (`sm=540px`, `xl=1200px`), and brand color pin
