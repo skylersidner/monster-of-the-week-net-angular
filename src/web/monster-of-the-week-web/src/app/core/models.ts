@@ -28,6 +28,12 @@ export interface WeaponTagRefResponse {
   description: string | null;
 }
 
+export interface AdventureTypeResponse {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface CustomMoveResponse {
   id: string;
   name: string;
@@ -39,6 +45,7 @@ export interface MysteryListItemResponse {
   name: string;
   concept: string | null;
   hook: string | null;
+  adventureType: AdventureTypeResponse;
   monsterCount: number;
   locationCount: number;
   bystanderCount: number;
@@ -62,6 +69,7 @@ export interface MysteryDetailResponse {
   hook: string | null;
   overview: string | null;
   notes: string | null;
+  adventureType: AdventureTypeResponse;
   countdown: CountdownResponse | null;
   monsterCount: number;
   locationCount: number;
@@ -77,6 +85,7 @@ export interface UpsertMysteryRequest {
   hook: string | null;
   overview: string | null;
   notes: string | null;
+  adventureTypeId: string;
 }
 
 export interface UpsertCountdownRequest {

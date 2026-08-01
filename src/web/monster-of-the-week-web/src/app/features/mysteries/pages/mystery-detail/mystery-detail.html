@@ -6,7 +6,10 @@
   } @else if (errorMessage()) {
     <p class="text-red-800">{{ errorMessage() }}</p>
   } @else if (mystery()) {
-    <h2>{{ mystery()!.name }}</h2>
+    <div class="flex flex-wrap items-baseline gap-3 mb-2">
+      <h2 class="m-0">{{ mystery()!.name }}</h2>
+      <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-amber-100 text-amber-700">{{ mystery()!.adventureType.name }}</span>
+    </div>
 
     @if (mystery()!.concept) {
       <section class="bg-white border border-[#e5e9f2] rounded-lg my-4 px-5 py-4">

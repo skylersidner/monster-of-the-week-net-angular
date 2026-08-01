@@ -11,6 +11,12 @@
       </span>
     </h3>
     <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Name</span> {{ store.mysteryPreview().name }}</p>
+    @if (store.mysteryPreview().adventureTypeName) {
+      <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2">
+        <span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Adventure Type</span>
+        <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-amber-100 text-amber-700">{{ store.mysteryPreview().adventureTypeName }}</span>
+      </p>
+    }
     @if (store.mysteryPreview().concept) {
       <p class="text-slate-950 text-[0.9rem] leading-[1.5] mb-2"><span class="text-slate-500 text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Concept</span> {{ store.mysteryPreview().concept }}</p>
     }

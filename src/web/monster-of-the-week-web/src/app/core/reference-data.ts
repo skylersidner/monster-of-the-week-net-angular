@@ -3,6 +3,7 @@ import { Observable } from 'rxjs';
 import { shareReplay } from 'rxjs/operators';
 import { ApiService } from './api';
 import {
+  AdventureTypeResponse,
   CreateTypeRefRequest,
   CreateWeaponTagRequest,
   ReferenceTypeTable,
@@ -14,6 +15,7 @@ import {
   providedIn: 'root',
 })
 export class ReferenceDataService {
+  private adventureTypes$?: Observable<AdventureTypeResponse[]>;
   private monsterTypes$?: Observable<TypeRefResponse[]>;
   private minionTypes$?: Observable<TypeRefResponse[]>;
   private locationTypes$?: Observable<TypeRefResponse[]>;
@@ -21,6 +23,13 @@ export class ReferenceDataService {
   private weaponTags$?: Observable<WeaponTagRefResponse[]>;
 
   constructor(private readonly apiService: ApiService) {}
+
+  getAdventureTypes(): Observable<AdventureTypeResponse[]> {
+    this.adventureTypes$ ??= this.apiService
+      .get<AdventureTypeResponse[]>('/api/adventure-types')
+      .pipe(shareReplay({ bufferSize: 1, refCount: false }));
+    return this.adventureTypes$;
+  }
 
   getMonsterTypes(): Observable<TypeRefResponse[]> {
     this.monsterTypes$ ??= this.apiService

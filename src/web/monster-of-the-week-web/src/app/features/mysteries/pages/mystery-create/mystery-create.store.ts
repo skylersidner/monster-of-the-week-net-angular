@@ -6,6 +6,7 @@ import { Observable, forkJoin, of, startWith, switchMap } from 'rxjs';
 
 import { ApiService } from '../../../../core/api';
 import {
+  AdventureTypeResponse,
   BystanderListItemResponse,
   LocationListItemResponse,
   MinionDetailResponse,
@@ -192,6 +193,7 @@ export class MysteryCreateStore {
   readonly locationTypes = signal<TypeRefResponse[]>([]);
   readonly bystanderTypes = signal<TypeRefResponse[]>([]);
   readonly weaponTags = signal<WeaponTagRefResponse[]>([]);
+  readonly adventureTypes = signal<AdventureTypeResponse[]>([]);
 
   readonly monsterAttacks = signal<AttackDraft[]>([]);
   readonly monsterPowers = signal<PowerDraft[]>([]);
@@ -221,6 +223,7 @@ export class MysteryCreateStore {
   readonly conceptForm = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required, Validators.minLength(1)]),
     concept: this.fb.control(''),
+    adventureTypeId: this.fb.nonNullable.control('', [Validators.required]),
   });
 
   readonly hookForm = this.fb.group({
@@ -350,6 +353,7 @@ export class MysteryCreateStore {
   readonly mysteryPreview = computed(() => ({
     name: this.conceptValue()?.name ?? '',
     concept: this.conceptValue()?.concept ?? '',
+    adventureTypeName: this.adventureTypes().find((t) => t.id === (this.conceptValue()?.adventureTypeId ?? ''))?.name ?? '',
     hook: this.hookValue()?.hook ?? '',
     overview: this.overviewValue()?.overview ?? '',
     countdown: this.countdownValue(),
@@ -364,7 +368,7 @@ export class MysteryCreateStore {
     return [
       // Phase 0 — Mystery (concept, hook, overview, countdown)
       [
-        preview.name.trim().length > 0,
+        preview.name.trim().length > 0 && (this.conceptValue()?.adventureTypeId ?? '').length > 0,
         (preview.hook ?? '').trim().length > 0,
         (preview.overview ?? '').trim().length > 0,
         hasAnyCountdown,
@@ -518,6 +522,7 @@ export class MysteryCreateStore {
 
   private loadReferenceData(): void {
     forkJoin({
+      adventureTypes: this.referenceDataService.getAdventureTypes(),
       monsterTypes: this.referenceDataService.getMonsterTypes(),
       minionTypes: this.referenceDataService.getMinionTypes(),
       locationTypes: this.referenceDataService.getLocationTypes(),
@@ -525,7 +530,8 @@ export class MysteryCreateStore {
       weaponTags: this.referenceDataService.getWeaponTags(),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(({ monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags }) => {
+      .subscribe(({ adventureTypes, monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags }) => {
+        this.adventureTypes.set(adventureTypes);
         this.monsterTypes.set(monsterTypes);
         this.minionTypes.set(minionTypes);
         this.locationTypes.set(locationTypes);
@@ -536,6 +542,7 @@ export class MysteryCreateStore {
 
   private loadEditData(mysteryId: string): void {
     forkJoin({
+      adventureTypes: this.referenceDataService.getAdventureTypes(),
       monsterTypes: this.referenceDataService.getMonsterTypes(),
       minionTypes: this.referenceDataService.getMinionTypes(),
       locationTypes: this.referenceDataService.getLocationTypes(),
@@ -547,14 +554,15 @@ export class MysteryCreateStore {
       bystanders: this.apiService.get<BystanderListItemResponse[]>(`/api/mysteries/${mysteryId}/bystanders`),
     })
       .pipe(
-        switchMap(({ monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags, mystery, monsters, locations, bystanders }) => {
+        switchMap(({ adventureTypes, monsterTypes, minionTypes, locationTypes, bystanderTypes, weaponTags, mystery, monsters, locations, bystanders }) => {
+          this.adventureTypes.set(adventureTypes);
           this.monsterTypes.set(monsterTypes);
           this.minionTypes.set(minionTypes);
           this.locationTypes.set(locationTypes);
           this.bystanderTypes.set(bystanderTypes);
           this.weaponTags.set(weaponTags);
 
-          this.conceptForm.patchValue({ name: mystery.name, concept: mystery.concept ?? '' });
+          this.conceptForm.patchValue({ name: mystery.name, concept: mystery.concept ?? '', adventureTypeId: mystery.adventureType.id });
           this.hookForm.patchValue({ hook: mystery.hook ?? '' });
           this.overviewForm.patchValue({ overview: mystery.overview ?? '' });
           if (mystery.countdown) {
@@ -862,6 +870,7 @@ export class MysteryCreateStore {
       hook: this.toNullable(this.hookForm.controls.hook.value),
       overview: this.toNullable(this.overviewForm.controls.overview.value),
       notes: null,
+      adventureTypeId: this.conceptForm.controls.adventureTypeId.value,
     };
 
     const existingId = this.mysteryId();
