@@ -1,0 +1,25 @@
+@reference "tailwindcss";
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+.header-search__option.is-highlighted {
+  @apply bg-indigo-50 text-indigo-700;
+}
+
+@keyframes header-search-dropdown-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.header-search__listbox {
+  animation: header-search-dropdown-fade 150ms ease;
+}

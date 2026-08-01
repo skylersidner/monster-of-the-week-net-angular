@@ -46,6 +46,13 @@ export interface CustomMoveResponse {
   description: string | null;
 }
 
+export interface SearchResultItem {
+  entityType: string;
+  id: string;
+  name: string;
+  matchedField: string;
+}
+
 export interface MysteryListItemResponse {
   id: string;
   name: string;

@@ -11,81 +11,14 @@
             [routerLinkActiveOptions]="{ exact: item.exactMatch ?? false }"
           >
             <span class="inline-flex items-center justify-center h-[1.4rem] w-[1.4rem]" aria-hidden="true">
-              @switch (item.icon) {
-                @case ('dashboard') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z" />
-                  </svg>
-                }
-                @case ('data-admin') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M4 7h16M4 12h16M4 17h10" />
-                    <circle cx="18" cy="17" r="2.5" />
-                  </svg>
-                }
-                @case ('mysteries') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="M21 21l-4.35-4.35M11 8v3l2 1.5" />
-                  </svg>
-                }
-                @case ('monsters') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M7 5l2 3h6l2-3M6 8l-2 11h16L18 8M10 13h4" />
-                  </svg>
-                }
-                @case ('minions') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <circle cx="8" cy="9" r="3" />
-                    <circle cx="16" cy="9" r="3" />
-                    <path d="M3 19c0-2.8 2.2-5 5-5M21 19c0-2.8-2.2-5-5-5M8 19c0-2.8 2.2-5 4-5s4 2.2 4 5" />
-                  </svg>
-                }
-                @case ('locations') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" />
-                    <circle cx="12" cy="10" r="2.5" />
-                  </svg>
-                }
-                @case ('bystanders') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <circle cx="12" cy="7.5" r="3.5" />
-                    <path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" />
-                  </svg>
-                }
-              }
+              <app-domain-icon [domain]="item.icon" />
             </span>
             <span class="text-[0.72rem] font-semibold">{{ item.label }}</span>
           </a>
         } @else {
           <span class="flex flex-col items-center rounded-[0.55rem] text-blue-100/70 gap-[0.35rem] py-[0.65rem] px-[0.35rem] cursor-default" aria-disabled="true">
             <span class="inline-flex items-center justify-center h-[1.4rem] w-[1.4rem]" aria-hidden="true">
-              @switch (item.icon) {
-                @case ('monsters') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M7 5l2 3h6l2-3M6 8l-2 11h16L18 8M10 13h4" />
-                  </svg>
-                }
-                @case ('minions') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <circle cx="8" cy="9" r="3" />
-                    <circle cx="16" cy="9" r="3" />
-                    <path d="M3 19c0-2.8 2.2-5 5-5M21 19c0-2.8-2.2-5-5-5M8 19c0-2.8 2.2-5 4-5s4 2.2 4 5" />
-                  </svg>
-                }
-                @case ('locations') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" />
-                    <circle cx="12" cy="10" r="2.5" />
-                  </svg>
-                }
-                @case ('bystanders') {
-                  <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                    <circle cx="12" cy="7.5" r="3.5" />
-                    <path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" />
-                  </svg>
-                }
-              }
+              <app-domain-icon [domain]="item.icon" />
             </span>
             <span class="text-[0.72rem] font-semibold">{{ item.label }}</span>
             <span
@@ -160,20 +93,7 @@
         </svg>
       </button>
 
-      <form class="flex-1 min-w-0" role="search">
-        <label class="sr-only" for="layout-search">Search</label>
-        <div class="relative flex items-center text-slate-400 w-full">
-          <svg class="absolute left-3 pointer-events-none h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-          </svg>
-          <input
-            id="layout-search"
-            type="search"
-            placeholder="Search (coming soon)"
-            class="border border-slate-200 rounded-[0.55rem] text-slate-950 text-[0.94rem] py-[0.58rem] pl-[2.2rem] pr-3 w-full focus:border-indigo-500 focus:shadow-[0_0_0_2px_rgba(99,102,241,0.18)] focus:outline-none"
-          />
-        </div>
-      </form>
+      <app-header-search class="flex-1 min-w-0" />
 
       <div class="flex items-center gap-[0.7rem]">
         <div class="relative">
