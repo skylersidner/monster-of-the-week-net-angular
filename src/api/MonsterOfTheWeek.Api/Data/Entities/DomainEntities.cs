@@ -6,9 +6,19 @@ public interface ITimestamped
     DateTimeOffset UpdatedAt { get; set; }
 }
 
+public sealed class AdventureType
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public required string Name { get; set; }
+    public required string Description { get; set; }
+
+    public ICollection<Mystery> Mysteries { get; set; } = [];
+}
+
 public sealed class Mystery : ITimestamped
 {
     public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid AdventureTypeId { get; set; }
     public required string Name { get; set; }
     public string? Concept { get; set; }
     public string? Hook { get; set; }
@@ -17,6 +27,7 @@ public sealed class Mystery : ITimestamped
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    public AdventureType AdventureType { get; set; } = null!;
     public Countdown? Countdown { get; set; }
     public ICollection<MysteryMonster> MysteryMonsters { get; set; } = [];
     public ICollection<MysteryLocation> MysteryLocations { get; set; } = [];

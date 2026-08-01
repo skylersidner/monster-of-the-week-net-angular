@@ -25,7 +25,7 @@ BEGIN
   -- -------------------------------------------------------------------------
   -- Mystery
   -- -------------------------------------------------------------------------
-  INSERT INTO mysteries (id, name, concept, hook, overview, notes, created_at, updated_at)
+  INSERT INTO mysteries (id, name, concept, hook, overview, notes, adventure_type_id, created_at, updated_at)
   VALUES (
     v_mystery_id,
     'The Quiet',
@@ -33,6 +33,7 @@ BEGIN
     'The hunters are returning from a lead that turned out to be mundane: last year, some arrests were made in a town north of L.A. where a small group of people were caught digging up some graves in the local cemetery. During interviews, some of the individuals claimed to be part of a religious faction, called The Sunset Prayer Group stating that they wanted to bless the dead "just like the Mormons." They who were dug up were all bodies of people who had died in the two weeks and they were not related in any way to those jailed. The local police were full of tales about the "nut-job cultist mormons," but after they served their terms and paid fines, the trail went cold as the members seem to have gone off the grid. During their time at the station, they overheard two officers talking about an odd report by a visitor to a small town in the Mojave desert named Alton''s Bend who found the town empty. Of the residents, the visitor only found three corpses—in the gas station with rags shoved down their throats and wood in their ears. As they pass through the desert on the return to Kansas, they figured they''d check it out.',
     'The suicides were members of a local ''end times'' cult currently called the Sunset Prayer Group. A small gnostic sect that has survived since the Roman Empire under many names, they are trying to bring about the end of the world by means of necromancy. The necromancer Nathan Coin will be the last member of this cult. He plans to raise the four suicides as zombies and transform them into the Four Horsemen of the Apocalypse. He stole the bodies after burying them at the town graveyard.',
     NULL,
+    'a1b2c3d4-5e6f-4a7b-8c9d-ef0123456789',  -- Thwart
     now(),
     now()
   );

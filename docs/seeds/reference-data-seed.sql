@@ -1,11 +1,21 @@
 -- =============================================================================
 -- Reference Data Seed
 -- Populates all lookup / reference tables:
---   monster_types, minion_types, location_types, bystander_types, weapon_tags
+--   adventure_types, monster_types, minion_types, location_types, bystander_types, weapon_tags
 --
 -- Idempotent: uses ON CONFLICT (id) DO NOTHING so it is safe to re-run.
 -- UUIDs are fixed so data is consistent across environments.
 -- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Adventure Types
+-- -----------------------------------------------------------------------------
+INSERT INTO adventure_types (id, name, description) VALUES
+  ('a1b2c3d4-5e6f-4a7b-8c9d-ef0123456789', 'Thwart',   'Hunters versus the Bad Guy.'),
+  ('b2c3d4e5-6f7a-4b8c-9d0e-f01234567890', 'Collect',  'Hunters must get something important.'),
+  ('c3d4e5f6-7a8b-4c9d-aef0-123456789012', 'Deliver',  'Hunters must transfer something important.'),
+  ('d4e5f6a7-8b9c-4d0e-bf12-3456789abcde', 'Discover', 'Hunters must find something important.')
+ON CONFLICT (id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
 -- Monster Types

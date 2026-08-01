@@ -6,6 +6,9 @@ namespace MonsterOfTheWeek.Api.Repositories;
 
 public sealed class ReferenceRepository(MotwDbContext dbContext) : IReferenceRepository
 {
+    public async Task<IReadOnlyList<AdventureType>> GetAdventureTypesAsync(CancellationToken cancellationToken) =>
+        await dbContext.AdventureTypes.AsNoTracking().OrderBy(x => x.Name).ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<MonsterType>> GetMonsterTypesAsync(CancellationToken cancellationToken) =>
         await dbContext.MonsterTypes.AsNoTracking().OrderBy(x => x.Name).ToListAsync(cancellationToken);
 
@@ -20,6 +23,9 @@ public sealed class ReferenceRepository(MotwDbContext dbContext) : IReferenceRep
 
     public async Task<IReadOnlyList<WeaponTag>> GetWeaponTagsAsync(CancellationToken cancellationToken) =>
         await dbContext.WeaponTags.AsNoTracking().OrderBy(x => x.Name).ToListAsync(cancellationToken);
+
+    public Task AddAdventureTypeAsync(AdventureType adventureType, CancellationToken cancellationToken) =>
+        dbContext.AdventureTypes.AddAsync(adventureType, cancellationToken).AsTask();
 
     public Task AddMonsterTypeAsync(MonsterType monsterType, CancellationToken cancellationToken) =>
         dbContext.MonsterTypes.AddAsync(monsterType, cancellationToken).AsTask();

@@ -6,6 +6,7 @@ namespace MonsterOfTheWeek.Api.Data;
 public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbContext(options)
 {
     public DbSet<Mystery> Mysteries => Set<Mystery>();
+    public DbSet<AdventureType> AdventureTypes => Set<AdventureType>();
     public DbSet<Countdown> Countdowns => Set<Countdown>();
     public DbSet<Monster> Monsters => Set<Monster>();
     public DbSet<MonsterType> MonsterTypes => Set<MonsterType>();
@@ -49,11 +50,21 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<AdventureType>(entity =>
+        {
+            entity.ToTable("adventure_types");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description").IsRequired();
+        });
+
         modelBuilder.Entity<Mystery>(entity =>
         {
             entity.ToTable("mysteries");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AdventureTypeId).HasColumnName("adventure_type_id").IsRequired();
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Concept).HasColumnName("concept").HasMaxLength(500);
             entity.Property(e => e.Hook).HasColumnName("hook");
@@ -61,6 +72,8 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.Property(e => e.Notes).HasColumnName("notes");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasOne(e => e.AdventureType).WithMany(e => e.Mysteries).HasForeignKey(e => e.AdventureTypeId);
         });
 
         modelBuilder.Entity<Countdown>(entity =>

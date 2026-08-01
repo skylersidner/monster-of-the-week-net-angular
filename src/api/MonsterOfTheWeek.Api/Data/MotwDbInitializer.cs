@@ -13,6 +13,15 @@ public static class MotwDbInitializer
 
     private static async Task SeedLookupTablesAsync(MotwDbContext dbContext, CancellationToken cancellationToken)
     {
+        if (!await dbContext.AdventureTypes.AnyAsync(cancellationToken))
+        {
+            dbContext.AdventureTypes.AddRange(
+                new AdventureType { Id = Guid.Parse("a1b2c3d4-5e6f-4a7b-8c9d-ef0123456789"), Name = "Thwart",   Description = "Hunters versus the Bad Guy." },
+                new AdventureType { Id = Guid.Parse("b2c3d4e5-6f7a-4b8c-9d0e-f01234567890"), Name = "Collect",  Description = "Hunters must get something important." },
+                new AdventureType { Id = Guid.Parse("c3d4e5f6-7a8b-4c9d-aef0-123456789012"), Name = "Deliver",  Description = "Hunters must transfer something important." },
+                new AdventureType { Id = Guid.Parse("d4e5f6a7-8b9c-4d0e-bf12-3456789abcde"), Name = "Discover", Description = "Hunters must find something important." });
+        }
+
         if (!await dbContext.MonsterTypes.AnyAsync(cancellationToken))
         {
             dbContext.MonsterTypes.AddRange(

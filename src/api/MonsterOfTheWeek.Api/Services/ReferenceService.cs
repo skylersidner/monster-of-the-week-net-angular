@@ -5,6 +5,11 @@ namespace MonsterOfTheWeek.Api.Services;
 
 public sealed class ReferenceService(IReferenceRepository referenceRepository) : IReferenceService
 {
+    public async Task<IReadOnlyList<AdventureTypeResponse>> GetAdventureTypesAsync(CancellationToken cancellationToken) =>
+        (await referenceRepository.GetAdventureTypesAsync(cancellationToken))
+        .Select(x => new AdventureTypeResponse(x.Id, x.Name, x.Description))
+        .ToList();
+
     public async Task<IReadOnlyList<TypeRefResponse>> GetMonsterTypesAsync(CancellationToken cancellationToken) =>
         (await referenceRepository.GetMonsterTypesAsync(cancellationToken))
         .Select(x => new TypeRefResponse(x.Id, x.Name, x.Motivation))
@@ -29,6 +34,19 @@ public sealed class ReferenceService(IReferenceRepository referenceRepository) :
         (await referenceRepository.GetWeaponTagsAsync(cancellationToken))
         .Select(x => new WeaponTagRefResponse(x.Id, x.Name, x.Description))
         .ToList();
+
+    public async Task<AdventureTypeResponse> CreateAdventureTypeAsync(CreateAdventureTypeRequest request, CancellationToken cancellationToken)
+    {
+        var value = new Data.Entities.AdventureType
+        {
+            Name = request.Name.Trim(),
+            Description = request.Description.Trim()
+        };
+
+        await referenceRepository.AddAdventureTypeAsync(value, cancellationToken);
+        await referenceRepository.SaveChangesAsync(cancellationToken);
+        return new AdventureTypeResponse(value.Id, value.Name, value.Description);
+    }
 
     public async Task<TypeRefResponse> CreateMonsterTypeAsync(CreateTypeRefRequest request, CancellationToken cancellationToken)
     {

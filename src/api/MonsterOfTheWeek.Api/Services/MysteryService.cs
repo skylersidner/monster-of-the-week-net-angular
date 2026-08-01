@@ -15,6 +15,7 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
                 x.Name,
                 x.Concept,
                 x.Hook,
+                x.AdventureType.ToResponse(),
                 x.MysteryMonsters.Count,
                 x.MysteryLocations.Count,
                 x.MysteryBystanders.Count,
@@ -36,7 +37,8 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
             Concept = request.Concept?.Trim(),
             Hook = request.Hook?.Trim(),
             Overview = request.Overview?.Trim(),
-            Notes = request.Notes?.Trim()
+            Notes = request.Notes?.Trim(),
+            AdventureTypeId = request.AdventureTypeId
         };
 
         mystery.Countdown = new Countdown { MysteryId = mystery.Id };
@@ -44,7 +46,8 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
         await mysteryRepository.AddMysteryAsync(mystery, cancellationToken);
         await mysteryRepository.SaveChangesAsync(cancellationToken);
 
-        return ToDetailResponse(mystery);
+        var saved = await mysteryRepository.GetMysteryDetailAsync(mystery.Id, asNoTracking: true, cancellationToken);
+        return ToDetailResponse(saved!);
     }
 
     public async Task<MysteryDetailResponse?> UpdateAsync(Guid id, UpsertMysteryRequest request, CancellationToken cancellationToken)
@@ -60,9 +63,12 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
         mystery.Hook = request.Hook?.Trim();
         mystery.Overview = request.Overview?.Trim();
         mystery.Notes = request.Notes?.Trim();
+        mystery.AdventureTypeId = request.AdventureTypeId;
 
         await mysteryRepository.SaveChangesAsync(cancellationToken);
-        return ToDetailResponse(mystery);
+
+        var updated = await mysteryRepository.GetMysteryDetailAsync(id, asNoTracking: true, cancellationToken);
+        return updated is null ? null : ToDetailResponse(updated);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -114,6 +120,7 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
             mystery.Hook,
             mystery.Overview,
             mystery.Notes,
+            mystery.AdventureType.ToResponse(),
             mystery.Countdown is null ? null : mystery.Countdown.ToResponse(),
             mystery.MysteryMonsters.Count,
             mystery.MysteryLocations.Count,

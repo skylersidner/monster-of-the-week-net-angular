@@ -10,6 +10,10 @@ public sealed record WeaponTagRefResponse(Guid Id, string Name, string? Descript
 public sealed record CreateWeaponTagRefRequest(
     [param: Required, MinLength(3)] string Name,
     [param: Required, MinLength(10)] string Description);
+public sealed record AdventureTypeResponse(Guid Id, string Name, string Description);
+public sealed record CreateAdventureTypeRequest(
+    [param: Required, MinLength(3)] string Name,
+    [param: Required, MinLength(5)] string Description);
 public sealed record CustomMoveResponse(Guid Id, string Name, string? Description);
 
 public sealed record MysteryListItemResponse(
@@ -17,6 +21,7 @@ public sealed record MysteryListItemResponse(
     string Name,
     string? Concept,
     string? Hook,
+    AdventureTypeResponse AdventureType,
     int MonsterCount,
     int LocationCount,
     int BystanderCount,
@@ -38,6 +43,7 @@ public sealed record MysteryDetailResponse(
     string? Hook,
     string? Overview,
     string? Notes,
+    AdventureTypeResponse AdventureType,
     CountdownResponse? Countdown,
     int MonsterCount,
     int LocationCount,
@@ -51,7 +57,8 @@ public sealed record UpsertMysteryRequest(
     string? Concept,
     string? Hook,
     string? Overview,
-    string? Notes);
+    string? Notes,
+    Guid AdventureTypeId);
 
 public sealed record UpsertCountdownRequest(
     string? Day,

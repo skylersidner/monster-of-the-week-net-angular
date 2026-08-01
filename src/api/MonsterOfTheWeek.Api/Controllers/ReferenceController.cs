@@ -8,6 +8,17 @@ namespace MonsterOfTheWeek.Api.Controllers;
 [Route("api")]
 public sealed class ReferenceController(IReferenceService referenceService) : ControllerBase
 {
+    [HttpGet("adventure-types")]
+    public async Task<ActionResult<IReadOnlyList<AdventureTypeResponse>>> GetAdventureTypes(CancellationToken cancellationToken) =>
+        Ok(await referenceService.GetAdventureTypesAsync(cancellationToken));
+
+    [HttpPost("adventure-types")]
+    public async Task<ActionResult<AdventureTypeResponse>> CreateAdventureType([FromBody] CreateAdventureTypeRequest request, CancellationToken cancellationToken)
+    {
+        var created = await referenceService.CreateAdventureTypeAsync(request, cancellationToken);
+        return Created($"/api/adventure-types/{created.Id}", created);
+    }
+
     [HttpGet("monster-types")]
     public async Task<ActionResult<IReadOnlyList<TypeRefResponse>>> GetMonsterTypes(CancellationToken cancellationToken) =>
         Ok(await referenceService.GetMonsterTypesAsync(cancellationToken));

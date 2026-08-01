@@ -4,6 +4,9 @@ namespace MonsterOfTheWeek.Api.Contracts;
 
 public static class ApiMappers
 {
+    public static AdventureTypeResponse ToResponse(this AdventureType value) =>
+        new(value.Id, value.Name, value.Description);
+
     public static CountdownResponse ToResponse(this Countdown value) =>
         new(
             value.Id,
