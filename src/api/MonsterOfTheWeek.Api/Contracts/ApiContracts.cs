@@ -220,3 +220,27 @@ public sealed record BystanderDetailResponse(
     IReadOnlyList<CustomMoveResponse> CustomMoves);
 
 public sealed record UpsertBystanderRequest(string Name, string? Description, Guid BystanderTypeId);
+
+public sealed record SearchResultItemResponse(
+    string EntityType,
+    Guid Id,
+    string Name,
+    string MatchedField);
+
+public sealed record SearchMatchSpanResponse(int Start, int Length);
+
+public sealed record SearchResultDetailResponse(
+    string EntityType,
+    Guid Id,
+    string Name,
+    string MatchedField,
+    string? MatchedSubResourceName,
+    string Excerpt,
+    string? Snippet,
+    IReadOnlyList<SearchMatchSpanResponse> MatchSpans);
+
+public sealed record PagedSearchResultResponse(
+    IReadOnlyList<SearchResultDetailResponse> Items,
+    int Page,
+    int PageSize,
+    int TotalCount);

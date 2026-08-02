@@ -46,6 +46,32 @@ export interface CustomMoveResponse {
   description: string | null;
 }
 
+export interface SearchResultItem {
+  entityType: string;
+  id: string;
+  name: string;
+  matchedField: string;
+}
+
+export interface SearchMatchSpan {
+  start: number;
+  length: number;
+}
+
+export interface SearchResultDetailItem extends SearchResultItem {
+  excerpt: string;
+  snippet: string | null;
+  matchSpans: SearchMatchSpan[];
+  matchedSubResourceName: string | null;
+}
+
+export interface PagedSearchResult {
+  items: SearchResultDetailItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}
+
 export interface MysteryListItemResponse {
   id: string;
   name: string;

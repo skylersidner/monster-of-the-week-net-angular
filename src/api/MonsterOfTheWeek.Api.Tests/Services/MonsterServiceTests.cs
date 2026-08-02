@@ -20,7 +20,7 @@ public sealed class MonsterServiceTests
 
         var result = await service.CreateAsync(
             Guid.NewGuid(),
-            new UpsertMonsterRequest("The Horror", "desc", 7, missingMonsterTypeId, null),
+            new UpsertMonsterRequest("The Horror", "desc", 7, missingMonsterTypeId, Guid.NewGuid()),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);

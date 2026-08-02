@@ -1,9 +1,51 @@
 using MonsterOfTheWeek.Api.Data.Entities;
+using MonsterOfTheWeek.Api.Services.Search;
 
 namespace MonsterOfTheWeek.Api.Contracts;
 
 public static class ApiMappers
 {
+    private const int SearchExcerptMaxLength = 160;
+
+    public static SearchResultItemResponse ToItemResponse(this SearchMatchCandidate value) =>
+        new(value.EntityType, value.EntityId, value.Name, value.MatchedField);
+
+    public static SearchResultDetailResponse ToDetailResponse(this SearchMatchCandidate value) =>
+        new(
+            value.EntityType,
+            value.EntityId,
+            value.Name,
+            value.MatchedField,
+            value.MatchedSubResourceName,
+            TruncateExcerpt(value.ExcerptSource),
+            value.Snippet,
+            value.MatchSpans.Select(span => new SearchMatchSpanResponse(span.Start, span.Length)).ToList());
+
+    private static string TruncateExcerpt(string? source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = source.Trim();
+        if (trimmed.Length <= SearchExcerptMaxLength)
+        {
+            return trimmed;
+        }
+
+        // Reserve one character for the trailing "…" so the final string never exceeds the max length.
+        var contentLimit = SearchExcerptMaxLength - 1;
+        var truncated = trimmed[..contentLimit];
+        var lastSpace = truncated.LastIndexOf(' ');
+        if (lastSpace > 0)
+        {
+            truncated = truncated[..lastSpace];
+        }
+
+        return truncated.TrimEnd() + "…";
+    }
+
     public static AdventureTypeResponse ToResponse(this AdventureType value) =>
         new(value.Id, value.Name, value.Description);
 
