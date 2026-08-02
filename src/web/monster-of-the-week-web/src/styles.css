@@ -7,7 +7,20 @@
  */
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
+/*
+ * `static` (rather than a bare `@theme`) is load-bearing, not stylistic. By default
+ * Tailwind tree-shakes `@theme` custom properties out of `:root`, emitting only those
+ * a *used* utility (or a used `@utility` body) references. The `.dark` block below is
+ * plain CSS, so it is emitted verbatim, in full, always. Without `static` those two
+ * behaviours disagree and a token can end up DEFINED IN DARK MODE BUT UNDEFINED IN
+ * LIGHT MODE — harmless for Tailwind-generated utilities (which are the reason a token
+ * is emitted in the first place), but silently broken for any hand-written CSS that
+ * reads a token directly via `var(--color-...)`, e.g. the admin table row-striping
+ * rules planned for Phase 5. `static` keeps `:root` and `.dark` symmetric: every token
+ * is always defined in both scopes. Verified empirically — see
+ * `.squad/decisions/inbox/luigi-theming-token-utility-mechanism.md`.
+ */
+@theme static {
   /* Pin brand color to hex for DevTools clarity (Tailwind v4 defaults to oklch) */
   --color-indigo-700: #4338ca;
 
@@ -147,6 +160,73 @@
   --color-weapon-chip: var(--color-indigo-50);
   --color-on-weapon-chip: var(--color-indigo-700);
   --color-weapon-chip-line: var(--color-indigo-200);
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Hand-defined utilities (Tailwind v4 `@utility`) for single-family tokens.
+ * ---------------------------------------------------------------------------
+ * Tailwind generates a color utility's name by concatenating the utility family
+ * prefix (`bg-`, `text-`, `border-`, `ring-`, `fill-`, ...) in front of the ENTIRE
+ * remainder of a `--color-*` custom property name. It never parses or strips a
+ * family word out of that remainder. So a token whose *role* is inherently one
+ * utility family — and whose role name therefore contains that family's word —
+ * stutters under automatic generation:
+ *
+ *   --color-text-primary  ->  text-text-primary   (not text-primary)
+ *   --color-border        ->  border-border       (not border-default)
+ *   --color-sidebar-text  ->  text-sidebar-text   (not text-sidebar)
+ *   --color-focus-ring    ->  ring-focus-ring     (not ring-focus)
+ *
+ * Tailwind's documented answer for "I want to control the exact class name" is the
+ * `@utility` directive: a hand-written utility whose name is fully decoupled from
+ * the custom property it reads. `@utility` classes get the full variant pipeline
+ * automatically (`hover:`, `focus:`, `md:`, `dark:`, ...) exactly like generated
+ * ones — verified empirically against this project's build, see
+ * `.squad/decisions/inbox/luigi-theming-token-utility-mechanism.md`.
+ *
+ * Everything NOT listed below stays in `@theme` above and relies on automatic
+ * generation, because those tokens are named by role only (`accent`, `surface`,
+ * `danger`, `badge-monster`, `on-accent`, ...) and are genuinely multi-family —
+ * `bg-accent` / `text-accent` / `border-accent` all read correctly, no stutter.
+ *
+ * Known trade-off: a static `@utility` does NOT support the slash opacity modifier
+ * (`text-primary/70` emits nothing). Where a partially-transparent variant is
+ * needed, it gets its own named utility with an explicit `color-mix()` (see
+ * `text-sidebar-muted`), rather than a modifier on the base utility.
+ */
+
+/* Text color roles (from --color-text-*) */
+@utility text-primary {
+  color: var(--color-text-primary);
+}
+@utility text-secondary {
+  color: var(--color-text-secondary);
+}
+@utility text-muted {
+  color: var(--color-text-muted);
+}
+
+/* Border color roles (from --color-border, --color-border-strong) */
+@utility border-default {
+  border-color: var(--color-border);
+}
+@utility border-strong {
+  border-color: var(--color-border-strong);
+}
+
+/* Sidebar foreground (from --color-sidebar-text) */
+@utility text-sidebar {
+  color: var(--color-sidebar-text);
+}
+/* Stands in for `text-sidebar/70`, which `@utility` cannot express (see note above). */
+@utility text-sidebar-muted {
+  color: color-mix(in oklab, var(--color-sidebar-text) 70%, transparent);
+}
+
+/* Focus indication (from --color-focus-ring) */
+@utility ring-focus {
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
 }
 
 @layer base {

@@ -1,13 +1,13 @@
-<div class="flex h-full bg-slate-50">
-  <aside class="hidden md:flex flex-col bg-indigo-700 text-blue-100 w-28" aria-label="Primary navigation">
+<div class="flex h-full bg-surface-sunken">
+  <aside class="hidden md:flex flex-col bg-sidebar-surface text-sidebar w-28" aria-label="Primary navigation">
     <div class="self-center bg-white/20 rounded-full text-white text-xs font-bold tracking-[0.04em] mt-6 px-[0.65rem] py-[0.45rem]" aria-hidden="true">MOTW</div>
     <nav class="flex flex-col flex-1 gap-[0.4rem] mt-5 px-2 pb-3">
       @for (item of navItems; track item.label) {
         @if (item.route) {
           <a
-            class="flex flex-col items-center rounded-[0.55rem] text-blue-100 no-underline gap-[0.35rem] py-[0.65rem] px-[0.35rem] hover:bg-blue-800/40"
+            class="flex flex-col items-center rounded-[0.55rem] text-sidebar no-underline gap-[0.35rem] py-[0.65rem] px-[0.35rem] hover:bg-sidebar-hover"
             [routerLink]="item.route"
-            routerLinkActive="bg-blue-800/65"
+            routerLinkActive="bg-sidebar-active"
             [routerLinkActiveOptions]="{ exact: item.exactMatch ?? false }"
           >
             <span class="inline-flex items-center justify-center h-[1.4rem] w-[1.4rem]" aria-hidden="true">
@@ -16,14 +16,12 @@
             <span class="text-[0.72rem] font-semibold">{{ item.label }}</span>
           </a>
         } @else {
-          <span class="flex flex-col items-center rounded-[0.55rem] text-blue-100/70 gap-[0.35rem] py-[0.65rem] px-[0.35rem] cursor-default" aria-disabled="true">
+          <span class="flex flex-col items-center rounded-[0.55rem] text-sidebar-muted gap-[0.35rem] py-[0.65rem] px-[0.35rem] cursor-default" aria-disabled="true">
             <span class="inline-flex items-center justify-center h-[1.4rem] w-[1.4rem]" aria-hidden="true">
               <app-domain-icon [domain]="item.icon" />
             </span>
             <span class="text-[0.72rem] font-semibold">{{ item.label }}</span>
-            <span
-              style="background: rgba(255,255,255,.2); border-radius: 999px; font-size: .62rem; font-weight: 700; letter-spacing: .03em; margin-top: .2rem; padding: .08rem .35rem;"
-            >
+            <span class="bg-white/20 rounded-full text-[0.62rem] font-bold tracking-[0.03em] mt-[0.2rem] px-[0.35rem] py-[0.08rem]">
               Soon
             </span>
           </span>
@@ -40,7 +38,7 @@
         (click)="closeMobileMenu()"
         aria-label="Close sidebar overlay"
       ></button>
-      <aside class="sidebar-mobile flex flex-col bg-indigo-700 text-blue-100 relative z-10 max-w-[18rem] pt-3" aria-label="Mobile navigation">
+      <aside class="sidebar-mobile flex flex-col bg-sidebar-surface text-sidebar relative z-10 max-w-[18rem] pt-3" aria-label="Mobile navigation">
         <button
           type="button"
           class="inline-flex items-center justify-center bg-transparent border-0 text-white cursor-pointer h-[2.2rem] w-[2.2rem] ml-auto mr-2"
@@ -56,20 +54,18 @@
           @for (item of navItems; track item.label) {
             @if (item.route) {
               <a
-                class="flex flex-row items-center rounded-[0.55rem] text-blue-100 no-underline gap-2 py-3 px-3 text-[0.95rem] hover:bg-blue-800/40"
+                class="flex flex-row items-center rounded-[0.55rem] text-sidebar no-underline gap-2 py-3 px-3 text-[0.95rem] hover:bg-sidebar-hover"
                 [routerLink]="item.route"
-                routerLinkActive="bg-blue-800/65"
+                routerLinkActive="bg-sidebar-active"
                 [routerLinkActiveOptions]="{ exact: item.exactMatch ?? false }"
                 (click)="closeMobileMenu()"
               >
                 {{ item.label }}
               </a>
             } @else {
-              <span class="flex flex-row items-center rounded-[0.55rem] text-blue-100/70 gap-2 py-3 px-3 text-[0.95rem] cursor-default" aria-disabled="true">
+              <span class="flex flex-row items-center rounded-[0.55rem] text-sidebar-muted gap-2 py-3 px-3 text-[0.95rem] cursor-default" aria-disabled="true">
                 {{ item.label }}
-                <span
-                  style="margin-left: auto; background: rgba(255,255,255,.2); border-radius: 999px; font-size: .62rem; font-weight: 700; letter-spacing: .03em; padding: .08rem .35rem;"
-                >
+                <span class="ml-auto bg-white/20 rounded-full text-[0.62rem] font-bold tracking-[0.03em] px-[0.35rem] py-[0.08rem]">
                   Soon
                 </span>
               </span>
@@ -81,10 +77,10 @@
   }
 
   <div class="flex flex-1 flex-col min-w-0">
-    <header class="flex items-center bg-white border-b border-slate-200 shadow-sm gap-[0.85rem] min-h-16 px-4">
+    <header class="flex items-center bg-surface border-b border-default shadow-sm gap-[0.85rem] min-h-16 px-4">
       <button
         type="button"
-        class="inline-flex items-center justify-center bg-transparent border-0 text-slate-500 cursor-pointer h-9 w-9 md:hidden"
+        class="inline-flex items-center justify-center bg-transparent border-0 text-muted cursor-pointer h-9 w-9 md:hidden"
         (click)="toggleMobileMenu()"
         aria-label="Open sidebar"
       >
@@ -99,22 +95,28 @@
         <div class="relative">
           <button
             type="button"
-            class="inline-flex items-center justify-center bg-indigo-50 border-0 rounded-full text-indigo-900 cursor-pointer font-semibold h-8 w-8"
+            class="inline-flex items-center justify-center bg-accent-subtle border-0 rounded-full text-accent cursor-pointer font-semibold h-8 w-8"
             (click)="toggleUserMenu()"
             aria-label="Open user menu"
           >
             <span aria-hidden="true">U</span>
           </button>
           @if (isShowingUserMenu) {
-            <div class="absolute right-0 top-[calc(100%+0.4rem)] z-10 grid bg-white border border-slate-200 rounded-lg shadow-lg p-[0.35rem] w-40">
-              <a class="block rounded-[0.4rem] text-slate-950 text-[0.87rem] no-underline px-[0.55rem] py-[0.45rem] hover:bg-indigo-50" href="#">Your profile</a>
-              <a class="block rounded-[0.4rem] text-slate-950 text-[0.87rem] no-underline px-[0.55rem] py-[0.45rem] hover:bg-indigo-50" href="#">Sign out</a>
+            <div class="absolute right-0 top-[calc(100%+0.4rem)] z-10 grid bg-surface-raised border border-default rounded-lg shadow-lg p-[0.35rem] w-40">
+              <a class="block rounded-[0.4rem] text-primary text-[0.87rem] no-underline px-[0.55rem] py-[0.45rem] hover:bg-accent-subtle" href="#">Your profile</a>
+              <a
+                class="block rounded-[0.4rem] text-primary text-[0.87rem] no-underline px-[0.55rem] py-[0.45rem] hover:bg-accent-subtle"
+                routerLink="/settings"
+                (click)="closeUserMenu()"
+                >Settings</a
+              >
+              <a class="block rounded-[0.4rem] text-primary text-[0.87rem] no-underline px-[0.55rem] py-[0.45rem] hover:bg-accent-subtle" href="#">Sign out</a>
             </div>
           }
         </div>
         <button
           type="button"
-          class="inline-flex items-center justify-center bg-indigo-600 border-0 rounded-full text-white cursor-pointer h-8 w-8 hover:bg-indigo-700"
+          class="inline-flex items-center justify-center bg-accent border-0 rounded-full text-on-accent cursor-pointer h-8 w-8 hover:bg-accent-hover"
           aria-label="Quick action"
         >
           <svg class="h-[1.1rem] w-[1.1rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -132,8 +134,11 @@
   <aside class="fixed bottom-4 right-4 grid gap-2 w-[min(24rem,calc(100vw-2rem))]" aria-live="polite">
     @for (notification of notificationService.notifications(); track notification.id) {
       <div
-        class="flex items-center justify-between text-white rounded-lg px-3 py-[0.65rem]"
-        [style.background-color]="notification.kind === 'error' ? '#a10808' : '#1b6f2a'"
+        class="flex items-center justify-between rounded-lg px-3 py-[0.65rem]"
+        [class.bg-toast-error]="notification.kind === 'error'"
+        [class.text-on-toast-error]="notification.kind === 'error'"
+        [class.bg-toast-success]="notification.kind !== 'error'"
+        [class.text-on-toast-success]="notification.kind !== 'error'"
       >
         <span>{{ notification.message }}</span>
         <button
@@ -150,17 +155,14 @@
 
   @if (isApiUnavailable()) {
     <div
-      class="api-modal"
+      class="api-modal fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="api-modal-title"
-      style="align-items: center; background: rgba(15,23,42,.58); display: flex; inset: 0; justify-content: center; padding: 1rem; position: fixed; z-index: 60;"
     >
-      <section
-        style="background: #fff; border-radius: .75rem; box-shadow: 0 16px 34px rgba(15,23,42,.28); max-width: 28rem; padding: 1.2rem; width: 100%;"
-      >
-        <h2 id="api-modal-title" class="m-0">API unavailable</h2>
-        <p style="color: #334155; margin: .65rem 0 0;">
+      <section class="bg-surface-raised rounded-xl shadow-[0_16px_34px_rgba(15,23,42,0.28)] max-w-[28rem] w-full p-[1.2rem]">
+        <h2 id="api-modal-title" class="text-primary m-0">API unavailable</h2>
+        <p class="text-secondary mt-[0.65rem] mb-0">
           The app cannot reach the API health endpoint right now. Restore API availability and try again.
         </p>
         <button
@@ -169,12 +171,12 @@
           [disabled]="isCheckingApiAvailability()"
           [style.opacity]="isCheckingApiAvailability() ? '.7' : '1'"
           [style.cursor]="isCheckingApiAvailability() ? 'not-allowed' : 'pointer'"
-          style="align-items: center; background: #4f46e5; border: 0; border-radius: .5rem; color: #fff; display: inline-flex; gap: .45rem; margin-top: 1rem; padding: .55rem .95rem;"
+          class="inline-flex items-center bg-accent border-0 rounded-lg text-on-accent gap-[0.45rem] mt-4 px-[0.95rem] py-[0.55rem]"
         >
           @if (isCheckingApiAvailability()) {
             <svg style="height:1rem;width:1rem;flex-shrink:0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle style="opacity:.25" cx="12" cy="12" r="10" stroke="white" stroke-width="3" />
-              <path style="opacity:.75" fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              <circle style="opacity:.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" />
+              <path style="opacity:.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
             Checking...
           } @else {

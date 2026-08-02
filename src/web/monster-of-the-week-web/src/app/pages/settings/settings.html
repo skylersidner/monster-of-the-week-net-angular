@@ -1,0 +1,31 @@
+<section class="text-primary grid gap-4">
+  <header>
+    <h1 class="text-[1.4rem] m-0">Settings</h1>
+    <p class="text-muted mt-[0.15rem] mb-0">Preferences for this browser.</p>
+  </header>
+
+  <article class="bg-surface border border-default rounded-[0.65rem] p-4 grid gap-3 max-w-[28rem]">
+    <div>
+      <h2 class="text-[1rem] m-0">Appearance</h2>
+      <p class="text-muted text-[0.87rem] mt-[0.15rem] mb-0">
+        Choose a theme, or follow whatever your operating system is set to.
+      </p>
+    </div>
+
+    <label class="grid font-medium gap-1">
+      Theme
+      <app-custom-select
+        [formControl]="themeControl"
+        [options]="themeOptions"
+        [optionValue]="themeOptionValue"
+        [optionLabel]="themeOptionLabel"
+        [optionSubLabel]="themeOptionSubLabel"
+        placeholder="Select a theme..."
+      ></app-custom-select>
+    </label>
+
+    @if (preference() === 'system') {
+      <p class="text-muted text-[0.82rem] m-0">Currently showing the {{ resolvedTheme() }} theme.</p>
+    }
+  </article>
+</section>

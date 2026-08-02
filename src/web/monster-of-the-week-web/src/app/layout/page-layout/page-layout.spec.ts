@@ -1,3 +1,4 @@
+import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
@@ -5,6 +6,10 @@ import { of, Subject, throwError } from 'rxjs';
 import { HealthService } from '../../core/health';
 import { NotificationService } from '../../core/notifications';
 import { PageLayoutComponent } from './page-layout';
+
+/** Stand-in for the real settings page so the user-menu link has a route to resolve. */
+@Component({ template: '' })
+class StubSettingsPageComponent {}
 
 describe('PageLayoutComponent', () => {
   let component: PageLayoutComponent;
@@ -19,7 +24,10 @@ describe('PageLayoutComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [PageLayoutComponent],
-      providers: [provideRouter([]), { provide: HealthService, useValue: mockHealthService }],
+      providers: [
+        provideRouter([{ path: 'settings', component: StubSettingsPageComponent }]),
+        { provide: HealthService, useValue: mockHealthService },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PageLayoutComponent);
@@ -75,6 +83,26 @@ describe('PageLayoutComponent', () => {
     fixture.detectChanges();
 
     expect(element.querySelector('.sidebar-mobile')).toBeNull();
+  });
+
+  it('links to the settings page from the user menu and closes the menu on navigation', () => {
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('a[href="/settings"]')).toBeNull();
+
+    (element.querySelector('button[aria-label="Open user menu"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const settingsLink = element.querySelector('a[href="/settings"]') as HTMLAnchorElement;
+    expect(settingsLink).toBeTruthy();
+    expect(settingsLink.textContent).toContain('Settings');
+    expect(element.textContent).toContain('Your profile');
+    expect(element.textContent).toContain('Sign out');
+
+    settingsLink.click();
+    fixture.detectChanges();
+
+    expect(element.querySelector('a[href="/settings"]')).toBeNull();
   });
 
   it('shows API unavailable modal when initial health check fails', () => {
