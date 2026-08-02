@@ -26,3 +26,21 @@
 **Why:** All of the owner's feedback was architecturally sound and implemented as requested; no pushback needed. The one place I extended their ask rather than just complying: reassigning long-text fields to `Tertiary` (they only explicitly asked to bump sub-resource names up) — chosen because it produces a single clean rule (Primary/Secondary = name-like = gets substring tier; Tertiary = prose = doesn't) rather than two independently-tracked concerns.
 
 **Docs updated:** `docs/search/architecture.md`, `docs/search/phases.md`, `docs/search/open-questions.md` (rows 3, 6, 11, 12, 13).
+
+---
+
+### 2026-08-01 (Phase 4 spec): Long Text + Sub-Resource Matching, Real Snippets, Highlighting, Field Labels
+**By:** Yoshi (Architect) — Phase 4 fully specced after Phases 1–3 shipped, per new project-owner requirement
+**What:**
+- **Corrected a load-bearing doc/code gap first**: Phase 1 shipped in-memory tier matching (full `.Select()` into memory, C# string comparisons) instead of the originally-documented `EF.Functions.ILike`, deliberately, for SQLite test portability (`.squad/decisions/inbox/bowser-search-phase1-backend.md`). Confirmed this still holds for Phase 4's heavier per-request fetch (adds Monster/Minion sub-resource collections via nested `.Select()` projections, never `.Include()`) and set an explicit numeric revisit trigger (~5,000 rows/request or ~150ms p95) instead of leaving it a vague "later."
+- **New match tiers unlocked**: all 4 Mystery long-text fields (Concept/Hook/Overview/Notes, not just Hook/Concept), Description for Monster/Minion/Location/Bystander, and Monster/Minion Attack/Power/Armor/Weakness Name+Description — using the `Secondary`(sub-resource Name)/`Tertiary`(all long text) weighting already decided in the prior revision. `CustomMove` sub-resources explicitly excluded (not requested, matches how custom moves are treated elsewhere as an incomplete feature).
+- **Snippet generation, finally concrete**: `SearchSnippetBuilder`, 70-char window each side of the matched position (sized to match the existing 160-char excerpt's visual footprint), anchor = start-of-field for starts-with/exact tiers, earliest token occurrence for boundary-prefix/substring tiers, word-boundary trimming + ellipsis at both cut edges.
+- **Highlight encoding**: backend returns plain-text `snippet` + structured `matchSpans` (offset/length), frontend builds `{text, isMatch}` segments and renders `<mark>` in the template — explicitly rejected embedding `<mark>`/markup in the API response + `[innerHTML]` (depends on Angular's sanitizer allowlist, puts presentation concerns in the API contract, which nothing else in this codebase does).
+- **Multi-span within one window only**: one anchor centers the snippet; every token occurrence *inside* that window gets highlighted; tokens matching far outside the window aren't shown/highlighted — deliberately not building multi-window snippets (real complexity, low value).
+- **`MatchedField` extended with a dot convention** (`"Attack.Name"` etc.) + new `MatchedSubResourceName` field, rather than a parallel taxonomy — per the owner's own suggested direction. No label chip for `Name` matches (redundant with the title).
+- **Confirmed, not re-decided**: dedup keeps collapsing multi-field matches to one result (highest score wins, no "matched on N fields" UI); header dropdown stays completely unchanged (product owner's own wording scoped the new requirement to "full-results-page row" — not ambiguous).
+- Phase split: 4a (entity long-text backend), 4b (sub-resource backend), 4c (frontend highlighting) — each independently shippable, 4a/4b are strict improvements even before 4c lands (real snippet text, just unhighlighted).
+
+**Why:** Same principle as the prior revision — ship exactly what's requested, but ground every judgment call in the actual shipped code (not the original aspirational doc) and make implicit assumptions (dedup behavior, dropdown scope) explicit confirmations rather than silent carryovers.
+
+**Docs updated:** `docs/search/architecture.md` (Sections 1, 2, 3, 5, 6, 7 revised to match shipped code + Phase 4 design), `docs/search/phases.md` (Phase 4+ placeholder replaced with 4a/4b/4c, Decisions table extended to #19), `docs/search/open-questions.md` (rows 14–21 added), `docs/search/README.md` (phase summary updated).
