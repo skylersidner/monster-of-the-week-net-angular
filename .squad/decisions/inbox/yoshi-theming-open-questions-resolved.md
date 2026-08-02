@@ -1,0 +1,12 @@
+### 2026-08-02: Theming Plan — Skyler's Answers to Rosalina's Six Open Questions Folded In
+**By:** Yoshi (Architect)
+**What:** Edited `docs/theming/theming-plan.md` in place to resolve all six items Rosalina's `dark-theme-palette.md` flagged as open, per Skyler's explicit answers:
+1. **No accent/danger button-fill token split.** `--color-accent`/`--color-danger` stay one token per role, in light and dark mode. Brand-identical buttons across themes is explicitly not a priority; simplicity for future themes is. The single token still covers both text-on-surface and button-fill duty via Rosalina's lighten-and-flip mechanism (lighten the base hue, flip `--color-on-accent`/`--color-on-danger` to a dark neutral) — settled in Decision B, cross-referenced from the Token Catalogue.
+2. **Added `--color-on-danger`** to the Token Catalogue (light `white`, dark `slate-900`, mirrors `--color-on-accent`). Phase 2 now explicitly calls out re-pointing the confirm-delete modal's hardcoded `text-white` delete button onto it.
+3. **Added `--color-badge-archetype-bg`/`-text`** to the Token Catalogue (light `purple-100`/`purple-700` unchanged, dark `purple-950`/`purple-300`, per Rosalina's doc). Called out explicitly in Phase 4 (`monsters-list.html`) and Phase 5 (`monster-detail.html`) re-pointing scope.
+4. **Mystery badge: explicit no-op.** Rosalina's speculative `teal-*` values stay out of the catalogue and out of every phase — confirmed as deferred, not silently pending.
+5. **Toast colors (`emerald-700`/`red-700`) approved as final**, not provisional — updated the Overview status note accordingly.
+6. **Table-striping fix rewritten as the actual Phase 5 instruction** (`--color-surface` odd / `--color-accent-subtle` even), replacing the old illustrative placeholder + follow-up-note framing with one decided code block.
+Also narrowed the Risk Register's badge/striping-contrast risk row to reflect that striping and the monster/archetype badges are resolved, leaving only the three un-hand-verified badge hues (minion/bystander/location) as the remaining, genuinely open exposure — already covered by an existing Phase 7 inspection point.
+**Why:** These were real architectural/design decisions with a natural home in the plan (Decision B, Token Catalogue, specific phases, Risk Register) — recording them only as a changelog note would have left the document internally inconsistent (decided language next to stale "TBD"/"pending Rosalina's review" framing) for anyone reading it fresh going into implementation.
+**Docs:** `docs/theming/theming-plan.md`.
