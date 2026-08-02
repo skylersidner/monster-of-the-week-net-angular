@@ -176,6 +176,383 @@ public sealed class SearchProvidersTests
         Assert.Contains("orchard", response.Excerpt, StringComparison.OrdinalIgnoreCase);
     }
 
+    // --- Phase 4b: Monster/Minion sub-resource (Attack/Power/Armor/Weakness) field matching ---
+    // See docs/search/phases.md "Phase 4b" and docs/search/architecture.md Section 3.
+
+    [Fact]
+    public async Task MonsterSearchProvider_MatchesAttackName_WhenEntityNameAndDescriptionDoNotMatch()
+    {
+        await using var context = await CreateContextAsync();
+        var (monsterTypeId, archetypeId) = await SeedMonsterLookupsAsync(context);
+
+        var monster = new Monster
+        {
+            Name = "Grimtooth",
+            Description = "A skeletal figure wreathed in cold flame that haunts the old orchard at night.",
+            MonsterTypeId = monsterTypeId,
+            MonsterArchetypeId = archetypeId,
+        };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+
+        context.MonsterAttacks.Add(new MonsterAttack
+        {
+            MonsterId = monster.Id,
+            Name = "Fire Breath",
+            Description = "Massive lungs capable of a devastating cone of flame.",
+            Harm = 3,
+        });
+        await context.SaveChangesAsync();
+
+        var provider = new MonsterSearchProvider(context);
+        var tokens = SearchTokenizer.Tokenize("fire breath");
+        var results = await provider.SearchAsync(tokens, "fire breath", CancellationToken.None);
+
+        var candidate = Assert.Single(results);
+        Assert.Equal(monster.Id, candidate.EntityId);
+        Assert.Equal("Attack.Name", candidate.MatchedField);
+        Assert.Equal(SearchFieldWeight.Secondary, candidate.Weight);
+        Assert.Equal("Fire Breath", candidate.MatchedSubResourceName);
+        Assert.NotNull(candidate.Snippet);
+        Assert.Contains("fire breath", candidate.Snippet, StringComparison.OrdinalIgnoreCase);
+
+        // End-to-end-ish confirmation of the mapped API contract shape (no WebApplicationFactory
+        // integration harness exists in this repo yet - ToDetailResponse() is the mapping the
+        // controller itself calls, so this exercises the same code path GET /api/search hits).
+        var response = candidate.ToDetailResponse();
+        Assert.Equal("Attack.Name", response.MatchedField);
+        Assert.Equal("Fire Breath", response.MatchedSubResourceName);
+        Assert.NotNull(response.Snippet);
+    }
+
+    [Fact]
+    public async Task MonsterSearchProvider_SubResourceNameMatch_OutranksEntityDescriptionMatch()
+    {
+        await using var context = await CreateContextAsync();
+        var (monsterTypeId, archetypeId) = await SeedMonsterLookupsAsync(context);
+
+        // Monster.Description matches "phoenix" exactly (Tertiary, tier 4 -> score 100). Attack.Name
+        // also matches "phoenix" exactly (Secondary, tier 4 -> score 200). Secondary beats Tertiary
+        // even at the same tier - docs/search/architecture.md Section 4 worked-scores table.
+        var monster = new Monster
+        {
+            Name = "Unrelated Name",
+            Description = "phoenix",
+            MonsterTypeId = monsterTypeId,
+            MonsterArchetypeId = archetypeId,
+        };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+
+        context.MonsterAttacks.Add(new MonsterAttack
+        {
+            MonsterId = monster.Id,
+            Name = "phoenix",
+            Description = "Unrelated attack description.",
+            Harm = 2,
+        });
+        await context.SaveChangesAsync();
+
+        var provider = new MonsterSearchProvider(context);
+        var tokens = SearchTokenizer.Tokenize("phoenix");
+        var results = await provider.SearchAsync(tokens, "phoenix", CancellationToken.None);
+
+        var candidate = Assert.Single(results);
+        Assert.Equal("Attack.Name", candidate.MatchedField);
+        Assert.Equal(SearchMatchTier.Exact, candidate.MatchStrength);
+        Assert.Equal(SearchFieldWeight.Secondary, candidate.Weight);
+        Assert.Equal(200, candidate.Score);
+    }
+
+    [Theory]
+    [InlineData("Attack", true)]
+    [InlineData("Attack", false)]
+    [InlineData("Power", true)]
+    [InlineData("Power", false)]
+    [InlineData("Armor", true)]
+    [InlineData("Armor", false)]
+    [InlineData("Weakness", true)]
+    [InlineData("Weakness", false)]
+    public async Task MonsterSearchProvider_PopulatesMatchedSubResourceName_ForEveryKindAndField(
+        string kind, bool matchViaName)
+    {
+        await using var context = await CreateContextAsync();
+        var (monsterTypeId, archetypeId) = await SeedMonsterLookupsAsync(context);
+
+        var monster = new Monster
+        {
+            Name = "Unrelated Name",
+            Description = "Unrelated description.",
+            MonsterTypeId = monsterTypeId,
+            MonsterArchetypeId = archetypeId,
+        };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+
+        const string subResourceName = "Emberclaw Technique";
+        const string subResourceDescription = "A shimmering burst of embers scorches the battlefield.";
+        AddMonsterSubResource(context, kind, monster.Id, subResourceName, subResourceDescription);
+        await context.SaveChangesAsync();
+
+        var query = matchViaName ? "emberclaw" : "shimmering";
+        var provider = new MonsterSearchProvider(context);
+        var tokens = SearchTokenizer.Tokenize(query);
+        var results = await provider.SearchAsync(tokens, query, CancellationToken.None);
+
+        var candidate = Assert.Single(results);
+        var expectedField = matchViaName ? $"{kind}.Name" : $"{kind}.Description";
+        Assert.Equal(expectedField, candidate.MatchedField);
+        Assert.Equal(subResourceName, candidate.MatchedSubResourceName);
+        Assert.Equal(
+            matchViaName ? SearchFieldWeight.Secondary : SearchFieldWeight.Tertiary,
+            candidate.Weight);
+    }
+
+    [Fact]
+    public async Task MonsterSearchProvider_MultipleMatchingSubResources_StillReturnsOneCandidate_BackedByHighestScore()
+    {
+        await using var context = await CreateContextAsync();
+        var (monsterTypeId, archetypeId) = await SeedMonsterLookupsAsync(context);
+
+        var monster = new Monster
+        {
+            Name = "Unrelated Name",
+            Description = "Unrelated description.",
+            MonsterTypeId = monsterTypeId,
+            MonsterArchetypeId = archetypeId,
+        };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+
+        // Attack.Name exactly equals the query (tier 4 -> score 200).
+        context.MonsterAttacks.Add(new MonsterAttack
+        {
+            MonsterId = monster.Id,
+            Name = "Flare",
+            Description = "Unrelated.",
+            Harm = 2,
+        });
+        // Power.Name only boundary-prefix matches the query, not exact/starts-with (tier 2 -> score 100).
+        context.MonsterPowers.Add(new MonsterPower
+        {
+            MonsterId = monster.Id,
+            Name = "Ancient Flare Ward",
+            Description = "Unrelated.",
+        });
+        await context.SaveChangesAsync();
+
+        var provider = new MonsterSearchProvider(context);
+        var tokens = SearchTokenizer.Tokenize("flare");
+        var results = await provider.SearchAsync(tokens, "flare", CancellationToken.None);
+
+        var candidate = Assert.Single(results);
+        Assert.Equal("Attack.Name", candidate.MatchedField);
+        Assert.Equal("Flare", candidate.MatchedSubResourceName);
+        Assert.Equal(200, candidate.Score);
+    }
+
+    [Fact]
+    public async Task MonsterSearchProvider_TermOnlyInCustomMove_ProducesNoMatch()
+    {
+        await using var context = await CreateContextAsync();
+        var (monsterTypeId, archetypeId) = await SeedMonsterLookupsAsync(context);
+
+        var monster = new Monster
+        {
+            Name = "Unrelated Name",
+            Description = "Unrelated description.",
+            MonsterTypeId = monsterTypeId,
+            MonsterArchetypeId = archetypeId,
+        };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+
+        context.MonsterCustomMoves.Add(new MonsterCustomMove
+        {
+            MonsterId = monster.Id,
+            Name = "Lava Surge",
+            Description = "Erupts with molten lava dealing area harm.",
+        });
+        await context.SaveChangesAsync();
+
+        var provider = new MonsterSearchProvider(context);
+        var tokens = SearchTokenizer.Tokenize("lava");
+        var results = await provider.SearchAsync(tokens, "lava", CancellationToken.None);
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public async Task MinionSearchProvider_MatchesAttackName_WhenEntityNameAndDescriptionDoNotMatch()
+    {
+        await using var context = await CreateContextAsync();
+        var (monsterTypeId, archetypeId) = await SeedMonsterLookupsAsync(context);
+        var minionTypeId = await SeedMinionTypeAsync(context);
+
+        var monster = new Monster
+        {
+            Name = "Parent Monster",
+            Description = "Unrelated.",
+            MonsterTypeId = monsterTypeId,
+            MonsterArchetypeId = archetypeId,
+        };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+
+        var minion = new Minion
+        {
+            Name = "Grunt",
+            Description = "Unrelated description.",
+            MonsterId = monster.Id,
+            MinionTypeId = minionTypeId,
+        };
+        context.Minions.Add(minion);
+        await context.SaveChangesAsync();
+
+        context.MinionAttacks.Add(new MinionAttack
+        {
+            MinionId = minion.Id,
+            Name = "Rusty Blade",
+            Description = "A crude but effective weapon.",
+            Harm = 1,
+        });
+        await context.SaveChangesAsync();
+
+        var provider = new MinionSearchProvider(context);
+        var tokens = SearchTokenizer.Tokenize("rusty blade");
+        var results = await provider.SearchAsync(tokens, "rusty blade", CancellationToken.None);
+
+        var candidate = Assert.Single(results);
+        Assert.Equal(minion.Id, candidate.EntityId);
+        Assert.Equal("Attack.Name", candidate.MatchedField);
+        Assert.Equal(SearchFieldWeight.Secondary, candidate.Weight);
+        Assert.Equal("Rusty Blade", candidate.MatchedSubResourceName);
+        Assert.NotNull(candidate.Snippet);
+    }
+
+    [Fact]
+    public async Task MinionSearchProvider_MultipleMatchingSubResources_StillReturnsOneCandidate_BackedByHighestScore()
+    {
+        await using var context = await CreateContextAsync();
+        var (monsterTypeId, archetypeId) = await SeedMonsterLookupsAsync(context);
+        var minionTypeId = await SeedMinionTypeAsync(context);
+
+        var monster = new Monster
+        {
+            Name = "Parent Monster",
+            Description = "Unrelated.",
+            MonsterTypeId = monsterTypeId,
+            MonsterArchetypeId = archetypeId,
+        };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+
+        var minion = new Minion
+        {
+            Name = "Unrelated Name",
+            Description = "Unrelated description.",
+            MonsterId = monster.Id,
+            MinionTypeId = minionTypeId,
+        };
+        context.Minions.Add(minion);
+        await context.SaveChangesAsync();
+
+        context.MinionArmors.Add(new MinionArmor
+        {
+            MinionId = minion.Id,
+            Name = "Frost",
+            Description = "Unrelated.",
+        });
+        context.MinionWeaknesses.Add(new MinionWeakness
+        {
+            MinionId = minion.Id,
+            Name = "Ancient Frostbite",
+            Description = "Unrelated.",
+        });
+        await context.SaveChangesAsync();
+
+        var provider = new MinionSearchProvider(context);
+        var tokens = SearchTokenizer.Tokenize("frost");
+        var results = await provider.SearchAsync(tokens, "frost", CancellationToken.None);
+
+        var candidate = Assert.Single(results);
+        Assert.Equal("Armor.Name", candidate.MatchedField);
+        Assert.Equal("Frost", candidate.MatchedSubResourceName);
+        Assert.Equal(200, candidate.Score);
+    }
+
+    [Fact]
+    public async Task MinionSearchProvider_TermOnlyInCustomMove_ProducesNoMatch()
+    {
+        await using var context = await CreateContextAsync();
+        var (monsterTypeId, archetypeId) = await SeedMonsterLookupsAsync(context);
+        var minionTypeId = await SeedMinionTypeAsync(context);
+
+        var monster = new Monster
+        {
+            Name = "Parent Monster",
+            Description = "Unrelated.",
+            MonsterTypeId = monsterTypeId,
+            MonsterArchetypeId = archetypeId,
+        };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+
+        var minion = new Minion
+        {
+            Name = "Unrelated Name",
+            Description = "Unrelated description.",
+            MonsterId = monster.Id,
+            MinionTypeId = minionTypeId,
+        };
+        context.Minions.Add(minion);
+        await context.SaveChangesAsync();
+
+        context.MinionCustomMoves.Add(new MinionCustomMove
+        {
+            MinionId = minion.Id,
+            Name = "Sludge Toss",
+            Description = "Hurls corrosive sludge at a hunter.",
+        });
+        await context.SaveChangesAsync();
+
+        var provider = new MinionSearchProvider(context);
+        var tokens = SearchTokenizer.Tokenize("sludge");
+        var results = await provider.SearchAsync(tokens, "sludge", CancellationToken.None);
+
+        Assert.Empty(results);
+    }
+
+    private static void AddMonsterSubResource(
+        MotwDbContext context, string kind, Guid monsterId, string name, string description)
+    {
+        switch (kind)
+        {
+            case "Attack":
+                context.MonsterAttacks.Add(new MonsterAttack { MonsterId = monsterId, Name = name, Description = description, Harm = 1 });
+                break;
+            case "Power":
+                context.MonsterPowers.Add(new MonsterPower { MonsterId = monsterId, Name = name, Description = description });
+                break;
+            case "Armor":
+                context.MonsterArmors.Add(new MonsterArmor { MonsterId = monsterId, Name = name, Description = description });
+                break;
+            case "Weakness":
+                context.MonsterWeaknesses.Add(new MonsterWeakness { MonsterId = monsterId, Name = name, Description = description });
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown sub-resource kind.");
+        }
+    }
+
+    private static async Task<Guid> SeedMinionTypeAsync(MotwDbContext context)
+    {
+        var minionType = new MinionType { Name = "Thug", Motivation = "To serve." };
+        context.MinionTypes.Add(minionType);
+        await context.SaveChangesAsync();
+        return minionType.Id;
+    }
+
     private static async Task<MotwDbContext> CreateContextAsync()
     {
         var connection = new SqliteConnection("DataSource=:memory:");

@@ -2,11 +2,11 @@
 
 See `architecture.md` for the full design rationale behind every decision below; this document is the execution breakdown. Style mirrors `docs/phases/phase-8-minions-ui-flow.md`.
 
-**Status: Phases 1–3 shipped and committed.** Phase 4 (below) is fully specced for review; not yet implemented.
+**Status: Phases 1–3 shipped and committed. Phase 4a and 4b implemented, pending project-owner review before commit. Phase 4c not yet implemented.**
 
 ## Decisions
 
-Resolved before implementation begins. Rows marked *(revised 2026-08-01)* were updated after project-owner feedback on the tokenization/matching design; rows marked *(new — Phase 4 spec)* were added when Phase 4 was fully specced (same day, after Phases 1–3 shipped). See `open-questions.md` for the full audit trail on both rounds.
+Resolved before implementation begins. Rows marked *(revised 2026-08-01)* were updated after project-owner feedback on the tokenization/matching design; rows marked *(new — Phase 4 spec)* were added when Phase 4 was fully specced (same day, after Phases 1–3 shipped). See `open-questions.md` for the full audit trail across all rounds.
 
 | # | Question | Decision |
 |---|----------|----------|
@@ -29,6 +29,7 @@ Resolved before implementation begins. Rows marked *(revised 2026-08-01)* were u
 | 17 | **Field/sub-resource label** *(new — Phase 4 spec)* | Extends `MatchedField` (dot convention: `"{Kind}.{Field}"` for sub-resources) rather than a parallel enum; adds `MatchedSubResourceName: string \| null` for the sub-resource's own display name. No label chip shown for `Name` matches (redundant with the title). See `architecture.md` Section 3/6. |
 | 18 | **Dedup remains single-highest-field-per-entity** *(new — Phase 4 spec, confirmed not changed)* | An entity matching on multiple fields/sub-resources still surfaces once, backed by its single highest-scoring match. No "matched on N fields" UI. See `architecture.md` Section 3. |
 | 19 | **Header dropdown unchanged by Phase 4** *(new — Phase 4 spec, confirmed not changed)* | `HeaderSearchComponent`/`header-search.html` are not modified. The new snippet/highlight/label requirement is explicitly scoped to "full-results-page row" in the product owner's own wording. See `architecture.md` Section 6. |
+| 20 | **A sub-resource `Name` match snippets its own short name, redundant with the field-label chip — confirmed as ideal, not a Phase 4c gap to fix** *(new — 2026-08-01, resolved during Phase 4b review)* | `SearchSnippetBuilder` behavior is unchanged: it always snippets the winning field's own text, so a `{Kind}.Name` win (e.g. `Attack.Name`) produces a short snippet identical to `MatchedSubResourceName`. No fallback to the sub-resource's `Description` when `Name` is what matched. See `open-questions.md` row 22, `architecture.md` Section 5 (both worked examples). |
 
 ---
 
@@ -128,9 +129,11 @@ Implemented as designed (`SearchResultsComponent`, `search-results.html`, `Searc
 
 ---
 
-### Phase 4a — Backend: Entity Long-Text Field Matching + Snippet Generation
+### Phase 4a — Backend: Entity Long-Text Field Matching + Snippet Generation — **Implemented, pending review**
 
 **Goal:** Extend all 5 providers to match entity-level long-text fields — `Description` (Monster/Minion/Location/Bystander) and `Concept`/`Hook`/`Overview`/`Notes` (Mystery) — and generate real, windowed, highlight-annotated `Snippet`/`MatchSpans` for whichever field wins per entity. No frontend changes.
+
+Implemented as designed. 75/75 backend tests green (39 → 75). One filing note: the Mystery excerpt fallback-chain extension landed inside `MysterySearchProvider` rather than `ApiMappers.cs` as originally drafted — `ApiMappers` only ever truncates an already-resolved string and has no field-selection logic, and the `Hook → Concept` fallback already lived in the provider since Phase 1, so extending it there keeps the existing separation of concerns (`.squad/decisions/inbox/bowser-search-phase4a-backend.md`).
 
 **Work:**
 
@@ -169,9 +172,11 @@ Implemented as designed (`SearchResultsComponent`, `search-results.html`, `Searc
 
 ---
 
-### Phase 4b — Backend: Sub-Resource Field Matching (Monster/Minion Attack/Power/Armor/Weakness)
+### Phase 4b — Backend: Sub-Resource Field Matching (Monster/Minion Attack/Power/Armor/Weakness) — **Implemented, pending review**
 
 **Goal:** Extend `MonsterSearchProvider`/`MinionSearchProvider` to evaluate every Attack/Power/Armor/Weakness's `Name` (Secondary, all 4 tiers) and `Description` (Tertiary, tiers 2–4) as additional candidate fields per entity, using the same `PickBestMatch`/`SearchSnippetBuilder` machinery from 4a. Confirms the in-memory query strategy (Decision #12) by switching these two providers' query shape to nested projections.
+
+Implemented as designed, zero changes needed to the shared 4a machinery. 90/90 backend tests green (75 → 90). Confirmed live against Postgres at ~110–130ms/request, under the 150ms revisit trigger (Decision #12). See Decision #20 / `open-questions.md` row 22 for a snippet-content question this phase surfaced and its resolution.
 
 **Work:**
 

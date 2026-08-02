@@ -228,7 +228,24 @@ public sealed record SearchResultDetailResponse(
     IReadOnlyList<SearchMatchSpanResponse> MatchSpans);
 ```
 
-Worked example — a Monster matched via one of its Attacks:
+Worked examples — a Monster matched via one of its Attacks, two ways:
+
+**Matched on the Attack's `Description`** (the illustrative case — a real windowed/highlighted snippet from prose):
+
+```json
+{
+  "entityType": "Monster",
+  "id": "9c21...",
+  "name": "The Ashwood Stalker",
+  "matchedField": "Attack.Description",
+  "matchedSubResourceName": "Fire Breath",
+  "excerpt": "A skeletal figure wreathed in cold flame, said to haunt the old orchard...",
+  "snippet": "…massive lungs capable of a devastating fire breath that scorches everything in a ten-foot cone…",
+  "matchSpans": [ { "start": 32, "length": 12 } ]
+}
+```
+
+**Matched on the Attack's `Name` itself** — as shipped, `SearchSnippetBuilder` always builds `snippet` from the *winning field's own text* (Section 7), so a `Name`-field sub-resource match produces a short snippet that's just that name, highlighted in full — **confirmed as the intended behavior** (product-owner review, 2026-08-01), not a gap to fix in Phase 4c:
 
 ```json
 {
@@ -238,14 +255,16 @@ Worked example — a Monster matched via one of its Attacks:
   "matchedField": "Attack.Name",
   "matchedSubResourceName": "Fire Breath",
   "excerpt": "A skeletal figure wreathed in cold flame, said to haunt the old orchard...",
-  "snippet": "…massive lungs capable of a devastating fire breath that scorches everything in a ten-foot cone…",
-  "matchSpans": [ { "start": 32, "length": 12 } ]
+  "snippet": "Fire Breath",
+  "matchSpans": [ { "start": 0, "length": 11 } ]
 }
 ```
 
+This snippet is short and reads as redundant with the "Matched in: Attack — Fire Breath" label chip Phase 4c renders alongside it (Section 6) — that redundancy is fine and deliberate. The alternative (falling back to the Attack's `Description`, if any, when the match itself was on `Name`) was considered and explicitly rejected: it would show text that didn't actually match the query, which is more misleading than a short, honest, exact-match snippet. No special-casing needed in Phase 4c — `SearchSnippetBuilder`'s existing "snippet the field that actually won" behavior already produces the right result with zero additional code.
+
 `excerpt` remains the always-present, fixed per-domain fallback — unchanged mechanism, but its **source field selection is extended** for Mystery now that all four long-text fields are known-searchable: `Hook → Concept → Overview → Notes` (first non-empty wins), up from `Hook → Concept` only. This closes a real (if minor) gap: a Mystery with empty `Hook` and `Concept` but a filled-in `Overview` previously showed a blank excerpt; now it doesn't. Monster/Minion/Location/Bystander's excerpt source is unchanged (`Description`).
 
-`snippet`/`matchSpans` are populated **whenever `MatchedField != "Name"`** — i.e. whenever there's a specific field/sub-resource whose own text is more informative than the fixed `excerpt`. When `MatchedField == "Name"`, both stay `null`/`[]`, and the frontend falls back to `excerpt` exactly as designed in the original Section 7 — the entity's title already shows the match; a separate windowed excerpt of the `Name` field itself would be redundant. **Confirms** rather than changes the original Phase 1–3 design intent (Section 7 always said this, this is the first phase where it's exercised for real).
+`snippet`/`matchSpans` are populated **whenever `MatchedField != "Name"`** (the entity's own bare `Name`, e.g. `"Name"` — not to be confused with a sub-resource's `{Kind}.Name`, e.g. `"Attack.Name"`, which *does* get a snippet, per the example above) — i.e. whenever there's a specific field/sub-resource whose own text is more informative than the fixed `excerpt`. When `MatchedField == "Name"` (the entity's own name), both stay `null`/`[]`, and the frontend falls back to `excerpt` exactly as designed in the original Section 7 — the entity's title already shows the match; a separate windowed excerpt of the entity's own `Name` field would be redundant. **Confirms** rather than changes the original Phase 1–3 design intent (Section 7 always said this, this is the first phase where it's exercised for real).
 
 `matchSpans` offsets are relative to `snippet` (including its leading `…` if present, so the frontend can index directly into the string it renders — no need to also know about the original field's un-windowed text). Snippet-building details (window size, anchor selection, span-finding, merging) are in Section 7.
 
