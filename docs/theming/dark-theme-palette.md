@@ -13,6 +13,8 @@ This document fills in *values* for every token name Yoshi's `docs/theming/themi
 
 Every value below is either a bare Tailwind v4 palette reference (`slate-900`, `indigo-400`) — including Tailwind's own opacity-modifier syntax (`indigo-400/16`) already used elsewhere in this codebase for `bg-white/20`, `hover:bg-blue-800/40`, `bg-black/45`, etc. — or an explicit hex where a value needs pinning for clarity (mirroring how the migration doc pinned `--color-indigo-700: #4338ca`). Nothing here requires a new build dependency or a color system outside what Tailwind v4 already ships.
 
+**Naming note (2026-08-02):** the token names below reflect Yoshi's final `on-*` naming resolution (e.g. `--color-toast-success` / `--color-on-toast-success`, `--color-badge-monster` / `--color-on-badge-monster`, `--color-weapon-chip` / `--color-on-weapon-chip` / `--color-weapon-chip-line`), which superseded the `-bg`/`-text` suffix shape these tokens were originally proposed under. Nothing about the *values*, contrast math, or rationale below changed as part of that rename — only the token names were updated to match the catalogue.
+
 ## Philosophy
 
 Four decisions shape every value in this document:
@@ -52,14 +54,23 @@ Four decisions shape every value in this document:
 | `--color-sidebar-text` | `blue-100` (`#dbeafe`) | `indigo-200` (`#c7d2fe`) | ~7.66:1 against `sidebar-surface`. |
 | `--color-sidebar-hover` | `blue-800/40` | `indigo-700/40` | `indigo-700` is lighter than the new `indigo-900` base, so the overlay reads as a visible lightening on hover, mirroring the light-theme mechanism exactly. |
 | `--color-sidebar-active` | `blue-800/65` | `indigo-700/70` | Same overlay color as hover, higher opacity for the stronger "selected" state — same relationship as light mode's hover/active pair. |
-| `--color-toast-success-bg` | `#1b6f2a` | `emerald-700` (`#047857`) | See note below — I checked `emerald-600` first and it only gives white text ~3.77:1 (fails AA); `emerald-700` gives ~5.49:1. |
-| `--color-toast-error-bg` | `#a10808` | `red-700` (`#b91c1c`) | ~6.47:1 with white text. Slightly brighter than the current very-dark literal, intentionally — see "Toast brightness" open question below. |
-| `--color-badge-mystery-bg` / `-text` | n/a today (reserved) | n/a today (reserved) | See Badges section — I'm proposing an actual value pair now, flagged as an open question since the feature doesn't exist yet. |
-| `--color-badge-monster-bg` / `-text` | `red-100` / `red-700` | `red-950` (`#450a0a`) / `red-300` (`#fca5a5`) | ~8.5:1. See Badges section for the hue-preservation rationale, which applies to all four active badges. |
-| `--color-badge-minion-bg` / `-text` | `#fde8d8` / `orange-800` | `orange-950` (`#431407`) / `orange-300` (`#fdba74`) | |
-| `--color-badge-bystander-bg` / `-text` | `blue-100` / `blue-800` | `blue-950` (`#172554`) / `blue-300` (`#93c5fd`) | |
-| `--color-badge-location-bg` / `-text` | `green-100` / `green-900` | `green-950` (`#052e16`) / `green-300` (`#86efac`) | |
-| `--color-weapon-chip-bg` / `-border` / `-text` | `indigo-50` / `indigo-200` / `indigo-700` | `indigo-950` (`#1e1b4b`) / `indigo-800` (`#3730a3`) / `indigo-300` (`#a5b4fc`) | Same "deep tinted bg + light tinted text" construction as the badges. |
+| `--color-toast-success` | `#1b6f2a` | `emerald-700` (`#047857`) | See note below — I checked `emerald-600` first and it only gives white text ~3.77:1 (fails AA); `emerald-700` gives ~5.49:1. |
+| `--color-on-toast-success` | `white` | `white` | Toast text color — stays plain white in both themes; not affected by the fill lightening above since the fill itself was chosen specifically to keep white text legible. |
+| `--color-toast-error` | `#a10808` | `red-700` (`#b91c1c`) | ~6.47:1 with white text. Slightly brighter than the current very-dark literal, intentionally — see "Toast brightness" open question below. |
+| `--color-on-toast-error` | `white` | `white` | Same reasoning as `--color-on-toast-success`. |
+| `--color-badge-mystery` | n/a today (reserved) | n/a today (reserved) | See Badges section — I'm proposing an actual value pair now, flagged as an open question since the feature doesn't exist yet. |
+| `--color-on-badge-mystery` | n/a today (reserved) | n/a today (reserved) | Text-on-fill counterpart to `--color-badge-mystery`. Same reserved status. |
+| `--color-badge-monster` | `red-100` | `red-950` (`#450a0a`) | See Badges section for the hue-preservation rationale, which applies to all four active badges. |
+| `--color-on-badge-monster` | `red-700` | `red-300` (`#fca5a5`) | ~8.5:1 against `--color-badge-monster` in dark mode. |
+| `--color-badge-minion` | `#fde8d8` | `orange-950` (`#431407`) | |
+| `--color-on-badge-minion` | `orange-800` | `orange-300` (`#fdba74`) | |
+| `--color-badge-bystander` | `blue-100` | `blue-950` (`#172554`) | |
+| `--color-on-badge-bystander` | `blue-800` | `blue-300` (`#93c5fd`) | |
+| `--color-badge-location` | `green-100` | `green-950` (`#052e16`) | |
+| `--color-on-badge-location` | `green-900` | `green-300` (`#86efac`) | |
+| `--color-weapon-chip` | `indigo-50` | `indigo-950` (`#1e1b4b`) | Same "deep tinted bg + light tinted text" construction as the badges. |
+| `--color-on-weapon-chip` | `indigo-700` | `indigo-300` (`#a5b4fc`) | |
+| `--color-weapon-chip-line` | `indigo-200` | `indigo-800` (`#3730a3`) | The chip's border — named outside the `on-*` pairing since a border isn't a text-on-fill relationship (see Yoshi's naming resolution in the theming plan). |
 
 **A token not yet in Yoshi's catalogue — flagging, not deciding unilaterally:** to make the delete-confirmation button's white text keep working once `--color-danger` lightens for dark mode, this palette needs a `--color-on-danger` token (mirroring `--color-on-accent`): **light = `white`** (unchanged), **dark = `slate-900`**. Today the confirm-delete modal's delete button hardcodes `text-white` rather than referencing a token, so this only becomes load-bearing once that button is re-pointed in Yoshi's Phase 2 — flagging it now so it isn't discovered as a gap mid-phase. See Open Questions.
 
@@ -73,7 +84,7 @@ Four decisions shape every value in this document:
 
 **Mystery badge (reserved slot):** since mysteries don't have a type badge today, I'm proposing a value pair now so the token isn't dangling if/when one is built: **light = `teal-100`/`teal-800`, dark = `teal-950`/`teal-300`**. Teal was chosen specifically to stay clear of every hue already spoken for: red (monster/danger), orange (minion — note `amber` was considered and rejected here, it sits too close to minion's orange on the hue wheel), blue (bystander), green (location/success), indigo (accent/weapon-chip), and purple (already in use — see the archetype-badge gap below). This is speculative since the feature doesn't exist; flagged as an open question, not a firm commitment.
 
-**A gap this surfaced, outside Yoshi's catalogue:** `monsters-list.html` and `monster-detail.html` now render a **monster-archetype badge** (`bg-purple-100 text-purple-700`) added after the Tailwind migration and theming-plan docs were written — it isn't in Yoshi's Token Catalogue at all and would silently stay light-only through every phase of the theming rollout unless someone adds it. If it follows the same pattern as the other badges, my proposed values would be **`--color-badge-archetype-bg`/`-text`: light `purple-100`/`purple-700` (unchanged), dark `purple-950`/`purple-300`**. Flagging this as a catalogue gap for Yoshi rather than adding it to the catalogue myself, since that document's token list isn't mine to edit.
+**A gap this surfaced, outside Yoshi's catalogue:** `monsters-list.html` and `monster-detail.html` now render a **monster-archetype badge** (`bg-purple-100 text-purple-700`) added after the Tailwind migration and theming-plan docs were written — it isn't in Yoshi's Token Catalogue at all and would silently stay light-only through every phase of the theming rollout unless someone adds it. If it follows the same pattern as the other badges, my proposed values would be **`--color-badge-archetype`/`--color-on-badge-archetype`: light `purple-100`/`purple-700` (unchanged), dark `purple-950`/`purple-300`**. Flagging this as a catalogue gap for Yoshi rather than adding it to the catalogue myself, since that document's token list isn't mine to edit.
 
 ---
 
@@ -132,15 +143,15 @@ Ratios below were computed by hand using the standard WCAG relative-luminance fo
 - `on-accent` (`slate-900`) on `accent`-filled background: **~5.98:1** (same pair, same ratio, both roles pass)
 - `danger` (`red-400`) on `surface`: **~6.45:1**
 - `sidebar-text` (`indigo-200`) on `sidebar-surface` (`indigo-900`): **~7.66:1**
-- `badge-monster-text` (`red-300`) on `badge-monster-bg` (`red-950`): **~8.51:1**
-- white toast text on `toast-success-bg` (`emerald-700`): **~5.49:1** (rejected `emerald-600` first — only ~3.77:1, fails AA)
-- white toast text on `toast-error-bg` (`red-700`): **~6.47:1**
+- `on-badge-monster` (`red-300`) on `badge-monster` (`red-950`): **~8.51:1**
+- `on-toast-success` (white) on `toast-success` (`emerald-700`): **~5.49:1** (rejected `emerald-600` first — only ~3.77:1, fails AA)
+- `on-toast-error` (white) on `toast-error` (`red-700`): **~6.47:1**
 - `border-strong` (`slate-500`) vs. `surface`, non-text UI component: **~3.75:1** (clears the 3:1 guideline; the visually-closer `slate-600` only reaches ~2.36:1 and was rejected for that reason)
 
 **Not individually hand-verified — please double-check with a tool before implementation:**
-- `badge-minion-text`/`badge-bystander-text`/`badge-location-text` against their own `-950` backgrounds — I verified the *construction* (deep `-950` bg + `-300` text) once on the monster badge and am extrapolating that the other three hues behave similarly at the same lightness steps, but didn't compute each one.
+- `on-badge-minion`/`on-badge-bystander`/`on-badge-location` against their own `badge-minion`/`badge-bystander`/`badge-location` (`-950`) backgrounds — I verified the *construction* (deep `-950` bg + `-300` text) once on the monster badge and am extrapolating that the other three hues behave similarly at the same lightness steps, but didn't compute each one.
 - Every alpha-composited value (`accent-subtle`, `danger-subtle`, `focus-ring`, `sidebar-hover`, `sidebar-active`) — these depend on what's rendered underneath, which varies by context (a dropdown panel vs. the page shell), so a flat contrast number isn't fully meaningful for them the way it is for a solid fill. Spot-check the actual composited result in the browser, not just the token's own value.
-- `weapon-chip-text` (`indigo-300`) on `weapon-chip-bg` (`indigo-950`) — same construction as the badges, same confidence level (should be fine, wasn't independently computed).
+- `on-weapon-chip` (`indigo-300`) on `weapon-chip` (`indigo-950`) — same construction as the badges, same confidence level (should be fine, wasn't independently computed).
 
 ---
 

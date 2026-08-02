@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/*
+ * Theming (docs/theming/theming-plan.md, Phase 0): class-based dark variant scoped to
+ * <html> (Decision A/C) — this is the runtime mechanism, `prefers-color-scheme` is only
+ * ever consulted by ThemeService as the seed value for an unset preference.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Pin brand color to hex for DevTools clarity (Tailwind v4 defaults to oklch) */
   --color-indigo-700: #4338ca;
@@ -11,6 +18,135 @@
   --breakpoint-sm: 540px;   /* was $bp-sm — overrides Tailwind default 640px */
   --breakpoint-xl: 1200px;  /* was $bp-lg — overrides Tailwind default 1280px */
   /* --breakpoint-md is already 768px in Tailwind — no override needed */
+
+  /*
+   * Semantic token catalogue (docs/theming/theming-plan.md, Token Catalogue).
+   * Phase 0: every value below equals the current literal Tailwind color it replaces, so
+   * the app is pixel-identical until Phases 1-6 re-point templates onto these tokens and
+   * Phase 7 swaps in Rosalina's real dark fills (docs/theming/dark-theme-palette.md).
+   * The `--color-badge-mystery`/`--color-on-badge-mystery` reserved pair is intentionally
+   * NOT declared here yet — no mystery type badge exists today, so there is no current
+   * literal value to preserve, and the plan explicitly treats Rosalina's proposed teal
+   * values as speculative, not adopted (see theming-plan.md's Token Catalogue "Update"
+   * note). Add it once a real feature needs it.
+   */
+
+  /* Surfaces */
+  --color-surface: var(--color-white); /* bg-white (cards, modals, dropdown panels) */
+  --color-surface-sunken: var(--color-slate-50); /* bg-slate-50 (shell background, disabled inputs) */
+  --color-surface-raised: var(--color-white); /* bg-white (modal/dropdown panel variants) */
+
+  /* Borders */
+  --color-border: var(--color-slate-200); /* border-slate-200 (and its imperceptibly-close aliases) */
+  --color-border-strong: #c9d4e6; /* form input border */
+
+  /* Text */
+  --color-text-primary: var(--color-slate-950); /* text-slate-950 */
+  --color-text-secondary: var(--color-slate-600); /* text-slate-600 / text-gray-700 */
+  --color-text-muted: var(--color-slate-500); /* text-slate-500 / text-gray-500 / text-slate-400 */
+
+  /* Accent (brand/primary action) */
+  --color-accent: var(--color-indigo-600); /* indigo-600 / indigo-700 family */
+  --color-accent-hover: var(--color-indigo-700); /* indigo-700 / indigo-800 */
+  --color-accent-subtle: var(--color-indigo-50); /* indigo-50 */
+  --color-on-accent: var(--color-white);
+  --color-focus-ring: color-mix(in oklab, var(--color-indigo-500) 20%, transparent); /* indigo-500 @ ~20% */
+
+  /* Danger (destructive/error) */
+  --color-danger: var(--color-red-600); /* red-600 / red-800 */
+  --color-danger-hover: var(--color-red-700); /* red-700 */
+  --color-danger-subtle: var(--color-red-100); /* red-100 / red-50 */
+  --color-on-danger: var(--color-white);
+
+  /* Positive/complete state */
+  --color-success: var(--color-emerald-500); /* emerald-500 / #1b6f2a */
+
+  /* Sidebar / mobile nav */
+  --color-sidebar-surface: var(--color-indigo-700); /* indigo-700 */
+  --color-sidebar-text: var(--color-blue-100); /* blue-100 */
+  --color-sidebar-hover: color-mix(in oklab, var(--color-blue-800) 40%, transparent); /* blue-800 @ 40% */
+  --color-sidebar-active: color-mix(in oklab, var(--color-blue-800) 65%, transparent); /* blue-800 @ 65% */
+
+  /* Notification toast (currently bypasses Tailwind via inline [style.background-color]) */
+  --color-toast-success: #1b6f2a;
+  --color-on-toast-success: var(--color-white);
+  --color-toast-error: #a10808;
+  --color-on-toast-error: var(--color-white);
+
+  /* Type badges */
+  --color-badge-monster: var(--color-red-100);
+  --color-on-badge-monster: var(--color-red-700);
+  --color-badge-minion: #fde8d8;
+  --color-on-badge-minion: var(--color-orange-800);
+  --color-badge-bystander: var(--color-blue-100);
+  --color-on-badge-bystander: var(--color-blue-800);
+  --color-badge-location: var(--color-green-100);
+  --color-on-badge-location: var(--color-green-900);
+  --color-badge-archetype: var(--color-purple-100); /* monsters-list.html / monster-detail.html */
+  --color-on-badge-archetype: var(--color-purple-700);
+
+  /* Weapon tag chip */
+  --color-weapon-chip: var(--color-indigo-50);
+  --color-on-weapon-chip: var(--color-indigo-700);
+  --color-weapon-chip-line: var(--color-indigo-200); /* border — deliberately outside the on-* pairing */
+}
+
+/*
+ * Phase 0: structural no-op — every value below is identical to its @theme light value
+ * above. This confirms the .dark scope wiring works (see Phase 0's Inspection Points)
+ * without changing anything visually, since no template references a token yet. Phase 7
+ * replaces every value below with Rosalina's real dark fill from
+ * docs/theming/dark-theme-palette.md.
+ */
+.dark {
+  --color-surface: var(--color-white);
+  --color-surface-sunken: var(--color-slate-50);
+  --color-surface-raised: var(--color-white);
+
+  --color-border: var(--color-slate-200);
+  --color-border-strong: #c9d4e6;
+
+  --color-text-primary: var(--color-slate-950);
+  --color-text-secondary: var(--color-slate-600);
+  --color-text-muted: var(--color-slate-500);
+
+  --color-accent: var(--color-indigo-600);
+  --color-accent-hover: var(--color-indigo-700);
+  --color-accent-subtle: var(--color-indigo-50);
+  --color-on-accent: var(--color-white);
+  --color-focus-ring: color-mix(in oklab, var(--color-indigo-500) 20%, transparent);
+
+  --color-danger: var(--color-red-600);
+  --color-danger-hover: var(--color-red-700);
+  --color-danger-subtle: var(--color-red-100);
+  --color-on-danger: var(--color-white);
+
+  --color-success: var(--color-emerald-500);
+
+  --color-sidebar-surface: var(--color-indigo-700);
+  --color-sidebar-text: var(--color-blue-100);
+  --color-sidebar-hover: color-mix(in oklab, var(--color-blue-800) 40%, transparent);
+  --color-sidebar-active: color-mix(in oklab, var(--color-blue-800) 65%, transparent);
+
+  --color-toast-success: #1b6f2a;
+  --color-on-toast-success: var(--color-white);
+  --color-toast-error: #a10808;
+  --color-on-toast-error: var(--color-white);
+
+  --color-badge-monster: var(--color-red-100);
+  --color-on-badge-monster: var(--color-red-700);
+  --color-badge-minion: #fde8d8;
+  --color-on-badge-minion: var(--color-orange-800);
+  --color-badge-bystander: var(--color-blue-100);
+  --color-on-badge-bystander: var(--color-blue-800);
+  --color-badge-location: var(--color-green-100);
+  --color-on-badge-location: var(--color-green-900);
+  --color-badge-archetype: var(--color-purple-100);
+  --color-on-badge-archetype: var(--color-purple-700);
+
+  --color-weapon-chip: var(--color-indigo-50);
+  --color-on-weapon-chip: var(--color-indigo-700);
+  --color-weapon-chip-line: var(--color-indigo-200);
 }
 
 @layer base {

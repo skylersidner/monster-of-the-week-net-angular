@@ -248,3 +248,23 @@ Rendered the real `snippet`/`matchSpans`/`matchedSubResourceName` (4a/4b, alread
 ### Verification
 `npm run build` clean (same 2 pre-existing budget warnings, unrelated). `npm run test -- --watch=false`: 27 files / 108 tests, all green (11 new specs: 5 `buildSnippetSegments`, 3 `fieldLabel`, 3 component-level chip/`<mark>`/no-chip). Live-verified via Playwright against real API (Postgres + `dotnet run`) + `ng serve` for all 3 worked examples plus header-dropdown non-regression. No `src/api/` files touched; `header-search.*` untouched (confirmed via targeted diff, not just by not opening the files).
 
+---
+
+## 2026-08-02 — Theming Phase 0: Token Infrastructure & Dark-Inert Baseline
+
+### Task
+Implemented Phase 0 only of `docs/theming/theming-plan.md`: token catalogue + `.dark` scope in `styles.css`, `ThemeService`, `provideAppInitializer` wiring, and the `search-results.spec.ts` test-disabling sweep. No templates touched (that's Phases 1+).
+
+### Files
+- New: `src/app/core/theme.ts`, `src/app/core/theme.spec.ts`
+- Modified: `src/styles.css` (full `@theme` token catalogue + `@custom-variant dark` + `.dark` block, all light-value duplicates per Phase 0 — real dark fills land in Phase 7), `src/app/app.config.ts` (`provideAppInitializer(() => inject(ThemeService).initialize())`), `src/app/features/search/pages/search-results/search-results.spec.ts` (split the two `bg-red-100`/`bg-green-100` assertions into their own `it.skip`, see decision below)
+
+### Key patterns / gotchas
+- **`ng test`'s environment (`@angular/build:unit-test` + vitest) does NOT provide a real `window.localStorage` or `window.matchMedia` out of the box.** Its `window` is a minimal shim (enough for Angular TestBed DOM rendering, `fixture.nativeElement`, etc.) but lacks Web Storage and `matchMedia`. Also: Node 26's own experimental global `localStorage` (separate object, needs `--localstorage-file`) exists and will silently shadow/confuse a bare (non-`window.`-qualified) `localStorage` reference — always write `window.localStorage`, never bare `localStorage`, in both service code and specs. For specs needing `matchMedia`, assign directly via `Object.defineProperty(window, 'matchMedia', { value: vi.fn()..., configurable: true, writable: true })` rather than `vi.spyOn` (spyOn requires the property to already be a function; it isn't here).
+- Building the token `@theme` catalogue: reference Tailwind's own default-palette custom properties via `var(--color-slate-950)` etc. rather than copying hex/oklch by hand — Tailwind v4's default theme (pulled in by `@import "tailwindcss"`) already defines every named color (`--color-white`, `--color-slate-*`, `--color-indigo-*`, ...) as a real custom property, so referencing it guarantees pixel-parity with whatever `bg-slate-950` already compiles to, with zero transcription risk. Alpha-based tokens (`--color-focus-ring`, `--color-sidebar-hover/-active`) use `color-mix(in oklab, var(--color-X) N%, transparent)` rather than a Tailwind opacity-modifier class (which only works on utility classes, not inside a raw CSS custom property value).
+- `ThemeService`'s DOM-class application: kept explicit synchronous `applyDomClass()` calls in both `setPreference()`/`initialize()` (per Decision D's literal wording, and so bootstrap timing is deterministic rather than dependent on Angular's effect-scheduling), *plus* an `effect(() => this.applyDomClass())` field — the effect is the only thing that reacts to a live OS-level `matchMedia` 'change' event while `preference === 'system'`; the explicit calls would miss that case entirely.
+- Two real ambiguities found in `theming-plan.md` itself, filed as `.squad/decisions/inbox/luigi-theming-phase0-judgment-calls.md`: (1) the reserved `--color-badge-mystery` token pair has no current light value to preserve (no mystery badge exists) and the plan explicitly declines Rosalina's speculative teal proposal — left undeclared in `styles.css` rather than inventing a value; (2) the plan's "disable via `it.skip` on the containing test" instruction for `search-results.spec.ts` doesn't account for Vitest only being able to skip a whole test, not individual assertions, and the flagged test mixed color and non-color assertions — split into two tests instead of skipping (and losing coverage on) the whole thing.
+
+### Verification
+`npm run test -- --watch=false`: 28 files / 116 tests passed, 1 skipped (the new dedicated badge-color test) — no regressions. `ng build --configuration production` clean (same 2 pre-existing component-style budget warnings as always, unrelated to this change).
+
