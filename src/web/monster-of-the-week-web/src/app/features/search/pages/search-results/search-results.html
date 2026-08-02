@@ -20,8 +20,15 @@
               <app-domain-icon [domain]="item.entityType" aria-hidden="true" />
               <span [class]="'rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap ' + badgeClasses(item.entityType)">{{ item.entityType }}</span>
               <a class="font-semibold" [routerLink]="detailRoute(item)">{{ item.name }}</a>
+              @if (fieldLabel(item); as label) {
+                <span class="text-[0.72rem] font-medium text-indigo-600 whitespace-nowrap">Matched in: {{ label }}</span>
+              }
             </div>
-            <p class="my-1">{{ contextText(item) }}</p>
+            <p class="my-1">
+              @for (segment of contextSegments(item); track $index) {
+                @if (segment.isMatch) { <mark>{{ segment.text }}</mark> } @else { {{ segment.text }} }
+              }
+            </p>
           </div>
         </li>
       }

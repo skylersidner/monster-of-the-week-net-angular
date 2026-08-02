@@ -227,3 +227,24 @@ Baseline verified clean before starting: `npm run build` and `npm run test -- --
 ### Verification
 `npm run build` clean (same 2 pre-existing budget warnings, unrelated). `npm run test -- --watch=false`: 27 files / 97 tests, all green (12 new specs). No `src/api/` files touched.
 
+---
+
+## 2026-08-01 — Global Search Phase 4c: Snippet Highlighting + Field/Sub-Resource Label
+
+### Task
+Rendered the real `snippet`/`matchSpans`/`matchedSubResourceName` (4a/4b, already committed on this branch: `dd68942`/`62204be`) on the results page. `models.ts` gains `SearchMatchSpan` + extends `SearchResultDetailItem`; `search-results.ts` gains standalone `buildSnippetSegments`/`fieldLabel` functions (colocated, not a shared module, per `phases.md`) plus `contextSegments(item)` replacing `contextText(item)`; `search-results.html` renders a "Matched in: ..." chip + `@for` segment loop with `<mark>`. No `[innerHTML]`. `header-search.*`/`src/api/` untouched (verified via `git status` diff before/after).
+
+### Key patterns confirmed
+- Angular's `@if`/`@else` control-flow blocks used to alternate `<mark>`/plain text leave incidental whitespace around each block's rendered text in `textContent` (not collapsed the way a browser renders it visually) — `.replace(/\s+/g, ' ').trim()` before asserting exact snippet text in specs. Cosmetically this is fine (browsers collapse runs of whitespace visually); only matters for exact-string test assertions.
+- Class field assignment (`readonly fieldLabel = fieldLabel;`) is the cleaner way to expose a same-named standalone module function as a component method for the template, vs. a wrapper method `fieldLabel(item) { return fieldLabel(item); }` — the wrapper technically works (method bodies aren't in the same scope as their own name, so the inner call resolves to the outer function, not infinite recursion) but reads as a self-recursive footgun; prefer the field-assignment form.
+- Correction to my own Phase 3 note: a headless-browser tool **is** available in this repo — `playwright` is in `src/web/monster-of-the-week-web/node_modules/.bin` (v1.61.1), just not wired into any npm script. A throwaway `.mjs` script placed directly in that package directory (temp files outside the package fail Node ESM resolution against `node_modules`) using `chromium.launch()` works for one-off interactive verification (chip/`<mark>` presence, header-dropdown absence of both) — delete it after use, it's not part of the test suite.
+- Live-verified all three `architecture.md` Section 5 worked-example shapes against the real seeded dev DB (not just mocked specs): a query matching only a Power's `Description` → `matchedField: "Power.Description"`, real windowed snippet, one `<mark>` around the matched word, chip "Matched in: Power — {name}"; a query matching an Attack's own `Name` → short snippet identical to the sub-resource name, fully highlighted, chip present — confirmed non-broken-looking, matches Decision #20's "intentional" call; a query matching an entity's own `Name` → no chip, `snippet: null`, plain `excerpt` rendered, unchanged from Phase 1-3 (while a co-occurring Mystery match via `Overview` in the same result set correctly *did* get its chip/highlight, confirming the null/non-null branches coexist correctly per-row).
+- `dotnet run --launch-profile http` on this repo binds `http://localhost:5225` (matches `environment.apiBaseUrl` in the Angular app already) — no proxy config needed, they're just hardcoded to agree.
+- Found port 4200 already serving a stale Angular dev build from an earlier/other session when I went to start my own `ng serve` (mine failed silently with "ng: command not found" in a background bash call, yet 4200 answered anyway) — used the pre-existing one for Playwright verification since it was already serving current code, and deliberately left it running afterward since I hadn't started it. Only killed the `dotnet run` process I'd started myself (PID captured via `netstat`/`Stop-Process`), not the pre-existing one on 4200 — flagging in case the project owner has a stale process to clean up separately.
+
+### Files
+- Modified: `core/models.ts` (`SearchMatchSpan`, `SearchResultDetailItem`), `features/search/pages/search-results/{search-results.ts,.html,.scss,.spec.ts}`
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings, unrelated). `npm run test -- --watch=false`: 27 files / 108 tests, all green (11 new specs: 5 `buildSnippetSegments`, 3 `fieldLabel`, 3 component-level chip/`<mark>`/no-chip). Live-verified via Playwright against real API (Postgres + `dotnet run`) + `ng serve` for all 3 worked examples plus header-dropdown non-regression. No `src/api/` files touched; `header-search.*` untouched (confirmed via targeted diff, not just by not opening the files).
+

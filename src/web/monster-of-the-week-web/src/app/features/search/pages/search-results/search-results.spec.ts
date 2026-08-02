@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PagedSearchResult, SearchResultDetailItem } from '../../../../core/models';
 import { SearchService } from '../../../../core/search';
 import { DomainIconComponent } from '../../../../shared/domain-icon.component';
-import { SearchResultsComponent } from './search-results';
+import { SearchResultsComponent, buildSnippetSegments, fieldLabel } from './search-results';
 
 describe('SearchResultsComponent', () => {
   let fixture: ComponentFixture<SearchResultsComponent>;
@@ -23,6 +23,8 @@ describe('SearchResultsComponent', () => {
     matchedField: 'Name',
     excerpt: 'A creature of the deep earth.',
     snippet: null,
+    matchSpans: [],
+    matchedSubResourceName: null,
   };
   const locationItem: SearchResultDetailItem = {
     entityType: 'Location',
@@ -31,6 +33,8 @@ describe('SearchResultsComponent', () => {
     matchedField: 'Name',
     excerpt: 'A windswept ridge overlooking the valley.',
     snippet: null,
+    matchSpans: [],
+    matchedSubResourceName: null,
   };
 
   function pagedResult(overrides: Partial<PagedSearchResult> = {}): PagedSearchResult {
@@ -105,19 +109,29 @@ describe('SearchResultsComponent', () => {
     expect(locationLink.getAttribute('href')).toBe('/locations/location-1');
   });
 
-  it('renders excerpt when snippet is null (the real Phase 1-3 case)', async () => {
+  it('renders excerpt when snippet is null (the real Phase 1-3 case), with no <mark> and no "Matched in" chip', async () => {
     await setUp({ q: 'sto' });
 
     const paragraphs = fixture.nativeElement.querySelectorAll('li p');
     expect(paragraphs[0].textContent).toContain('A creature of the deep earth.');
+    expect(fixture.nativeElement.querySelectorAll('mark').length).toBe(0);
+    expect(fixture.nativeElement.textContent).not.toContain('Matched in:');
   });
 
-  it('renders snippet instead of excerpt when snippet is a non-null string (fallback branch, unreachable with real Phase 1-3 data)', async () => {
+  it('renders a snippet with <mark> around the matched substring and a "Matched in" chip for a sub-resource match', async () => {
     queryParamMapSubject = new BehaviorSubject<ParamMap>(convertToParamMap({ q: 'sto' }));
     searchSpy = vi.fn().mockReturnValue(
       of(
         pagedResult({
-          items: [{ ...monsterItem, snippet: 'Attack: Grimtooth — a vicious claw rake.' }],
+          items: [
+            {
+              ...monsterItem,
+              matchedField: 'Attack.Description',
+              matchedSubResourceName: 'Grimtooth',
+              snippet: 'Attack: Grimtooth — a vicious claw rake.',
+              matchSpans: [{ start: 8, length: 9 }],
+            },
+          ],
           totalCount: 1,
         })
       )
@@ -137,8 +151,26 @@ describe('SearchResultsComponent', () => {
     fixture.detectChanges();
 
     const paragraph = fixture.nativeElement.querySelector('li p');
-    expect(paragraph.textContent).toContain('Attack: Grimtooth — a vicious claw rake.');
+    // The `@if`/`@else` control-flow syntax used to alternate <mark>/plain segments leaves
+    // incidental whitespace around each block's text in the rendered DOM (Angular does not
+    // collapse it in `textContent` the way a browser would visually) — normalize before
+    // comparing, matching `architecture.md` Section 6's own template shape.
+    expect(paragraph.textContent.replace(/\s+/g, ' ').trim()).toBe(
+      'Attack: Grimtooth — a vicious claw rake.'
+    );
     expect(paragraph.textContent).not.toContain('A creature of the deep earth.');
+
+    const marks = fixture.nativeElement.querySelectorAll('li mark');
+    expect(marks.length).toBe(1);
+    expect(marks[0].textContent).toBe('Grimtooth');
+
+    expect(fixture.nativeElement.textContent).toContain('Matched in: Attack — Grimtooth');
+  });
+
+  it('renders no "Matched in" chip for a Name match', async () => {
+    await setUp({ q: 'sto' });
+
+    expect(fixture.nativeElement.textContent).not.toContain('Matched in:');
   });
 
   it('disables Prev on page 1 and enables Next when more pages remain', async () => {
@@ -282,5 +314,79 @@ describe('SearchResultsComponent', () => {
     fixture.detectChanges();
 
     expect(component.isLoading()).toBe(false);
+  });
+});
+
+describe('buildSnippetSegments', () => {
+  it('highlights a single span in the middle of the string', () => {
+    const segments = buildSnippetSegments('a devastating fire breath that scorches', [{ start: 14, length: 11 }]);
+
+    expect(segments).toEqual([
+      { text: 'a devastating ', isMatch: false },
+      { text: 'fire breath', isMatch: true },
+      { text: ' that scorches', isMatch: false },
+    ]);
+  });
+
+  it('highlights multiple non-overlapping spans', () => {
+    const segments = buildSnippetSegments('Stone Anne lives near the stone circle', [
+      { start: 0, length: 5 },
+      { start: 26, length: 5 },
+    ]);
+
+    expect(segments).toEqual([
+      { text: 'Stone', isMatch: true },
+      { text: ' Anne lives near the ', isMatch: false },
+      { text: 'stone', isMatch: true },
+      { text: ' circle', isMatch: false },
+    ]);
+  });
+
+  it('does not produce an empty leading segment when a span touches the start', () => {
+    const segments = buildSnippetSegments('Fire Breath', [{ start: 0, length: 11 }]);
+
+    expect(segments).toEqual([{ text: 'Fire Breath', isMatch: true }]);
+  });
+
+  it('does not produce an empty trailing segment when a span touches the end', () => {
+    const segments = buildSnippetSegments('a devastating fire', [{ start: 14, length: 5 }]);
+
+    expect(segments).toEqual([
+      { text: 'a devastating ', isMatch: false },
+      { text: 'fire', isMatch: true },
+    ]);
+  });
+
+  it('returns one all-plain segment for the whole snippet when spans is empty', () => {
+    const segments = buildSnippetSegments('An ancient ring of standing stones.', []);
+
+    expect(segments).toEqual([{ text: 'An ancient ring of standing stones.', isMatch: false }]);
+  });
+});
+
+describe('fieldLabel', () => {
+  const base: SearchResultDetailItem = {
+    entityType: 'Monster',
+    id: 'monster-1',
+    name: 'The Ashwood Stalker',
+    matchedField: 'Name',
+    excerpt: 'A skeletal figure wreathed in cold flame.',
+    snippet: null,
+    matchSpans: [],
+    matchedSubResourceName: null,
+  };
+
+  it('returns null for a Name match', () => {
+    expect(fieldLabel({ ...base, matchedField: 'Name' })).toBeNull();
+  });
+
+  it('returns the bare field name for an entity-level long-text match', () => {
+    expect(fieldLabel({ ...base, matchedField: 'Description' })).toBe('Description');
+  });
+
+  it('returns "{Kind} — {sub-resource name}" for a sub-resource match', () => {
+    expect(
+      fieldLabel({ ...base, matchedField: 'Attack.Name', matchedSubResourceName: 'Fire Breath' })
+    ).toBe('Attack — Fire Breath');
   });
 });

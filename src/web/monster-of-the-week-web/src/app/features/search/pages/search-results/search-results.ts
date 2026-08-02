@@ -1,11 +1,59 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { PagedSearchResult, SearchResultDetailItem } from '../../../../core/models';
+import { PagedSearchResult, SearchMatchSpan, SearchResultDetailItem } from '../../../../core/models';
 import { SearchService } from '../../../../core/search';
 import { DomainIconComponent } from '../../../../shared/domain-icon.component';
 
 const PAGE_SIZE = 20;
+
+/** One rendered chunk of a snippet — either plain text or a highlighted match, in reading order. */
+export interface SnippetSegment {
+  text: string;
+  isMatch: boolean;
+}
+
+/**
+ * Turns `(snippet, matchSpans)` into an ordered array of plain/matched segments for template
+ * rendering. `matchSpans` are assumed pre-sorted and non-overlapping (the backend merges any
+ * overlapping/adjacent spans before returning them — `architecture.md` Section 7). Colocated
+ * here rather than a shared module since `SearchResultsComponent` is its only consumer today
+ * (`phases.md`'s Phase 4c work item) — promote only if a second consumer appears later.
+ */
+export function buildSnippetSegments(snippet: string, spans: SearchMatchSpan[]): SnippetSegment[] {
+  if (spans.length === 0) {
+    return [{ text: snippet, isMatch: false }];
+  }
+
+  const segments: SnippetSegment[] = [];
+  let cursor = 0;
+
+  for (const span of spans) {
+    if (span.start > cursor) {
+      segments.push({ text: snippet.slice(cursor, span.start), isMatch: false });
+    }
+    segments.push({ text: snippet.slice(span.start, span.start + span.length), isMatch: true });
+    cursor = span.start + span.length;
+  }
+
+  if (cursor < snippet.length) {
+    segments.push({ text: snippet.slice(cursor), isMatch: false });
+  }
+
+  return segments;
+}
+
+/**
+ * The "Matched in: ..." chip label. `null` for a `Name` match (redundant with the already-linked
+ * title — no chip). Bare field name (`"Description"`, `"Hook"`, ...) for entity-level long-text
+ * matches; `"{Kind} — {sub-resource name}"` (e.g. `"Attack — Fire Breath"`) for sub-resource
+ * matches. `architecture.md` Section 6.
+ */
+export function fieldLabel(item: SearchResultDetailItem): string | null {
+  if (item.matchedField === 'Name') return null;
+  const [kind, field] = item.matchedField.includes('.') ? item.matchedField.split('.') : [null, item.matchedField];
+  return kind && item.matchedSubResourceName ? `${kind} — ${item.matchedSubResourceName}` : field;
+}
 
 /** Flat, top-level detail routes — mirrors `HeaderSearchComponent`'s `DETAIL_ROUTE_SEGMENT` (`architecture.md` Section 6). */
 const DETAIL_ROUTE_SEGMENT: Readonly<Record<string, string>> = {
@@ -92,12 +140,14 @@ export class SearchResultsComponent {
     return DOMAIN_BADGE_CLASSES[entityType] ?? 'bg-slate-100 text-slate-700';
   }
 
-  contextText(item: SearchResultDetailItem): string {
-    // Section 7 of architecture.md: today `snippet` is always null, so this always
-    // resolves to `excerpt` — the fallback branch is built now so no template change
-    // is needed once Phase 4 starts populating `snippet`.
-    return item.snippet ?? item.excerpt;
+  contextSegments(item: SearchResultDetailItem): SnippetSegment[] {
+    return item.snippet !== null
+      ? buildSnippetSegments(item.snippet, item.matchSpans)
+      : [{ text: item.excerpt, isMatch: false }];
   }
+
+  /** Exposes the standalone `fieldLabel` function for the template. */
+  readonly fieldLabel = fieldLabel;
 
   hasPrev(): boolean {
     return this.page() > 1;

@@ -3,3 +3,7 @@
 :host {
   display: block;
 }
+
+mark {
+  @apply bg-indigo-100 text-indigo-900 rounded-[0.2rem] px-[0.1rem];
+}

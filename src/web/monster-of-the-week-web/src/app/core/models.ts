@@ -53,9 +53,16 @@ export interface SearchResultItem {
   matchedField: string;
 }
 
+export interface SearchMatchSpan {
+  start: number;
+  length: number;
+}
+
 export interface SearchResultDetailItem extends SearchResultItem {
   excerpt: string;
   snippet: string | null;
+  matchSpans: SearchMatchSpan[];
+  matchedSubResourceName: string | null;
 }
 
 export interface PagedSearchResult {
