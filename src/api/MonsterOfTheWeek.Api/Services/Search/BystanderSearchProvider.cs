@@ -4,7 +4,9 @@ using MonsterOfTheWeek.Api.Data;
 namespace MonsterOfTheWeek.Api.Services.Search;
 
 /// <summary>
-/// Phase 1: matches Bystander.Name only (Weight = Primary, all four tiers). Excerpt source is Description.
+/// Phase 4a: matches Bystander.Name (Primary, all four tiers) and Bystander.Description (Tertiary,
+/// tiers 2-4 only — docs/search/architecture.md Section 2) via <see cref="SearchTokenizer.PickBestMatch"/>.
+/// Excerpt source is Description.
 /// </summary>
 public sealed class BystanderSearchProvider(MotwDbContext dbContext) : ISearchProvider
 {
@@ -21,20 +23,36 @@ public sealed class BystanderSearchProvider(MotwDbContext dbContext) : ISearchPr
         var results = new List<SearchMatchCandidate>();
         foreach (var bystander in bystanders)
         {
-            var matchStrength = SearchTokenizer.ComputeMatchStrength(bystander.Name, tokens, rawQuery);
-            if (matchStrength is null)
+            var candidateFields = new List<SearchTokenizer.CandidateField>
+            {
+                new("Name", bystander.Name, SearchFieldWeight.Primary, AllowSubstringTier: true),
+                new("Description", bystander.Description, SearchFieldWeight.Tertiary, AllowSubstringTier: false),
+            };
+
+            var match = SearchTokenizer.PickBestMatch(candidateFields, tokens, rawQuery);
+            if (match is null)
             {
                 continue;
+            }
+
+            string? snippet = null;
+            IReadOnlyList<SearchMatchSpan> spans = [];
+            if (match.Value.FieldName != "Name")
+            {
+                (snippet, spans) = SearchSnippetBuilder.Build(match.Value.Text!, tokens, match.Value.MatchStrength);
             }
 
             results.Add(new SearchMatchCandidate(
                 EntityType,
                 bystander.Id,
                 bystander.Name,
-                "Name",
-                matchStrength.Value,
-                SearchFieldWeight.Primary,
-                bystander.Description));
+                match.Value.FieldName,
+                match.Value.SubResourceName,
+                match.Value.MatchStrength,
+                match.Value.Weight,
+                bystander.Description,
+                snippet,
+                spans));
         }
 
         return results;

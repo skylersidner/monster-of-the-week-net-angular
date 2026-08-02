@@ -16,8 +16,10 @@ public static class ApiMappers
             value.EntityId,
             value.Name,
             value.MatchedField,
+            value.MatchedSubResourceName,
             TruncateExcerpt(value.ExcerptSource),
-            null);
+            value.Snippet,
+            value.MatchSpans.Select(span => new SearchMatchSpanResponse(span.Start, span.Length)).ToList());
 
     private static string TruncateExcerpt(string? source)
     {

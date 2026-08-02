@@ -4,7 +4,9 @@ using MonsterOfTheWeek.Api.Data;
 namespace MonsterOfTheWeek.Api.Services.Search;
 
 /// <summary>
-/// Phase 1: matches Location.Name only (Weight = Primary, all four tiers). Excerpt source is Description.
+/// Phase 4a: matches Location.Name (Primary, all four tiers) and Location.Description (Tertiary, tiers
+/// 2-4 only — docs/search/architecture.md Section 2) via <see cref="SearchTokenizer.PickBestMatch"/>.
+/// Excerpt source is Description.
 /// </summary>
 public sealed class LocationSearchProvider(MotwDbContext dbContext) : ISearchProvider
 {
@@ -21,20 +23,36 @@ public sealed class LocationSearchProvider(MotwDbContext dbContext) : ISearchPro
         var results = new List<SearchMatchCandidate>();
         foreach (var location in locations)
         {
-            var matchStrength = SearchTokenizer.ComputeMatchStrength(location.Name, tokens, rawQuery);
-            if (matchStrength is null)
+            var candidateFields = new List<SearchTokenizer.CandidateField>
+            {
+                new("Name", location.Name, SearchFieldWeight.Primary, AllowSubstringTier: true),
+                new("Description", location.Description, SearchFieldWeight.Tertiary, AllowSubstringTier: false),
+            };
+
+            var match = SearchTokenizer.PickBestMatch(candidateFields, tokens, rawQuery);
+            if (match is null)
             {
                 continue;
+            }
+
+            string? snippet = null;
+            IReadOnlyList<SearchMatchSpan> spans = [];
+            if (match.Value.FieldName != "Name")
+            {
+                (snippet, spans) = SearchSnippetBuilder.Build(match.Value.Text!, tokens, match.Value.MatchStrength);
             }
 
             results.Add(new SearchMatchCandidate(
                 EntityType,
                 location.Id,
                 location.Name,
-                "Name",
-                matchStrength.Value,
-                SearchFieldWeight.Primary,
-                location.Description));
+                match.Value.FieldName,
+                match.Value.SubResourceName,
+                match.Value.MatchStrength,
+                match.Value.Weight,
+                location.Description,
+                snippet,
+                spans));
         }
 
         return results;

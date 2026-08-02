@@ -110,4 +110,56 @@ public static partial class SearchTokenizer
 
     [GeneratedRegex(@"[\s-]+")]
     private static partial Regex TokenSplitRegex();
+
+    /// <summary>
+    /// One candidate field a provider is willing to match a query against for a single entity —
+    /// see docs/search/architecture.md Section 3.
+    /// </summary>
+    /// <param name="FieldName">
+    /// "Name", "Description", "Concept", "Hook", "Overview", "Notes" (entity-level), or "{Kind}.{Field}"
+    /// (sub-resource, Phase 4b).
+    /// </param>
+    /// <param name="Text">The field's raw text. Null/empty fields are skipped by <see cref="PickBestMatch"/>.</param>
+    /// <param name="Weight">Primary (entity Name), Secondary (sub-resource Name), or Tertiary (long text).</param>
+    /// <param name="AllowSubstringTier">
+    /// True only for Name-style fields (entity Name, sub-resource Name) — never for long free text, per
+    /// docs/search/architecture.md Section 2.
+    /// </param>
+    /// <param name="SubResourceName">
+    /// The sub-resource instance's own display name, when this field belongs to a sub-resource
+    /// (Phase 4b); null for entity-level fields.
+    /// </param>
+    public readonly record struct CandidateField(
+        string FieldName, string? Text, SearchFieldWeight Weight, bool AllowSubstringTier, string? SubResourceName = null);
+
+    /// <summary>
+    /// Evaluates every <see cref="CandidateField"/> for a single entity against the query and returns the
+    /// single highest-scoring one (Score = MatchStrength * Weight), or null if none match. Ties are broken
+    /// by <paramref name="fields"/> order (first-listed wins) — deterministic since providers always build
+    /// the list in a fixed order. See docs/search/architecture.md Section 3.
+    /// </summary>
+    public static (string FieldName, string? SubResourceName, int MatchStrength, SearchFieldWeight Weight, string? Text)?
+        PickBestMatch(IReadOnlyList<CandidateField> fields, IReadOnlyList<string> tokens, string rawQuery)
+    {
+        (string FieldName, string? SubResourceName, int MatchStrength, SearchFieldWeight Weight, string? Text)? best = null;
+        var bestScore = int.MinValue;
+
+        foreach (var field in fields)
+        {
+            var matchStrength = ComputeMatchStrength(field.Text, tokens, rawQuery, field.AllowSubstringTier);
+            if (matchStrength is null)
+            {
+                continue;
+            }
+
+            var score = matchStrength.Value * (int)field.Weight;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = (field.FieldName, field.SubResourceName, matchStrength.Value, field.Weight, field.Text);
+            }
+        }
+
+        return best;
+    }
 }

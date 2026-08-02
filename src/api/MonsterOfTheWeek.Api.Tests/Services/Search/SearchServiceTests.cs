@@ -43,8 +43,8 @@ public sealed class SearchServiceTests
     public async Task RankAsync_DedupesToHighestScorePerEntity()
     {
         var entityId = Guid.NewGuid();
-        var weakMatch = new SearchMatchCandidate("Monster", entityId, "Grimtooth", "Name", SearchMatchTier.Substring, SearchFieldWeight.Primary, null);
-        var strongMatch = new SearchMatchCandidate("Monster", entityId, "Grimtooth", "Name", SearchMatchTier.Exact, SearchFieldWeight.Primary, null);
+        var weakMatch = new SearchMatchCandidate("Monster", entityId, "Grimtooth", "Name", null, SearchMatchTier.Substring, SearchFieldWeight.Primary, null, null, []);
+        var strongMatch = new SearchMatchCandidate("Monster", entityId, "Grimtooth", "Name", null, SearchMatchTier.Exact, SearchFieldWeight.Primary, null, null, []);
         var service = new SearchService([
             new FakeSearchProvider("providerA", [weakMatch]),
             new FakeSearchProvider("providerB", [strongMatch]),
@@ -65,8 +65,8 @@ public sealed class SearchServiceTests
 
         var zulu = Candidate("Monster", "Zulu", strength: 4);   // 400, name tiebreak loser
         var alpha = Candidate("Monster", "Alpha", strength: 4); // 400, name tiebreak winner
-        var echoBystander = new SearchMatchCandidate("Bystander", lowId, "Echo", "Name", SearchMatchTier.Exact, SearchFieldWeight.Primary, null); // 400
-        var echoLocation = new SearchMatchCandidate("Location", highId, "Echo", "Name", SearchMatchTier.Exact, SearchFieldWeight.Primary, null);   // 400, same name -> EntityType tiebreak
+        var echoBystander = new SearchMatchCandidate("Bystander", lowId, "Echo", "Name", null, SearchMatchTier.Exact, SearchFieldWeight.Primary, null, null, []); // 400
+        var echoLocation = new SearchMatchCandidate("Location", highId, "Echo", "Name", null, SearchMatchTier.Exact, SearchFieldWeight.Primary, null, null, []);   // 400, same name -> EntityType tiebreak
         var weak = Candidate("Mystery", "Mike", strength: 1); // 100, lowest score
 
         var service = new SearchService([new FakeSearchProvider("all", [zulu, alpha, echoBystander, echoLocation, weak])]);
@@ -145,14 +145,61 @@ public sealed class SearchServiceTests
     }
 
     [Fact]
-    public void ToDetailResponse_SnippetIsAlwaysNull_AndMatchedFieldIsAlwaysName()
+    public void ToDetailResponse_SnippetIsNull_WhenMatchedFieldIsName()
     {
         var candidate = Candidate("Monster", "Grimtooth", strength: 4) with { ExcerptSource = "A description." };
 
         var response = candidate.ToDetailResponse();
 
         Assert.Null(response.Snippet);
+        Assert.Empty(response.MatchSpans);
         Assert.Equal("Name", response.MatchedField);
+    }
+
+    [Fact]
+    public void ToDetailResponse_PassesThroughSnippetAndMatchSpans_WhenMatchedFieldIsNotName()
+    {
+        var spans = new List<SearchMatchSpan> { new(3, 5), new(20, 4) };
+        var candidate = Candidate("Monster", "Grimtooth", strength: SearchMatchTier.BoundaryPrefix) with
+        {
+            MatchedField = "Description",
+            Weight = SearchFieldWeight.Tertiary,
+            Snippet = "…a lurking horror haunts the old orchard…",
+            MatchSpans = spans,
+        };
+
+        var response = candidate.ToDetailResponse();
+
+        Assert.Equal("Description", response.MatchedField);
+        Assert.Equal(candidate.Snippet, response.Snippet);
+        Assert.Equal(
+            spans.Select(s => (s.Start, s.Length)),
+            response.MatchSpans.Select(s => (s.Start, s.Length)));
+    }
+
+    [Fact]
+    public void ToDetailResponse_PassesThroughMatchedSubResourceName()
+    {
+        var candidate = Candidate("Monster", "Grimtooth", strength: 4) with
+        {
+            MatchedField = "Attack.Name",
+            Weight = SearchFieldWeight.Secondary,
+            MatchedSubResourceName = "Fire Breath",
+        };
+
+        var response = candidate.ToDetailResponse();
+
+        Assert.Equal("Fire Breath", response.MatchedSubResourceName);
+    }
+
+    [Fact]
+    public void ToDetailResponse_MatchedSubResourceNameIsNull_ForEntityLevelFields()
+    {
+        var candidate = Candidate("Monster", "Grimtooth", strength: 4);
+
+        var response = candidate.ToDetailResponse();
+
+        Assert.Null(response.MatchedSubResourceName);
     }
 
     [Fact]
@@ -191,7 +238,7 @@ public sealed class SearchServiceTests
     }
 
     private static SearchMatchCandidate Candidate(string entityType, string name, int strength) =>
-        new(entityType, Guid.NewGuid(), name, "Name", strength, SearchFieldWeight.Primary, null);
+        new(entityType, Guid.NewGuid(), name, "Name", null, strength, SearchFieldWeight.Primary, null, null, []);
 
     private sealed class FakeSearchProvider(string entityType, IReadOnlyList<SearchMatchCandidate> results) : ISearchProvider
     {
