@@ -48,6 +48,7 @@
   --color-surface: var(--color-white); /* bg-white (cards, modals, dropdown panels) */
   --color-surface-sunken: var(--color-slate-50); /* bg-slate-50 (shell background, disabled inputs) */
   --color-surface-raised: var(--color-white); /* bg-white (modal/dropdown panel variants) */
+  --color-surface-hover: var(--color-gray-200); /* gray-200 (neutral hover fill, e.g. Cancel button) */
 
   /* Borders */
   --color-border: var(--color-slate-200); /* border-slate-200 (and its imperceptibly-close aliases) */
@@ -115,6 +116,7 @@
   --color-surface: var(--color-white);
   --color-surface-sunken: var(--color-slate-50);
   --color-surface-raised: var(--color-white);
+  --color-surface-hover: var(--color-slate-700); /* slate-700 — dark-theme-palette.md */
 
   --color-border: var(--color-slate-200);
   --color-border-strong: #c9d4e6;

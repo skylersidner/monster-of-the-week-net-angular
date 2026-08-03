@@ -2,7 +2,7 @@
   @if (selectedTags().length > 0) {
     <div class="flex flex-wrap gap-[0.35rem]">
       @for (tag of selectedTags(); track tag.id) {
-        <span class="bg-indigo-50 border border-indigo-200 rounded-full text-indigo-700 text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
+        <span class="bg-weapon-chip border border-weapon-chip-line rounded-full text-on-weapon-chip text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
       }
     </div>
   }
