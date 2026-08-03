@@ -1,8 +1,8 @@
-<header class="tracker bg-white shadow-sm shrink-0 min-h-[80px] py-3 px-8">
+<header class="tracker bg-surface shadow-sm shrink-0 min-h-[80px] py-3 px-8">
   @for (phase of store.phases; track phase.index) {
     @if (phase.index > 0) {
       <div
-        class="tracker-line bg-slate-300 max-w-[80px] min-w-6"
+        class="tracker-line bg-border-strong max-w-[80px] min-w-6"
         [class.complete]="store.phaseComplete()[phase.index - 1]"
         [style.grid-column]="phase.index * 2">
       </div>
@@ -19,7 +19,7 @@
         @if (store.phaseComplete()[phase.index]) { ✓ } @else { {{ phase.index + 1 }} }
       </button>
 
-      <span class="inline-flex items-center text-slate-500 text-xs gap-[0.35rem] font-semibold">
+      <span class="inline-flex items-center text-muted text-xs gap-[0.35rem] font-semibold">
         <app-mystery-section-icon [kind]="phase.icon" />
         <span>{{ phase.name }}</span>
       </span>

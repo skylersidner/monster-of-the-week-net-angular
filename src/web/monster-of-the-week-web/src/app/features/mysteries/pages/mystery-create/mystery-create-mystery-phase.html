@@ -1,30 +1,30 @@
 @if (store.currentStep() === 0) {
   <form [formGroup]="store.conceptForm">
     <div class="mb-4">
-      <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]" for="name">Mystery Name <span class="text-red-600">*</span></label>
+      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="name">Mystery Name <span class="text-danger">*</span></label>
       <input id="name" type="text" formControlName="name" placeholder="Give your mystery a name"
-        class="bg-white border border-slate-200 rounded-lg text-slate-950 font-[inherit] px-3 py-[0.6rem] w-full focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
+        class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
       @if (store.conceptForm.controls.name.invalid && store.conceptForm.controls.name.touched) {
-        <span class="text-red-600 block text-[0.8rem] mt-1">Name is required</span>
+        <span class="text-danger block text-[0.8rem] mt-1">Name is required</span>
       }
     </div>
     <div class="mb-4">
-      <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]" for="adventureTypeId">Adventure Type <span class="text-red-600">*</span></label>
+      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="adventureTypeId">Adventure Type <span class="text-danger">*</span></label>
       <select id="adventureTypeId" formControlName="adventureTypeId"
-        class="bg-white border border-slate-200 rounded-lg text-slate-950 font-[inherit] px-3 py-[0.6rem] w-full focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+        class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus">
         <option value="" disabled>Select an adventure type...</option>
         @for (type of store.adventureTypes(); track type.id) {
           <option [value]="type.id">{{ type.name }} — {{ type.description }}</option>
         }
       </select>
       @if (store.conceptForm.controls.adventureTypeId.invalid && store.conceptForm.controls.adventureTypeId.touched) {
-        <span class="text-red-600 block text-[0.8rem] mt-1">Adventure type is required</span>
+        <span class="text-danger block text-[0.8rem] mt-1">Adventure type is required</span>
       }
     </div>
     <div class="mb-4">
-      <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]" for="concept">Concept</label>
+      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="concept">Concept</label>
       <textarea id="concept" formControlName="concept" rows="4" placeholder="The one-sentence truth of the threat..."
-        class="bg-white border border-slate-200 rounded-lg text-slate-950 font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea>
+        class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-accent focus:outline-none focus:ring-focus"></textarea>
     </div>
   </form>
 }
@@ -32,9 +32,9 @@
 @if (store.currentStep() === 1) {
   <form [formGroup]="store.hookForm">
     <div class="mb-4">
-      <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]" for="hook">Hook</label>
+      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="hook">Hook</label>
       <textarea id="hook" formControlName="hook" rows="6" placeholder="How do the hunters first encounter this mystery?"
-        class="bg-white border border-slate-200 rounded-lg text-slate-950 font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea>
+        class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-accent focus:outline-none focus:ring-focus"></textarea>
     </div>
   </form>
 }
@@ -42,9 +42,9 @@
 @if (store.currentStep() === 2) {
   <form [formGroup]="store.overviewForm">
     <div class="mb-4">
-      <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]" for="overview">Overview</label>
+      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="overview">Overview</label>
       <textarea id="overview" formControlName="overview" rows="8" placeholder="What's really going on? Tell the full story that the hunters will uncover."
-        class="bg-white border border-slate-200 rounded-lg text-slate-950 font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea>
+        class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-accent focus:outline-none focus:ring-focus"></textarea>
     </div>
   </form>
 }
@@ -54,14 +54,14 @@
     <div class="countdown-grid grid gap-3">
       @for (stage of countdownStages; track stage.key) {
         <div class="mb-4">
-          <label [attr.for]="stage.key" class="text-slate-950 block text-sm font-semibold mb-[0.35rem] mb-[0.45rem]">
+          <label [attr.for]="stage.key" class="text-primary block text-sm font-semibold mb-[0.35rem] mb-[0.45rem]">
             <span class="inline-flex items-center gap-[0.4rem]">
               <app-mystery-section-icon [kind]="stage.icon" />
               <span>{{ stage.label }}</span>
             </span>
           </label>
           <input [id]="stage.key" type="text" [formControlName]="stage.key" [placeholder]="stage.placeholder"
-            class="bg-white border border-slate-200 rounded-lg text-slate-950 font-[inherit] px-3 py-[0.6rem] w-full focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
+            class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
         </div>
       }
     </div>

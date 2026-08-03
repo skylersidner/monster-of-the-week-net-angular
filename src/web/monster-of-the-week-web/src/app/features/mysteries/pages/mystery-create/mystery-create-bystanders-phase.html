@@ -1,30 +1,30 @@
 <div class="flex flex-col gap-[0.4rem] mb-3">
   @for (bystander of store.bystanders(); track $index) {
-    <div class="flex items-center bg-slate-50 border border-slate-200 rounded-md text-[0.9rem] justify-between px-3 py-2">
+    <div class="flex items-center bg-surface-sunken border border-default rounded-md text-[0.9rem] justify-between px-3 py-2">
       <span>{{ bystander.name }}</span>
-      <button type="button" class="bg-transparent border-0 text-red-600 cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeBystander($index)">×</button>
+      <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeBystander($index)">×</button>
     </div>
   }
   @if (store.bystanders().length === 0) {
-    <p class="text-slate-400 text-sm italic">No bystanders added yet.</p>
+    <p class="text-muted text-sm italic">No bystanders added yet.</p>
   }
 </div>
 
-<form [formGroup]="store.addBystanderForm" class="border border-[#e5e9f2] rounded-lg mt-4 p-4">
+<form [formGroup]="store.addBystanderForm" class="border border-default rounded-lg mt-4 p-4">
   <div class="mb-4">
-    <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]">Bystander Name <span class="text-red-600">*</span></label>
+    <label class="text-primary block text-sm font-semibold mb-[0.35rem]">Bystander Name <span class="text-danger">*</span></label>
     <input formControlName="name" placeholder="The sheriff, the missing teen, the witness..."
-      class="bg-white border border-slate-200 rounded-lg text-slate-950 font-[inherit] px-3 py-[0.6rem] w-full focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
+      class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
   </div>
   <div class="mb-4">
-    <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]">Description</label>
+    <label class="text-primary block text-sm font-semibold mb-[0.35rem]">Description</label>
     <textarea formControlName="description" rows="3"
-      class="bg-white border border-slate-200 rounded-lg text-slate-950 font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"></textarea>
+      class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-accent focus:outline-none focus:ring-focus"></textarea>
   </div>
   <div class="mb-4">
-    <label class="text-slate-950 block text-sm font-semibold mb-[0.35rem]">Type <span class="text-red-600">*</span></label>
+    <label class="text-primary block text-sm font-semibold mb-[0.35rem]">Type <span class="text-danger">*</span></label>
     <app-custom-select formControlName="bystanderTypeId" [options]="store.bystanderTypes()" placeholder="Select a type..."></app-custom-select>
   </div>
-  <button type="button" class="bg-transparent border border-indigo-600 rounded-md text-indigo-600 cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-indigo-50 transition-colors" (click)="store.addBystander()">+ Add Bystander</button>
+  <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addBystander()">+ Add Bystander</button>
 </form>
 

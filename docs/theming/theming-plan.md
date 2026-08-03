@@ -227,6 +227,7 @@ Derived by scanning every recurring color usage documented in `docs/tailwind-mig
 | `--color-danger-subtle` | Low-emphasis danger background (delete-hover chip, error banner) | `red-100` / `red-50` |
 | `--color-on-danger` | Text/icon color placed on a danger-filled surface (e.g. the confirm-delete modal's delete button) | `white` |
 | `--color-success` | Positive/complete state (wizard complete bubble, success toast) | `emerald-500` / `#1b6f2a` |
+| `--color-on-success` | Text/icon color placed on a success-filled surface (e.g. the wizard's complete-phase bubble) | `white` |
 | `--color-sidebar-surface` | Sidebar/mobile-nav background (a distinct colored surface, not the page surface) | `indigo-700` |
 | `--color-sidebar-text` | Sidebar link/label text | `blue-100` |
 | `--color-sidebar-hover` | Sidebar link hover background | `blue-800` @ 40% |
@@ -235,8 +236,8 @@ Derived by scanning every recurring color usage documented in `docs/tailwind-mig
 | `--color-on-toast-success` | Text/icon color placed on the success toast fill | `white` |
 | `--color-toast-error` | Notification toast fill, error kind (same inline-style bypass) | `#a10808` |
 | `--color-on-toast-error` | Text/icon color placed on the error toast fill | `white` |
-| `--color-badge-mystery` | Mystery type badge fill (if/when mysteries get a type badge) | n/a today — reserved for consistency with the other badges |
-| `--color-on-badge-mystery` | Text placed on the mystery type badge fill | n/a today — reserved for consistency with the other badges |
+| `--color-badge-mystery` | Mystery/adventure-type badge fill (`mysteries-list.html`, `mystery-detail.html`, `mystery-create-dossier.html`, and the global search results domain-badge map in `search-results.ts`) | `amber-100` |
+| `--color-on-badge-mystery` | Text placed on the mystery/adventure-type badge fill | `amber-700` |
 | `--color-badge-monster` | Monster type badge fill | `red-100` |
 | `--color-on-badge-monster` | Text placed on the monster type badge fill | `red-700` |
 | `--color-badge-minion` | Minion type badge fill | `#fde8d8` |
@@ -250,6 +251,8 @@ Derived by scanning every recurring color usage documented in `docs/tailwind-mig
 | `--color-weapon-chip` | Weapon tag chip fill (list, detail, wizard) | `indigo-50` |
 | `--color-on-weapon-chip` | Text placed on the weapon tag chip fill | `indigo-700` |
 | `--color-weapon-chip-line` | Weapon tag chip border — deliberately outside the `on-*` pairing (see naming note below the table) | `indigo-200` |
+
+**Added 2026-08-03 — `--color-on-success` (resolves a Phase 6 catalogue gap).** Luigi's Phase 6 review (`.squad/decisions/inbox/luigi-theming-phase6-mystery-wizard.md`, item 1) found that `--color-success` was the one fill role in the Catalogue with no `on-*` partner. He shipped `mystery-create.scss`'s complete-phase bubble text with an explicitly-flagged placeholder (`text-on-accent`) rather than invent a value unilaterally. Skyler's call: add `--color-on-success` as its own real token, not left to diverge later — same values as `--color-on-accent` (light `white`, dark `slate-900`), since that's what the placeholder was already numerically borrowing. **Category A, confirmed** — same reasoning as `--color-surface-hover` below: the name carries no utility-family word, so it stays in the single `@theme static` block and lets Tailwind auto-generate `text-on-success`/etc. Placeholder swap-over (`text-on-accent` → `text-on-success` in `mystery-create.scss`) is Luigi's to do next; not part of this catalogue update.
 
 **Added 2026-08-02 — `--color-surface-hover` (neutral hover-state fill).** Luigi's Phase 2 review (`.squad/decisions/inbox/luigi-theming-phase2-shared-components.md`, item 1) found a genuine Catalogue gap: no token existed for a neutral, non-accent, non-danger hover fill. The confirm-delete modal's Cancel button (base `bg-gray-100`, hover `bg-gray-200`) was the first consumer, and the identical `hover:bg-gray-100`-shaped literal recurs in at least five more places already scheduled for later phases: `minion-detail.scss` (Phase 3); `monsters-list.scss`, `monster-detail.scss` (Phases 4/5); `locations-list.html`, `bystanders-list.html` (Phase 4, row action buttons); `search-results.html` (Phase 4, pager buttons). Skyler's call: add `--color-surface-hover` for the hover shade only — the `gray-100` base stays exactly where it already is, on the existing `--color-surface-sunken` token; nothing about that token changes.
 
@@ -265,7 +268,9 @@ Derived by scanning every recurring color usage documented in `docs/tailwind-mig
 
 **Not included on purpose:** raw hex values, oklch values, or a full light/dark mapping table. Every `@theme` block in the Phase Plan below ships with the token's *current light value* as its literal fill (so the app is pixel-identical pre- and post-Phase-0), plus a comment marking it `/* dark: TBD — Rosalina */`.
 
-**Update (2026-08-02):** the dark fills for every token above are now defined — see `docs/theming/dark-theme-palette.md`. The two catalogue gaps that document flagged have been folded into the table above as `--color-on-danger` (light `white`, dark `slate-900`, mirroring `--color-on-accent`) and `--color-badge-archetype`/`--color-on-badge-archetype` (light `purple-100`/`purple-700`, unchanged; dark `purple-950`/`purple-300`, per Rosalina's proposed values). The reserved mystery-badge token (`--color-badge-mystery`/`--color-on-badge-mystery`) stays exactly as originally listed — n/a today, no value committed. Rosalina's speculative `teal-100`/`teal-800` (light) / `teal-950`/`teal-300` (dark) proposal for it in her doc is explicitly a placeholder pending a feature that doesn't exist yet; this plan is not adopting it as a real value and no phase below references it.
+**Update (2026-08-02):** the dark fills for every token above are now defined — see `docs/theming/dark-theme-palette.md`. The two catalogue gaps that document flagged have been folded into the table above as `--color-on-danger` (light `white`, dark `slate-900`, mirroring `--color-on-accent`) and `--color-badge-archetype`/`--color-on-badge-archetype` (light `purple-100`/`purple-700`, unchanged; dark `purple-950`/`purple-300`, per Rosalina's proposed values). At the time of this update the mystery-badge token was still believed unbuilt; that turned out to be stale — see the resolution immediately below.
+
+**Resolved 2026-08-03 — `--color-badge-mystery`/`--color-on-badge-mystery`.** The "if/when mysteries get a type badge" framing above was already out of date: `mysteries-list.html`, `mystery-detail.html`, and `mystery-create-dossier.html` all render `mystery.adventureType.name` today via a literal `bg-amber-100 text-amber-700` chip, and `search-results.ts`'s `DOMAIN_BADGE_CLASSES` map carries the identical literal alongside the tokenized Monster/Minion/Bystander/Location badges — i.e. this badge already ships in production and already appears side-by-side with every other domain badge on the global search results page, not just speculatively. Rosalina re-evaluated her earlier speculative `teal-100`/`teal-800` (light) / `teal-950`/`teal-300` (dark) proposal against this fact and rejected it in favor of **keeping amber** — the Badges section's own hue-preservation philosophy ("keep each domain's existing hue family... rather than picking new hues" — see `dark-theme-palette.md`) argues for preserving an already-shipped identity, not replacing it with an unused speculative hue chosen for a feature that, at the time, wasn't known to exist yet. Amber remains distinct from every other claimed hue (red/orange/blue/green/indigo/purple) — the one adjacency worth naming, amber vs. minion's orange, was checked directly at the values both badges actually ship (see `dark-theme-palette.md`'s Badges section) and holds up perceptibly distinct in both themes. Values: light `amber-100`/`amber-700` (unchanged — matches the literal already in every template above), dark `amber-950`/`amber-300`. Table above updated accordingly; `search-results.ts`'s literal (and its now-stale "reserved and unused" doc comment) is Luigi's to re-point onto `bg-badge-mystery text-on-badge-mystery` the next time that file is touched — not done as part of this value-only update.
 
 ### Resolved (2026-08-02) — token naming vs. Tailwind-generated utility classes
 
@@ -497,6 +502,8 @@ Read this before adding any token to the Catalogue or `styles.css`, in either a 
 - Dossier section `fadeSlideIn` animation still fires correctly (unrelated to color, but worth re-confirming nothing broke it).
 - Weapon-tag chips and countdown grid repaint correctly inside the wizard.
 - Complete a full wizard flow end-to-end in dark mode and confirm the mystery is created correctly (functional regression check, not just visual).
+
+**Resolved 2026-08-03:** the complete-phase bubble's text color gap (no `--color-on-success` token existed when Luigi shipped this phase) is closed — see the Token Catalogue above. `mystery-create.scss` still references the placeholder `text-on-accent`; swapping it to `text-on-success` is Luigi's next edit, not yet done as of this note.
 
 ---
 

@@ -113,3 +113,10 @@
 - Generalized Luigi's Phase 4 `monsters-list.scss` find (a duplicate, dead `.action-btn:hover:not(:disabled)` rule silently winning cascade order over the token-repointed rule) into an explicit Phase 7 sweep instruction: examine every component `.scss` touched across Phases 1-6 (and any untouched ones) for genuinely dead/unused legacy selectors, not just literal-color classes or `@reference` gaps.
 - Worth remembering as a category distinct from "unused token class" checks: dead CSS still compiles and emits — it's simply never matched by any current template — so it's invisible both to "does this class emit" tooling and to a straggler grep that only looks for classes that *are* referenced. The danger is specifically cascade collision (same/higher specificity, later in source order), not just bloat, and it stays invisible until a value actually changes (here: dark mode landing).
 - Docs: `docs/theming/theming-plan.md` (Phase 7, item 1).
+
+### Theming Plan — `--color-on-success` Added (Luigi's Phase 6 Gap Closed, 2026-08-03)
+
+- Luigi's Phase 6 review found the one fill role in the Catalogue with no `on-*` partner: `--color-success` (wizard complete-phase bubble). He shipped a flagged placeholder (`text-on-accent`) rather than invent a value — numerically correct in both themes today (light `white`, dark `slate-900`) since Rosalina's `on-accent` value already matches what an `on-success` token would need under her own lighten-and-flip construction, but semantically borrowing a different token's role.
+- Skyler's call: formalize it now as its own real token with those same values, not left to diverge later. Confirmed Category A (no utility-family word in `on-success`) before adding — same check as `--color-surface-hover`.
+- Placeholder swap (`text-on-accent` → `text-on-success` in `mystery-create.scss`) is Luigi's next edit, not done here — this task was catalogue-only.
+- Docs: `docs/theming/theming-plan.md` (Token Catalogue + new paragraph, Phase 6 resolution note), `docs/theming/dark-theme-palette.md` (Token Value Table).

@@ -37,11 +37,6 @@
    * Phase 0: every value below equals the current literal Tailwind color it replaces, so
    * the app is pixel-identical until Phases 1-6 re-point templates onto these tokens and
    * Phase 7 swaps in Rosalina's real dark fills (docs/theming/dark-theme-palette.md).
-   * The `--color-badge-mystery`/`--color-on-badge-mystery` reserved pair is intentionally
-   * NOT declared here yet — no mystery type badge exists today, so there is no current
-   * literal value to preserve, and the plan explicitly treats Rosalina's proposed teal
-   * values as speculative, not adopted (see theming-plan.md's Token Catalogue "Update"
-   * note). Add it once a real feature needs it.
    */
 
   /* Surfaces */
@@ -74,6 +69,7 @@
 
   /* Positive/complete state */
   --color-success: var(--color-emerald-500); /* emerald-500 / #1b6f2a */
+  --color-on-success: var(--color-white); /* same values as --color-on-accent */
 
   /* Sidebar / mobile nav */
   --color-sidebar-surface: var(--color-indigo-700); /* indigo-700 */
@@ -98,6 +94,8 @@
   --color-on-badge-location: var(--color-green-900);
   --color-badge-archetype: var(--color-purple-100); /* monsters-list.html / monster-detail.html */
   --color-on-badge-archetype: var(--color-purple-700);
+  --color-badge-mystery: var(--color-amber-100); /* mysteries-list.html / mystery-detail.html / mystery-create-dossier.html / search-results.ts */
+  --color-on-badge-mystery: var(--color-amber-700);
 
   /* Weapon tag chip */
   --color-weapon-chip: var(--color-indigo-50);
@@ -137,6 +135,7 @@
   --color-on-danger: var(--color-white);
 
   --color-success: var(--color-emerald-500);
+  --color-on-success: var(--color-slate-900); /* dark-theme-palette.md — same values as --color-on-accent */
 
   --color-sidebar-surface: var(--color-indigo-700);
   --color-sidebar-text: var(--color-blue-100);
@@ -158,6 +157,8 @@
   --color-on-badge-location: var(--color-green-900);
   --color-badge-archetype: var(--color-purple-100);
   --color-on-badge-archetype: var(--color-purple-700);
+  --color-badge-mystery: var(--color-amber-950); /* dark-theme-palette.md */
+  --color-on-badge-mystery: var(--color-amber-300);
 
   --color-weapon-chip: var(--color-indigo-50);
   --color-on-weapon-chip: var(--color-indigo-700);
