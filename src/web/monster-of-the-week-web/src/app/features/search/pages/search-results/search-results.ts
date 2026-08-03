@@ -65,18 +65,26 @@ const DETAIL_ROUTE_SEGMENT: Readonly<Record<string, string>> = {
 };
 
 /**
- * One distinct `bg-{color}-100 text-{color}-700`-family pairing per domain, reused from
- * existing per-domain badge colors already present elsewhere in the app where one exists
- * (mystery adventure-type badge, monster type badge, location type badge, bystander type
- * badge); minion picks a nearby unused orange shade since minions-list uses a bespoke hex
- * rather than a plain Tailwind color class.
+ * One badge-token pairing per domain (docs/theming/theming-plan.md, Token Catalogue —
+ * Phase 4 is this pattern's first real consumer, shared verbatim with each domain's own
+ * list page). `Monster`/`Minion`/`Location`/`Bystander` now use the same
+ * `--color-badge-{domain}`/`--color-on-badge-{domain}` tokens as `monsters-list.html`,
+ * `minions-list.html`, `locations-list.html`, `bystanders-list.html` — this also converges
+ * the Minion badge here (previously a bespoke `orange-100/orange-800`, chosen because no
+ * shared minion badge color existed yet — see Luigi's Phase 4c note) onto the exact same
+ * fill every other minion badge in the app now uses.
+ *
+ * `Mystery` stays a plain literal (`bg-amber-100 text-amber-700`), not a token: the
+ * `--color-badge-mystery`/`--color-on-badge-mystery` pair is deliberately reserved and
+ * unused (no mystery type badge exists as a real feature yet) — see the Token Catalogue's
+ * "Update" note and Phase 4's explicit instruction not to invent a value for it.
  */
 const DOMAIN_BADGE_CLASSES: Readonly<Record<string, string>> = {
   Mystery: 'bg-amber-100 text-amber-700',
-  Monster: 'bg-red-100 text-red-700',
-  Minion: 'bg-orange-100 text-orange-800',
-  Location: 'bg-green-100 text-green-900',
-  Bystander: 'bg-blue-100 text-blue-800',
+  Monster: 'bg-badge-monster text-on-badge-monster',
+  Minion: 'bg-badge-minion text-on-badge-minion',
+  Location: 'bg-badge-location text-on-badge-location',
+  Bystander: 'bg-badge-bystander text-on-badge-bystander',
 };
 
 @Component({

@@ -12,12 +12,12 @@
   } @else {
     <ul class="grid gap-4 list-none p-0">
       @for (monster of monsters(); track monster.id) {
-        <li class="flex items-center bg-white border border-[#e5e9f2] rounded-lg gap-4 justify-between p-4">
+        <li class="flex items-center bg-surface border border-default rounded-lg gap-4 justify-between p-4">
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-baseline gap-2 mb-1">
               <a class="font-semibold" [routerLink]="['/monsters', monster.id]">{{ monster.name }}</a>
-              <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-red-100 text-red-700">{{ monster.monsterType.name }}: {{ monster.monsterType.motivation }}</span>
-              <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-purple-100 text-purple-700">{{ monster.monsterArchetype.name }}: {{ monster.monsterArchetype.description }}</span>
+              <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-monster text-on-badge-monster">{{ monster.monsterType.name }}: {{ monster.monsterType.motivation }}</span>
+              <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-archetype text-on-badge-archetype">{{ monster.monsterArchetype.name }}: {{ monster.monsterArchetype.description }}</span>
             </div>
             <p class="my-1">{{ monster.description || 'No description provided' }}</p>
             <small>
@@ -29,7 +29,7 @@
           <div class="flex items-center shrink-0 gap-1">
             <button
               type="button"
-              class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-gray-500 cursor-pointer justify-center p-[0.375rem] transition-colors"
+              class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] transition-colors"
               title="Delete monster"
               [disabled]="isLoadingMinions()"
               (click)="requestDelete(monster.id, monster.name)"
