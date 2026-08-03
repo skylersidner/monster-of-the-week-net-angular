@@ -1,14 +1,20 @@
-@reference "tailwindcss";
+/*
+ * Must reference this app's own stylesheet (via the `#styles.css` Node subpath-import
+ * alias declared in package.json), NOT bare "tailwindcss" — the `@apply` lines below
+ * use semantic token utilities (`bg-surface-hover`, `bg-danger-subtle`, ...) that only
+ * exist in src/styles.css. See docs/theming/theming-plan.md, Decision B addendum.
+ */
+@reference "#styles.css";
 
+/* Compound state selectors — cannot be expressed as inline Tailwind utilities */
 .action-btn:hover:not(:disabled) {
-  @apply bg-gray-100;
+  @apply bg-surface-hover;
 }
 
 .action-btn--delete:hover:not(:disabled) {
-  @apply bg-red-100 text-red-600;
+  @apply bg-danger-subtle text-danger;
 }
 
 .action-btn:disabled {
   @apply cursor-not-allowed opacity-40;
 }
-

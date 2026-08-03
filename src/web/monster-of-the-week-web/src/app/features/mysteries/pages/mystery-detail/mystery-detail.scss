@@ -1,4 +1,12 @@
-@reference "tailwindcss";
+/*
+ * Must reference this app's own stylesheet (via the `#styles.css` Node subpath-import
+ * alias declared in package.json), NOT bare "tailwindcss" — see
+ * docs/theming/theming-plan.md, Decision B addendum / Phase 5. This file carries no
+ * `@apply` today (only two custom-property declarations), so the directive is inert
+ * here; it is aligned with every other component stylesheet so that adding a
+ * token-backed `@apply` later doesn't silently fail the build.
+ */
+@reference "#styles.css";
 
 .heading-with-icon {
   --mystery-section-icon-size: 2rem;

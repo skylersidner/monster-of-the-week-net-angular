@@ -1,48 +1,48 @@
-<article class="bg-white border border-[#e5e9f2] rounded-lg p-4 max-w-[36rem]">
+<article class="bg-surface border border-default rounded-lg p-4 max-w-[36rem]">
   <form class="grid gap-[0.75rem]" [formGroup]="form" (ngSubmit)="saveWeaponTag()">
     <label class="grid font-medium gap-[0.3rem]">
       Name
-      <input type="text" class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-[inherit]" formControlName="name" />
+      <input type="text" class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus font-[inherit]" formControlName="name" />
     </label>
     @if (shouldShowNameValidationError()) {
-      <p class="text-[#a10808] text-[0.85rem] -mt-[0.35rem]">Name must be at least 3 characters.</p>
+      <p class="text-danger text-[0.85rem] -mt-[0.35rem]">Name must be at least 3 characters.</p>
     }
 
     <label class="grid font-medium gap-[0.3rem]">
       Description
-      <textarea class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-[inherit]" formControlName="description" rows="12"></textarea>
+      <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus font-[inherit]" formControlName="description" rows="12"></textarea>
     </label>
     @if (shouldShowDescriptionValidationError()) {
-      <p class="text-[#a10808] text-[0.85rem] -mt-[0.35rem]">Description must be at least 10 characters.</p>
+      <p class="text-danger text-[0.85rem] -mt-[0.35rem]">Description must be at least 10 characters.</p>
     }
 
-    <button type="submit" class="bg-[#1d3557] border-0 rounded-[0.35rem] text-white cursor-pointer font-[inherit] px-[0.85rem] py-2 w-fit disabled:cursor-not-allowed disabled:opacity-70" [disabled]="!canSave()">
+    <button type="submit" class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer font-[inherit] px-[0.85rem] py-2 w-fit disabled:cursor-not-allowed disabled:opacity-70" [disabled]="!canSave()">
       {{ isSaving() ? 'Saving...' : 'Save' }}
     </button>
   </form>
 </article>
 
-<article class="bg-white border border-[#e5e9f2] rounded-lg p-4 mt-4">
+<article class="bg-surface border border-default rounded-lg p-4 mt-4">
   <h2 class="m-0 mb-3">Current Records</h2>
   @if (isLoadingWeaponTags()) {
-    <p class="text-slate-500 m-0">Loading records...</p>
+    <p class="text-muted m-0">Loading records...</p>
   } @else if (weaponTagsLoadError()) {
-    <p class="text-[#a10808] m-0">{{ weaponTagsLoadError() }}</p>
+    <p class="text-danger m-0">{{ weaponTagsLoadError() }}</p>
   } @else if (weaponTags().length === 0) {
-    <p class="text-slate-500 m-0">No records found.</p>
+    <p class="text-muted m-0">No records found.</p>
   } @else {
     <table class="records-table border-collapse w-full">
       <thead>
         <tr>
-          <th scope="col" class="border-b border-[#dbe3ef] px-[0.65rem] py-[0.55rem] text-left align-top bg-[#e8eefb] text-[#1e293b] font-bold">Name</th>
-          <th scope="col" class="border-b border-[#dbe3ef] px-[0.65rem] py-[0.55rem] text-left align-top bg-[#e8eefb] text-[#1e293b] font-bold">Description</th>
+          <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Name</th>
+          <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Description</th>
         </tr>
       </thead>
       <tbody>
         @for (record of weaponTags(); track record.id) {
           <tr>
-            <td class="border-b border-[#dbe3ef] px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.name }}</td>
-            <td class="border-b border-[#dbe3ef] px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.description }}</td>
+            <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.name }}</td>
+            <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.description }}</td>
           </tr>
         }
       </tbody>
