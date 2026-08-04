@@ -1,7 +1,23 @@
-@reference "tailwindcss";
+/*
+ * Must reference this app's own stylesheet (via the `#styles.css` Node subpath-import
+ * alias declared in package.json), NOT bare "tailwindcss" — see
+ * docs/theming/theming-plan.md, Decision B addendum / Phase 5. This file carries no
+ * `@apply` today (the rules below read the tokens directly via `var()`), so the
+ * directive is inert here; it is aligned with every other component stylesheet so that
+ * adding a token-backed `@apply` later doesn't silently fail the build.
+ */
+@reference "#styles.css";
 
-.records-table tbody tr:nth-child(odd) > td  { background: #fff !important; }
-.records-table tbody tr:nth-child(even) > td { background: #dbeafe !important; }
-
-/* intentional remnant — nth-child with !important cannot be expressed as Tailwind utilities */
-
+/*
+ * Intentional remnant — `nth-child` striping with `!important` cannot be expressed as
+ * Tailwind utilities. Token-driven so the stripe survives a theme switch (theming-plan.md,
+ * Phase 5): `--color-accent-subtle` (not `--color-surface-sunken`) for the even rows, since
+ * surface/surface-sunken sit ~1.13:1 apart in dark mode and would collapse the stripe to
+ * imperceptible, while accent-subtle is a translucent tint that stays visible over any
+ * surface — and is the closer match to the original pale-blue (#dbeafe) light-mode intent.
+ * Both rules read tokens via `var()` rather than a utility class, which is exactly why
+ * `styles.css` must declare `@theme static` (otherwise these tokens are tree-shaken out of
+ * `:root` and the rules silently render unstyled in light mode).
+ */
+.records-table tbody tr:nth-child(odd) > td  { background: var(--color-surface) !important; }
+.records-table tbody tr:nth-child(even) > td { background: var(--color-accent-subtle) !important; }

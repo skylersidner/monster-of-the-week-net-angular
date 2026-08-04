@@ -1,6 +1,26 @@
 @import "tailwindcss";
 
-@theme {
+/*
+ * Theming (docs/theming/theming-plan.md, Phase 0): class-based dark variant scoped to
+ * <html> (Decision A/C) — this is the runtime mechanism, `prefers-color-scheme` is only
+ * ever consulted by ThemeService as the seed value for an unset preference.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * `static` (rather than a bare `@theme`) is load-bearing, not stylistic. By default
+ * Tailwind tree-shakes `@theme` custom properties out of `:root`, emitting only those
+ * a *used* utility (or a used `@utility` body) references. The `.dark` block below is
+ * plain CSS, so it is emitted verbatim, in full, always. Without `static` those two
+ * behaviours disagree and a token can end up DEFINED IN DARK MODE BUT UNDEFINED IN
+ * LIGHT MODE — harmless for Tailwind-generated utilities (which are the reason a token
+ * is emitted in the first place), but silently broken for any hand-written CSS that
+ * reads a token directly via `var(--color-...)`, e.g. the admin table row-striping
+ * rules planned for Phase 5. `static` keeps `:root` and `.dark` symmetric: every token
+ * is always defined in both scopes. Verified empirically — see
+ * `.squad/decisions/inbox/luigi-theming-token-utility-mechanism.md`.
+ */
+@theme static {
   /* Pin brand color to hex for DevTools clarity (Tailwind v4 defaults to oklch) */
   --color-indigo-700: #4338ca;
 
@@ -11,6 +31,205 @@
   --breakpoint-sm: 540px;   /* was $bp-sm — overrides Tailwind default 640px */
   --breakpoint-xl: 1200px;  /* was $bp-lg — overrides Tailwind default 1280px */
   /* --breakpoint-md is already 768px in Tailwind — no override needed */
+
+  /*
+   * Semantic token catalogue (docs/theming/theming-plan.md, Token Catalogue).
+   * Phase 0: every value below equals the current literal Tailwind color it replaces, so
+   * the app is pixel-identical until Phases 1-6 re-point templates onto these tokens and
+   * Phase 7 swaps in Rosalina's real dark fills (docs/theming/dark-theme-palette.md).
+   */
+
+  /* Surfaces */
+  --color-surface: var(--color-white); /* bg-white (cards, modals, dropdown panels) */
+  --color-surface-sunken: var(--color-slate-50); /* bg-slate-50 (shell background, disabled inputs) */
+  --color-surface-raised: var(--color-white); /* bg-white (modal/dropdown panel variants) */
+  --color-surface-hover: var(--color-gray-200); /* gray-200 (neutral hover fill, e.g. Cancel button) */
+
+  /* Borders */
+  --color-border: var(--color-slate-200); /* border-slate-200 (and its imperceptibly-close aliases) */
+  --color-border-strong: #c9d4e6; /* form input border */
+
+  /* Text */
+  --color-text-primary: var(--color-slate-950); /* text-slate-950 */
+  --color-text-secondary: var(--color-slate-600); /* text-slate-600 / text-gray-700 */
+  --color-text-muted: var(--color-slate-500); /* text-slate-500 / text-gray-500 / text-slate-400 */
+
+  /* Accent (brand/primary action) */
+  --color-accent: var(--color-indigo-600); /* indigo-600 / indigo-700 family */
+  --color-accent-hover: var(--color-indigo-700); /* indigo-700 / indigo-800 */
+  --color-accent-subtle: var(--color-indigo-50); /* indigo-50 */
+  --color-on-accent: var(--color-white);
+  --color-focus-ring: color-mix(in oklab, var(--color-indigo-500) 20%, transparent); /* indigo-500 @ ~20% */
+
+  /* Danger (destructive/error) */
+  --color-danger: var(--color-red-600); /* red-600 / red-800 */
+  --color-danger-hover: var(--color-red-700); /* red-700 */
+  --color-danger-subtle: var(--color-red-100); /* red-100 / red-50 */
+  --color-on-danger: var(--color-white);
+
+  /* Positive/complete state */
+  --color-success: var(--color-emerald-500); /* emerald-500 / #1b6f2a */
+  --color-on-success: var(--color-white); /* same values as --color-on-accent */
+
+  /* Sidebar / mobile nav */
+  --color-sidebar-surface: var(--color-indigo-700); /* indigo-700 */
+  --color-sidebar-text: var(--color-blue-100); /* blue-100 */
+  --color-sidebar-hover: color-mix(in oklab, var(--color-blue-800) 40%, transparent); /* blue-800 @ 40% */
+  --color-sidebar-active: color-mix(in oklab, var(--color-blue-800) 65%, transparent); /* blue-800 @ 65% */
+
+  /* Notification toast (currently bypasses Tailwind via inline [style.background-color]) */
+  --color-toast-success: #1b6f2a;
+  --color-on-toast-success: var(--color-white);
+  --color-toast-error: #a10808;
+  --color-on-toast-error: var(--color-white);
+
+  /* Type badges */
+  --color-badge-monster: var(--color-red-100);
+  --color-on-badge-monster: var(--color-red-700);
+  --color-badge-minion: #fde8d8;
+  --color-on-badge-minion: var(--color-orange-800);
+  --color-badge-bystander: var(--color-blue-100);
+  --color-on-badge-bystander: var(--color-blue-800);
+  --color-badge-location: var(--color-green-100);
+  --color-on-badge-location: var(--color-green-900);
+  --color-badge-archetype: var(--color-purple-100); /* monsters-list.html / monster-detail.html */
+  --color-on-badge-archetype: var(--color-purple-700);
+  --color-badge-mystery: var(--color-amber-100); /* mysteries-list.html / mystery-detail.html / mystery-create-dossier.html / search-results.ts */
+  --color-on-badge-mystery: var(--color-amber-700);
+
+  /* Weapon tag chip */
+  --color-weapon-chip: var(--color-indigo-50);
+  --color-on-weapon-chip: var(--color-indigo-700);
+  --color-weapon-chip-line: var(--color-indigo-200); /* border — deliberately outside the on-* pairing */
+}
+
+/*
+ * Phase 7 palette swap-in (docs/theming/theming-plan.md, Phase 7 / Part 2): every value
+ * below is Rosalina's real dark fill from docs/theming/dark-theme-palette.md's Token
+ * Value Table, replacing the Phase 0 light-value placeholder block. Because every
+ * template from Phase 1 onward only ever references token names (never a literal
+ * palette class), this is a single-file change with no template risk — see Decision B.
+ */
+.dark {
+  --color-surface: var(--color-slate-900); /* #0f172a */
+  --color-surface-sunken: var(--color-slate-950); /* #020617 — darkest of the three; see Philosophy #2 */
+  --color-surface-raised: var(--color-slate-800); /* #1e293b — diverges from --color-surface so modals/dropdowns visibly float */
+  --color-surface-hover: var(--color-slate-700); /* #334155 */
+
+  --color-border: var(--color-slate-700); /* #334155 */
+  --color-border-strong: var(--color-slate-500); /* #64748b */
+
+  --color-text-primary: var(--color-slate-50); /* #f8fafc */
+  --color-text-secondary: var(--color-slate-300); /* #cbd5e1 */
+  --color-text-muted: var(--color-slate-400); /* #94a3b8 */
+
+  --color-accent: var(--color-indigo-400); /* #818cf8 — lighten-and-flip, Philosophy #3 */
+  --color-accent-hover: var(--color-indigo-300); /* #a5b4fc — lighter, not darker; Philosophy #4 */
+  --color-accent-subtle: color-mix(in oklab, var(--color-indigo-400) 16%, transparent); /* indigo-400/16 */
+  --color-on-accent: var(--color-slate-900); /* #0f172a — flipped to a dark neutral */
+  --color-focus-ring: color-mix(in oklab, var(--color-indigo-400) 35%, transparent); /* indigo-400/35 */
+
+  --color-danger: var(--color-red-400); /* #f87171 */
+  --color-danger-hover: var(--color-red-300); /* #fca5a5 — lighter, not darker; Philosophy #4 */
+  --color-danger-subtle: color-mix(in oklab, var(--color-red-500) 15%, transparent); /* red-500/15 */
+  --color-on-danger: var(--color-slate-900); /* #0f172a */
+
+  --color-success: var(--color-emerald-400); /* #34d399 */
+  --color-on-success: var(--color-slate-900); /* dark-theme-palette.md — same values as --color-on-accent */
+
+  --color-sidebar-surface: var(--color-indigo-900); /* #312e81 — deepened, stays brand-colored not neutral */
+  --color-sidebar-text: var(--color-indigo-200); /* #c7d2fe */
+  --color-sidebar-hover: color-mix(in oklab, var(--color-indigo-700) 40%, transparent); /* indigo-700/40 */
+  --color-sidebar-active: color-mix(in oklab, var(--color-indigo-700) 70%, transparent); /* indigo-700/70 */
+
+  --color-toast-success: var(--color-emerald-700); /* #047857 */
+  --color-on-toast-success: var(--color-white); /* stays plain white in both themes */
+  --color-toast-error: var(--color-red-700); /* #b91c1c */
+  --color-on-toast-error: var(--color-white); /* stays plain white in both themes */
+
+  --color-badge-monster: var(--color-red-950); /* #450a0a — see dark-theme-palette.md Badges (hue-preservation) */
+  --color-on-badge-monster: var(--color-red-300); /* #fca5a5 */
+  --color-badge-minion: var(--color-orange-950); /* #431407 */
+  --color-on-badge-minion: var(--color-orange-300); /* #fdba74 */
+  --color-badge-bystander: var(--color-blue-950); /* #172554 */
+  --color-on-badge-bystander: var(--color-blue-300); /* #93c5fd */
+  --color-badge-location: var(--color-green-950); /* #052e16 */
+  --color-on-badge-location: var(--color-green-300); /* #86efac */
+  --color-badge-archetype: var(--color-purple-950); /* dark-theme-palette.md Open Questions #3 / theming-plan.md */
+  --color-on-badge-archetype: var(--color-purple-300);
+  --color-badge-mystery: var(--color-amber-950); /* dark-theme-palette.md */
+  --color-on-badge-mystery: var(--color-amber-300);
+
+  --color-weapon-chip: var(--color-indigo-950); /* #1e1b4b — same deep-tinted-bg + light-tinted-text construction as the badges */
+  --color-on-weapon-chip: var(--color-indigo-300); /* #a5b4fc */
+  --color-weapon-chip-line: var(--color-indigo-800); /* #3730a3 */
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Hand-defined utilities (Tailwind v4 `@utility`) for single-family tokens.
+ * ---------------------------------------------------------------------------
+ * Tailwind generates a color utility's name by concatenating the utility family
+ * prefix (`bg-`, `text-`, `border-`, `ring-`, `fill-`, ...) in front of the ENTIRE
+ * remainder of a `--color-*` custom property name. It never parses or strips a
+ * family word out of that remainder. So a token whose *role* is inherently one
+ * utility family — and whose role name therefore contains that family's word —
+ * stutters under automatic generation:
+ *
+ *   --color-text-primary  ->  text-text-primary   (not text-primary)
+ *   --color-border        ->  border-border       (not border-default)
+ *   --color-sidebar-text  ->  text-sidebar-text   (not text-sidebar)
+ *   --color-focus-ring    ->  ring-focus-ring     (not ring-focus)
+ *
+ * Tailwind's documented answer for "I want to control the exact class name" is the
+ * `@utility` directive: a hand-written utility whose name is fully decoupled from
+ * the custom property it reads. `@utility` classes get the full variant pipeline
+ * automatically (`hover:`, `focus:`, `md:`, `dark:`, ...) exactly like generated
+ * ones — verified empirically against this project's build, see
+ * `.squad/decisions/inbox/luigi-theming-token-utility-mechanism.md`.
+ *
+ * Everything NOT listed below stays in `@theme` above and relies on automatic
+ * generation, because those tokens are named by role only (`accent`, `surface`,
+ * `danger`, `badge-monster`, `on-accent`, ...) and are genuinely multi-family —
+ * `bg-accent` / `text-accent` / `border-accent` all read correctly, no stutter.
+ *
+ * Known trade-off: a static `@utility` does NOT support the slash opacity modifier
+ * (`text-primary/70` emits nothing). Where a partially-transparent variant is
+ * needed, it gets its own named utility with an explicit `color-mix()` (see
+ * `text-sidebar-muted`), rather than a modifier on the base utility.
+ */
+
+/* Text color roles (from --color-text-*) */
+@utility text-primary {
+  color: var(--color-text-primary);
+}
+@utility text-secondary {
+  color: var(--color-text-secondary);
+}
+@utility text-muted {
+  color: var(--color-text-muted);
+}
+
+/* Border color roles (from --color-border, --color-border-strong) */
+@utility border-default {
+  border-color: var(--color-border);
+}
+@utility border-strong {
+  border-color: var(--color-border-strong);
+}
+
+/* Sidebar foreground (from --color-sidebar-text) */
+@utility text-sidebar {
+  color: var(--color-sidebar-text);
+}
+/* Stands in for `text-sidebar/70`, which `@utility` cannot express (see note above). */
+@utility text-sidebar-muted {
+  color: color-mix(in oklab, var(--color-sidebar-text) 70%, transparent);
+}
+
+/* Focus indication (from --color-focus-ring) */
+@utility ring-focus {
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
 }
 
 @layer base {

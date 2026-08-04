@@ -9,6 +9,9 @@
     "test": "ng test"
   },
   "private": true,
+  "imports": {
+    "#styles.css": "./src/styles.css"
+  },
   "packageManager": "npm@11.12.1",
   "engines": {
     "node": ">=26.5.0 <27"

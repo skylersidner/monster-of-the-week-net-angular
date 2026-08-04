@@ -1,4 +1,9 @@
-@reference "tailwindcss";
+/* `#styles.css` (not bare `tailwindcss`) so the `@apply` lines below can reach this
+   app's own semantic token layer — `bg-accent`, `bg-success`, `border-strong`, ... —
+   which a bare `@reference "tailwindcss"` does not load. Depth-independent alias,
+   declared once in package.json's `imports` field. See docs/theming/theming-plan.md,
+   Decision B addendum. */
+@reference "#styles.css";
 
 /* Intentional SCSS remnant — CSS subgrid, compound state selectors, and keyframes
    have no direct Tailwind utility equivalent. All other styles use Tailwind inline. */
@@ -33,28 +38,28 @@ app-mystery-create {
 }
 
 .mystery-create .tracker-line.complete {
-  @apply bg-emerald-500;
+  @apply bg-success;
 }
 
 /* ── Phase bubbles — compound state requires @apply ──────────────────────────── */
 .mystery-create .phase-bubble {
-  @apply inline-flex items-center justify-center bg-transparent border-2 border-slate-300
-         rounded-full text-slate-500 cursor-default text-sm font-bold h-9 w-9;
+  @apply inline-flex items-center justify-center bg-transparent border-2 border-strong
+         rounded-full text-muted cursor-default text-sm font-bold h-9 w-9;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
 
-  &.active   { @apply bg-indigo-600 border-indigo-600 text-white; }
-  &.complete { @apply bg-emerald-500 border-emerald-500 text-white cursor-pointer; }
+  &.active   { @apply bg-accent border-accent text-on-accent; }
+  &.complete { @apply bg-success border-success text-on-success cursor-pointer; }
   &:disabled { @apply cursor-not-allowed opacity-50; }
 }
 
 /* ── Step dots ───────────────────────────────────────────────────────────────── */
 .mystery-create .step-dot {
-  @apply inline-block bg-slate-200 rounded-full transition-colors;
+  @apply inline-block bg-border rounded-full transition-colors;
   height: 7px;
   width: 7px;
 
-  &.active   { @apply bg-indigo-600; }
-  &.complete { @apply bg-emerald-500; }
+  &.active   { @apply bg-accent; }
+  &.complete { @apply bg-success; }
 }
 
 /* ── Dossier entry animation — keyframe name can't be expressed inline ─────── */

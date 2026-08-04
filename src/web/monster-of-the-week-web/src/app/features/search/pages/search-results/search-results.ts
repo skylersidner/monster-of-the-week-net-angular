@@ -65,18 +65,24 @@ const DETAIL_ROUTE_SEGMENT: Readonly<Record<string, string>> = {
 };
 
 /**
- * One distinct `bg-{color}-100 text-{color}-700`-family pairing per domain, reused from
- * existing per-domain badge colors already present elsewhere in the app where one exists
- * (mystery adventure-type badge, monster type badge, location type badge, bystander type
- * badge); minion picks a nearby unused orange shade since minions-list uses a bespoke hex
- * rather than a plain Tailwind color class.
+ * One badge-token pairing per domain (docs/theming/theming-plan.md, Token Catalogue —
+ * Phase 4 is this pattern's first real consumer, shared verbatim with each domain's own
+ * list page). All five domains now use the same `--color-badge-{domain}`/
+ * `--color-on-badge-{domain}` tokens as `monsters-list.html`, `minions-list.html`,
+ * `locations-list.html`, `bystanders-list.html`, `mysteries-list.html` — this also
+ * converges the Minion badge here (previously a bespoke `orange-100/orange-800`, chosen
+ * because no shared minion badge color existed yet — see Luigi's Phase 4c note) onto the
+ * exact same fill every other minion badge in the app now uses. `Mystery` was the last
+ * domain still on a plain literal (`bg-amber-100 text-amber-700`) while its token pair
+ * was reserved/unvalued; now that Rosalina has assigned real light/dark values, it's
+ * re-pointed onto `bg-badge-mystery`/`text-on-badge-mystery` like the rest.
  */
 const DOMAIN_BADGE_CLASSES: Readonly<Record<string, string>> = {
-  Mystery: 'bg-amber-100 text-amber-700',
-  Monster: 'bg-red-100 text-red-700',
-  Minion: 'bg-orange-100 text-orange-800',
-  Location: 'bg-green-100 text-green-900',
-  Bystander: 'bg-blue-100 text-blue-800',
+  Mystery: 'bg-badge-mystery text-on-badge-mystery',
+  Monster: 'bg-badge-monster text-on-badge-monster',
+  Minion: 'bg-badge-minion text-on-badge-minion',
+  Location: 'bg-badge-location text-on-badge-location',
+  Bystander: 'bg-badge-bystander text-on-badge-bystander',
 };
 
 @Component({
@@ -136,8 +142,17 @@ export class SearchResultsComponent {
     return segment ? [segment, item.id] : [];
   }
 
+  /**
+   * `entityType` is a plain `string` (not a literal union), so this fallback exists
+   * defensively for a value outside the five known domains — not expected to be reachable
+   * in practice, but a literal Tailwind color here would still be a theming straggler if
+   * it ever rendered. No Catalogue token models a "generic/unrecognized" badge, so this
+   * reuses the app's neutral surface-hover pair (Category A tokens already used elsewhere
+   * for a visible neutral chip fill) rather than a flat literal — flagged in Phase 7's
+   * sweep as a role stretch, same posture as the admin `<th>`/skeleton-loader reuses.
+   */
   badgeClasses(entityType: string): string {
-    return DOMAIN_BADGE_CLASSES[entityType] ?? 'bg-slate-100 text-slate-700';
+    return DOMAIN_BADGE_CLASSES[entityType] ?? 'bg-surface-hover text-primary';
   }
 
   contextSegments(item: SearchResultDetailItem): SnippetSegment[] {

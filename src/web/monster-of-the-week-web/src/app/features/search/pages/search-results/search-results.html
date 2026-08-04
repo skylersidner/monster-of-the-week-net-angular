@@ -1,4 +1,4 @@
-<section>
+<section class="text-primary">
   <div class="flex items-center justify-between mb-5">
     <h2>Search Results</h2>
   </div>
@@ -8,20 +8,20 @@
   } @else if (isLoading()) {
     <p>Searching…</p>
   } @else if (errorMessage()) {
-    <p class="text-red-800">{{ errorMessage() }}</p>
+    <p class="text-danger">{{ errorMessage() }}</p>
   } @else if (items().length === 0) {
     <p>No results for '{{ query() }}'</p>
   } @else {
     <ul class="grid gap-4 list-none p-0">
       @for (item of items(); track item.entityType + item.id) {
-        <li class="flex items-center bg-white border border-[#e5e9f2] rounded-lg gap-4 justify-between p-4">
+        <li class="flex items-center bg-surface border border-default rounded-lg gap-4 justify-between p-4">
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-center gap-2 mb-1">
               <app-domain-icon [domain]="item.entityType" aria-hidden="true" />
               <span [class]="'rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap ' + badgeClasses(item.entityType)">{{ item.entityType }}</span>
               <a class="font-semibold" [routerLink]="detailRoute(item)">{{ item.name }}</a>
               @if (fieldLabel(item); as label) {
-                <span class="text-[0.72rem] font-medium text-indigo-600 whitespace-nowrap">Matched in: {{ label }}</span>
+                <span class="text-[0.72rem] font-medium text-accent whitespace-nowrap">Matched in: {{ label }}</span>
               }
             </div>
             <p class="my-1">
@@ -37,16 +37,16 @@
     <div class="flex items-center justify-between mt-4">
       <button
         type="button"
-        class="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-none"
+        class="rounded-md border border-default px-3 py-1.5 text-sm font-medium hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-none"
         [disabled]="!hasPrev()"
         (click)="goToPage(page() - 1)"
       >
         Prev
       </button>
-      <span class="text-slate-500 text-sm">{{ resultRangeText() }}</span>
+      <span class="text-muted text-sm">{{ resultRangeText() }}</span>
       <button
         type="button"
-        class="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-none"
+        class="rounded-md border border-default px-3 py-1.5 text-sm font-medium hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-none"
         [disabled]="!hasNext()"
         (click)="goToPage(page() + 1)"
       >

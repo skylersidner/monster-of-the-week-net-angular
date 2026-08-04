@@ -92,7 +92,6 @@ describe('SearchResultsComponent', () => {
 
     const monsterBadge = items[0].querySelector('span');
     expect(monsterBadge.textContent.trim()).toBe('Monster');
-    expect(monsterBadge.className).toContain('bg-red-100');
 
     const icons = fixture.debugElement.queryAll(By.directive(DomainIconComponent));
     expect((icons[0].componentInstance as DomainIconComponent).domain).toBe('Monster');
@@ -103,10 +102,27 @@ describe('SearchResultsComponent', () => {
 
     const locationBadge = items[1].querySelector('span');
     expect(locationBadge.textContent.trim()).toBe('Location');
-    expect(locationBadge.className).toContain('bg-green-100');
 
     const locationLink = items[1].querySelector('a.font-semibold');
     expect(locationLink.getAttribute('href')).toBe('/locations/location-1');
+  });
+
+  // Re-enabled/rewritten per docs/theming/theming-plan.md Phase 4 (disabled in Phase 0):
+  // these two assertions originally checked literal Tailwind palette classes
+  // (`bg-red-100`/`bg-green-100`); Phase 4 re-points the badge markup onto
+  // `--color-badge-monster`/`--color-badge-location` token classes, so the assertions now
+  // check the token classes instead.
+  it('renders monster/location badges with their token-backed badge classes (bg-badge-monster/bg-badge-location)', async () => {
+    await setUp({ q: 'sto' });
+
+    const items = fixture.nativeElement.querySelectorAll('li');
+    const monsterBadge = items[0].querySelector('span');
+    expect(monsterBadge.className).toContain('bg-badge-monster');
+    expect(monsterBadge.className).toContain('text-on-badge-monster');
+
+    const locationBadge = items[1].querySelector('span');
+    expect(locationBadge.className).toContain('bg-badge-location');
+    expect(locationBadge.className).toContain('text-on-badge-location');
   });
 
   it('renders excerpt when snippet is null (the real Phase 1-3 case), with no <mark> and no "Matched in" chip', async () => {

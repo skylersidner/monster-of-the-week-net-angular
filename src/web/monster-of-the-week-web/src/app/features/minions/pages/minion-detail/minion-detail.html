@@ -1,10 +1,10 @@
-<section>
+<section class="text-primary">
   <a [routerLink]="backLink()">{{ backLabel() }}</a>
 
   @if (isLoading()) {
     <p>Loading minion...</p>
   } @else if (errorMessage()) {
-    <p class="text-red-800">{{ errorMessage() }}</p>
+    <p class="text-danger">{{ errorMessage() }}</p>
   } @else if (minion()) {
     <h2>{{ minion()!.name }}</h2>
     <p>
@@ -12,7 +12,7 @@
     </p>
 
     @if (activeMutation()) {
-      <p class="text-blue-900 font-semibold">{{ activeMutation() }}</p>
+      <p class="text-primary font-semibold">{{ activeMutation() }}</p>
     }
 
     <form class="grid gap-[0.6rem] my-4" [formGroup]="minionForm" (ngSubmit)="saveMinion()">
@@ -20,11 +20,11 @@
       <div class="grid gap-[0.6rem] grid-cols-[2fr_1fr_1fr] max-md:grid-cols-1">
         <label class="grid font-medium gap-1">
           Name
-          <input class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" type="text" formControlName="name" />
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
         </label>
         <label class="grid font-medium gap-1">
           Harm Capacity
-          <input class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" type="number" formControlName="harmCapacity" min="0" />
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="number" formControlName="harmCapacity" min="0" />
         </label>
         <label class="grid font-medium gap-1">
           Minion Type
@@ -37,33 +37,33 @@
       </div>
       <label class="grid font-medium gap-1">
         Description
-        <textarea class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" formControlName="description" rows="9"></textarea>
+        <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
       </label>
-      <button class="bg-blue-900 border-0 rounded-[0.35rem] text-white cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Save Minion</button>
+      <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Save Minion</button>
     </form>
 
     <div class="grid gap-4 grid-cols-4 max-xl:grid-cols-2 max-sm:grid-cols-1">
-      <article class="bg-white border border-slate-200 rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>Attacks</h3>
         <ul class="list-none m-0 p-0">
           @for (attack of minion()!.attacks; track attack.id) {
-            <li class="flex items-start justify-between border-b border-[#edf1f8] py-[0.45rem] last:border-0">
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
               <div>
                 <strong>{{ attack.name }}</strong> (Harm {{ attack.harm }})
                 @if (attack.weaponTags.length > 0) {
                   <div class="flex flex-wrap gap-[0.35rem] mt-1">
                     @for (tag of attack.weaponTags; track tag.id) {
-                      <span class="bg-indigo-50 border border-indigo-200 rounded-full text-indigo-700 text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
+                      <span class="bg-weapon-chip border border-weapon-chip-line rounded-full text-on-weapon-chip text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
                     }
                   </div>
                 }
                 @if (attack.description) {
-                  <p class="text-gray-500 text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ attack.description }}</p>
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ attack.description }}</p>
                 }
               </div>
               <button
                 type="button"
-                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-gray-500 cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-muted cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 title="Delete attack"
                 (click)="requestDeleteAttack(attack.id, attack.name)"
                 [disabled]="isMutating()"
@@ -78,38 +78,38 @@
         <form class="grid gap-[0.6rem] my-4" [formGroup]="attackForm" (ngSubmit)="createAttack()">
           <label class="grid font-medium gap-1">
             Name
-            <input class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" type="text" formControlName="name" />
+            <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
           </label>
           <label class="grid font-medium gap-1">
             Description
-            <textarea class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" formControlName="description" rows="9"></textarea>
+            <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
           </label>
           <label class="grid font-medium gap-1">
             Harm
-            <input class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" type="number" formControlName="harm" min="0" />
+            <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="number" formControlName="harm" min="0" />
           </label>
           <app-weapon-tag-select
             formControlName="weaponTagIds"
             [options]="weaponTags()"
           ></app-weapon-tag-select>
-          <button class="bg-blue-900 border-0 rounded-[0.35rem] text-white cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Add Attack</button>
+          <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Add Attack</button>
         </form>
       </article>
 
-      <article class="bg-white border border-slate-200 rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>Powers</h3>
         <ul class="list-none m-0 p-0">
           @for (power of minion()!.powers; track power.id) {
-            <li class="flex items-start justify-between border-b border-[#edf1f8] py-[0.45rem] last:border-0">
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
               <div>
                 <strong>{{ power.name }}</strong>
                 @if (power.description) {
-                  <p class="text-gray-500 text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ power.description }}</p>
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ power.description }}</p>
                 }
               </div>
               <button
                 type="button"
-                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-gray-500 cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-muted cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 title="Delete power"
                 (click)="requestDeletePower(power.id, power.name)"
                 [disabled]="isMutating()"
@@ -124,30 +124,30 @@
         <form class="grid gap-[0.6rem] my-4" [formGroup]="powerForm" (ngSubmit)="createPower()">
           <label class="grid font-medium gap-1">
             Name
-            <input class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" type="text" formControlName="name" />
+            <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
           </label>
           <label class="grid font-medium gap-1">
             Description
-            <textarea class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" formControlName="description" rows="9"></textarea>
+            <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
           </label>
-          <button class="bg-blue-900 border-0 rounded-[0.35rem] text-white cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Add Power</button>
+          <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Add Power</button>
         </form>
       </article>
 
-      <article class="bg-white border border-slate-200 rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>Armors</h3>
         <ul class="list-none m-0 p-0">
           @for (armor of minion()!.armors; track armor.id) {
-            <li class="flex items-start justify-between border-b border-[#edf1f8] py-[0.45rem] last:border-0">
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
               <div>
                 <strong>{{ armor.name }}</strong> (Soak {{ armor.harmSoak }})
                 @if (armor.description) {
-                  <p class="text-gray-500 text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ armor.description }}</p>
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ armor.description }}</p>
                 }
               </div>
               <button
                 type="button"
-                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-gray-500 cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-muted cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 title="Delete armor"
                 (click)="requestDeleteArmor(armor.id, armor.name)"
                 [disabled]="isMutating()"
@@ -162,15 +162,15 @@
         <form class="grid gap-[0.6rem] my-4" [formGroup]="armorForm" (ngSubmit)="createArmor()">
           <label class="grid font-medium gap-1">
             Name
-            <input class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" type="text" formControlName="name" />
+            <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
           </label>
           <label class="grid font-medium gap-1">
             Description
-            <textarea class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" formControlName="description" rows="9"></textarea>
+            <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
           </label>
           <label class="grid font-medium gap-1">
             Harm Soak
-            <input class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" type="number" formControlName="harmSoak" min="0" />
+            <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="number" formControlName="harmSoak" min="0" />
           </label>
           <label class="flex items-center gap-[0.4rem]">
             <input type="checkbox" formControlName="isSpecial" />
@@ -178,26 +178,26 @@
           </label>
           <label class="grid font-medium gap-1">
             Special Description
-            <textarea class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" formControlName="specialDescription" rows="9"></textarea>
+            <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="specialDescription" rows="9"></textarea>
           </label>
-          <button class="bg-blue-900 border-0 rounded-[0.35rem] text-white cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Add Armor</button>
+          <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Add Armor</button>
         </form>
       </article>
 
-      <article class="bg-white border border-slate-200 rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>Weaknesses</h3>
         <ul class="list-none m-0 p-0">
           @for (weakness of minion()!.weaknesses; track weakness.id) {
-            <li class="flex items-start justify-between border-b border-[#edf1f8] py-[0.45rem] last:border-0">
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
               <div>
                 <strong>{{ weakness.name }}</strong>
                 @if (weakness.description) {
-                  <p class="text-gray-500 text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ weakness.description }}</p>
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ weakness.description }}</p>
                 }
               </div>
               <button
                 type="button"
-                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-gray-500 cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-muted cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 title="Delete weakness"
                 (click)="requestDeleteWeakness(weakness.id, weakness.name)"
                 [disabled]="isMutating()"
@@ -212,13 +212,13 @@
         <form class="grid gap-[0.6rem] my-4" [formGroup]="weaknessForm" (ngSubmit)="createWeakness()">
           <label class="grid font-medium gap-1">
             Name
-            <input class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" type="text" formControlName="name" />
+            <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
           </label>
           <label class="grid font-medium gap-1">
             Description
-            <textarea class="border border-slate-200 rounded-lg px-3 py-[0.6rem] focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-full" formControlName="description" rows="9"></textarea>
+            <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
           </label>
-          <button class="bg-blue-900 border-0 rounded-[0.35rem] text-white cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Add Weakness</button>
+          <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Add Weakness</button>
         </form>
       </article>
     </div>

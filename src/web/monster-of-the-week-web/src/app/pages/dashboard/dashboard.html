@@ -1,45 +1,45 @@
-<section class="text-slate-950 grid gap-4">
+<section class="text-primary grid gap-4">
   <header class="flex items-center justify-between gap-4">
     <div>
       <h1 class="text-[1.4rem] m-0">Dashboard</h1>
-      <p class="text-slate-500 mt-[0.15rem] mb-0">Quick summary from your current mysteries.</p>
+      <p class="text-muted mt-[0.15rem] mb-0">Quick summary from your current mysteries.</p>
     </div>
-    <a routerLink="/mysteries" class="bg-blue-700 hover:bg-blue-800 rounded-lg text-white text-[0.9rem] font-semibold px-[0.8rem] py-[0.45rem] no-underline transition-colors whitespace-nowrap">Open mysteries</a>
+    <a routerLink="/mysteries" class="bg-accent hover:bg-accent-hover rounded-lg text-on-accent text-[0.9rem] font-semibold px-[0.8rem] py-[0.45rem] no-underline transition-colors whitespace-nowrap">Open mysteries</a>
   </header>
 
   @if (isLoading()) {
     <section class="grid gap-[0.8rem] grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
       @for (placeholder of [1, 2, 3, 4]; track placeholder) {
-        <article class="bg-white border border-slate-200 rounded-[0.65rem] p-[0.9rem] min-h-[4.5rem]">
-          <div class="bg-gray-200 rounded-full h-[0.65rem] w-[55%] animate-pulse"></div>
-          <div class="bg-gray-200 rounded-full h-[0.65rem] w-[85%] animate-pulse mt-[0.65rem]"></div>
+        <article class="bg-surface border border-default rounded-[0.65rem] p-[0.9rem] min-h-[4.5rem]">
+          <div class="bg-surface-hover rounded-full h-[0.65rem] w-[55%] animate-pulse"></div>
+          <div class="bg-surface-hover rounded-full h-[0.65rem] w-[85%] animate-pulse mt-[0.65rem]"></div>
         </article>
       }
     </section>
   } @else if (errorMessage()) {
-    <p class="text-red-800">{{ errorMessage() }}</p>
+    <p class="text-danger">{{ errorMessage() }}</p>
   } @else {
     <section class="grid gap-[0.8rem] grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
-      <article class="bg-white border border-slate-200 rounded-[0.65rem] p-[0.9rem]">
-        <h2 class="text-slate-500 text-[0.86rem] font-semibold m-0 uppercase">Mysteries</h2>
+      <article class="bg-surface border border-default rounded-[0.65rem] p-[0.9rem]">
+        <h2 class="text-muted text-[0.86rem] font-semibold m-0 uppercase">Mysteries</h2>
         <p class="text-[1.55rem] font-bold mt-[0.4rem] mb-0">{{ mysteryCount() }}</p>
       </article>
-      <article class="bg-white border border-slate-200 rounded-[0.65rem] p-[0.9rem]">
-        <h2 class="text-slate-500 text-[0.86rem] font-semibold m-0 uppercase">Monsters</h2>
+      <article class="bg-surface border border-default rounded-[0.65rem] p-[0.9rem]">
+        <h2 class="text-muted text-[0.86rem] font-semibold m-0 uppercase">Monsters</h2>
         <p class="text-[1.55rem] font-bold mt-[0.4rem] mb-0">{{ totalMonsters() }}</p>
       </article>
-      <article class="bg-white border border-slate-200 rounded-[0.65rem] p-[0.9rem]">
-        <h2 class="text-slate-500 text-[0.86rem] font-semibold m-0 uppercase">Locations</h2>
+      <article class="bg-surface border border-default rounded-[0.65rem] p-[0.9rem]">
+        <h2 class="text-muted text-[0.86rem] font-semibold m-0 uppercase">Locations</h2>
         <p class="text-[1.55rem] font-bold mt-[0.4rem] mb-0">{{ totalLocations() }}</p>
       </article>
-      <article class="bg-white border border-slate-200 rounded-[0.65rem] p-[0.9rem]">
-        <h2 class="text-slate-500 text-[0.86rem] font-semibold m-0 uppercase">Bystanders</h2>
+      <article class="bg-surface border border-default rounded-[0.65rem] p-[0.9rem]">
+        <h2 class="text-muted text-[0.86rem] font-semibold m-0 uppercase">Bystanders</h2>
         <p class="text-[1.55rem] font-bold mt-[0.4rem] mb-0">{{ totalBystanders() }}</p>
       </article>
     </section>
 
     <section class="grid gap-4 grid-cols-1 lg:grid-cols-[1fr_22rem]">
-      <article class="bg-white border border-slate-200 rounded-[0.65rem] p-4">
+      <article class="bg-surface border border-default rounded-[0.65rem] p-4">
         <h2 class="text-[1rem] m-0 mb-3">Recent mysteries</h2>
         @if (recentMysteries().length === 0) {
           <p>No mysteries yet.</p>
@@ -47,15 +47,15 @@
           <ul class="grid gap-2 list-none m-0 p-0">
             @for (mystery of recentMysteries(); track mystery.id) {
               <li class="flex items-center justify-between gap-[0.6rem]">
-                <a class="text-indigo-900 font-semibold no-underline" [routerLink]="['/mysteries', mystery.id]">{{ mystery.name }}</a>
-                <small class="text-slate-500">{{ mystery.createdAt | date: 'mediumDate' }}</small>
+                <a class="text-accent font-semibold no-underline" [routerLink]="['/mysteries', mystery.id]">{{ mystery.name }}</a>
+                <small class="text-muted">{{ mystery.createdAt | date: 'mediumDate' }}</small>
               </li>
             }
           </ul>
         }
       </article>
 
-      <aside class="bg-white border border-slate-200 rounded-[0.65rem] p-4">
+      <aside class="bg-surface border border-default rounded-[0.65rem] p-4">
         <h2 class="text-[1rem] m-0 mb-3">Migration notes</h2>
         <p>Sidebar placeholders and richer dashboard metrics are tracked in the migration plan TODO list.</p>
       </aside>

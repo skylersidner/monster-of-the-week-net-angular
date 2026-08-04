@@ -47,6 +47,10 @@ export class PageLayoutComponent implements OnInit {
     this.isShowingUserMenu = !this.isShowingUserMenu;
   }
 
+  closeUserMenu(): void {
+    this.isShowingUserMenu = false;
+  }
+
   toggleMobileMenu(): void {
     this.isShowingMobileMenu = !this.isShowingMobileMenu;
   }

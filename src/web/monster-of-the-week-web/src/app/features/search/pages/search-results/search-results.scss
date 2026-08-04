@@ -1,9 +1,25 @@
-@reference "tailwindcss";
+/*
+ * Must reference this app's own stylesheet (via the `#styles.css` Node subpath-import
+ * alias declared in package.json), NOT bare "tailwindcss" — the `@apply` line below
+ * uses semantic token utilities (`bg-accent-subtle`, `text-accent`) that only exist in
+ * src/styles.css. See docs/theming/theming-plan.md, Decision B addendum.
+ */
+@reference "#styles.css";
 
 :host {
   display: block;
 }
 
+/*
+ * Search-match highlight — flagged in theming-plan.md as an untokenized straggler
+ * deferred to Phase 7. No dedicated Catalogue token exists for a search highlight, so
+ * this reuses `--color-accent-subtle`/`--color-accent` (low-emphasis accent wash + accent
+ * text) — the same "text-accent" color already used one line away in search-results.html
+ * for the "Matched in: ..." chip, and the closer semantic role match: `accent-subtle` is
+ * a translucent tint in dark mode, so it stays visibly "highlighted" over any surface,
+ * whereas the `weapon-chip` pair's dark value is a flat near-black fill that would barely
+ * read as a highlight against the dark-mode result card.
+ */
 mark {
-  @apply bg-indigo-100 text-indigo-900 rounded-[0.2rem] px-[0.1rem];
+  @apply bg-accent-subtle text-accent rounded-[0.2rem] px-[0.1rem];
 }

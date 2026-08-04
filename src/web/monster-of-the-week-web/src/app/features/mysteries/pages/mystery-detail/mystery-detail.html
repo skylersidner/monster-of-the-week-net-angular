@@ -1,19 +1,19 @@
-<section>
+<section class="text-primary">
   <a routerLink="/mysteries">← Back to mysteries</a>
 
   @if (isLoading()) {
     <p>Loading mystery details...</p>
   } @else if (errorMessage()) {
-    <p class="text-red-800">{{ errorMessage() }}</p>
+    <p class="text-danger">{{ errorMessage() }}</p>
   } @else if (mystery()) {
     <div class="flex flex-wrap items-baseline gap-3 mb-2">
       <h2 class="m-0">{{ mystery()!.name }}</h2>
-      <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-amber-100 text-amber-700">{{ mystery()!.adventureType.name }}</span>
+      <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-mystery text-on-badge-mystery">{{ mystery()!.adventureType.name }}</span>
     </div>
 
     @if (mystery()!.concept) {
-      <section class="bg-white border border-[#e5e9f2] rounded-lg my-4 px-5 py-4">
-        <h3 class="text-[#4e5d78] text-[0.85rem] font-semibold tracking-[0.05em] m-0 mb-2 uppercase">
+      <section class="bg-surface border border-default rounded-lg my-4 px-5 py-4">
+        <h3 class="text-secondary text-[0.85rem] font-semibold tracking-[0.05em] m-0 mb-2 uppercase">
           <span class="heading-with-icon inline-flex items-center gap-[0.45rem]">
             <app-mystery-section-icon kind="mystery" />
             <span>Concept</span>
@@ -24,8 +24,8 @@
     }
 
     @if (mystery()!.hook) {
-      <section class="bg-white border border-[#e5e9f2] rounded-lg my-4 px-5 py-4">
-        <h3 class="text-[#4e5d78] text-[0.85rem] font-semibold tracking-[0.05em] m-0 mb-2 uppercase">
+      <section class="bg-surface border border-default rounded-lg my-4 px-5 py-4">
+        <h3 class="text-secondary text-[0.85rem] font-semibold tracking-[0.05em] m-0 mb-2 uppercase">
           <span class="heading-with-icon inline-flex items-center gap-[0.45rem]">
             <app-mystery-section-icon kind="mystery" />
             <span>Hook</span>
@@ -36,8 +36,8 @@
     }
 
     @if (mystery()!.overview) {
-      <section class="bg-white border border-[#e5e9f2] rounded-lg my-4 px-5 py-4">
-        <h3 class="text-[#4e5d78] text-[0.85rem] font-semibold tracking-[0.05em] m-0 mb-2 uppercase">
+      <section class="bg-surface border border-default rounded-lg my-4 px-5 py-4">
+        <h3 class="text-secondary text-[0.85rem] font-semibold tracking-[0.05em] m-0 mb-2 uppercase">
           <span class="heading-with-icon inline-flex items-center gap-[0.45rem]">
             <app-mystery-section-icon kind="mystery" />
             <span>Overview</span>
@@ -54,7 +54,7 @@
       </span>
     </h3>
     @if (mystery()!.countdown) {
-      <ul class="countdown-list bg-white border border-[#e5e9f2] rounded-lg list-none m-0 px-4 py-3">
+      <ul class="countdown-list bg-surface border border-default rounded-lg list-none m-0 px-4 py-3">
         @for (stage of countdownStages; track stage.key) {
           <li class="my-[0.35rem]">
             <span class="flex flex-wrap items-center gap-[0.45rem]">
@@ -72,7 +72,7 @@
     }
 
     <div class="grid gap-4 grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] mt-4">
-      <article class="bg-white border border-[#e5e9f2] rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>
           <span class="heading-with-icon inline-flex items-center gap-[0.45rem]">
             <app-mystery-section-icon kind="monster" />
@@ -92,7 +92,7 @@
         }
       </article>
 
-      <article class="bg-white border border-[#e5e9f2] rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>
           <span class="heading-with-icon inline-flex items-center gap-[0.45rem]">
             <app-mystery-section-icon kind="minions" />
@@ -112,7 +112,7 @@
         }
       </article>
 
-      <article class="bg-white border border-[#e5e9f2] rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>
           <span class="heading-with-icon inline-flex items-center gap-[0.45rem]">
             <app-mystery-section-icon kind="locations" />
@@ -132,7 +132,7 @@
         }
       </article>
 
-      <article class="bg-white border border-[#e5e9f2] rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>
           <span class="heading-with-icon inline-flex items-center gap-[0.45rem]">
             <app-mystery-section-icon kind="bystanders" />

@@ -1,4 +1,19 @@
-@reference "tailwindcss";
+/*
+ * Must reference the app stylesheet, NOT bare "tailwindcss": `@apply` only resolves
+ * utilities that exist in the referenced stylesheet's context. `@reference "tailwindcss"`
+ * loads Tailwind's own default theme only, so semantic tokens from our `@theme` block
+ * (`bg-accent`) and hand-defined `@utility` classes (`text-primary`) are unknown there and
+ * fail the build with "Cannot apply unknown utility class". Referencing `styles.css`
+ * pulls in `@import "tailwindcss"` plus our token/utility layer.
+ *
+ * `#styles.css` is a Node.js subpath import declared in `package.json` ("imports" field,
+ * mapped to `./src/styles.css`). Use this EXACT literal in every component `.scss` that
+ * uses `@apply` — it is depth-independent, so it never needs recomputing per folder and
+ * does not break when a component moves. Do not write a relative `../../../styles.css`.
+ * See `.squad/decisions/inbox/luigi-theming-token-utility-mechanism.md` and
+ * `.squad/decisions/inbox/luigi-theming-reference-directive-evaluation.md`.
+ */
+@reference "#styles.css";
 
 :host {
   display: block;
@@ -6,7 +21,7 @@
 }
 
 .header-search__option.is-highlighted {
-  @apply bg-indigo-600 text-white;
+  @apply bg-accent text-on-accent;
 }
 
 @keyframes header-search-dropdown-fade {
