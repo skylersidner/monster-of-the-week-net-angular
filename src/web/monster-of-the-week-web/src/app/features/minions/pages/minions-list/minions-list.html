@@ -1,4 +1,4 @@
-<section>
+<section class="text-primary">
   <div class="flex items-center justify-between mb-5">
     <h2>Minions</h2>
   </div>
@@ -6,7 +6,7 @@
   @if (isLoading()) {
     <p>Loading minions...</p>
   } @else if (errorMessage()) {
-    <p class="text-red-800">{{ errorMessage() }}</p>
+    <p class="text-danger">{{ errorMessage() }}</p>
   } @else if (minions().length === 0) {
     <p>No minions yet.</p>
   } @else {

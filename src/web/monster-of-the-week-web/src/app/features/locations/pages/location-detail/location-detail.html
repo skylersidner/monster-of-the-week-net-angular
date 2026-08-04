@@ -1,10 +1,10 @@
-<section>
+<section class="text-primary">
   <a [routerLink]="backLink()">{{ backLabel() }}</a>
 
   @if (isLoading()) {
     <p>Loading location...</p>
   } @else if (errorMessage()) {
-    <p class="text-red-800">{{ errorMessage() }}</p>
+    <p class="text-danger">{{ errorMessage() }}</p>
   } @else if (location()) {
     <h2>{{ location()!.name }}</h2>
 

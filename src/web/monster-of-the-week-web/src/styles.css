@@ -104,65 +104,65 @@
 }
 
 /*
- * Phase 0: structural no-op — every value below is identical to its @theme light value
- * above. This confirms the .dark scope wiring works (see Phase 0's Inspection Points)
- * without changing anything visually, since no template references a token yet. Phase 7
- * replaces every value below with Rosalina's real dark fill from
- * docs/theming/dark-theme-palette.md.
+ * Phase 7 palette swap-in (docs/theming/theming-plan.md, Phase 7 / Part 2): every value
+ * below is Rosalina's real dark fill from docs/theming/dark-theme-palette.md's Token
+ * Value Table, replacing the Phase 0 light-value placeholder block. Because every
+ * template from Phase 1 onward only ever references token names (never a literal
+ * palette class), this is a single-file change with no template risk — see Decision B.
  */
 .dark {
-  --color-surface: var(--color-white);
-  --color-surface-sunken: var(--color-slate-50);
-  --color-surface-raised: var(--color-white);
-  --color-surface-hover: var(--color-slate-700); /* slate-700 — dark-theme-palette.md */
+  --color-surface: var(--color-slate-900); /* #0f172a */
+  --color-surface-sunken: var(--color-slate-950); /* #020617 — darkest of the three; see Philosophy #2 */
+  --color-surface-raised: var(--color-slate-800); /* #1e293b — diverges from --color-surface so modals/dropdowns visibly float */
+  --color-surface-hover: var(--color-slate-700); /* #334155 */
 
-  --color-border: var(--color-slate-200);
-  --color-border-strong: #c9d4e6;
+  --color-border: var(--color-slate-700); /* #334155 */
+  --color-border-strong: var(--color-slate-500); /* #64748b */
 
-  --color-text-primary: var(--color-slate-950);
-  --color-text-secondary: var(--color-slate-600);
-  --color-text-muted: var(--color-slate-500);
+  --color-text-primary: var(--color-slate-50); /* #f8fafc */
+  --color-text-secondary: var(--color-slate-300); /* #cbd5e1 */
+  --color-text-muted: var(--color-slate-400); /* #94a3b8 */
 
-  --color-accent: var(--color-indigo-600);
-  --color-accent-hover: var(--color-indigo-700);
-  --color-accent-subtle: var(--color-indigo-50);
-  --color-on-accent: var(--color-white);
-  --color-focus-ring: color-mix(in oklab, var(--color-indigo-500) 20%, transparent);
+  --color-accent: var(--color-indigo-400); /* #818cf8 — lighten-and-flip, Philosophy #3 */
+  --color-accent-hover: var(--color-indigo-300); /* #a5b4fc — lighter, not darker; Philosophy #4 */
+  --color-accent-subtle: color-mix(in oklab, var(--color-indigo-400) 16%, transparent); /* indigo-400/16 */
+  --color-on-accent: var(--color-slate-900); /* #0f172a — flipped to a dark neutral */
+  --color-focus-ring: color-mix(in oklab, var(--color-indigo-400) 35%, transparent); /* indigo-400/35 */
 
-  --color-danger: var(--color-red-600);
-  --color-danger-hover: var(--color-red-700);
-  --color-danger-subtle: var(--color-red-100);
-  --color-on-danger: var(--color-white);
+  --color-danger: var(--color-red-400); /* #f87171 */
+  --color-danger-hover: var(--color-red-300); /* #fca5a5 — lighter, not darker; Philosophy #4 */
+  --color-danger-subtle: color-mix(in oklab, var(--color-red-500) 15%, transparent); /* red-500/15 */
+  --color-on-danger: var(--color-slate-900); /* #0f172a */
 
-  --color-success: var(--color-emerald-500);
+  --color-success: var(--color-emerald-400); /* #34d399 */
   --color-on-success: var(--color-slate-900); /* dark-theme-palette.md — same values as --color-on-accent */
 
-  --color-sidebar-surface: var(--color-indigo-700);
-  --color-sidebar-text: var(--color-blue-100);
-  --color-sidebar-hover: color-mix(in oklab, var(--color-blue-800) 40%, transparent);
-  --color-sidebar-active: color-mix(in oklab, var(--color-blue-800) 65%, transparent);
+  --color-sidebar-surface: var(--color-indigo-900); /* #312e81 — deepened, stays brand-colored not neutral */
+  --color-sidebar-text: var(--color-indigo-200); /* #c7d2fe */
+  --color-sidebar-hover: color-mix(in oklab, var(--color-indigo-700) 40%, transparent); /* indigo-700/40 */
+  --color-sidebar-active: color-mix(in oklab, var(--color-indigo-700) 70%, transparent); /* indigo-700/70 */
 
-  --color-toast-success: #1b6f2a;
-  --color-on-toast-success: var(--color-white);
-  --color-toast-error: #a10808;
-  --color-on-toast-error: var(--color-white);
+  --color-toast-success: var(--color-emerald-700); /* #047857 */
+  --color-on-toast-success: var(--color-white); /* stays plain white in both themes */
+  --color-toast-error: var(--color-red-700); /* #b91c1c */
+  --color-on-toast-error: var(--color-white); /* stays plain white in both themes */
 
-  --color-badge-monster: var(--color-red-100);
-  --color-on-badge-monster: var(--color-red-700);
-  --color-badge-minion: #fde8d8;
-  --color-on-badge-minion: var(--color-orange-800);
-  --color-badge-bystander: var(--color-blue-100);
-  --color-on-badge-bystander: var(--color-blue-800);
-  --color-badge-location: var(--color-green-100);
-  --color-on-badge-location: var(--color-green-900);
-  --color-badge-archetype: var(--color-purple-100);
-  --color-on-badge-archetype: var(--color-purple-700);
+  --color-badge-monster: var(--color-red-950); /* #450a0a — see dark-theme-palette.md Badges (hue-preservation) */
+  --color-on-badge-monster: var(--color-red-300); /* #fca5a5 */
+  --color-badge-minion: var(--color-orange-950); /* #431407 */
+  --color-on-badge-minion: var(--color-orange-300); /* #fdba74 */
+  --color-badge-bystander: var(--color-blue-950); /* #172554 */
+  --color-on-badge-bystander: var(--color-blue-300); /* #93c5fd */
+  --color-badge-location: var(--color-green-950); /* #052e16 */
+  --color-on-badge-location: var(--color-green-300); /* #86efac */
+  --color-badge-archetype: var(--color-purple-950); /* dark-theme-palette.md Open Questions #3 / theming-plan.md */
+  --color-on-badge-archetype: var(--color-purple-300);
   --color-badge-mystery: var(--color-amber-950); /* dark-theme-palette.md */
   --color-on-badge-mystery: var(--color-amber-300);
 
-  --color-weapon-chip: var(--color-indigo-50);
-  --color-on-weapon-chip: var(--color-indigo-700);
-  --color-weapon-chip-line: var(--color-indigo-200);
+  --color-weapon-chip: var(--color-indigo-950); /* #1e1b4b — same deep-tinted-bg + light-tinted-text construction as the badges */
+  --color-on-weapon-chip: var(--color-indigo-300); /* #a5b4fc */
+  --color-weapon-chip-line: var(--color-indigo-800); /* #3730a3 */
 }
 
 /*

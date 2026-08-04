@@ -142,8 +142,17 @@ export class SearchResultsComponent {
     return segment ? [segment, item.id] : [];
   }
 
+  /**
+   * `entityType` is a plain `string` (not a literal union), so this fallback exists
+   * defensively for a value outside the five known domains — not expected to be reachable
+   * in practice, but a literal Tailwind color here would still be a theming straggler if
+   * it ever rendered. No Catalogue token models a "generic/unrecognized" badge, so this
+   * reuses the app's neutral surface-hover pair (Category A tokens already used elsewhere
+   * for a visible neutral chip fill) rather than a flat literal — flagged in Phase 7's
+   * sweep as a role stretch, same posture as the admin `<th>`/skeleton-loader reuses.
+   */
   badgeClasses(entityType: string): string {
-    return DOMAIN_BADGE_CLASSES[entityType] ?? 'bg-slate-100 text-slate-700';
+    return DOMAIN_BADGE_CLASSES[entityType] ?? 'bg-surface-hover text-primary';
   }
 
   contextSegments(item: SearchResultDetailItem): SnippetSegment[] {

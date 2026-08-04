@@ -1,10 +1,10 @@
-<section>
+<section class="text-primary">
   <a [routerLink]="backLink()">{{ backLabel() }}</a>
 
   @if (isLoading()) {
     <p>Loading minion...</p>
   } @else if (errorMessage()) {
-    <p class="text-red-800">{{ errorMessage() }}</p>
+    <p class="text-danger">{{ errorMessage() }}</p>
   } @else if (minion()) {
     <h2>{{ minion()!.name }}</h2>
     <p>
@@ -43,27 +43,27 @@
     </form>
 
     <div class="grid gap-4 grid-cols-4 max-xl:grid-cols-2 max-sm:grid-cols-1">
-      <article class="bg-white border border-slate-200 rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>Attacks</h3>
         <ul class="list-none m-0 p-0">
           @for (attack of minion()!.attacks; track attack.id) {
-            <li class="flex items-start justify-between border-b border-[#edf1f8] py-[0.45rem] last:border-0">
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
               <div>
                 <strong>{{ attack.name }}</strong> (Harm {{ attack.harm }})
                 @if (attack.weaponTags.length > 0) {
                   <div class="flex flex-wrap gap-[0.35rem] mt-1">
                     @for (tag of attack.weaponTags; track tag.id) {
-                      <span class="bg-indigo-50 border border-indigo-200 rounded-full text-indigo-700 text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
+                      <span class="bg-weapon-chip border border-weapon-chip-line rounded-full text-on-weapon-chip text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
                     }
                   </div>
                 }
                 @if (attack.description) {
-                  <p class="text-gray-500 text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ attack.description }}</p>
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ attack.description }}</p>
                 }
               </div>
               <button
                 type="button"
-                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-gray-500 cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-muted cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 title="Delete attack"
                 (click)="requestDeleteAttack(attack.id, attack.name)"
                 [disabled]="isMutating()"
@@ -96,20 +96,20 @@
         </form>
       </article>
 
-      <article class="bg-white border border-slate-200 rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>Powers</h3>
         <ul class="list-none m-0 p-0">
           @for (power of minion()!.powers; track power.id) {
-            <li class="flex items-start justify-between border-b border-[#edf1f8] py-[0.45rem] last:border-0">
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
               <div>
                 <strong>{{ power.name }}</strong>
                 @if (power.description) {
-                  <p class="text-gray-500 text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ power.description }}</p>
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ power.description }}</p>
                 }
               </div>
               <button
                 type="button"
-                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-gray-500 cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-muted cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 title="Delete power"
                 (click)="requestDeletePower(power.id, power.name)"
                 [disabled]="isMutating()"
@@ -134,20 +134,20 @@
         </form>
       </article>
 
-      <article class="bg-white border border-slate-200 rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>Armors</h3>
         <ul class="list-none m-0 p-0">
           @for (armor of minion()!.armors; track armor.id) {
-            <li class="flex items-start justify-between border-b border-[#edf1f8] py-[0.45rem] last:border-0">
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
               <div>
                 <strong>{{ armor.name }}</strong> (Soak {{ armor.harmSoak }})
                 @if (armor.description) {
-                  <p class="text-gray-500 text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ armor.description }}</p>
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ armor.description }}</p>
                 }
               </div>
               <button
                 type="button"
-                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-gray-500 cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-muted cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 title="Delete armor"
                 (click)="requestDeleteArmor(armor.id, armor.name)"
                 [disabled]="isMutating()"
@@ -184,20 +184,20 @@
         </form>
       </article>
 
-      <article class="bg-white border border-slate-200 rounded-lg p-3">
+      <article class="bg-surface border border-default rounded-lg p-3">
         <h3>Weaknesses</h3>
         <ul class="list-none m-0 p-0">
           @for (weakness of minion()!.weaknesses; track weakness.id) {
-            <li class="flex items-start justify-between border-b border-[#edf1f8] py-[0.45rem] last:border-0">
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
               <div>
                 <strong>{{ weakness.name }}</strong>
                 @if (weakness.description) {
-                  <p class="text-gray-500 text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ weakness.description }}</p>
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ weakness.description }}</p>
                 }
               </div>
               <button
                 type="button"
-                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-gray-500 cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                class="action-btn action-btn--delete bg-transparent border-0 rounded-md text-muted cursor-pointer flex justify-center p-[0.375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 title="Delete weakness"
                 (click)="requestDeleteWeakness(weakness.id, weakness.name)"
                 [disabled]="isMutating()"

@@ -1,4 +1,4 @@
-<section>
+<section class="text-primary">
   <div class="flex items-center justify-between mb-5">
     <h2>Search Results</h2>
   </div>
@@ -8,7 +8,7 @@
   } @else if (isLoading()) {
     <p>Searching…</p>
   } @else if (errorMessage()) {
-    <p class="text-red-800">{{ errorMessage() }}</p>
+    <p class="text-danger">{{ errorMessage() }}</p>
   } @else if (items().length === 0) {
     <p>No results for '{{ query() }}'</p>
   } @else {

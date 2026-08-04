@@ -1,10 +1,10 @@
-<section>
+<section class="text-primary">
   <a routerLink="/mysteries">← Back to mysteries</a>
 
   @if (isLoading()) {
     <p>Loading mystery details...</p>
   } @else if (errorMessage()) {
-    <p class="text-red-800">{{ errorMessage() }}</p>
+    <p class="text-danger">{{ errorMessage() }}</p>
   } @else if (mystery()) {
     <div class="flex flex-wrap items-baseline gap-3 mb-2">
       <h2 class="m-0">{{ mystery()!.name }}</h2>
