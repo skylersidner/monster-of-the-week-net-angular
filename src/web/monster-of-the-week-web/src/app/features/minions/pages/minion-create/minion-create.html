@@ -1,0 +1,228 @@
+<section class="text-primary">
+  <a [routerLink]="backLink()">{{ backLabel() }}</a>
+
+  <h2>New Minion</h2>
+
+  @if (errorMessage()) {
+    <p class="text-danger">{{ errorMessage() }}</p>
+  }
+
+  @if (isSaving()) {
+    <p class="text-primary font-semibold">Creating minion...</p>
+  }
+
+  @if (isMonsterLocked()) {
+    <p class="mt-4">
+      Creating a minion for <strong>{{ lockedMonsterName() ?? 'this monster' }}</strong>
+    </p>
+  } @else {
+    <label class="grid font-medium gap-1 mt-4 max-w-md">
+      Monster (required)
+      <app-custom-select
+        [formControl]="monsterControl"
+        [options]="monsters()"
+        placeholder="Select a monster..."
+      ></app-custom-select>
+    </label>
+    @if (monsterControl.touched && monsterControl.invalid) {
+      <p class="text-danger text-[0.85rem] mt-1">A minion must belong to a monster.</p>
+    }
+  }
+
+  <app-minion-form
+    [minion]="null"
+    [minionTypes]="minionTypes()"
+    [isSaving]="isSaving()"
+    submitLabel="Create Minion"
+    (save)="onCreate($event)"
+  ></app-minion-form>
+
+  <p class="text-muted text-[0.9rem] mb-3">
+    Attacks, powers, armors and weaknesses added below are saved together with the minion when you
+    press Create Minion.
+  </p>
+
+  <div class="grid gap-4 grid-cols-4 max-xl:grid-cols-2 max-sm:grid-cols-1">
+    <article class="bg-surface border border-default rounded-lg p-3">
+      <h3>Attacks</h3>
+      @if (attackDrafts().length === 0) {
+        <p class="text-muted text-[0.9rem]">No attacks added yet.</p>
+      } @else {
+        <ul class="list-none m-0 p-0">
+          @for (attack of attackDrafts(); track $index) {
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
+              <div>
+                <strong>{{ attack.name }}</strong> (Harm {{ attack.harm }})
+                @if (attack.weaponTagIds.length > 0) {
+                  <div class="flex flex-wrap gap-[0.35rem] mt-1">
+                    @for (tag of tagsForAttack(attack.weaponTagIds); track tag.id) {
+                      <span class="bg-weapon-chip border border-weapon-chip-line rounded-full text-on-weapon-chip text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
+                    }
+                  </div>
+                }
+                @if (attack.description) {
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ attack.description }}</p>
+                }
+              </div>
+              <button
+                type="button"
+                class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1 disabled:cursor-not-allowed disabled:opacity-70"
+                title="Remove attack"
+                [disabled]="isSaving()"
+                (click)="removeAttackDraft($index)"
+              >×</button>
+            </li>
+          }
+        </ul>
+      }
+      <form class="grid gap-[0.6rem] mt-4 pt-3 border-t border-default" [formGroup]="attackDraftForm" (ngSubmit)="addAttackDraft()">
+        <label class="grid font-medium gap-1">
+          Name
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+        </label>
+        <label class="grid font-medium gap-1">
+          Description
+          <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
+        </label>
+        <label class="grid font-medium gap-1">
+          Harm
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="number" formControlName="harm" min="0" />
+        </label>
+        <app-weapon-tag-select
+          formControlName="weaponTagIds"
+          [options]="weaponTags()"
+        ></app-weapon-tag-select>
+        <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" type="submit" [disabled]="isSaving()">Add Attack</button>
+      </form>
+    </article>
+
+    <article class="bg-surface border border-default rounded-lg p-3">
+      <h3>Powers</h3>
+      @if (powerDrafts().length === 0) {
+        <p class="text-muted text-[0.9rem]">No powers added yet.</p>
+      } @else {
+        <ul class="list-none m-0 p-0">
+          @for (power of powerDrafts(); track $index) {
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
+              <div>
+                <strong>{{ power.name }}</strong>
+                @if (power.description) {
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ power.description }}</p>
+                }
+              </div>
+              <button
+                type="button"
+                class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1 disabled:cursor-not-allowed disabled:opacity-70"
+                title="Remove power"
+                [disabled]="isSaving()"
+                (click)="removePowerDraft($index)"
+              >×</button>
+            </li>
+          }
+        </ul>
+      }
+      <form class="grid gap-[0.6rem] mt-4 pt-3 border-t border-default" [formGroup]="powerDraftForm" (ngSubmit)="addPowerDraft()">
+        <label class="grid font-medium gap-1">
+          Name
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+        </label>
+        <label class="grid font-medium gap-1">
+          Description
+          <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
+        </label>
+        <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" type="submit" [disabled]="isSaving()">Add Power</button>
+      </form>
+    </article>
+
+    <article class="bg-surface border border-default rounded-lg p-3">
+      <h3>Armors</h3>
+      @if (armorDrafts().length === 0) {
+        <p class="text-muted text-[0.9rem]">No armors added yet.</p>
+      } @else {
+        <ul class="list-none m-0 p-0">
+          @for (armor of armorDrafts(); track $index) {
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
+              <div>
+                <strong>{{ armor.name }}</strong> (Soak {{ armor.harmSoak }})
+                @if (armor.description) {
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ armor.description }}</p>
+                }
+                @if (armor.isSpecial && armor.specialDescription) {
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">Special: {{ armor.specialDescription }}</p>
+                }
+              </div>
+              <button
+                type="button"
+                class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1 disabled:cursor-not-allowed disabled:opacity-70"
+                title="Remove armor"
+                [disabled]="isSaving()"
+                (click)="removeArmorDraft($index)"
+              >×</button>
+            </li>
+          }
+        </ul>
+      }
+      <form class="grid gap-[0.6rem] mt-4 pt-3 border-t border-default" [formGroup]="armorDraftForm" (ngSubmit)="addArmorDraft()">
+        <label class="grid font-medium gap-1">
+          Name
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+        </label>
+        <label class="grid font-medium gap-1">
+          Description
+          <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
+        </label>
+        <label class="grid font-medium gap-1">
+          Harm Soak
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="number" formControlName="harmSoak" min="0" />
+        </label>
+        <label class="flex items-center gap-[0.4rem]">
+          <input type="checkbox" formControlName="isSpecial" />
+          Special
+        </label>
+        <label class="grid font-medium gap-1">
+          Special Description
+          <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="specialDescription" rows="9"></textarea>
+        </label>
+        <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" type="submit" [disabled]="isSaving()">Add Armor</button>
+      </form>
+    </article>
+
+    <article class="bg-surface border border-default rounded-lg p-3">
+      <h3>Weaknesses</h3>
+      @if (weaknessDrafts().length === 0) {
+        <p class="text-muted text-[0.9rem]">No weaknesses added yet.</p>
+      } @else {
+        <ul class="list-none m-0 p-0">
+          @for (weakness of weaknessDrafts(); track $index) {
+            <li class="flex items-start justify-between border-b border-default py-[0.45rem] last:border-0">
+              <div>
+                <strong>{{ weakness.name }}</strong>
+                @if (weakness.description) {
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem] mb-0">{{ weakness.description }}</p>
+                }
+              </div>
+              <button
+                type="button"
+                class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1 disabled:cursor-not-allowed disabled:opacity-70"
+                title="Remove weakness"
+                [disabled]="isSaving()"
+                (click)="removeWeaknessDraft($index)"
+              >×</button>
+            </li>
+          }
+        </ul>
+      }
+      <form class="grid gap-[0.6rem] mt-4 pt-3 border-t border-default" [formGroup]="weaknessDraftForm" (ngSubmit)="addWeaknessDraft()">
+        <label class="grid font-medium gap-1">
+          Name
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+        </label>
+        <label class="grid font-medium gap-1">
+          Description
+          <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
+        </label>
+        <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" type="submit" [disabled]="isSaving()">Add Weakness</button>
+      </form>
+    </article>
+  </div>
+</section>

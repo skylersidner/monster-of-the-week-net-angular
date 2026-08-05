@@ -10,6 +10,13 @@ export const MONSTERS_ROUTES: Routes = [
     loadComponent: () =>
       import('./pages/monster-create/monster-create').then((m) => m.MonsterCreateComponent),
   },
+  // Must stay ahead of the ':monsterId/minions/:minionId' route below — same top-down
+  // matching gotcha as 'new' above, one route depth further in.
+  {
+    path: ':monsterId/minions/new',
+    loadComponent: () =>
+      import('../minions/pages/minion-create/minion-create').then((m) => m.MinionCreateComponent),
+  },
   {
     path: ':monsterId/minions/:minionId',
     loadComponent: () =>

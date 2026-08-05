@@ -558,3 +558,49 @@ Last of the three sub-phases of `docs/updates/standalone-creation-phase1-monster
 
 ### Verification
 `npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 31 files / 160 passed, 0 skipped (142 → 160, 18 new). Not verified live against the API this round.
+
+---
+
+## 2026-08-05 — Standalone Creation Phase 2 MC-1 + MC-3: `MinionFormComponent` extraction + `minion-detail` rewire
+
+### Task
+First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (decisions 2-4, 11), run as one task for the same reason the Monster phase's SC-2+SC-4 were: extracting without wiring leaves an unused component next to a still-duplicated inline form. MC-2 (`/minions/new` + `/monsters/:monsterId/minions/new`) deliberately not started. Decision record: `.squad/decisions/inbox/luigi-minion-form-component.md`.
+
+### Key patterns / gotchas
+- **Second run of the exact same extraction shape, and the `MonsterFormComponent` precedent transferred 1:1 at the code level but *not* at the markup level.** Structure (decorator IO, internal `FormGroup`, `ngOnChanges` repopulate, guard split, `toNullable()` copy, `host: { class: 'block' }`, no `.scss`) all copied straight over. The template did not: `minion-detail.html`'s block uses `w-full` where `monster-form.html` uses `font-[inherit]`, is a 3-column grid not 4, and its submit button has no `disabled:*` classes. Take the markup from the page being extracted, never from the sibling component — the two forms were already inconsistent before either extraction, and "mirror the precedent" would have silently restyled the page.
+- **Check the parent's `imports` array for newly-orphaned components after an extraction.** `CustomSelectComponent` became dead on `minion-detail.ts` the moment the core-fields block left (the 4 sub-resource panels use `WeaponTagSelectComponent` only). Angular doesn't error on an unused standalone import, so nothing catches this but a grep of the template. `ReactiveFormsModule`/`Validators`/`FormBuilder` all still needed there — the sub-resource forms keep them.
+- **`minion-detail.ts` had *two* `populateMinionForm()` call sites** (initial load in `ngOnInit`'s `next:`, and post-save), one more than `monster-detail.ts` had at the same point. Both delete cleanly: each is immediately preceded by `this.minion.set(...)`, which is what re-triggers `ngOnChanges` through `[minion]`.
+- Spec adaptation reused `monster-detail.spec.ts`'s shape verbatim and it fit with no friction: `By.directive(MinionFormComponent)` helper, an `updateCalls` array on the service double capturing `{ minionId, payload }`, one test asserting the page no longer owns a `minionForm` field, and a real DOM `form.dispatchEvent(new Event('submit'))` through `app-minion-form form` to prove the whole child→parent→service path. Worth treating as the standard template for the remaining domains (locations/bystanders).
+
+### Files
+- New: `features/minions/shared/minion-form/{minion-form.ts, minion-form.html, minion-form.spec.ts}` (no `.scss`).
+- Modified: `features/minions/pages/minion-detail/{minion-detail.ts, minion-detail.html, minion-detail.spec.ts}`.
+- Untouched (verified via `git diff`): the 4 sub-resource panels in `minion-detail.html` — single changed hunk. `backLink()`/`backLabel()` and all three-route-shape param handling unchanged. Nothing under `features/monsters/`, `mystery-create.store.ts`, or `docs/updates/multi-minion-support.md`.
+
+### Public interface for MC-2
+`app-minion-form`; inputs `minionTypes`, `minion` (`null` = create mode, and setting it back to `null` actively clears the form), `isSaving`, `submitLabel`; output `save: EventEmitter<UpsertMinionRequest>`. Never calls `MinionService`; never sees `monsterId` (it isn't a field on `UpsertMinionRequest`, so the create page must supply it to `minionService.create(monsterId, payload)` itself).
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 32 files / 175 passed, 0 skipped (160 → 175, 15 new). Not verified live against the API this round.
+
+---
+
+## 2026-08-05 — Standalone Creation Phase 2 MC-2: `MinionCreateComponent`, two routes, two entry points
+
+### Task
+`docs/updates/standalone-creation-phase2-minions.md` decisions 5-10, with Skyler's confirmed **Option C** on Open Question 1 (both entry points ship, one component). Decision record: `.squad/decisions/inbox/luigi-standalone-creation-mc2-create-page.md`.
+
+### Key patterns / gotchas
+- **`By.directive(CustomSelectComponent)` is not unique on a page like this — three instances match** (the page's own monster picker, `MinionFormComponent`'s minion-type picker, and the one `WeaponTagSelectComponent` wraps on the attack draft form). The "monster-locked entry renders *no* dropdown" assertion passed vacuously twice before I scoped the helper to `!closest('app-minion-form') && !closest('app-weapon-tag-select')`. Same category as the Playwright `bg-accent` trap from the theming phases: shared widgets/tokens make the obvious selector match more than you think. Any spec asserting the *absence* of a shared component needs a scoping predicate, and needs a sibling test proving the helper can find it, or it proves nothing.
+- **The conditional monster resolution folds into the existing reference-data `forkJoin` rather than sitting in front of it**: `lockedMonster: monsterId ? getById(monsterId) : of(null)` and `monsters: monsterId ? of([]) : getAll()`, inside the `route.paramMap` `switchMap`. One load path, one loading flag, and the locked route provably never fetches the full monster list (asserted both directions — a wasted list fetch would otherwise be silent).
+- **Keep the required validator on `monsterControl` unconditionally; branch in `onCreate` instead.** Clearing it in locked mode is dead machinery — the control is never rendered or read there. A single `effectiveMonsterId()` (route param → dropdown value → `null`) is the only place "which monster" is decided, so the two entry points can't drift apart.
+- **The bail-out when the required dropdown is empty needs *two* messages, not one**: `markAsTouched()` drives an inline message directly under the picker (where the fix is), and `errorMessage` renders in the page's existing top-of-page error slot (where every other failure on this page already appears). It must happen before `isSaving.set(true)` so nothing flickers.
+- Markup split, confirming MC-1's rule generalizes: field markup (`w-full` inputs, `text-xs` chips, `last:border-0`) copied from `minion-detail.html` so the two minion pages match; the `×` remove button and `disabled:*` submit classes copied from `monster-create.html` because those belong to the draft/batch model, not the domain. Third phase running where the `×` control (rather than the detail page's trash `.action-btn`) means the new page earns no `.scss`.
+
+### Files
+- New: `features/minions/pages/minion-create/{minion-create.ts, minion-create.html, minion-create.spec.ts}` (no `.scss`).
+- Modified: `features/minions/minions.routes.ts` (`new` before `:minionId`), `features/monsters/monsters.routes.ts` (`:monsterId/minions/new` before `:monsterId/minions/:minionId`), `features/minions/pages/minions-list/minions-list.html`, `features/monsters/pages/monster-detail/monster-detail.html` (both "+ Add Minion" CTAs reuse `monsters-list.html`'s classes verbatim; neither `.ts` needed a change — `RouterLink` already imported in both).
+- Untouched (verified via `git status`): `features/minions/shared/minion-form/`, `features/monsters/shared/monster-form/`, `mystery-create.store.ts`, everything under `features/mysteries/`, `docs/updates/multi-minion-support.md`.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 33 files / 200 passed, 0 skipped (175 → 200, 25 new). Both route files re-read after editing to confirm ordering. Not verified live against the API this round.
