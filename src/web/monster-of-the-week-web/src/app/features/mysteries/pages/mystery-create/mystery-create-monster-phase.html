@@ -150,9 +150,12 @@
 
   <form [formGroup]="store.minionForm">
     <div class="mb-4">
-      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="minionName">Minion Name</label>
+      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="minionName">Minion Name @if (store.minionNameRequired()) {<span class="text-danger">*</span>}</label>
       <input id="minionName" type="text" formControlName="name" placeholder="The minion's name (optional)"
         class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
+      @if (store.minionNameMissing() && store.minionForm.controls.name.touched) {
+        <span class="text-danger block text-[0.8rem] mt-1">Name is required once you start filling out a minion</span>
+      }
     </div>
     <div class="mb-4">
       <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="minionDescription">Description</label>

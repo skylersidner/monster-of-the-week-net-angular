@@ -2,7 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { of } from 'rxjs';
 
-import { ApiService } from '../../../../core/api';
+import { BystanderService } from '../../../../core/bystander';
+import { LocationService } from '../../../../core/location';
 import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
@@ -16,22 +17,40 @@ describe('MysteryCreateStore', () => {
   let notificationService: { success: ReturnType<typeof vi.fn> };
   let mysteryService: {
     create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
     upsertCountdown: ReturnType<typeof vi.fn>;
   };
   let monsterService: {
     create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
     createAttack: ReturnType<typeof vi.fn>;
     assignAttackWeaponTag: ReturnType<typeof vi.fn>;
     createPower: ReturnType<typeof vi.fn>;
     createWeakness: ReturnType<typeof vi.fn>;
     createArmor: ReturnType<typeof vi.fn>;
+    deleteAttack: ReturnType<typeof vi.fn>;
+    deletePower: ReturnType<typeof vi.fn>;
+    deleteWeakness: ReturnType<typeof vi.fn>;
+    deleteArmor: ReturnType<typeof vi.fn>;
   };
   let minionService: {
     create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
     createAttack: ReturnType<typeof vi.fn>;
+    deleteAttack: ReturnType<typeof vi.fn>;
+    deletePower: ReturnType<typeof vi.fn>;
+    deleteWeakness: ReturnType<typeof vi.fn>;
+    deleteArmor: ReturnType<typeof vi.fn>;
   };
-  let apiService: {
-    post: ReturnType<typeof vi.fn>;
+  let locationService: {
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    unlinkFromMystery: ReturnType<typeof vi.fn>;
+  };
+  let bystanderService: {
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    unlinkFromMystery: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -39,22 +58,40 @@ describe('MysteryCreateStore', () => {
     notificationService = { success: vi.fn() };
     mysteryService = {
       create: vi.fn(() => of({ id: 'mystery-1' })),
+      update: vi.fn(() => of({ id: 'mystery-1' })),
       upsertCountdown: vi.fn(() => of({ id: 'countdown-1' })),
     };
     monsterService = {
       create: vi.fn(() => of({ id: 'monster-1' })),
+      update: vi.fn(() => of({ id: 'monster-1' })),
       createAttack: vi.fn(() => of({ id: 'attack-1' })),
       assignAttackWeaponTag: vi.fn(() => of({})),
       createPower: vi.fn(() => of({ id: 'power-1' })),
       createWeakness: vi.fn(() => of({ id: 'weakness-1' })),
       createArmor: vi.fn(() => of({ id: 'armor-1' })),
+      deleteAttack: vi.fn(() => of(undefined)),
+      deletePower: vi.fn(() => of(undefined)),
+      deleteWeakness: vi.fn(() => of(undefined)),
+      deleteArmor: vi.fn(() => of(undefined)),
     };
     minionService = {
       create: vi.fn(() => of({ id: 'minion-1' })),
+      update: vi.fn(() => of({ id: 'minion-1' })),
       createAttack: vi.fn(() => of({ id: 'minion-attack-1' })),
+      deleteAttack: vi.fn(() => of(undefined)),
+      deletePower: vi.fn(() => of(undefined)),
+      deleteWeakness: vi.fn(() => of(undefined)),
+      deleteArmor: vi.fn(() => of(undefined)),
     };
-    apiService = {
-      post: vi.fn(() => of({})),
+    locationService = {
+      create: vi.fn(() => of({ id: 'location-1' })),
+      update: vi.fn(() => of({ id: 'location-1' })),
+      unlinkFromMystery: vi.fn(() => of(undefined)),
+    };
+    bystanderService = {
+      create: vi.fn(() => of({ id: 'bystander-1' })),
+      update: vi.fn(() => of({ id: 'bystander-1' })),
+      unlinkFromMystery: vi.fn(() => of(undefined)),
     };
 
     TestBed.configureTestingModule({
@@ -77,7 +114,8 @@ describe('MysteryCreateStore', () => {
         { provide: MysteryService, useValue: mysteryService },
         { provide: MonsterService, useValue: monsterService },
         { provide: MinionService, useValue: minionService },
-        { provide: ApiService, useValue: apiService },
+        { provide: LocationService, useValue: locationService },
+        { provide: BystanderService, useValue: bystanderService },
       ],
     });
 
@@ -203,18 +241,120 @@ describe('MysteryCreateStore', () => {
       description: null,
     });
     expect(monsterService.assignAttackWeaponTag).toHaveBeenCalledWith('monster-1', 'attack-1', 'weapon-tag-1');
-    expect(apiService.post).toHaveBeenCalledWith('/api/mysteries/mystery-1/locations', {
+    expect(locationService.create).toHaveBeenCalledWith('mystery-1', {
       name: 'Saint Brigid Chapel',
       description: 'Dusty pews and broken stained glass.',
       locationTypeId: 'location-type-1',
     });
-    expect(apiService.post).toHaveBeenCalledWith('/api/mysteries/mystery-1/bystanders', {
+    expect(bystanderService.create).toHaveBeenCalledWith('mystery-1', {
       name: 'Father Hall',
       description: 'Last priest on site.',
       bystanderTypeId: 'bystander-type-1',
     });
     expect(notificationService.success).toHaveBeenCalledWith('Mystery created!');
     expect(router.navigate).toHaveBeenCalledWith(['/mysteries', 'mystery-1']);
+  });
+
+  it('updates instead of duplicating when completed phases are revisited', () => {
+    store.conceptForm.setValue({ name: 'The Hollow Choir', concept: '', adventureTypeId: 'adventure-type-1' });
+    store.currentStep.set(3);
+    store.next();
+
+    store.monsterForm.setValue({
+      name: 'Maestro Vey',
+      description: '',
+      harmCapacity: 8,
+      monsterTypeId: 'monster-type-1',
+      monsterArchetypeId: 'monster-archetype-1',
+    });
+    store.monsterPowerForm.setValue({ name: 'Shadow Step', description: '' });
+    store.addMonsterPower();
+    store.minionForm.setValue({
+      name: 'Choir Thrall',
+      description: '',
+      harmCapacity: 3,
+      minionTypeId: 'minion-type-1',
+    });
+    store.currentStep.set(1);
+    store.next();
+
+    store.addLocationForm.setValue({ name: 'Saint Brigid Chapel', description: '', locationTypeId: 'location-type-1' });
+    store.addLocation();
+    store.next();
+
+    expect(store.locations()[0].id).toBe('location-1');
+
+    // Walk backward through the tracker and submit each completed phase a second time.
+    store.jumpToPhase(0);
+    store.currentStep.set(3);
+    store.next();
+
+    store.jumpToPhase(1);
+    store.currentStep.set(1);
+    store.next();
+
+    store.jumpToPhase(2);
+    store.next();
+
+    expect(mysteryService.create).toHaveBeenCalledTimes(1);
+    expect(mysteryService.update).toHaveBeenCalledTimes(1);
+    expect(monsterService.create).toHaveBeenCalledTimes(1);
+    expect(monsterService.update).toHaveBeenCalledTimes(1);
+    expect(minionService.create).toHaveBeenCalledTimes(1);
+    expect(minionService.update).toHaveBeenCalledTimes(1);
+    expect(monsterService.createPower).toHaveBeenCalledTimes(2);
+    expect(monsterService.deletePower).toHaveBeenCalledWith('monster-1', 'power-1');
+    expect(locationService.create).toHaveBeenCalledTimes(1);
+    expect(locationService.update).toHaveBeenCalledWith('location-1', {
+      name: 'Saint Brigid Chapel',
+      description: null,
+      locationTypeId: 'location-type-1',
+    });
+    expect(locationService.unlinkFromMystery).not.toHaveBeenCalled();
+  });
+
+  it('unlinks a location that was removed after it had been saved', () => {
+    store.conceptForm.setValue({ name: 'The Hollow Choir', concept: '', adventureTypeId: 'adventure-type-1' });
+    store.currentStep.set(3);
+    store.next();
+
+    store.currentPhase.set(2);
+    store.currentStep.set(0);
+    store.addLocationForm.setValue({ name: 'Saint Brigid Chapel', description: '', locationTypeId: 'location-type-1' });
+    store.addLocation();
+    store.next();
+
+    store.jumpToPhase(2);
+    store.removeLocation(0);
+    store.next();
+
+    expect(locationService.unlinkFromMystery).toHaveBeenCalledWith('mystery-1', 'location-1');
+    expect(locationService.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires a minion name only once the minion section has been started', () => {
+    store.currentPhase.set(1);
+    store.currentStep.set(1);
+
+    expect(store.minionSectionStarted()).toBe(false);
+    expect(store.minionNameRequired()).toBe(false);
+    expect(store.minionNameMissing()).toBe(false);
+
+    store.minionForm.controls.minionTypeId.setValue('minion-type-1');
+
+    expect(store.minionSectionStarted()).toBe(true);
+    expect(store.minionNameMissing()).toBe(true);
+
+    store.next();
+
+    expect(store.currentPhase()).toBe(1);
+    expect(store.currentStep()).toBe(1);
+    expect(store.minionForm.controls.name.touched).toBe(true);
+    expect(minionService.create).not.toHaveBeenCalled();
+
+    store.minionForm.controls.name.setValue('Choir Thrall');
+
+    expect(store.minionNameMissing()).toBe(false);
   });
 
   it('adds and removes armor drafts independently for monster and minion', () => {

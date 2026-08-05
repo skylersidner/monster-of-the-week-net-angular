@@ -27,6 +27,11 @@ public sealed class MinionService(IMinionRepository minionRepository) : IMinionS
             return ServiceResult<MinionDetailResponse>.NotFound($"Monster {monsterId} was not found.");
         }
 
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return ServiceResult<MinionDetailResponse>.Validation("Name is required.");
+        }
+
         if (!await minionRepository.MinionTypeExistsAsync(request.MinionTypeId, cancellationToken))
         {
             return ServiceResult<MinionDetailResponse>.Validation($"MinionType {request.MinionTypeId} does not exist.");
@@ -60,6 +65,11 @@ public sealed class MinionService(IMinionRepository minionRepository) : IMinionS
         if (minion is null)
         {
             return ServiceResult<MinionDetailResponse>.NotFound($"Minion {id} was not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return ServiceResult<MinionDetailResponse>.Validation("Name is required.");
         }
 
         if (!await minionRepository.MinionTypeExistsAsync(request.MinionTypeId, cancellationToken))
