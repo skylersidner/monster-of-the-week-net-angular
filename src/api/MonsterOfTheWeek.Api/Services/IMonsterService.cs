@@ -7,6 +7,7 @@ public interface IMonsterService
     Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken);
     Task<ServiceResult<IReadOnlyList<MonsterListItemResponse>>> GetByMysteryAsync(Guid mysteryId, CancellationToken cancellationToken);
     Task<ServiceResult<MonsterDetailResponse>> CreateAsync(Guid mysteryId, UpsertMonsterRequest request, CancellationToken cancellationToken);
+    Task<ServiceResult<MonsterDetailResponse>> CreateAsync(UpsertMonsterRequest request, CancellationToken cancellationToken);
     Task<MonsterDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<ServiceResult<MonsterDetailResponse>> UpdateAsync(Guid id, UpsertMonsterRequest request, CancellationToken cancellationToken);
     Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken);

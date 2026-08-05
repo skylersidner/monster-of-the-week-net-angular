@@ -59,6 +59,36 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
         return ServiceResult<MonsterDetailResponse>.Success(detail!);
     }
 
+    public async Task<ServiceResult<MonsterDetailResponse>> CreateAsync(
+        UpsertMonsterRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!await monsterRepository.MonsterTypeExistsAsync(request.MonsterTypeId, cancellationToken))
+        {
+            return ServiceResult<MonsterDetailResponse>.Validation($"MonsterType {request.MonsterTypeId} does not exist.");
+        }
+
+        if (!await monsterRepository.MonsterArchetypeExistsAsync(request.MonsterArchetypeId, cancellationToken))
+        {
+            return ServiceResult<MonsterDetailResponse>.Validation($"MonsterArchetype {request.MonsterArchetypeId} does not exist.");
+        }
+
+        var monster = new Monster
+        {
+            Name = request.Name.Trim(),
+            Description = request.Description?.Trim(),
+            HarmCapacity = request.HarmCapacity,
+            MonsterTypeId = request.MonsterTypeId,
+            MonsterArchetypeId = request.MonsterArchetypeId,
+        };
+
+        await monsterRepository.AddMonsterAsync(monster, cancellationToken);
+        await monsterRepository.SaveChangesAsync(cancellationToken);
+
+        var detail = await GetByIdAsync(monster.Id, cancellationToken);
+        return ServiceResult<MonsterDetailResponse>.Success(detail!);
+    }
+
     public async Task<MonsterDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var monster = await monsterRepository.GetMonsterDetailAsync(id, cancellationToken);

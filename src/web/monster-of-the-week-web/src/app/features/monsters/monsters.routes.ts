@@ -3,6 +3,13 @@ import { MonstersListComponent } from './pages/monsters-list/monsters-list';
 
 export const MONSTERS_ROUTES: Routes = [
   { path: '', component: MonstersListComponent },
+  // Must stay ahead of the ':monsterId' route below — Angular matches top-down, so a
+  // literal 'new' registered after it would be swallowed as a monster id.
+  {
+    path: 'new',
+    loadComponent: () =>
+      import('./pages/monster-create/monster-create').then((m) => m.MonsterCreateComponent),
+  },
   {
     path: ':monsterId/minions/:minionId',
     loadComponent: () =>

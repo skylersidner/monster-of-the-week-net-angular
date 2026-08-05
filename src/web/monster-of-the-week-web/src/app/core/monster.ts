@@ -41,6 +41,10 @@ export class MonsterService {
     );
   }
 
+  createStandalone(request: UpsertMonsterRequest): Observable<MonsterDetailResponse> {
+    return this.apiService.post<UpsertMonsterRequest, MonsterDetailResponse>(`/api/monsters`, request);
+  }
+
   update(monsterId: string, request: UpsertMonsterRequest): Observable<MonsterDetailResponse> {
     return this.apiService.put<UpsertMonsterRequest, MonsterDetailResponse>(`/api/monsters/${monsterId}`, request);
   }

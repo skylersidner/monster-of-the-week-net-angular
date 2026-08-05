@@ -8,8 +8,8 @@ import { MonsterService } from '../../../../core/monster';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
-import { CustomSelectComponent } from '../../../../shared/custom-select.component';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
+import { MonsterFormComponent } from '../../shared/monster-form/monster-form';
 import {
   MinionListItemResponse,
   MonsterArchetypeResponse,
@@ -26,7 +26,7 @@ import {
 
 @Component({
   selector: 'app-monster-detail-component',
-  imports: [ReactiveFormsModule, RouterLink, CustomSelectComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent],
+  imports: [ReactiveFormsModule, RouterLink, MonsterFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent],
   templateUrl: './monster-detail.html',
   styleUrl: './monster-detail.scss',
 })
@@ -52,14 +52,6 @@ export class MonsterDetailComponent implements OnInit {
   readonly backLabel = computed(() =>
     this.mysteryId() ? '← Back to mystery' : '← Back to monsters'
   );
-
-  readonly monsterForm = this.formBuilder.group({
-    name: this.formBuilder.nonNullable.control('', [Validators.required]),
-    description: this.formBuilder.control(''),
-    harmCapacity: this.formBuilder.nonNullable.control(0, [Validators.required, Validators.min(0)]),
-    monsterTypeId: this.formBuilder.nonNullable.control(''),
-    monsterArchetypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
-  });
 
   readonly attackForm = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [Validators.required]),
@@ -125,7 +117,6 @@ export class MonsterDetailComponent implements OnInit {
           this.monsterArchetypes.set(monsterArchetypes);
           this.weaponTags.set(weaponTags);
           this.minions.set(minions);
-          this.populateMonsterForm(monster);
           this.isLoading.set(false);
         },
         error: () => {
@@ -135,19 +126,10 @@ export class MonsterDetailComponent implements OnInit {
       });
   }
 
-  saveMonster(): void {
-    if (this.monsterForm.invalid || !this.monster()) {
-      this.monsterForm.markAllAsTouched();
+  saveMonster(payload: UpsertMonsterRequest): void {
+    if (!this.monster()) {
       return;
     }
-
-    const payload: UpsertMonsterRequest = {
-      name: this.monsterForm.controls.name.value.trim(),
-      description: this.toNullable(this.monsterForm.controls.description.value),
-      harmCapacity: this.monsterForm.controls.harmCapacity.value,
-      monsterTypeId: this.monsterForm.controls.monsterTypeId.value,
-      monsterArchetypeId: this.monsterForm.controls.monsterArchetypeId.value,
-    };
 
     this.activeMutation.set('Saving monster...');
 
@@ -157,7 +139,6 @@ export class MonsterDetailComponent implements OnInit {
       .subscribe({
         next: (monster) => {
           this.monster.set(monster);
-          this.populateMonsterForm(monster);
           this.activeMutation.set(null);
           this.notificationService.success('Monster details saved.');
           this.errorMessage.set(null);
@@ -352,16 +333,6 @@ export class MonsterDetailComponent implements OnInit {
           this.notificationService.error(errorMessage);
         },
       });
-  }
-
-  private populateMonsterForm(monster: MonsterDetailResponse): void {
-    this.monsterForm.reset({
-      name: monster.name,
-      description: monster.description ?? '',
-      harmCapacity: monster.harmCapacity,
-      monsterTypeId: monster.monsterTypeId,
-      monsterArchetypeId: monster.monsterArchetype.id,
-    });
   }
 
   private toNullable(value: string | null): string | null {

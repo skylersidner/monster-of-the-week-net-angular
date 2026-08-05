@@ -509,3 +509,52 @@ Modified: `core/location.ts`, `core/bystander.ts`, `mystery-create.store.ts`, `m
 
 ### Verification
 `npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 29 files / 126 passed, 0 skipped (123 → 126, the 3 new regression tests). No lint script exists in this package — the build is the typecheck. Not verified live against the API this round.
+
+---
+
+## 2026-08-05 — Standalone Creation SC-2 + SC-4: `MonsterFormComponent` extract + detail rewire
+
+### Task
+`docs/updates/standalone-creation-phase1-monsters.md` decisions 1-4 and 15, combined into one pass: extract `monster-detail.ts`'s core-fields form into `features/monsters/shared/monster-form/`, then immediately wire the detail page onto it so no unused component and no duplicated form is left behind. SC-3 (`/monsters/new`) deliberately not started. Decision record: `.squad/decisions/inbox/luigi-monster-form-component.md`.
+
+### Key patterns / gotchas
+- **`features/<domain>/shared/` had no component precedent before this** — `features/mysteries/shared/` holds only two plain `.ts` files (`mystery-countdown-stage.ts` is pure data/interfaces, `mystery-section-icon.ts` a single-file inline-template component), no folder-per-component. Used the app-wide `shared/header-search/` layout instead (`<name>/<name>.{ts,html,spec.ts}`, no `.component` infix), which is the only multi-file-component-in-a-folder precedent in the app. Worth knowing the folder convention and the file-layout convention come from two different places here.
+- **No `.scss` needed and none created**, despite the plan listing one as conditional. Rule of thumb confirmed on this codebase: a `.scss` is only earned by a compound-state selector that Tailwind utilities can't express (`monster-detail.scss` is exactly and only `.action-btn:hover:not(:disabled)` etc.). Those rules belong to the sub-resource delete buttons, not the core-fields block, so the extraction inherited nothing. Set `host: { class: 'block' }` in component metadata (the `WeaponTagSelectComponent` idiom) instead of a `:host { display: block }` stylesheet — otherwise the custom element is `display: inline` and the inner `<form class="... my-4">`'s margins get flaky.
+- **`ngOnChanges` on a `MonsterDetailResponse | null` input replaces the parent's `populateMonsterForm()` calls entirely, including the post-save one.** `monster-detail`'s save handler already did `this.monster.set(monster)`; that new object reference flows down `[monster]` and re-triggers `ngOnChanges`. Deleting the explicit repopulate call is safe *because* the service returns a fresh object every time — if any caller ever mutates the monster in place instead of replacing it, the form silently stops refreshing.
+- **Split the old two-part guard along the ownership line, don't move it wholesale.** `if (this.monsterForm.invalid || !this.monster())` → form validity went into the component (`markAllAsTouched()` + early return, no emit); `!this.monster()` stayed on the page as its own guard. Moving the null-monster check into the component would have made create mode (`[monster]="null"`) permanently unsubmittable.
+- **`@Input()`/`@Output()` decorators, not signal `input()`/`output()`** — signal-based component IO appears nowhere in this app yet (all of `CustomSelectComponent`/`WeaponTagSelectComponent`/`ConfirmDeleteModalComponent`/`DomainIconComponent` use decorators), and the plan's `ngOnChanges` requirement presumes them. `fixture.componentRef.setInput(...)` drives decorator inputs and fires `ngOnChanges` correctly in specs, so testing the input-change path needs no signal inputs.
+- `toNullable()` now lives in both `monster-form.ts` (for `description`) and `monster-detail.ts` (still needed by all four sub-resource payloads). Deliberate 3-line duplication over a new shared util, matching decision 11's stance.
+
+### Files
+- New: `features/monsters/shared/monster-form/{monster-form.ts, monster-form.html, monster-form.spec.ts}`
+- Modified: `features/monsters/pages/monster-detail/{monster-detail.ts, monster-detail.html, monster-detail.spec.ts}`
+- Untouched (verified via `git diff`): the 4 sub-resource panels in `monster-detail.html` — the only changed hunk is the core-fields block.
+
+### Public interface for SC-3
+`app-monster-form`; inputs `monsterTypes`, `monsterArchetypes`, `monster` (`null` = create mode, and setting it back to `null` actively clears the form), `isSaving`, `submitLabel`; output `save: EventEmitter<UpsertMonsterRequest>`. The component never calls `MonsterService`.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings: `custom-select.component.scss`, `mystery-create.scss`). `npm run test -- --watch=false`: 30 files / 142 passed, 0 skipped (126 → 142). Not verified live against the API this round. Note: the working tree already carried Bowser's SC-1 backend changes (`MonstersController.cs`, `MonsterService.cs`, `IMonsterService.cs`, `core/monster.ts`'s `createStandalone()`) when I started — untouched by me, but they're in the same uncommitted diff.
+
+---
+
+## 2026-08-05 — Standalone Creation SC-3: `/monsters/new` create page + sub-resource drafts
+
+### Task
+Last of the three sub-phases of `docs/updates/standalone-creation-phase1-monsters.md` (decisions 5-14): the `/monsters/new` page, its route, the `monsters-list` entry point, and the 4 local-draft sub-resource panels with batched submit. Decision record: `.squad/decisions/inbox/luigi-standalone-creation-sc3-create-page.md`.
+
+### Key patterns / gotchas
+- **The batch-failure branch belongs inside the `switchMap`, not in the subscriber's `error:` handler.** `create$ → switchMap(m => saveSubResourceDrafts(m.id).pipe(map(() => ({id, draftsFailed: false})), catchError(() => of({id, draftsFailed: true}))))`. Doing it this way makes the outer `error:` handler reachable *only* by a failure of the initial create, so "keep the user here with their drafts intact" needs no how-far-did-we-get bookkeeping, and every path where the monster actually exists lands in `next:` and navigates. Worth reaching for whenever an async flow has a point-of-no-return partway through.
+- **Draft interfaces should be payload-shaped (`description: string | null`), normalizing at add-time, not submit-time.** The wizard's drafts keep the raw form string and `toNullable()` at submit; doing it at add-time instead makes the batch method a straight field copy and makes the draft array directly assertable in specs against the exact request bodies. No `id` field needed here at all — a fresh create page has no baseline to diff against, unlike the wizard's edit-an-existing-mystery case.
+- **The `×` draft-remove button (wizard idiom) is the right control for un-persisted rows**, not the detail page's trash-SVG `.action-btn--delete`. Bonus: it dodges the `:hover:not(:disabled)` compound selector that is the *only* reason `monster-detail.scss` exists, so the new page needs no `.scss` at all — second time in this initiative the plan's conditional `.scss` was correctly skipped.
+- **The shared form's submit button is structurally mid-page** on a page that also has draft panels below it (the button lives inside `MonsterFormComponent`, and the panels mirror `monster-detail.html`'s below-the-form layout). Resolved with a one-line hint between the two rather than a second submit button, which decisions 3/9 forbid. Flagging in case a later standalone-create phase (locations/bystanders) hits the same shape.
+- **`vi.spyOn(router, 'navigate').mockImplementation(...)` must type its param `readonly unknown[]`, not `unknown[]`** — `Router.navigate`'s signature is `(commands: readonly any[], extras?)` and TS rejects the mutable-array narrowing. Build error only, caught by `ng test`'s compile pass.
+- Added a plain unit test over `MONSTERS_ROUTES` asserting `indexOf('new') < indexOf(':monsterId')`. The plan calls this ordering the one thing that silently makes the page unreachable; a source comment alone doesn't survive a reorder.
+
+### Files
+- New: `features/monsters/pages/monster-create/{monster-create.ts, monster-create.html, monster-create.spec.ts}` (no `.scss`).
+- Modified: `features/monsters/monsters.routes.ts` (`new` route + ordering comment), `features/monsters/pages/monsters-list/monsters-list.html` (`+ Add Monster` anchor, reusing `mysteries-list.html`'s CTA classes verbatim; `.ts` needed no change — `RouterLink` was already imported).
+- Untouched (verified via `git status`): `mystery-create.store.ts`, everything under `features/mysteries/`, both prior sub-phases' files.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 31 files / 160 passed, 0 skipped (142 → 160, 18 new). Not verified live against the API this round.

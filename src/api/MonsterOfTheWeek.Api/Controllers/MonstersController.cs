@@ -15,6 +15,18 @@ public sealed class MonstersController(IMonsterService monsterService) : Control
     public async Task<ActionResult<IReadOnlyList<MonsterListItemResponse>>> GetByMystery(Guid mysteryId, CancellationToken cancellationToken)
         => ToActionResult(await monsterService.GetByMysteryAsync(mysteryId, cancellationToken));
 
+    [HttpPost("api/monsters")]
+    public async Task<ActionResult<MonsterDetailResponse>> Create([FromBody] UpsertMonsterRequest request, CancellationToken cancellationToken)
+    {
+        var result = await monsterService.CreateAsync(request, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return ToErrorResult(result.Error!);
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
+    }
+
     [HttpPost("api/mysteries/{mysteryId:guid}/monsters")]
     public async Task<ActionResult<MonsterDetailResponse>> Create(Guid mysteryId, [FromBody] UpsertMonsterRequest request, CancellationToken cancellationToken)
     {
