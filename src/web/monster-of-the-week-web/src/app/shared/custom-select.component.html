@@ -1,4 +1,10 @@
-<div class="custom-select relative w-full" [class.is-open]="isOpen()" [class.is-disabled]="disabled" [class.multiple-select]="multiple">
+<div
+  class="custom-select relative w-full"
+  [class.is-open]="isOpen()"
+  [class.is-disabled]="disabled"
+  [class.multiple-select]="multiple"
+  [class.is-compact]="size === 'compact'"
+>
   <button type="button" class="custom-select__trigger" [disabled]="disabled" (click)="toggleOpen()" [attr.aria-expanded]="isOpen()">
     <span class="overflow-hidden text-left truncate">
       {{ displayText() }}
@@ -32,6 +38,7 @@
             type="button"
             class="custom-select__option"
             [class.is-selected]="isOptionSelected(option)"
+            [attr.title]="optionSubLabel(option)"
             (click)="selectOption(option)"
           >
             @if (multiple && isOptionSelected(option)) {

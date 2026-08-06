@@ -48,7 +48,7 @@ describe('CustomSelectComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Monster');
   });
 
-  it('shows motivation as a sub-label when the option has a motivation field', () => {
+  it('shows motivation as a sub-label and native title when the option has a motivation field', () => {
     type TypeOption = { id: string; name: string; motivation: string };
     const typedFixture = TestBed.createComponent(CustomSelectComponent<TypeOption>);
     const typedComponent = typedFixture.componentInstance;
@@ -67,18 +67,25 @@ describe('CustomSelectComponent', () => {
     expect(sublabels.length).toBe(2);
     expect(sublabels[0].textContent).toContain('to feed');
     expect(sublabels[1].textContent).toContain('to consume everything');
+
+    const options = typedFixture.nativeElement.querySelectorAll('.custom-select__option') as NodeListOf<HTMLButtonElement>;
+    expect(options[0].title).toBe('to feed');
+    expect(options[1].title).toBe('to consume everything');
   });
 
-  it('does not render a sub-label element when options have no motivation field', () => {
+  it('does not render a sub-label or title when options have no motivation field', () => {
     const trigger = fixture.nativeElement.querySelector('.custom-select__trigger') as HTMLButtonElement;
     trigger.click();
     fixture.detectChanges();
 
     const sublabels = fixture.nativeElement.querySelectorAll('.custom-select__option-sublabel') as NodeListOf<HTMLElement>;
     expect(sublabels.length).toBe(0);
+
+    const options = fixture.nativeElement.querySelectorAll('.custom-select__option') as NodeListOf<HTMLButtonElement>;
+    expect(options[0].hasAttribute('title')).toBe(false);
   });
 
-  it('supports a custom optionSubLabel input to render secondary text', () => {
+  it('supports a custom optionSubLabel input to render secondary text and native title', () => {
     type TagOption = { id: string; name: string; category: string };
     const typedFixture = TestBed.createComponent(CustomSelectComponent<TagOption>);
     const typedComponent = typedFixture.componentInstance;
@@ -94,5 +101,21 @@ describe('CustomSelectComponent', () => {
     const sublabel = typedFixture.nativeElement.querySelector('.custom-select__option-sublabel') as HTMLElement;
     expect(sublabel).toBeTruthy();
     expect(sublabel.textContent).toContain('sonic');
+
+    const option = typedFixture.nativeElement.querySelector('.custom-select__option') as HTMLButtonElement;
+    expect(option.title).toBe('sonic');
+  });
+
+  it('does not apply the compact modifier class by default', () => {
+    const root = fixture.nativeElement.querySelector('.custom-select') as HTMLElement;
+    expect(root.classList.contains('is-compact')).toBe(false);
+  });
+
+  it('applies the compact modifier class when size is set to compact', () => {
+    fixture.componentRef.setInput('size', 'compact');
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement.querySelector('.custom-select') as HTMLElement;
+    expect(root.classList.contains('is-compact')).toBe(true);
   });
 });

@@ -743,3 +743,81 @@ Add delete button/flow to the minions list page, mirroring the Bystanders list p
 
 ### Verification
 `ng test --watch=false`: 37 files / 260 tests, all green (4 new). `ng build --configuration production`: clean, same 2 pre-existing unrelated CSS budget warnings (`mystery-create.scss`, `custom-select.component.scss`). Confirmed via `git status` that only the 4 frontend files above changed on my side; `src/api/**` changes present are the parallel backend agent's, untouched by me.
+
+---
+
+## 2026-08-05 — Custom-Select Option Hover Tooltip (Weapon Tags + All Consumers)
+
+### Task
+Weapon-tag dropdown options clip their `description` sublabel with `text-ellipsis`/`whitespace-nowrap` and there was no way to see the full text. Fixed generically at `shared/custom-select.component.{html,scss}` (not weapon-tag-specific) since `optionSubLabel` truncation is shared by every consumer (monster/minion powers, types, weapon tags, etc.).
+
+### Approach
+Two layers, both conditioned on `optionSubLabel(option)` being non-null:
+1. Native `[attr.title]="optionSubLabel(option)"` on the option `<button>` — guaranteed-correct fallback since native title tooltips aren't subject to CSS `overflow`/`z-index` clipping from the scrollable `.custom-select__panel`/options list, unlike any DOM-based tooltip would be.
+2. A themed CSS-only tooltip (`.custom-select__option-tooltip`, `role="tooltip" aria-hidden="true"`) as a **sibling of** the truncated sublabel span, not nested inside it — nesting inside the `overflow-hidden text-ellipsis` sublabel span would have had it clipped by its own parent. Shown via `:hover`/`:focus-visible`, styled off `bg-surface-raised`/`border-default`/`text-primary` tokens to match `.custom-select__panel`. `aria-hidden` because the full description is already in the accessible tree via the (only visually-clipped) sublabel span text — this tooltip is a sighted-mouse-user affordance only, not new a11y content.
+
+### Gotchas
+- **Positioned siblings inside a `filteredOptions()` `@for` all have `z-index: auto`, so a later DOM sibling always paints over an earlier one's overflowing children**, even though the earlier one's absolutely-positioned tooltip is nested inside it. An option's downward-facing tooltip would otherwise render *underneath* the next option row. Fixed by giving the hovered/focused `.custom-select__option` `z-index: 1` on `:hover`/`:focus-visible` (lifts its whole stacking context above untouched siblings) plus `pointer-events: none` on the tooltip itself so clicks in the overlap area still hit the row actually under the cursor, not the tooltip's owning (visually-earlier) button.
+- Flipped the last option's tooltip to open upward (`.custom-select__option:last-child` → `bottom: calc(100% + .25rem)` instead of `top`) since a downward tooltip on the final visible row is the case most likely to get clipped by the options list's `overflow-y-auto`. Did not attempt a full viewport-aware JS positioning system (no `@angular/cdk` in this repo, and the task explicitly said prefer no new tooltip dependency) — accepted that an edge-case row mid-scroll could still clip the *themed* tooltip; native `title` (layer 1) never clips regardless.
+- No spec changes needed/added: `custom-select.component.spec.ts` only asserts sublabel text presence, not hover/tooltip DOM — verified by re-reading the file, not assumed.
+
+### Verification
+`npm run build` (production) and `npm run build -- --configuration development`: both clean. Same 2 pre-existing `anyComponentStyle` budget warnings (`mystery-create.scss`, `custom-select.component.scss`) — the latter's warning margin grew (2.44 kB → ~3.49 kB source, compiled ~6.08 kB) but stays well under the 8 kB error ceiling. `npm run test -- --watch=false`: 37 files / 260 tests, all green, unchanged count (no regressions). Grepped the compiled JS chunk for `custom-select__option-tooltip` and confirmed every token (`--color-border`, `--color-surface-raised`, `--color-text-primary`) resolved through `var(...)`, not baked literals — same verification method as the theming phases. Files touched: `shared/custom-select.component.html`, `shared/custom-select.component.scss` only (`git status` confirmed) — nothing weapon-tag-specific, so every other `app-custom-select` consumer (monster/minion type & power pickers, theme picker) gets the same hover affordance for free.
+
+---
+
+## 2026-08-05 — SVG `<symbol>` Sprite Icon Proposal (Research Only)
+
+### Task
+Skyler asked whether to adopt a `<symbol>`/`<use>` SVG sprite for icons. Research + plan only, no code changed. Deliverable: `docs/updates/svg-symbol-icons.md`.
+
+### Findings
+- **Real duplication found:** one trash-can icon's `<path>` (`viewBox="0 40 32 32"`) is byte-for-byte copy-pasted **13 times** across 7 files: `minions-list.html`, `locations-list.html`, `bystanders-list.html`, `monsters-list.html`, `mysteries-list.html` (1 each) + `monster-detail.html`/`minion-detail.html` (4 each — attack/power/armor/weakness delete buttons). Verified via exact-string grep on the path's opening segment, not eyeballing.
+- **No duplication in the two existing shared icon components** (`shared/domain-icon.component.ts` `app-domain-icon`, `features/mysteries/shared/mystery-section-icon.ts` `app-mystery-section-icon`) — each icon is written once in a `@switch` case and reused via the component (23 combined call sites, confirmed against the task's initial-grep estimate exactly). These already solve the same problem a sprite would solve; recommended leaving them alone rather than converting them.
+- No Angular Material anywhere (`package.json`, grep for `mat-icon`/`MatIcon` — zero hits), no `.svg` asset files (`public/` = favicon.ico only), no SSR (CSR-only, confirmed via `angular.json`/`main.ts` — no `server` builder target), no existing sprite/build-tooling for icons.
+- `mysteries-list.html` has a unique inline edit-pencil (`viewBox="0 0 100 100"`), not duplicated elsewhere — the only list page with an inline edit affordance.
+- `page-layout.html` (the shell, renders on every route — `app.html` itself is a bare `<router-outlet>`) has 4 one-off inline icons (hamburger, mobile-close, header quick-action plus, API-modal spinner) with no centralization at all.
+- Related, adjacent finding (not part of the icon proposal itself): delete-button hover styling is inconsistent — `monsters-list`/`monster-detail`/`minion-detail` use a shared `.action-btn`/`.action-btn--delete` SCSS class with a compound `:hover:not(:disabled)` selector (what `370dfd0` "fixing delete hover styling" touched), while `minions-list`/`locations-list`/`bystanders-list`/`mysteries-list` apply `hover:bg-danger-subtle hover:text-danger` as plain Tailwind utilities directly (no `[disabled]` state to combine with). Both rely on the icon's `fill="currentColor"` inheriting the button's hover color — confirmed this still works identically through `<use>`, so it's a non-issue for the sprite migration, just flagged as a separate pre-existing inconsistency worth a follow-up.
+
+### Recommendation given
+Hybrid: adopt a hand-maintained `<symbol>` sprite (no new build tooling — mounted once in `page-layout.html` via a new `IconSpriteComponent`, consumed via a typed `<app-icon name="trash">` wrapper mirroring `DomainIconComponent`'s existing convention) scoped to the action/chrome icons that are actually duplicated or scattered as one-offs. Do **not** touch `DomainIconComponent`/`MysterySectionIconComponent` — no duplication problem to solve there, and `mystery-detail.spec.ts`/`mystery-create.spec.ts` assert exact `app-mystery-section-icon` element counts, so converting them is real risk for zero payoff. Rejected an externally-fetched `public/icons/sprite.svg` (adds an async load-order/FOUC-shaped hazard, unwarranted at ~10 icons). Rejected Angular Material's `MatIconRegistry` (would mean adopting a whole component library not currently a dependency, just for icon loading — functionally equivalent to the hand-rolled sprite anyway).
+
+### Files
+`docs/updates/svg-symbol-icons.md` — new, full inventory table + phased rollout (Goal/Risk format matching `docs/theming/theming-plan.md`'s convention) + open questions. No application code touched.
+
+---
+
+## 2026-08-06 — WeaponTagSelect Compact Variant for Mystery-Wizard Inline Rows
+
+### Task
+`app-weapon-tag-select` always renders an internal "Weapon Tags" text label above the `app-custom-select` trigger (`flex flex-col` stack). Fine for the 4 vertical labeled-field usages (monster-create/detail, minion-create/detail), but broke row alignment in `mystery-create-monster-phase.html`'s two compact inline attack rows (`flex flex-wrap items-center gap-2`), where sibling `<input>`s have no external label — the internal label pushed the dropdown trigger down, and the trigger's default `px-3 py-[0.6rem]` was taller than the siblings' `px-[0.6rem] py-[0.4rem] text-sm` anyway.
+
+### Approach
+- `WeaponTagSelectComponent` gets `@Input() compact = false`. When true: skips the `<span>Weapon Tags</span>` label (`@if (!compact)`), shrinks the selected-tag-chip row (`text-[0.7rem] px-2 py-[0.15rem]` vs default `text-xs px-[0.6rem] py-1`), and passes `[size]="compact ? 'compact' : 'default'"` down to `app-custom-select`.
+- `CustomSelectComponent` gets a generic `@Input() size: 'default' | 'compact' = 'default'` (not weapon-tag-specific — it's the shared dropdown used by monster/minion type pickers, theme picker, etc. too) toggling an `.is-compact` class on the root; `.custom-select.is-compact .custom-select__trigger` in the SCSS overrides padding/font-size/radius/border to `px-[0.6rem] py-[0.4rem] text-sm rounded-md border-strong`, matching the plain sibling inputs' classes exactly.
+- Only the two `mystery-create-monster-phase.html` call sites (monster-attack row line ~61, minion-attack row line ~203) pass `[compact]="true"`; dropped their old `font-size: 0.875rem` inline style (now handled by the `.is-compact` class) but kept `style="flex: 0 1 160px"` for the flex-basis sizing.
+
+### Gotcha — mutating a plain `@Input()` on `componentInstance` after the first `fixture.detectChanges()` does NOT reliably re-render in this app's zoneless (no zone.js in package.json) setup
+Confirmed empirically: `component.size = 'compact'; fixture.detectChanges();` (called a second time, no signal write in between) left the template reading the *old* value — verified via an inline `{{ size }}` debug interpolation that kept printing `default` even though `component.size` read back `'compact'` at the JS level. A previously-passing spec (`searchable` test) only worked because it *also* clicked a button afterward, and that click's `isOpen.update(...)` signal write is what forced the real re-check — not the plain property mutation. Fix: use `fixture.componentRef.setInput('size', 'compact')` instead of direct assignment for any post-initial-render `@Input()` mutation in a test — this goes through Angular's actual binding-update path and reliably triggers CD regardless of zoneless quirks. Filed as a decision since this will bite the next `@Input()`-mutation-after-render test anyone writes here.
+
+### Verification
+`npm run test -- --watch=false`: 38 files / 266 tests, all green (6 new: 2 in `custom-select.component.spec.ts`, 4 in new `weapon-tag-select.component.spec.ts`). `npm run build`: clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss` — the latter's margin grew slightly from the added `.is-compact` rule, still nowhere near the 8kB error ceiling). Visually verified live via Playwright (already a project devDependency) against a real `ng serve` + API + Postgres stack: walked the actual mystery-create wizard to Phase 2 (monster attacks) and Phase 2 Step 2 (minion attacks), screenshotted both compact attack rows empty/filled/with-a-tag-selected — name/harm/weapon-tags now align and match height in both. Also screenshotted `monsters/new` (usage #1, vertical labeled pattern) to confirm the "Weapon Tags" label still renders there unchanged (`compact` defaults to `false`).
+
+### Files
+`shared/weapon-tag-select.component.{html,ts}`, `shared/custom-select.component.{html,scss,ts}`, new `shared/weapon-tag-select.component.spec.ts`, `shared/custom-select.component.spec.ts` (2 new tests), `features/mysteries/pages/mystery-create/mystery-create-monster-phase.html` (2 call sites).
+
+---
+
+## 2026-08-06 — SVG `<symbol>` Sprite Proposal, Revised Per Skyler's Decisions
+
+### Task
+Skyler answered the 3 open questions from `docs/updates/svg-symbol-icons.md`. Updated the doc (no app code) to fold them in: (1) typed `<app-icon>` wrapper confirmed, no longer open; (2) `DomainIconComponent`/`MysterySectionIconComponent` ARE now in scope for sprite migration — single icon pattern app-wide, no exceptions, as its own careful phase; (3) unify the `.action-btn`-SCSS-vs-plain-Tailwind delete/edit hover-styling inconsistency as part of the same work.
+
+### Judgment calls made (no longer open questions in the doc)
+- **Symbol-ID namespacing:** flat `icon-{name}` collides once domain/mystery-section icons join the sprite (`MysterySectionIconKind` has `monster`/`minions`/`locations`/`bystanders` that are visually distinct from `DomainIconComponent`'s same-named nav keys). Resolved with 3 namespaces in one physical sprite: unprefixed for the generic `IconComponent`/`IconName` set, `icon-nav-{key}` for domain icons, `icon-mystery-{kind}` for mystery-section icons. `IconName` itself does NOT grow — `DomainIconComponent`/`MysterySectionIconComponent` keep their own existing `domain`/`kind` input types untouched; only their internal templates swap `@switch` for a namespaced `<use>` lookup.
+- **Spec-safety for the domain/mystery-section migration (new Phase 4):** confirmed `mystery-detail.spec.ts:142-143`/`mystery-create.spec.ts:110,139-140` assert `querySelectorAll('app-mystery-section-icon').length` — i.e. they count the *custom element* in the host template, not its internal rendered SVG. Since this phase only changes the component's own internal template (not how many times it's instantiated by callers), these assertions stay valid unchanged — no spec edits needed, just re-run to confirm per usual practice here.
+- **`--mystery-section-icon-size` sizing contract:** unaffected by the migration — it's a `:host`/`.icon` (wrapper-level) CSS custom property, sizes the `<svg class="icon">` element itself regardless of whether its content is a `@switch`-selected inline `<path>` or a `<use>` reference.
+- **Hover-styling unification call:** `.action-btn`/`.action-btn--delete` (+ new `.action-btn--edit`) SCSS-class pattern wins over plain Tailwind hover utilities, applied uniformly even to buttons with no `[disabled]` state today (future-proofing/consistency over minimal-diff). Also called: consolidate the pattern's `@apply` rules into a single global block in `src/styles.css` instead of duplicating the identical 3-line block + `@reference` boilerplate per component `.scss` file (already happening 3× today in `monsters-list.scss`/`monster-detail.scss`/`minion-detail.scss`) — this app has no shared-partial-`.scss` convention to split into instead, so "global CSS" already means "add to `styles.css`" here. Also flagged (fold into same pass): `minion-detail.scss` never got the `.action-btn:disabled` rule its siblings have and instead relies on inline `disabled:*` Tailwind classes — a small pre-existing divergence, reconciled in the same phase rather than left mixed.
+
+### Files
+`docs/updates/svg-symbol-icons.md` only — revised Recommendation, Naming convention, and Phased rollout sections (now 5 phases: 0 sprite infra, 1 trash-icon migration, 2 hover-styling unification, 3 shell/chrome one-offs, 4 domain/mystery-section sprite migration). Open Questions section removed — no unresolved forks remained after making the calls above. No application code touched.

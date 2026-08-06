@@ -23,6 +23,7 @@ export class WeaponTagSelectComponent implements ControlValueAccessor {
 
   @Input() options: WeaponTagRefResponse[] = [];
   @Input() placeholder = 'Add weapon tags...';
+  @Input() compact = false;
 
   readonly innerControl = new FormControl<string[]>([], { nonNullable: true });
 

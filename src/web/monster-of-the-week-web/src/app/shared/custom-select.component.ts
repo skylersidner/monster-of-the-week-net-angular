@@ -21,6 +21,7 @@ export class CustomSelectComponent<T> implements ControlValueAccessor {
   @Input() multiple = false;
   @Input() emptyText = 'No options available';
   @Input() disabled = false;
+  @Input() size: 'default' | 'compact' = 'default';
   @Input() optionValue: (option: T) => string = (option: T) => this.resolveOptionValue(option);
   @Input() optionLabel: (option: T) => string = (option: T) => this.resolveOptionLabel(option);
   @Input() optionSubLabel: (option: T) => string | null = (option: T) => this.resolveOptionSubLabel(option);

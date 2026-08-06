@@ -58,7 +58,7 @@
         <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px"
           class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
       </div>
-      <app-weapon-tag-select formControlName="weaponTagIds" [options]="store.weaponTags()" style="flex: 0 1 160px; font-size: 0.875rem"></app-weapon-tag-select>
+      <app-weapon-tag-select formControlName="weaponTagIds" [options]="store.weaponTags()" [compact]="true" style="flex: 0 1 160px"></app-weapon-tag-select>
       <textarea formControlName="description" rows="2" placeholder="What does this attack do?"
         class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterAttack()">+ Add</button>
@@ -200,7 +200,7 @@
         <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px"
           class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
       </div>
-      <app-weapon-tag-select formControlName="weaponTagIds" [options]="store.weaponTags()" style="flex: 0 1 160px; font-size: 0.875rem"></app-weapon-tag-select>
+      <app-weapon-tag-select formControlName="weaponTagIds" [options]="store.weaponTags()" [compact]="true" style="flex: 0 1 160px"></app-weapon-tag-select>
       <textarea formControlName="description" rows="2" placeholder="What does this attack do?"
         class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMinionAttack()">+ Add</button>
