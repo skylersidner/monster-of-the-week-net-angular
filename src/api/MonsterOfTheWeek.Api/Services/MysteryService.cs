@@ -29,8 +29,13 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
         return mystery is null ? null : ToDetailResponse(mystery);
     }
 
-    public async Task<MysteryDetailResponse> CreateAsync(UpsertMysteryRequest request, CancellationToken cancellationToken)
+    public async Task<ServiceResult<MysteryDetailResponse>> CreateAsync(UpsertMysteryRequest request, CancellationToken cancellationToken)
     {
+        if (!await mysteryRepository.AdventureTypeExistsAsync(request.AdventureTypeId, cancellationToken))
+        {
+            return ServiceResult<MysteryDetailResponse>.Validation($"AdventureType {request.AdventureTypeId} does not exist.");
+        }
+
         var mystery = new Mystery
         {
             Name = request.Name.Trim(),
@@ -47,15 +52,20 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
         await mysteryRepository.SaveChangesAsync(cancellationToken);
 
         var saved = await mysteryRepository.GetMysteryDetailAsync(mystery.Id, asNoTracking: true, cancellationToken);
-        return ToDetailResponse(saved!);
+        return ServiceResult<MysteryDetailResponse>.Success(ToDetailResponse(saved!));
     }
 
-    public async Task<MysteryDetailResponse?> UpdateAsync(Guid id, UpsertMysteryRequest request, CancellationToken cancellationToken)
+    public async Task<ServiceResult<MysteryDetailResponse>> UpdateAsync(Guid id, UpsertMysteryRequest request, CancellationToken cancellationToken)
     {
         var mystery = await mysteryRepository.GetMysteryDetailAsync(id, asNoTracking: false, cancellationToken);
         if (mystery is null)
         {
-            return null;
+            return ServiceResult<MysteryDetailResponse>.NotFound($"Mystery {id} was not found.");
+        }
+
+        if (!await mysteryRepository.AdventureTypeExistsAsync(request.AdventureTypeId, cancellationToken))
+        {
+            return ServiceResult<MysteryDetailResponse>.Validation($"AdventureType {request.AdventureTypeId} does not exist.");
         }
 
         mystery.Name = request.Name.Trim();
@@ -68,7 +78,7 @@ public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMyst
         await mysteryRepository.SaveChangesAsync(cancellationToken);
 
         var updated = await mysteryRepository.GetMysteryDetailAsync(id, asNoTracking: true, cancellationToken);
-        return updated is null ? null : ToDetailResponse(updated);
+        return ServiceResult<MysteryDetailResponse>.Success(ToDetailResponse(updated!));
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)

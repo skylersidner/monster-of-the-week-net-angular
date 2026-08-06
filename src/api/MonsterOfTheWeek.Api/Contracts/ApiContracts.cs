@@ -57,8 +57,8 @@ public sealed record MysteryDetailResponse(
     DateTimeOffset UpdatedAt);
 
 public sealed record UpsertMysteryRequest(
-    string Name,
-    string? Concept,
+    [param: Required] string Name,
+    [param: MaxLength(500)] string? Concept,
     string? Hook,
     string? Overview,
     string? Notes,
