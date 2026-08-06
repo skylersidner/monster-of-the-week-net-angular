@@ -604,3 +604,48 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 
 ### Verification
 `npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 33 files / 200 passed, 0 skipped (175 → 200, 25 new). Both route files re-read after editing to confirm ordering. Not verified live against the API this round.
+
+---
+
+## 2026-08-06 — Standalone Creation Phase 3 LC-2 + LC-4: `LocationFormComponent` extraction + detail rewire
+
+### Task
+`docs/updates/standalone-creation-phase3-locations.md` decisions 4-6 and 12. Third run of the SC-2/SC-4 and MC-1/MC-3 shape. LC-3 (the `/locations/new` page) deliberately not started. Decision record: `.squad/decisions/inbox/luigi-location-form-component.md`.
+
+### Key patterns / gotchas
+- **Location's form is a genuinely different shape from Monster's/Minion's, three ways, and all three are load-bearing:** (1) `locationTypeId` has `Validators.required` where `monsterTypeId`/`minionTypeId` don't — preserved verbatim per the plan and pinned by a named spec so nobody "harmonises" it later; (2) single-column `max-w-[30rem]` stack, no `grid-cols-[Nfr...]` row (Location has no harm-capacity field); (3) Description sits *between* Name and Type, not last. Copying `minion-form.html` and adapting would have silently restyled the page. Rule now confirmed three times: take the markup from the page being extracted, never from the sibling component.
+- **`max-w-[30rem]` moved onto the component's own `<form>`** rather than being left on the page as a wrapper, so the width constraint travels with the component into LC-3.
+- **Location's detail page is the first of the three where `ReactiveFormsModule` could also be dropped from the page's `imports`.** Monster/Minion kept it for their 4 sub-resource forms; Location's only other content is the read-only custom-moves `<ul>`, so `ReactiveFormsModule`, `CustomSelectComponent`, `FormBuilder`, `Validators` *and* the page's `toNullable()` helper all became unused and were removed. Unlike the two prior extractions there is no duplicated `toNullable()` left behind — it lives only in the component now.
+- Everything else is identical to the two priors and needed no fresh thought: `@Input()`/`@Output()` decorators (not signal inputs), `ngOnChanges` repopulation with `location: null` actively *clearing* the form, `host: { class: 'block' }` and no `.scss`, guard split (`form.invalid` → component, `!location()` → page), both `form.reset(...)` call sites deleted rather than re-plumbed because `location.set(...)` already flows a new object down `[location]`, and `By.directive(LocationFormComponent)` + `querySelector('app-location-form form')` in the detail spec.
+
+### Files
+- New: `features/locations/shared/location-form/{location-form.ts, location-form.html, location-form.spec.ts}` (no `.scss`).
+- Modified: `features/locations/pages/location-detail/{location-detail.ts, location-detail.html, location-detail.spec.ts}`.
+- Untouched (verified via `git diff`): the read-only custom-moves block in `location-detail.html` — single changed hunk, the core-fields form only. `backLink()`/`backLabel()` and the two-route-shape param handling unchanged. Nothing under `features/monsters/` or `features/minions/`, no `mystery-create.store.ts`, no `docs/updates/multi-minion-support.md`. (Note: LC-1's backend files were already dirty in the working tree from Bowser's run — not mine.)
+
+### Public interface for LC-3
+`app-location-form`; inputs `locationTypes`, `location` (`null` = create mode, and setting it back to `null` actively clears the form), `isSaving`, `submitLabel`; output `save: EventEmitter<UpsertLocationRequest>`. Never calls `LocationService`; never sees `mysteryId` (create-page concern, not a field on `UpsertLocationRequest`). LC-3 must account for the required Location Type: its create page can't submit until a type is picked, unlike the Monster/Minion create pages.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 34 files / 217 passed, 0 skipped (200 → 217: 12 new `location-form.spec.ts`, 5 net new `location-detail.spec.ts`). Not verified live against the API this round.
+
+---
+
+## 2026-08-06 — Standalone Creation Phase 3 LC-3: `/locations/new` Create Page, Route, Entry Point
+
+### Task
+`docs/updates/standalone-creation-phase3-locations.md` decisions 3, 6-9, 13. Depends on LC-1 (`LocationService.createStandalone()`) and LC-2 (`LocationFormComponent`), both already landed in this tree. Decision record: `.squad/decisions/inbox/luigi-standalone-creation-lc3-create-page.md`.
+
+### Key patterns / gotchas
+- **This is the simplest create page of the three domains so far, exactly as the plan doc predicted** (Resolved Decision 2: Location has no interactive sub-resources at all). `onCreate` is a single service call with no `switchMap` chain past it — no draft signals, no batch panels, no `runBatch`. Closer in shape to `location-detail.ts`'s own `save()` than to `monster-create.ts`'s/`minion-create.ts`'s `onCreate`.
+- Page structure (mystery picker + shared form component) copied from `monster-create.html`'s block, adapted 1:1 since `LocationFormComponent` already mirrors `MonsterFormComponent`'s `@Input`/`@Output` shape from LC-2. Error/success strings (`Unable to create location.` / `Location created.`) copied from `location-detail.ts`'s own `save()`, not invented.
+- **A create-failure spec needs to mock whichever service method the mystery-picker's *current* value will actually route to** — wrote one wrong the first time (mystery picked, but mocked `createStandalone` to fail, which is unreachable with a mystery selected). Split into two specs, one per branch, each asserting the correct method was the one that failed and state was preserved.
+- No `.scss` (inline Tailwind utilities only, consistent with the rest of `features/locations/`). `locations-list.ts` needed no import change — `RouterLink` was already there; only `locations-list.html` changed for the "+ Add Location" CTA (classes copied verbatim from `monsters-list.html`/`minions-list.html`).
+
+### Files
+- New: `features/locations/pages/location-create/{location-create.ts, location-create.html, location-create.spec.ts}` (no `.scss`).
+- Modified: `features/locations/locations.routes.ts` (`new` before `:locationId`), `features/locations/pages/locations-list/locations-list.html`.
+- Untouched (verified via `git status`): `features/locations/shared/location-form/`, `core/location.ts`, everything under `features/monsters/`/`features/minions/`, `mystery-create.store.ts`, `docs/updates/multi-minion-support.md`.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 35 files / 228 passed, 0 skipped (217 → 228, 11 new). `locations.routes.ts` re-read after editing to confirm `new` precedes `:locationId`. Not verified live against the API this round.

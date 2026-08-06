@@ -1,0 +1,30 @@
+<section class="text-primary">
+  <a routerLink="/locations">← Back to locations</a>
+
+  <h2>New Location</h2>
+
+  @if (errorMessage()) {
+    <p class="text-danger">{{ errorMessage() }}</p>
+  }
+
+  @if (isSaving()) {
+    <p class="text-primary font-semibold">Creating location...</p>
+  }
+
+  <label class="grid font-medium gap-1 mt-4 max-w-md">
+    Attach to Mystery (optional)
+    <app-custom-select
+      [formControl]="mysteryControl"
+      [options]="mysteries()"
+      placeholder="No mystery — create unattached"
+    ></app-custom-select>
+  </label>
+
+  <app-location-form
+    [location]="null"
+    [locationTypes]="locationTypes()"
+    [isSaving]="isSaving()"
+    submitLabel="Create Location"
+    (save)="onCreate($event)"
+  ></app-location-form>
+</section>
