@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 
 import { MinionService } from '../../../../core/minion';
 import { MinionsListComponent } from './minions-list';
@@ -8,8 +8,13 @@ import { MinionsListComponent } from './minions-list';
 describe('MinionsListComponent', () => {
   let component: MinionsListComponent;
   let fixture: ComponentFixture<MinionsListComponent>;
+  let deleteCalls: string[];
+  let deleteResult: () => Observable<void>;
 
   beforeEach(async () => {
+    deleteCalls = [];
+    deleteResult = () => of(void 0);
+
     await TestBed.configureTestingModule({
       imports: [MinionsListComponent],
       providers: [
@@ -33,6 +38,10 @@ describe('MinionsListComponent', () => {
                   createdAt: '2026-01-01T00:00:00Z',
                 },
               ]),
+            delete: (id: string) => {
+              deleteCalls.push(id);
+              return deleteResult();
+            },
           },
         },
       ],
@@ -54,5 +63,42 @@ describe('MinionsListComponent', () => {
 
   it('shows the parent monster name', () => {
     expect(component.minions()[0].monsterName).toBe('The Beast');
+  });
+
+  it('requesting delete sets pendingDelete without calling the service', () => {
+    component.requestDelete('1', 'Grunt');
+
+    expect(component.pendingDelete()).toEqual({ id: '1', name: 'Grunt' });
+    expect(deleteCalls).toEqual([]);
+  });
+
+  it('confirming delete calls the service and removes the minion from the list', () => {
+    component.requestDelete('1', 'Grunt');
+
+    component.onDeleteConfirmed();
+
+    expect(deleteCalls).toEqual(['1']);
+    expect(component.pendingDelete()).toBeNull();
+    expect(component.minions()).toEqual([]);
+  });
+
+  it('cancelling delete clears pendingDelete without calling the service', () => {
+    component.requestDelete('1', 'Grunt');
+
+    component.onDeleteCancelled();
+
+    expect(component.pendingDelete()).toBeNull();
+    expect(deleteCalls).toEqual([]);
+    expect(component.minions().length).toBe(1);
+  });
+
+  it('sets an error message and keeps the minion in the list when delete fails', () => {
+    deleteResult = () => throwError(() => new Error('boom'));
+    component.requestDelete('1', 'Grunt');
+
+    component.onDeleteConfirmed();
+
+    expect(component.errorMessage()).toBe('Unable to delete minion.');
+    expect(component.minions().length).toBe(1);
   });
 });

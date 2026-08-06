@@ -9,6 +9,7 @@ public interface IMinionService
     Task<ServiceResult<MinionDetailResponse>> CreateAsync(Guid monsterId, UpsertMinionRequest request, CancellationToken cancellationToken);
     Task<MinionDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<ServiceResult<MinionDetailResponse>> UpdateAsync(Guid id, UpsertMinionRequest request, CancellationToken cancellationToken);
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
 
     Task<ServiceResult<IReadOnlyList<MinionAttackResponse>>> GetAttacksAsync(Guid id, CancellationToken cancellationToken);
     Task<ServiceResult<MinionAttackResponse>> CreateAttackAsync(Guid id, UpsertMinionAttackRequest request, CancellationToken cancellationToken);

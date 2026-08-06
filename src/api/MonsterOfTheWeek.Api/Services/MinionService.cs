@@ -87,6 +87,9 @@ public sealed class MinionService(IMinionRepository minionRepository) : IMinionS
         return ServiceResult<MinionDetailResponse>.Success(detail!);
     }
 
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
+        await minionRepository.DeleteMinionAsync(id, cancellationToken) > 0;
+
     public async Task<ServiceResult<IReadOnlyList<MinionAttackResponse>>> GetAttacksAsync(Guid id, CancellationToken cancellationToken)
     {
         if (!await minionRepository.MinionExistsAsync(id, cancellationToken))

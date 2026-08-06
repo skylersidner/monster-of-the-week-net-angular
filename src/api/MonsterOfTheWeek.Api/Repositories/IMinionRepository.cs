@@ -15,6 +15,7 @@ public interface IMinionRepository
     Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken);
     Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task AddAsync(Minion minion, CancellationToken cancellationToken);
+    Task<int> DeleteMinionAsync(Guid id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<MinionAttack>> GetAttacksAsync(Guid minionId, CancellationToken cancellationToken);
     Task<MinionAttack?> GetAttackAsync(Guid minionId, Guid attackId, bool includeTags, CancellationToken cancellationToken);

@@ -45,6 +45,10 @@ export class MinionService {
     return this.apiService.put<UpsertMinionRequest, MinionDetailResponse>(`/api/minions/${minionId}`, request);
   }
 
+  delete(id: string): Observable<void> {
+    return this.apiService.delete(`/api/minions/${id}`);
+  }
+
   createAttack(minionId: string, request: UpsertMinionAttackRequest): Observable<MinionAttackResponse> {
     return this.apiService.post<UpsertMinionAttackRequest, MinionAttackResponse>(
       `/api/minions/${minionId}/attacks`,

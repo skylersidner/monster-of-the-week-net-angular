@@ -4,10 +4,11 @@ import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MinionService } from '../../../../core/minion';
 import { MinionListItemResponse } from '../../../../core/models';
+import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 
 @Component({
   selector: 'app-minions-list',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent],
   templateUrl: './minions-list.html',
 })
 export class MinionsListComponent implements OnInit {
@@ -16,6 +17,7 @@ export class MinionsListComponent implements OnInit {
   readonly minions = signal<MinionListItemResponse[]>([]);
   readonly isLoading = signal(true);
   readonly errorMessage = signal<string | null>(null);
+  readonly pendingDelete = signal<{ id: string; name: string } | null>(null);
 
   constructor(private readonly minionService: MinionService) {}
 
@@ -34,5 +36,26 @@ export class MinionsListComponent implements OnInit {
           this.isLoading.set(false);
         },
       });
+  }
+
+  requestDelete(id: string, name: string): void {
+    this.pendingDelete.set({ id, name });
+  }
+
+  onDeleteConfirmed(): void {
+    const target = this.pendingDelete();
+    if (!target) return;
+    this.pendingDelete.set(null);
+    this.minionService
+      .delete(target.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.minions.update((ms) => ms.filter((m) => m.id !== target.id)),
+        error: () => this.errorMessage.set('Unable to delete minion.'),
+      });
+  }
+
+  onDeleteCancelled(): void {
+    this.pendingDelete.set(null);
   }
 }

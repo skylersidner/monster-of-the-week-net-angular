@@ -724,3 +724,22 @@ Third instance of the same bug class, this time the *list-row wrapper* (not the 
 - Checked every other phase file in the same directory (`mystery-create-dossier.html`, `mystery-create-mystery-phase.html`, `mystery-create-tracker.html`, `mystery-create.html`) for the same unstyled-row-div pattern — none found. Dossier explicitly classes every text node (`text-primary`/`text-muted`); mystery-phase is all top-level form fields (already-correct reference pattern); tracker/root shell explicitly class their text spans too.
 - `npm run build` re-run clean a third time this session — same 2 pre-existing budget warnings, nothing new.
 - Running tally this session: 3 separate instances of the same "unstyled leaf under dark `bg-surface`-family background" bug found across `mystery-create-monster-phase.html`'s mini-forms, `weapon-tag-select.component.html`'s label, and now these two phases' list rows — none caught by the original Phase 7 sweep since none are root-page-wrapper cases. If another "already added X" list or inline sub-form turns up anywhere in the wizard, check it too before assuming Phase 6/7 covered it.
+
+---
+
+## 2026-08-06 — Minions List: Add Delete Flow
+
+### Task
+Add delete button/flow to the minions list page, mirroring the Bystanders list pattern (Locations is identical too). Backend agent added `DELETE /api/minions/{id:guid}` (204/404) in parallel — coded against the fixed URL, didn't touch `src/api/**`.
+
+### Files
+- `core/minion.ts` — added `delete(id: string): Observable<void>` (`apiService.delete('/api/minions/${id}')`), placed right after `update()`.
+- `features/minions/pages/minions-list/minions-list.ts` — added `ConfirmDeleteModalComponent` import/`imports` entry, `pendingDelete = signal<{id,name}|null>(null)`, `requestDelete`/`onDeleteConfirmed`/`onDeleteCancelled` — byte-for-byte the same shape as `bystanders-list.ts`, just swapping `bystanders`→`minions`/`bystander`→`minion` naming.
+- `features/minions/pages/minions-list/minions-list.html` — added the trash-icon `<button>` (identical SVG/classes to bystanders-list.html) inside each `<li>` wired to `(click)="requestDelete(minion.id, minion.name)"`, plus `<app-confirm-delete-modal>` at the end wired to `pendingDelete()`/`(confirmed)`/`(cancelled)`.
+- `features/minions/pages/minions-list/minions-list.spec.ts` — no pre-existing delete spec to copy in this repo (checked `bystanders-list.spec.ts` and `locations-list.spec.ts` — neither has one). Modeled the delete tests on `monster-detail.spec.ts`'s attack-delete tests instead: a `deleteCalls: string[]` array + mutable `deleteResult: () => Observable<void>` closure on the mocked `MinionService.delete`, call `component.requestDelete/onDeleteConfirmed/onDeleteCancelled` directly (no DOM click needed), assert against `component.pendingDelete()`/`component.minions()`/`component.errorMessage()`. 4 new tests: request-sets-pending, confirm-calls-service-and-removes-item, cancel-clears-pending-no-call, error-path-sets-message-and-keeps-item.
+
+### Gotcha
+`let deleteResult: () => ReturnType<typeof of>;` doesn't type-check against `MinionService.delete`'s `Observable<void>` return type — `of(void 0)` infers `Observable<undefined>`, and TS won't assign that to `Observable<never>`/`Observable<void>` through a generic `ReturnType<typeof of>` alias in this strict config. Fix: type the closure explicitly as `() => Observable<void>` (import `Observable` from `rxjs`) rather than deriving it from `of`.
+
+### Verification
+`ng test --watch=false`: 37 files / 260 tests, all green (4 new). `ng build --configuration production`: clean, same 2 pre-existing unrelated CSS budget warnings (`mystery-create.scss`, `custom-select.component.scss`). Confirmed via `git status` that only the 4 frontend files above changed on my side; `src/api/**` changes present are the parallel backend agent's, untouched by me.

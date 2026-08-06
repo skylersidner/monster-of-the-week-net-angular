@@ -38,6 +38,10 @@ public sealed class MinionsController(IMinionService minionService) : Controller
     public async Task<ActionResult<MinionDetailResponse>> Update(Guid id, [FromBody] UpsertMinionRequest request, CancellationToken cancellationToken) =>
         ToActionResult(await minionService.UpdateAsync(id, request, cancellationToken));
 
+    [HttpDelete("api/minions/{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
+        await minionService.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
+
     // --- Attacks ---
 
     [HttpGet("api/minions/{id:guid}/attacks")]

@@ -82,6 +82,9 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
         return Task.CompletedTask;
     }
 
+    public Task<int> DeleteMinionAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.Minions.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
+
     public async Task<IReadOnlyList<MinionAttack>> GetAttacksAsync(Guid minionId, CancellationToken cancellationToken) =>
         await dbContext.MinionAttacks
             .AsNoTracking()
