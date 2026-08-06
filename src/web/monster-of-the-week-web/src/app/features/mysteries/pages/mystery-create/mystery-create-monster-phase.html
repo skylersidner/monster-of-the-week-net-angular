@@ -54,13 +54,13 @@
     <form [formGroup]="store.monsterAttackForm" class="flex flex-wrap items-center gap-2 mt-2">
       <div class="flex flex-1 items-center gap-2">
         <input formControlName="name" placeholder="Attack name"
-          class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
         <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px"
-          class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
       </div>
       <app-weapon-tag-select formControlName="weaponTagIds" [options]="store.weaponTags()" style="flex: 0 1 160px; font-size: 0.875rem"></app-weapon-tag-select>
       <textarea formControlName="description" rows="2" placeholder="What does this attack do?"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterAttack()">+ Add</button>
     </form>
   </div>
@@ -80,9 +80,9 @@
     }
     <form [formGroup]="store.monsterPowerForm" class="flex flex-wrap items-center gap-2 mt-2">
       <input formControlName="name" placeholder="Power name"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
       <textarea formControlName="description" rows="2" placeholder="What does this power do?"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterPower()">+ Add</button>
     </form>
   </div>
@@ -102,9 +102,9 @@
     }
     <form [formGroup]="store.monsterWeaknessForm" class="flex flex-wrap items-center gap-2 mt-2">
       <input formControlName="name" placeholder="Weakness name"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
       <textarea formControlName="description" rows="2" placeholder="What makes this weakness matter?"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterWeakness()">+ Add</button>
     </form>
   </div>
@@ -127,18 +127,18 @@
     }
     <form [formGroup]="store.monsterArmorForm" class="flex flex-wrap items-center gap-2 mt-2">
       <input formControlName="name" placeholder="Armor name"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
       <input formControlName="harmSoak" type="number" placeholder="Harm Soak" style="width: 100px"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
-      <label class="flex items-center gap-2 text-sm">
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
+      <label class="flex items-center gap-2 text-sm text-primary">
         <input type="checkbox" formControlName="isSpecial" />
         <span>Special</span>
       </label>
       <textarea formControlName="description" rows="2" placeholder="Description"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       @if (store.monsterArmorForm.controls.isSpecial.value) {
         <textarea formControlName="specialDescription" rows="2" placeholder="Special description"
-          class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       }
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterArmor()">+ Add</button>
     </form>
@@ -196,13 +196,13 @@
     <form [formGroup]="store.minionAttackForm" class="flex flex-wrap items-center gap-2 mt-2">
       <div class="flex flex-1 items-center gap-2">
         <input formControlName="name" placeholder="Attack name"
-          class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
         <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px"
-          class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
       </div>
       <app-weapon-tag-select formControlName="weaponTagIds" [options]="store.weaponTags()" style="flex: 0 1 160px; font-size: 0.875rem"></app-weapon-tag-select>
       <textarea formControlName="description" rows="2" placeholder="What does this attack do?"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMinionAttack()">+ Add</button>
     </form>
   </div>
@@ -222,9 +222,9 @@
     }
     <form [formGroup]="store.minionPowerForm" class="flex flex-wrap items-center gap-2 mt-2">
       <input formControlName="name" placeholder="Power name"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
       <textarea formControlName="description" rows="2" placeholder="What does this power do?"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMinionPower()">+ Add</button>
     </form>
   </div>
@@ -244,9 +244,9 @@
     }
     <form [formGroup]="store.minionWeaknessForm" class="flex flex-wrap items-center gap-2 mt-2">
       <input formControlName="name" placeholder="Weakness name"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
       <textarea formControlName="description" rows="2" placeholder="What makes this weakness matter?"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMinionWeakness()">+ Add</button>
     </form>
   </div>
@@ -269,18 +269,18 @@
     }
     <form [formGroup]="store.minionArmorForm" class="flex flex-wrap items-center gap-2 mt-2">
       <input formControlName="name" placeholder="Armor name"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
       <input formControlName="harmSoak" type="number" placeholder="Harm Soak" style="width: 100px"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
-      <label class="flex items-center gap-2 text-sm">
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
+      <label class="flex items-center gap-2 text-sm text-primary">
         <input type="checkbox" formControlName="isSpecial" />
         <span>Special</span>
       </label>
       <textarea formControlName="description" rows="2" placeholder="Description"
-        class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       @if (store.minionArmorForm.controls.isSpecial.value) {
         <textarea formControlName="specialDescription" rows="2" placeholder="Special description"
-          class="border border-strong rounded-md font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
       }
       <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMinionArmor()">+ Add</button>
     </form>

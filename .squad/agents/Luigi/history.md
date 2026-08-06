@@ -696,3 +696,31 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 `npm run build` clean (same 2 pre-existing budget warnings: `mystery-create.scss`, `custom-select.component.scss`). `npm run test -- --watch=false`: 37 files / 256 passed, 0 skipped (245 → 256: 11 new). Not verified live against the API this round.
 
 **Initiative note:** this closes out `docs/updates/standalone-creation-phase4-bystanders.md` and, with it, the full four-phase standalone-creation initiative (Monster/Minion/Location/Bystander) — every domain object now has a create path reachable outside the mystery wizard.
+
+---
+
+## 2026-08-06 — Bug fix: missing `text-primary` on wizard sub-resource mini-forms
+
+### Task
+Fix a gap the Phase 7 sweep's own history entry claimed didn't exist: "the wizard doesn't have this bug ... because Phase 6 classed every text node individually." True for the wizard's top-level form fields, but not for `mystery-create-monster-phase.html`'s four inline "add" mini-forms (Attacks/Powers/Weaknesses/Armor, both Monster and mirrored Minion sections) — their inputs/textareas/checkbox-label span carried no color class at all. Same UA-default-black-on-dark-surface root cause as the Phase 7 finding (Tailwind preflight's `color: inherit` with nothing upstream setting a real color), but a distinct instance: Phase 7's sweep targeted unclassed *root page wrappers*; this was individually unclassed *leaf form controls* inside panel `<div>`s/`<form>`s that themselves never carry `text-primary` anywhere in their ancestor chain. Same absence-of-a-class bug shape, different location, missed by a sweep that was (reasonably) looking for the root-wrapper pattern specifically.
+- Added `text-primary` to every mini-form input/textarea and to the `<label class="flex items-center gap-2 text-sm">` wrapping the Armor "Special" checkbox (span inherits from label).
+- Left the top-level form fields (Monster/Minion Name/Description/Harm Capacity, lines 5-19/155-168) untouched — already correct, used as the reference pattern.
+- `npm run build` clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`). No test run requested/needed — pure class-list change, no logic touched.
+
+### Files
+- Modified: `features/mysteries/pages/mystery-create/mystery-create-monster-phase.html` only.
+
+### Takeaway for future sweeps
+When grepping for "unclassed root wrapper" instances of this bug pattern, also check nested `<form>`/panel scopes independently — an ancestor having `text-primary` does not guarantee every descendant input does, since Tailwind preflight's `color: inherit` on form controls stops inheriting correctly once a parent panel itself has no explicit color set at its own level in a multi-level nesting chain. Safer heuristic: grep every `<input`/`<textarea` tag in a template and confirm each one's own `class` attribute carries a text-color token, don't rely on ancestor-level checks.
+
+### Addendum — same session: `weapon-tag-select.component.html`'s "Weapon Tags" label
+Coordinator caught one more instance in the same bug family: `shared/weapon-tag-select.component.html` line 9's `<span class="text-inherit ...">Weapon Tags</span>` — explicit `text-inherit` rather than an absent class, but same net effect, since it was relying on an ancestor `color` that the wizard's mini-form panels never set. Fixed at the shared-component source (`text-inherit` → `text-primary`), not per call-site, per instruction to fix shared components once.
+- Before changing, checked all 4 other callers (`monster-detail.html`, `monster-create.html`, `minion-detail.html`, `minion-create.html`): all 4 have a root `<section class="text-primary">` wrapper (the Phase 7 root-wrapper fix) with nothing overriding `color` between that root and the `<app-weapon-tag-select>` usage — so `text-inherit` was already resolving to the same value `text-primary` resolves to. Confirmed no visual regression: explicit `text-primary` there is a no-op change, same computed color, just no longer dependent on inheritance holding.
+- `npm run build` re-run clean after this second edit — same 2 pre-existing budget warnings, nothing new.
+- General lesson: `text-inherit` on a leaf element is exactly as fragile as an absent class whenever the ancestor chain isn't guaranteed to set a real color at every call site of a shared component — worth grepping `text-inherit` itself as a related smell alongside "absent text-color class" in any future sweep of this app.
+
+### Addendum 2 — same session: "already added" row wrappers in `mystery-create-locations-phase.html` / `mystery-create-bystanders-phase.html`
+Third instance of the same bug class, this time the *list-row wrapper* (not the add-form) in the two sibling wizard phases. Both files, line 3: `<div class="flex items-center bg-surface-sunken border border-default rounded-md text-[0.9rem] justify-between px-3 py-2">` had no color class, with an unclassed `<span>{{ x.name }}</span>` inside it (the `×` remove button is unaffected — has its own explicit `text-danger`). Fixed by adding `text-primary` to the row `<div>` (not the inner `<span>`), matching the already-correct precedent in `mystery-create-monster-phase.html`'s attack-row wrapper (`text-primary` lives on the row container there too).
+- Checked every other phase file in the same directory (`mystery-create-dossier.html`, `mystery-create-mystery-phase.html`, `mystery-create-tracker.html`, `mystery-create.html`) for the same unstyled-row-div pattern — none found. Dossier explicitly classes every text node (`text-primary`/`text-muted`); mystery-phase is all top-level form fields (already-correct reference pattern); tracker/root shell explicitly class their text spans too.
+- `npm run build` re-run clean a third time this session — same 2 pre-existing budget warnings, nothing new.
+- Running tally this session: 3 separate instances of the same "unstyled leaf under dark `bg-surface`-family background" bug found across `mystery-create-monster-phase.html`'s mini-forms, `weapon-tag-select.component.html`'s label, and now these two phases' list rows — none caught by the original Phase 7 sweep since none are root-page-wrapper cases. If another "already added X" list or inline sub-form turns up anywhere in the wizard, check it too before assuming Phase 6/7 covered it.

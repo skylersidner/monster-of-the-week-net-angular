@@ -1,6 +1,6 @@
 <div class="flex flex-col gap-[0.4rem] mb-3">
   @for (location of store.locations(); track $index) {
-    <div class="flex items-center bg-surface-sunken border border-default rounded-md text-[0.9rem] justify-between px-3 py-2">
+    <div class="flex items-center bg-surface-sunken border border-default rounded-md text-primary text-[0.9rem] justify-between px-3 py-2">
       <span>{{ location.name }}</span>
       <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeLocation($index)">×</button>
     </div>
