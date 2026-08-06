@@ -649,3 +649,50 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 
 ### Verification
 `npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 35 files / 228 passed, 0 skipped (217 → 228, 11 new). `locations.routes.ts` re-read after editing to confirm `new` precedes `:locationId`. Not verified live against the API this round.
+
+---
+
+## 2026-08-06 — Standalone Creation Phase 4 BC-2 + BC-4: `BystanderFormComponent` extraction + detail rewire
+
+### Task
+`docs/updates/standalone-creation-phase4-bystanders.md` decisions 4-6 and 12. Fourth (final) run of the SC-2/SC-4, MC-1/MC-3, LC-2/LC-4 shape. BC-3 (the `/bystanders/new` page) deliberately not started. Decision record: `.squad/decisions/inbox/luigi-bystander-form-component.md`.
+
+### Key patterns / gotchas
+- **Bystander's core-fields block really is byte-identical in structure to Location's** — single-column `max-w-[30rem]` stack, Description between Name and Type, same token classes, `bystanderTypeId` with `Validators.required`. Unlike Location (which differed from Monster/Minion three ways), this extraction was a straight 1:1 rename of `location-form.*`. Still took the markup from `bystander-detail.html` itself and diffed it against Location's before concluding that — the plan doc's own Background section makes the "looks the same vs. is the same" point, and it costs one read to check.
+- Everything else was mechanical and needed no fresh thought: `@Input()`/`@Output()` decorators (not signal inputs), `ngOnChanges` repopulation with `bystander: null` actively *clearing* the form, `host: { class: 'block' }`, no `.scss`, guard split (`form.invalid` → component, `!bystander()` → page), both `form.reset(...)` call sites deleted rather than re-plumbed, and `By.directive(BystanderFormComponent)` + `querySelector('app-bystander-form form')` in the detail spec.
+- Like Location's page (and unlike Monster's/Minion's), `ReactiveFormsModule`, `CustomSelectComponent`, `FormBuilder`, `Validators` *and* `toNullable()` all became unused on `bystander-detail.ts` and were removed — the only other content on the page is the read-only custom-moves `<ul>`.
+- Working tree already carried BC-1's backend changes (`BystandersController.cs`, `BystanderService.cs`, `IBystanderService.cs`, `core/bystander.ts` + Bowser/Yoshi history) from Bowser's run — not mine, left alone.
+
+### Files
+- New: `features/bystanders/shared/bystander-form/{bystander-form.ts, bystander-form.html, bystander-form.spec.ts}` (no `.scss`).
+- Modified: `features/bystanders/pages/bystander-detail/{bystander-detail.ts, bystander-detail.html, bystander-detail.spec.ts}`.
+- Untouched (verified via `git diff`): the read-only custom-moves block in `bystander-detail.html` — single changed hunk, the core-fields form only. `backLink()`/`backLabel()` and the two-route-shape param handling unchanged. Nothing under `features/monsters/`/`features/minions/`/`features/locations/`, no `mystery-create.store.ts`, no `docs/updates/multi-minion-support.md`.
+
+### Public interface for BC-3
+`app-bystander-form`; inputs `bystanderTypes`, `bystander` (`null` = create mode, and setting it back to `null` actively clears the form), `isSaving`, `submitLabel`; output `save: EventEmitter<UpsertBystanderRequest>`. Never calls `BystanderService`; never sees `mysteryId` (create-page concern, not a field on `UpsertBystanderRequest`). BC-3 must account for the required Bystander Type: its create page can't submit until a type is picked, same as Location's.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 36 files / 245 passed, 0 skipped (228 → 245: 12 new `bystander-form.spec.ts`, 5 net new `bystander-detail.spec.ts`). Not verified live against the API this round.
+
+---
+
+## 2026-08-06 — Standalone Creation Phase 4 BC-3: `/bystanders/new` create page — INITIATIVE COMPLETE
+
+### Task
+`docs/updates/standalone-creation-phase4-bystanders.md` Resolved Decisions 3, 6-9, 13. Depends on BC-1 (`bystanderService.createStandalone()`, already in tree from Bowser) and BC-2 (`BystanderFormComponent`, my own prior entry). **This is the fourth and final domain of the whole "standalone creation" initiative** — Monster, Minion, Location, and now Bystander all have a create path outside the mystery wizard.
+
+### Key patterns / gotchas
+- Structurally identical to LC-3 (Location) — no draft arrays, no batch step, single `onCreate` service call, mirroring `location-create.ts` field-for-field with Bystander substitutions (`bystanderService`, `bystanderTypes`, `app-bystander-form`, `/bystanders`). No new judgment calls arose; the plan doc's own claim that every dimension of this phase matches an already-decided prior phase held up in practice, not just on paper.
+- Error/success strings (`Unable to create bystander.` / `Bystander created.`) copied from `location-create.ts`'s own wording pattern, consistent with `bystander-detail.ts`'s existing `save()` error shape.
+- Spec again splits the create-failure case into two (mystery selected → mocks `create` to fail; blank → mocks `createStandalone` to fail) per the LC-3 lesson about not mocking the unreachable branch. Also carried over the `bystanders route ordering` describe block asserting `indexOf('new') < indexOf(':bystanderId')`.
+- `bystanders-list.ts` already imported `RouterLink` (used for bystander name links), so only `bystanders-list.html` changed for the "+ Add Bystander" CTA — classes copied verbatim from `locations-list.html`'s most recent "+ Add Location" button.
+
+### Files
+- New: `features/bystanders/pages/bystander-create/{bystander-create.ts, bystander-create.html, bystander-create.spec.ts}` (no `.scss`).
+- Modified: `features/bystanders/bystanders.routes.ts` (`new` inserted before `:bystanderId`, re-read after edit to confirm), `features/bystanders/pages/bystanders-list/bystanders-list.html`.
+- Untouched (verified via `git status`): `features/bystanders/shared/bystander-form/`, `core/bystander.ts`, everything under `features/monsters/`/`features/minions/`/`features/locations/`, `mystery-create.store.ts`, `docs/updates/multi-minion-support.md`.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings: `mystery-create.scss`, `custom-select.component.scss`). `npm run test -- --watch=false`: 37 files / 256 passed, 0 skipped (245 → 256: 11 new). Not verified live against the API this round.
+
+**Initiative note:** this closes out `docs/updates/standalone-creation-phase4-bystanders.md` and, with it, the full four-phase standalone-creation initiative (Monster/Minion/Location/Bystander) — every domain object now has a create path reachable outside the mystery wizard.

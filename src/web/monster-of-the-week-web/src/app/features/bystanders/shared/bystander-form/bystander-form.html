@@ -1,0 +1,19 @@
+<form class="grid gap-[0.6rem] my-4 max-w-[30rem]" [formGroup]="bystanderForm" (ngSubmit)="onSubmit()">
+  <label class="grid font-medium gap-1">
+    Name
+    <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+  </label>
+  <label class="grid font-medium gap-1">
+    Description
+    <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
+  </label>
+  <label class="grid font-medium gap-1">
+    Bystander Type
+    <app-custom-select
+      formControlName="bystanderTypeId"
+      [options]="bystanderTypes"
+      placeholder="Select a type..."
+    ></app-custom-select>
+  </label>
+  <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isSaving">{{ submitLabel }}</button>
+</form>
