@@ -15,32 +15,13 @@
       <p class="text-primary font-semibold">{{ activeMutation() }}</p>
     }
 
-    <form class="grid gap-[0.6rem] my-4" [formGroup]="minionForm" (ngSubmit)="saveMinion()">
-      <h3>Details</h3>
-      <div class="grid gap-[0.6rem] grid-cols-[2fr_1fr_1fr] max-md:grid-cols-1">
-        <label class="grid font-medium gap-1">
-          Name
-          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
-        </label>
-        <label class="grid font-medium gap-1">
-          Harm Capacity
-          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="number" formControlName="harmCapacity" min="0" />
-        </label>
-        <label class="grid font-medium gap-1">
-          Minion Type
-          <app-custom-select
-            formControlName="minionTypeId"
-            [options]="minionTypes()"
-            placeholder="Select a type..."
-          ></app-custom-select>
-        </label>
-      </div>
-      <label class="grid font-medium gap-1">
-        Description
-        <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
-      </label>
-      <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isMutating()">Save Minion</button>
-    </form>
+    <app-minion-form
+      [minion]="minion()"
+      [minionTypes]="minionTypes()"
+      [isSaving]="isMutating()"
+      submitLabel="Save Minion"
+      (save)="saveMinion($event)"
+    ></app-minion-form>
 
     <div class="grid gap-4 grid-cols-4 max-xl:grid-cols-2 max-sm:grid-cols-1">
       <article class="bg-surface border border-default rounded-lg p-3">

@@ -7,8 +7,8 @@ import { MinionService } from '../../../../core/minion';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
-import { CustomSelectComponent } from '../../../../shared/custom-select.component';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
+import { MinionFormComponent } from '../../shared/minion-form/minion-form';
 import {
   MinionDetailResponse,
   MinionAttackResponse,
@@ -23,7 +23,7 @@ import {
 
 @Component({
   selector: 'app-minion-detail',
-  imports: [ReactiveFormsModule, RouterLink, CustomSelectComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent],
+  imports: [ReactiveFormsModule, RouterLink, MinionFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent],
   templateUrl: './minion-detail.html',
   styleUrl: './minion-detail.scss',
 })
@@ -51,13 +51,6 @@ export class MinionDetailComponent implements OnInit {
     if (this.mysteryId()) return '← Back to mystery';
     if (this.monsterId()) return '← Back to monster';
     return '← Back to minions';
-  });
-
-  readonly minionForm = this.formBuilder.group({
-    name: this.formBuilder.nonNullable.control('', [Validators.required]),
-    description: this.formBuilder.control(''),
-    harmCapacity: this.formBuilder.nonNullable.control(0, [Validators.required, Validators.min(0)]),
-    minionTypeId: this.formBuilder.nonNullable.control(''),
   });
 
   readonly attackForm = this.formBuilder.group({
@@ -121,7 +114,6 @@ export class MinionDetailComponent implements OnInit {
           this.minion.set(minion);
           this.minionTypes.set(minionTypes);
           this.weaponTags.set(weaponTags);
-          this.populateMinionForm(minion);
           this.isLoading.set(false);
         },
         error: () => {
@@ -131,18 +123,10 @@ export class MinionDetailComponent implements OnInit {
       });
   }
 
-  saveMinion(): void {
-    if (this.minionForm.invalid || !this.minion()) {
-      this.minionForm.markAllAsTouched();
+  saveMinion(payload: UpsertMinionRequest): void {
+    if (!this.minion()) {
       return;
     }
-
-    const payload: UpsertMinionRequest = {
-      name: this.minionForm.controls.name.value.trim(),
-      description: this.toNullable(this.minionForm.controls.description.value),
-      harmCapacity: this.minionForm.controls.harmCapacity.value,
-      minionTypeId: this.minionForm.controls.minionTypeId.value,
-    };
 
     this.activeMutation.set('Saving minion...');
 
@@ -152,7 +136,6 @@ export class MinionDetailComponent implements OnInit {
       .subscribe({
         next: (minion) => {
           this.minion.set(minion);
-          this.populateMinionForm(minion);
           this.activeMutation.set(null);
           this.notificationService.success('Minion details saved.');
           this.errorMessage.set(null);
@@ -347,15 +330,6 @@ export class MinionDetailComponent implements OnInit {
           this.notificationService.error(errorMessage);
         },
       });
-  }
-
-  private populateMinionForm(minion: MinionDetailResponse): void {
-    this.minionForm.reset({
-      name: minion.name,
-      description: minion.description ?? '',
-      harmCapacity: minion.harmCapacity,
-      minionTypeId: minion.minionType.id,
-    });
   }
 
   private toNullable(value: string | null): string | null {

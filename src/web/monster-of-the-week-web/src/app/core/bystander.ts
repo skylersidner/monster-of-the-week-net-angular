@@ -26,6 +26,10 @@ export class BystanderService {
     );
   }
 
+  createStandalone(request: UpsertBystanderRequest): Observable<BystanderDetailResponse> {
+    return this.apiService.post<UpsertBystanderRequest, BystanderDetailResponse>('/api/bystanders', request);
+  }
+
   update(id: string, request: UpsertBystanderRequest): Observable<BystanderDetailResponse> {
     return this.apiService.put<UpsertBystanderRequest, BystanderDetailResponse>(`/api/bystanders/${id}`, request);
   }

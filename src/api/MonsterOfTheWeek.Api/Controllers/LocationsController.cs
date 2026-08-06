@@ -48,6 +48,25 @@ public sealed class LocationsController(ILocationService locationService) : Cont
         return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
     }
 
+    [HttpPost("api/locations")]
+    public async Task<ActionResult<LocationDetailResponse>> Create(
+        [FromBody] UpsertLocationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await locationService.CreateAsync(request, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return result.Error!.Type switch
+            {
+                ServiceErrorType.NotFound => NotFound(),
+                ServiceErrorType.Validation => BadRequest(new { message = result.Error.Message }),
+                _ => BadRequest()
+            };
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
+    }
+
     [HttpGet("api/locations/{id:guid}")]
     public async Task<ActionResult<LocationDetailResponse>> GetById(Guid id, CancellationToken cancellationToken)
     {

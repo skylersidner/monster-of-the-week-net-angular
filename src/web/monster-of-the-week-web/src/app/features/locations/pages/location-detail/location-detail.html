@@ -12,25 +12,13 @@
       <p class="text-primary font-semibold">Saving location...</p>
     }
 
-    <form class="grid gap-[0.6rem] my-4 max-w-[30rem]" [formGroup]="form" (ngSubmit)="save()">
-      <label class="grid font-medium gap-1">
-        Name
-        <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
-      </label>
-      <label class="grid font-medium gap-1">
-        Description
-        <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
-      </label>
-      <label class="grid font-medium gap-1">
-        Location Type
-        <app-custom-select
-          formControlName="locationTypeId"
-          [options]="locationTypes()"
-          placeholder="Select a type..."
-        ></app-custom-select>
-      </label>
-      <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isSaving()">Save Location</button>
-    </form>
+    <app-location-form
+      [location]="location()"
+      [locationTypes]="locationTypes()"
+      [isSaving]="isSaving()"
+      submitLabel="Save Location"
+      (save)="save($event)"
+    ></app-location-form>
 
     <h3>Custom Moves</h3>
     @if (location()!.customMoves.length === 0) {

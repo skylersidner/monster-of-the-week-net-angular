@@ -26,6 +26,10 @@ export class LocationService {
     );
   }
 
+  createStandalone(request: UpsertLocationRequest): Observable<LocationDetailResponse> {
+    return this.apiService.post<UpsertLocationRequest, LocationDetailResponse>('/api/locations', request);
+  }
+
   update(id: string, request: UpsertLocationRequest): Observable<LocationDetailResponse> {
     return this.apiService.put<UpsertLocationRequest, LocationDetailResponse>(`/api/locations/${id}`, request);
   }

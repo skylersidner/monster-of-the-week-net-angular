@@ -1,0 +1,34 @@
+<form class="grid gap-[0.6rem] my-4" [formGroup]="monsterForm" (ngSubmit)="onSubmit()">
+  <h3>Details</h3>
+  <div class="grid gap-[0.6rem] grid-cols-[2fr_1fr_1fr_1fr] max-md:grid-cols-1">
+    <label class="grid font-medium gap-1">
+      Name
+      <input type="text" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="name" />
+    </label>
+    <label class="grid font-medium gap-1">
+      Harm Capacity
+      <input type="number" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="harmCapacity" min="0" />
+    </label>
+    <label class="grid font-medium gap-1">
+      Monster Type
+      <app-custom-select
+        formControlName="monsterTypeId"
+        [options]="monsterTypes"
+        placeholder="Select a type..."
+      ></app-custom-select>
+    </label>
+    <label class="grid font-medium gap-1">
+      Monster Archetype
+      <app-custom-select
+        formControlName="monsterArchetypeId"
+        [options]="monsterArchetypes"
+        placeholder="Select an archetype..."
+      ></app-custom-select>
+    </label>
+  </div>
+  <label class="grid font-medium gap-1">
+    Description
+    <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="description" rows="9"></textarea>
+  </label>
+  <button type="submit" class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer font-[inherit] px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" [disabled]="isSaving">{{ submitLabel }}</button>
+</form>

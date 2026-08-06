@@ -1,33 +1,26 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, switchMap } from 'rxjs';
 import { LocationService } from '../../../../core/location';
 import { LocationDetailResponse, TypeRefResponse, UpsertLocationRequest } from '../../../../core/models';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
-import { CustomSelectComponent } from '../../../../shared/custom-select.component';
+import { LocationFormComponent } from '../../shared/location-form/location-form';
 
 @Component({
   selector: 'app-location-detail-component',
-  imports: [ReactiveFormsModule, RouterLink, CustomSelectComponent],
+  imports: [RouterLink, LocationFormComponent],
   templateUrl: './location-detail.html',
 })
 export class LocationDetailComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
-  private readonly formBuilder = inject(FormBuilder);
 
   readonly location = signal<LocationDetailResponse | null>(null);
   readonly locationTypes = signal<TypeRefResponse[]>([]);
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly form = this.formBuilder.group({
-    name: this.formBuilder.nonNullable.control('', [Validators.required]),
-    description: this.formBuilder.control(''),
-    locationTypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
-  });
 
   readonly mysteryId = signal<string | null>(null);
 
@@ -70,11 +63,6 @@ export class LocationDetailComponent implements OnInit {
         next: ({ location, locationTypes }) => {
           this.location.set(location);
           this.locationTypes.set(locationTypes);
-          this.form.reset({
-            name: location.name,
-            description: location.description ?? '',
-            locationTypeId: location.locationTypeId,
-          });
           this.isLoading.set(false);
         },
         error: () => {
@@ -84,17 +72,10 @@ export class LocationDetailComponent implements OnInit {
       });
   }
 
-  save(): void {
-    if (this.form.invalid || !this.location()) {
-      this.form.markAllAsTouched();
+  save(payload: UpsertLocationRequest): void {
+    if (!this.location()) {
       return;
     }
-
-    const payload: UpsertLocationRequest = {
-      name: this.form.controls.name.value.trim(),
-      description: this.toNullable(this.form.controls.description.value),
-      locationTypeId: this.form.controls.locationTypeId.value,
-    };
 
     this.isSaving.set(true);
     this.locationService
@@ -103,11 +84,6 @@ export class LocationDetailComponent implements OnInit {
       .subscribe({
         next: (location) => {
           this.location.set(location);
-          this.form.reset({
-            name: location.name,
-            description: location.description ?? '',
-            locationTypeId: location.locationTypeId,
-          });
           this.notificationService.success('Location saved.');
           this.errorMessage.set(null);
           this.isSaving.set(false);
@@ -118,14 +94,5 @@ export class LocationDetailComponent implements OnInit {
           this.isSaving.set(false);
         },
       });
-  }
-
-  private toNullable(value: string | null): string | null {
-    if (value === null) {
-      return null;
-    }
-
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
   }
 }

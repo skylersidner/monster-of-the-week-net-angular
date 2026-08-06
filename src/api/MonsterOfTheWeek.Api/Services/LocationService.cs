@@ -77,6 +77,29 @@ public sealed class LocationService(ILocationRepository locationRepository) : IL
         return ServiceResult<LocationDetailResponse>.Success(response!);
     }
 
+    public async Task<ServiceResult<LocationDetailResponse>> CreateAsync(
+        UpsertLocationRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!await locationRepository.LocationTypeExistsAsync(request.LocationTypeId, cancellationToken))
+        {
+            return ServiceResult<LocationDetailResponse>.Validation($"LocationType {request.LocationTypeId} does not exist.");
+        }
+
+        var location = new Location
+        {
+            Name = request.Name.Trim(),
+            Description = request.Description?.Trim(),
+            LocationTypeId = request.LocationTypeId
+        };
+
+        await locationRepository.AddLocationAsync(location, cancellationToken);
+        await locationRepository.SaveChangesAsync(cancellationToken);
+
+        var response = await GetByIdAsync(location.Id, cancellationToken);
+        return ServiceResult<LocationDetailResponse>.Success(response!);
+    }
+
     public async Task<LocationDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var location = await locationRepository.GetLocationDetailAsync(id, asNoTracking: true, cancellationToken);

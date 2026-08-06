@@ -75,6 +75,28 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
         return ServiceResult<BystanderDetailResponse>.Success(response!);
     }
 
+    public async Task<ServiceResult<BystanderDetailResponse>> CreateAsync(
+        UpsertBystanderRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!await bystanderRepository.BystanderTypeExistsAsync(request.BystanderTypeId, cancellationToken))
+        {
+            return ServiceResult<BystanderDetailResponse>.Validation($"BystanderType {request.BystanderTypeId} does not exist.");
+        }
+
+        var bystander = new Bystander
+        {
+            Name = request.Name.Trim(),
+            Description = request.Description?.Trim(),
+            BystanderTypeId = request.BystanderTypeId
+        };
+
+        await bystanderRepository.AddBystanderAsync(bystander, cancellationToken);
+        await bystanderRepository.SaveChangesAsync(cancellationToken);
+        var response = await GetByIdAsync(bystander.Id, cancellationToken);
+        return ServiceResult<BystanderDetailResponse>.Success(response!);
+    }
+
     public async Task<BystanderDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var bystander = await bystanderRepository.GetBystanderDetailAsync(id, asNoTracking: true, cancellationToken);

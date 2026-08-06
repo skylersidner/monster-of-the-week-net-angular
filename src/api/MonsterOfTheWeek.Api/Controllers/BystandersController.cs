@@ -43,6 +43,25 @@ public sealed class BystandersController(IBystanderService bystanderService) : C
         return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
     }
 
+    [HttpPost("api/bystanders")]
+    public async Task<ActionResult<BystanderDetailResponse>> Create(
+        [FromBody] UpsertBystanderRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await bystanderService.CreateAsync(request, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return result.Error!.Type switch
+            {
+                ServiceErrorType.NotFound => NotFound(),
+                ServiceErrorType.Validation => BadRequest(new { message = result.Error.Message }),
+                _ => BadRequest()
+            };
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
+    }
+
     [HttpGet("api/bystanders/{id:guid}")]
     public async Task<ActionResult<BystanderDetailResponse>> GetById(Guid id, CancellationToken cancellationToken)
     {

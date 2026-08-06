@@ -3,6 +3,20 @@ import { MonstersListComponent } from './pages/monsters-list/monsters-list';
 
 export const MONSTERS_ROUTES: Routes = [
   { path: '', component: MonstersListComponent },
+  // Must stay ahead of the ':monsterId' route below — Angular matches top-down, so a
+  // literal 'new' registered after it would be swallowed as a monster id.
+  {
+    path: 'new',
+    loadComponent: () =>
+      import('./pages/monster-create/monster-create').then((m) => m.MonsterCreateComponent),
+  },
+  // Must stay ahead of the ':monsterId/minions/:minionId' route below — same top-down
+  // matching gotcha as 'new' above, one route depth further in.
+  {
+    path: ':monsterId/minions/new',
+    loadComponent: () =>
+      import('../minions/pages/minion-create/minion-create').then((m) => m.MinionCreateComponent),
+  },
   {
     path: ':monsterId/minions/:minionId',
     loadComponent: () =>

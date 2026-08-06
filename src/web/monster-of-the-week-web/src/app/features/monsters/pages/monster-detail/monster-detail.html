@@ -17,7 +17,10 @@
     </div>
 
     <div class="mt-6">
-      <h3 class="mb-2">Minions</h3>
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="m-0">Minions</h3>
+        <a [routerLink]="['/monsters', monster()!.id, 'minions', 'new']" class="bg-accent hover:bg-accent-hover rounded-lg text-on-accent text-[0.9rem] font-semibold py-[0.55rem] px-5 no-underline transition-colors whitespace-nowrap">+ Add Minion</a>
+      </div>
       @if (minions().length === 0) {
         <p class="text-muted text-[0.9rem]">No minions.</p>
       } @else {
@@ -41,40 +44,14 @@
       <p class="text-primary font-semibold">{{ activeMutation() }}</p>
     }
 
-    <form class="grid gap-[0.6rem] my-4" [formGroup]="monsterForm" (ngSubmit)="saveMonster()">
-      <h3>Details</h3>
-      <div class="grid gap-[0.6rem] grid-cols-[2fr_1fr_1fr_1fr] max-md:grid-cols-1">
-        <label class="grid font-medium gap-1">
-          Name
-          <input type="text" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="name" />
-        </label>
-        <label class="grid font-medium gap-1">
-          Harm Capacity
-          <input type="number" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="harmCapacity" min="0" />
-        </label>
-        <label class="grid font-medium gap-1">
-          Monster Type
-          <app-custom-select
-            formControlName="monsterTypeId"
-            [options]="monsterTypes()"
-            placeholder="Select a type..."
-          ></app-custom-select>
-        </label>
-        <label class="grid font-medium gap-1">
-          Monster Archetype
-          <app-custom-select
-            formControlName="monsterArchetypeId"
-            [options]="monsterArchetypes()"
-            placeholder="Select an archetype..."
-          ></app-custom-select>
-        </label>
-      </div>
-      <label class="grid font-medium gap-1">
-        Description
-        <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="description" rows="9"></textarea>
-      </label>
-      <button type="submit" class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer font-[inherit] px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" [disabled]="isMutating()">Save Monster</button>
-    </form>
+    <app-monster-form
+      [monster]="monster()"
+      [monsterTypes]="monsterTypes()"
+      [monsterArchetypes]="monsterArchetypes()"
+      [isSaving]="isMutating()"
+      submitLabel="Save Monster"
+      (save)="saveMonster($event)"
+    ></app-monster-form>
 
     <div class="grid gap-4 grid-cols-4 max-xl:grid-cols-2 max-sm:grid-cols-1">
       <article class="bg-surface border border-default rounded-lg p-3">
