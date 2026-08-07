@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
@@ -49,6 +51,79 @@ public sealed class MinionServiceTests
         var result = await service.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 
         Assert.False(result);
+    }
+
+    // Upsert*Request records carry their DataAnnotations on the primary constructor's
+    // parameters ([param: Required, MaxLength]/[param: Range]), matching
+    // UpsertMonsterRequest's established precedent (see MonsterServiceTests.cs) — so these
+    // attributes are read via ParameterInfo, not PropertyInfo/Validator.TryValidateObject.
+    // UpsertCustomMoveRequest is deliberately excluded here: it's the shared cross-domain DTO
+    // already fixed and covered in MonsterServiceTests.cs during Phase 2, no new coverage needed.
+    public static IEnumerable<object[]> NameRequestTypes =>
+    [
+        [typeof(UpsertMinionRequest)],
+        [typeof(UpsertMinionAttackRequest)],
+        [typeof(UpsertMinionPowerRequest)],
+        [typeof(UpsertMinionArmorRequest)],
+        [typeof(UpsertMinionWeaknessRequest)],
+    ];
+
+    public static IEnumerable<object[]> HarmFields =>
+    [
+        [typeof(UpsertMinionRequest), "HarmCapacity"],
+        [typeof(UpsertMinionAttackRequest), "Harm"],
+        [typeof(UpsertMinionArmorRequest), "HarmSoak"],
+    ];
+
+    [Theory]
+    [MemberData(nameof(NameRequestTypes))]
+    public void Name_RequiredAttribute_RejectsNullOrBlankValues(Type requestType)
+    {
+        var attribute = GetParameterAttribute<RequiredAttribute>(requestType, "Name");
+
+        Assert.False(attribute.IsValid(null));
+        Assert.False(attribute.IsValid(""));
+        Assert.False(attribute.IsValid("   "));
+    }
+
+    [Theory]
+    [MemberData(nameof(NameRequestTypes))]
+    public void Name_RequiredAttribute_AcceptsNonBlankValue(Type requestType)
+    {
+        var attribute = GetParameterAttribute<RequiredAttribute>(requestType, "Name");
+
+        Assert.True(attribute.IsValid("Valid Name"));
+    }
+
+    [Theory]
+    [MemberData(nameof(NameRequestTypes))]
+    public void Name_MaxLengthAttribute_Is255_AndRejectsOversizedValue(Type requestType)
+    {
+        var attribute = GetParameterAttribute<MaxLengthAttribute>(requestType, "Name");
+
+        Assert.Equal(255, attribute.Length);
+        Assert.True(attribute.IsValid(new string('a', 255)));
+        Assert.False(attribute.IsValid(new string('a', 256)));
+    }
+
+    [Theory]
+    [MemberData(nameof(HarmFields))]
+    public void HarmField_RangeAttribute_RejectsNegativeValues(Type requestType, string parameterName)
+    {
+        var attribute = GetParameterAttribute<RangeAttribute>(requestType, parameterName);
+
+        Assert.False(attribute.IsValid(-1));
+        Assert.True(attribute.IsValid(0));
+        Assert.True(attribute.IsValid(int.MaxValue));
+    }
+
+    private static TAttribute GetParameterAttribute<TAttribute>(Type requestType, string parameterName)
+        where TAttribute : Attribute
+    {
+        var ctor = requestType.GetConstructors().Single();
+        var parameter = ctor.GetParameters().Single(p => p.Name == parameterName);
+        return parameter.GetCustomAttribute<TAttribute>()
+            ?? throw new InvalidOperationException($"{requestType.Name}.{parameterName} is missing {typeof(TAttribute).Name}.");
     }
 
     private sealed class FakeMinionRepository : IMinionRepository

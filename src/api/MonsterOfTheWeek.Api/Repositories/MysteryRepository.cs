@@ -49,6 +49,9 @@ public sealed class MysteryRepository(MotwDbContext dbContext) : IMysteryReposit
     public Task<bool> MysteryExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Mysteries.AnyAsync(x => x.Id == id, cancellationToken);
 
+    public Task<bool> AdventureTypeExistsAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.AdventureTypes.AnyAsync(x => x.Id == id, cancellationToken);
+
     public Task<Countdown?> GetCountdownByMysteryIdAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.Countdowns.Where(x => x.MysteryId == id);

@@ -2,7 +2,7 @@ import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, forkJoin, map, of, startWith, switchMap } from 'rxjs';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
@@ -137,6 +137,16 @@ export class MonsterCreateComponent implements OnInit {
           this.errorMessage.set('Unable to load reference data.');
           this.isLoading.set(false);
         },
+      });
+
+    // Special Description is only required while Is Special is checked - UI-only rule,
+    // the server continues to accept a null SpecialDescription regardless.
+    this.armorDraftForm.controls.isSpecial.valueChanges
+      .pipe(startWith(this.armorDraftForm.controls.isSpecial.value), takeUntilDestroyed(this.destroyRef))
+      .subscribe((isSpecial) => {
+        const specialDescription = this.armorDraftForm.controls.specialDescription;
+        specialDescription.setValidators(isSpecial ? [Validators.required] : []);
+        specialDescription.updateValueAndValidity({ emitEvent: false });
       });
   }
 

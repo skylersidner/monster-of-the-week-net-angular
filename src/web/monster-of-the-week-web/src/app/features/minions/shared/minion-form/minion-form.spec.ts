@@ -69,6 +69,7 @@ describe('MinionFormComponent', () => {
     expect(emitted).toEqual([]);
     expect(component.minionForm.controls.name.touched).toBe(true);
     expect(component.minionForm.controls.harmCapacity.touched).toBe(true);
+    expect(component.minionForm.controls.minionTypeId.touched).toBe(true);
   });
 
   it('does not emit save when submitted through the form element while invalid', () => {
@@ -147,6 +148,24 @@ describe('MinionFormComponent', () => {
       harmCapacity: 1,
       minionTypeId: 'minion-type-1',
     });
+  });
+
+  it('renders a required-field asterisk on every required label', () => {
+    const labels = Array.from(fixture.nativeElement.querySelectorAll('label')) as HTMLLabelElement[];
+    const requiredLabels = ['Name', 'Harm Capacity', 'Minion Type'];
+
+    for (const requiredLabel of requiredLabels) {
+      const label = labels.find((element) => element.textContent?.trim().startsWith(requiredLabel));
+      expect(label?.querySelector('span.text-danger')?.textContent?.trim()).toBe('*');
+    }
+
+    const descriptionLabel = labels.find((element) => element.textContent?.trim().startsWith('Description'));
+    expect(descriptionLabel?.querySelector('span.text-danger')).toBeNull();
+  });
+
+  it('enforces maxlength 255 on the Name input', () => {
+    const nameInput = fixture.nativeElement.querySelector('input[formControlName="name"]') as HTMLInputElement;
+    expect(nameInput.maxLength).toBe(255);
   });
 
   it('clears the form when the minion input goes back to null', () => {

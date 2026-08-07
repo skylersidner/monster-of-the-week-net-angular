@@ -120,6 +120,20 @@ describe('BystanderFormComponent', () => {
     expect(emitted[0].description).toBe('A nervous shopkeeper.');
   });
 
+  it('shows a required-field asterisk on Name and Bystander Type labels, but not Description', () => {
+    const labels = fixture.nativeElement.querySelectorAll('label') as NodeListOf<HTMLLabelElement>;
+    const [nameLabel, descriptionLabel, bystanderTypeLabel] = Array.from(labels);
+
+    expect(nameLabel.querySelector('span.text-danger')).toBeTruthy();
+    expect(bystanderTypeLabel.querySelector('span.text-danger')).toBeTruthy();
+    expect(descriptionLabel.querySelector('span.text-danger')).toBeFalsy();
+  });
+
+  it('caps the Name input at 255 characters', () => {
+    const input = fixture.nativeElement.querySelector('input[formControlName="name"]') as HTMLInputElement;
+    expect(input.maxLength).toBe(255);
+  });
+
   it('starts blank in create mode', () => {
     expect(component.bystanderForm.getRawValue()).toEqual({
       name: '',

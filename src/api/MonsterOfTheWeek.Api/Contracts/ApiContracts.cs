@@ -57,8 +57,8 @@ public sealed record MysteryDetailResponse(
     DateTimeOffset UpdatedAt);
 
 public sealed record UpsertMysteryRequest(
-    string Name,
-    string? Concept,
+    [param: Required] string Name,
+    [param: MaxLength(500)] string? Concept,
     string? Hook,
     string? Overview,
     string? Notes,
@@ -114,18 +114,26 @@ public sealed record MonsterDetailResponse(
     IReadOnlyList<CustomMoveResponse> CustomMoves);
 
 public sealed record UpsertMonsterRequest(
-    string Name,
+    [param: Required, MaxLength(255)] string Name,
     string? Description,
-    int HarmCapacity,
+    [param: Range(0, int.MaxValue)] int HarmCapacity,
     Guid MonsterTypeId,
     Guid MonsterArchetypeId);
 
-public sealed record UpsertMonsterAttackRequest(string Name, string? Description, int Harm);
+public sealed record UpsertMonsterAttackRequest(
+    [param: Required, MaxLength(255)] string Name,
+    string? Description,
+    [param: Range(0, int.MaxValue)] int Harm);
 public sealed record AssignWeaponTagRequest(Guid WeaponTagId);
-public sealed record UpsertMonsterPowerRequest(string Name, string? Description);
-public sealed record UpsertMonsterArmorRequest(string Name, string? Description, int HarmSoak, bool IsSpecial, string? SpecialDescription);
-public sealed record UpsertMonsterWeaknessRequest(string Name, string? Description);
-public sealed record UpsertCustomMoveRequest(string Name, string? Description);
+public sealed record UpsertMonsterPowerRequest([param: Required, MaxLength(255)] string Name, string? Description);
+public sealed record UpsertMonsterArmorRequest(
+    [param: Required, MaxLength(255)] string Name,
+    string? Description,
+    [param: Range(0, int.MaxValue)] int HarmSoak,
+    bool IsSpecial,
+    string? SpecialDescription);
+public sealed record UpsertMonsterWeaknessRequest([param: Required, MaxLength(255)] string Name, string? Description);
+public sealed record UpsertCustomMoveRequest([param: Required, MaxLength(255)] string Name, string? Description);
 
 public sealed record MinionListItemResponse(
     Guid Id,
@@ -167,15 +175,23 @@ public sealed record MinionDetailResponse(
     IReadOnlyList<CustomMoveResponse> CustomMoves);
 
 public sealed record UpsertMinionRequest(
-    string Name,
+    [param: Required, MaxLength(255)] string Name,
     string? Description,
-    int HarmCapacity,
+    [param: Range(0, int.MaxValue)] int HarmCapacity,
     Guid MinionTypeId);
 
-public sealed record UpsertMinionAttackRequest(string Name, string? Description, int Harm);
-public sealed record UpsertMinionPowerRequest(string Name, string? Description);
-public sealed record UpsertMinionArmorRequest(string Name, string? Description, int HarmSoak, bool IsSpecial, string? SpecialDescription);
-public sealed record UpsertMinionWeaknessRequest(string Name, string? Description);
+public sealed record UpsertMinionAttackRequest(
+    [param: Required, MaxLength(255)] string Name,
+    string? Description,
+    [param: Range(0, int.MaxValue)] int Harm);
+public sealed record UpsertMinionPowerRequest([param: Required, MaxLength(255)] string Name, string? Description);
+public sealed record UpsertMinionArmorRequest(
+    [param: Required, MaxLength(255)] string Name,
+    string? Description,
+    [param: Range(0, int.MaxValue)] int HarmSoak,
+    bool IsSpecial,
+    string? SpecialDescription);
+public sealed record UpsertMinionWeaknessRequest([param: Required, MaxLength(255)] string Name, string? Description);
 
 public sealed record LocationListItemResponse(
     Guid Id,
@@ -197,7 +213,7 @@ public sealed record LocationDetailResponse(
     string LocationTypeMotivation,
     IReadOnlyList<CustomMoveResponse> CustomMoves);
 
-public sealed record UpsertLocationRequest(string Name, string? Description, Guid LocationTypeId);
+public sealed record UpsertLocationRequest([param: Required, MaxLength(255)] string Name, string? Description, Guid LocationTypeId);
 
 public sealed record BystanderListItemResponse(
     Guid Id,
@@ -219,7 +235,7 @@ public sealed record BystanderDetailResponse(
     string BystanderTypeMotivation,
     IReadOnlyList<CustomMoveResponse> CustomMoves);
 
-public sealed record UpsertBystanderRequest(string Name, string? Description, Guid BystanderTypeId);
+public sealed record UpsertBystanderRequest([param: Required, MaxLength(255)] string Name, string? Description, Guid BystanderTypeId);
 
 public sealed record SearchResultItemResponse(
     string EntityType,

@@ -24,19 +24,21 @@ public sealed class MysteriesController(IMysteryService mysteryService) : Contro
         [FromBody] UpsertMysteryRequest request,
         CancellationToken cancellationToken)
     {
-        var created = await mysteryService.CreateAsync(request, cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        var result = await mysteryService.CreateAsync(request, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return ToErrorResult(result.Error!);
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
     }
 
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<MysteryDetailResponse>> Update(
         Guid id,
         [FromBody] UpsertMysteryRequest request,
-        CancellationToken cancellationToken)
-    {
-        var updated = await mysteryService.UpdateAsync(id, request, cancellationToken);
-        return updated is null ? NotFound() : Ok(updated);
-    }
+        CancellationToken cancellationToken) =>
+        ToActionResult(await mysteryService.UpdateAsync(id, request, cancellationToken));
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
@@ -53,19 +55,17 @@ public sealed class MysteriesController(IMysteryService mysteryService) : Contro
     public async Task<ActionResult<CountdownResponse>> UpsertCountdown(
         Guid id,
         [FromBody] UpsertCountdownRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await mysteryService.UpsertCountdownAsync(id, request, cancellationToken);
-        if (!result.IsSuccess)
-        {
-            return result.Error!.Type switch
-            {
-                ServiceErrorType.NotFound => NotFound(),
-                ServiceErrorType.Validation => BadRequest(new { message = result.Error.Message }),
-                _ => BadRequest()
-            };
-        }
+        CancellationToken cancellationToken) =>
+        ToActionResult(await mysteryService.UpsertCountdownAsync(id, request, cancellationToken));
 
-        return Ok(result.Value);
-    }
+    private ActionResult<T> ToActionResult<T>(ServiceResult<T> result) =>
+        result.IsSuccess ? Ok(result.Value) : ToErrorResult(result.Error!);
+
+    private ActionResult ToErrorResult(ServiceError error) =>
+        error.Type switch
+        {
+            ServiceErrorType.NotFound => NotFound(),
+            ServiceErrorType.Validation => BadRequest(new { message = error.Message }),
+            _ => BadRequest()
+        };
 }

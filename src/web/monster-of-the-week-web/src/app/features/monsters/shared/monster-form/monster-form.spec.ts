@@ -74,6 +74,7 @@ describe('MonsterFormComponent', () => {
 
     expect(emitted).toEqual([]);
     expect(component.monsterForm.controls.name.touched).toBe(true);
+    expect(component.monsterForm.controls.monsterTypeId.touched).toBe(true);
     expect(component.monsterForm.controls.monsterArchetypeId.touched).toBe(true);
   });
 
@@ -162,6 +163,24 @@ describe('MonsterFormComponent', () => {
       monsterTypeId: 'monster-type-1',
       monsterArchetypeId: 'monster-archetype-1',
     });
+  });
+
+  it('renders a required-field asterisk on every required label', () => {
+    const labels = Array.from(fixture.nativeElement.querySelectorAll('label')) as HTMLLabelElement[];
+    const requiredLabels = ['Name', 'Harm Capacity', 'Monster Type', 'Monster Archetype'];
+
+    for (const requiredLabel of requiredLabels) {
+      const label = labels.find((element) => element.textContent?.trim().startsWith(requiredLabel));
+      expect(label?.querySelector('span.text-danger')?.textContent?.trim()).toBe('*');
+    }
+
+    const descriptionLabel = labels.find((element) => element.textContent?.trim().startsWith('Description'));
+    expect(descriptionLabel?.querySelector('span.text-danger')).toBeNull();
+  });
+
+  it('enforces maxlength 255 on the Name input', () => {
+    const nameInput = fixture.nativeElement.querySelector('input[formControlName="name"]') as HTMLInputElement;
+    expect(nameInput.maxLength).toBe(255);
   });
 
   it('clears the form when the monster input goes back to null', () => {

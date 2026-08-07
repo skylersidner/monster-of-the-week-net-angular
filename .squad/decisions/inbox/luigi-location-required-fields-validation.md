@@ -1,0 +1,22 @@
+### 2026-08-06: Location Required-Field Validation — Frontend (Phase 4)
+**By:** Luigi (Frontend Developer)
+
+**What:** Implemented the unconditional frontend scope from `docs/updates/location-required-fields-validation.md`'s "Revision — Skyler's 2 Answers Resolved (2026-08-06)" section (paired with Bowser's `ApiContracts.cs`/`LocationServiceTests.cs` DataAnnotations pass, no other backend files touched). This is the smallest of the four phases — no validator bug to fix (unlike Monster's `monsterTypeId`/Minion's `minionTypeId`, `location-form.ts`'s `name`/`locationTypeId` already both carry `Validators.required`), no sub-resource forms, no conditional-required shape, no numeric fields. Patterns copied verbatim from my own already-shipped Monster (`luigi-monster-required-fields-validation.md`) and Minion (`luigi-minion-required-fields-validation.md`) phases — nothing re-derived.
+
+1. **`maxlength="255"`** added to the single Name `<input>` in `location-form.html` — the only Name input in this feature (Location has no sub-resource authoring UI, unlike Monster/Minion's 4 draft/immediate-edit forms each).
+2. **Asterisk convention.** `location-form.html`'s labels use the same `grid font-medium gap-1` class Monster's/Minion's do — confirmed by reading the file first, not assumed, per the task's explicit instruction. Used the wrapper-span trick (`<span>Name <span class="text-danger">*</span></span>`) from the start, matching Minion's precedent of avoiding Monster's original grid-auto-placement layout bug rather than shipping-then-fixing it a second time. Applied to `Name` and `Location Type` (the only two required fields in this form); `Description` left untouched.
+3. **No validator changes.** Confirmed `location-form.ts`'s `locationTypeId` already has `Validators.required` — did not touch `location-form.ts` at all, per the doc's explicit instruction not to "fix" anything there.
+
+**Why / judgment calls:**
+
+1. **Checked the label class before writing markup**, same discipline as Minion's phase — avoided a repeat of Monster's original bare-sibling-span mistake entirely rather than needing a follow-up fix.
+2. **Spec assertions added** despite this being the smallest phase: one asterisk-presence spec (Name + Location Type get `span.text-danger`, Description doesn't) and one `maxlength` spec, mirroring Monster's/Minion's own `label.querySelector('span.text-danger')`/`input.maxLength` idiom in `location-form.spec.ts`. No validator-touched-state assertion needed or added, since no validator changed (the doc explicitly noted this).
+3. **No `.scss` changes** — pure template/spec edits, matching every prior phase's finding that this convention needs no stylesheet work.
+
+**Files:**
+- `features/locations/shared/location-form/location-form.html` — asterisks (wrapper-span form) on Name/Location Type labels, `maxlength="255"` on Name
+- `features/locations/shared/location-form/location-form.spec.ts` — 2 new specs (asterisk presence on Name/Location Type + absence on Description, maxlength)
+
+**Not touched:** `location-form.ts` (no validator gap exists here — confirmed, not assumed), `location-create.ts`/`.html`, `location-detail.ts`/`.html` (both consume the shared `LocationFormComponent`, so no page-level template changes were needed — same reasoning as the doc's own framing that this is a one-file change covering both pages), `Contracts/ApiContracts.cs`, `LocationServiceTests.cs`, or any other `.cs` file — Bowser's parallel backend pass, confirmed via `git status` to be pre-existing changes I didn't make.
+
+**Verification:** `npm run build` clean (same 2 pre-existing component-style budget warnings: `custom-select.component.scss`, `mystery-create.scss`, unrelated). `npm run test -- --watch=false`: 38 files / 276 tests passed (274 baseline + 2 new specs in `location-form.spec.ts`). Visually verified via a throwaway Playwright script against the already-running dev `dotnet run` (port 5225) + `ng serve --port 4200` (both confirmed live via `curl` before testing, neither started nor killed by me — pre-existing from the session) on both `/locations/new` (create) and `/locations/:id` (edit, an existing seeded location "Alton's Bend"): on both pages, the Name and Location Type asterisks' `boundingBox().y` matched their label text's `y` within 1px (same line, no wrap), and the Name input reported `maxlength="255"`. Screenshot-confirmed on both pages, then deleted. Cleaned up: deleted the throwaway `.mjs` script and screenshots; did not touch the running `dotnet run`/`ng serve` processes.

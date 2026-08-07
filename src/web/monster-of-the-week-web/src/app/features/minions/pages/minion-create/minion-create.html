@@ -77,15 +77,15 @@
       }
       <form class="grid gap-[0.6rem] mt-4 pt-3 border-t border-default" [formGroup]="attackDraftForm" (ngSubmit)="addAttackDraft()">
         <label class="grid font-medium gap-1">
-          Name
-          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+          <span>Name <span class="text-danger">*</span></span>
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" maxlength="255" />
         </label>
         <label class="grid font-medium gap-1">
           Description
           <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
         </label>
         <label class="grid font-medium gap-1">
-          Harm
+          <span>Harm <span class="text-danger">*</span></span>
           <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="number" formControlName="harm" min="0" />
         </label>
         <app-weapon-tag-select
@@ -123,8 +123,8 @@
       }
       <form class="grid gap-[0.6rem] mt-4 pt-3 border-t border-default" [formGroup]="powerDraftForm" (ngSubmit)="addPowerDraft()">
         <label class="grid font-medium gap-1">
-          Name
-          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+          <span>Name <span class="text-danger">*</span></span>
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" maxlength="255" />
         </label>
         <label class="grid font-medium gap-1">
           Description
@@ -164,15 +164,15 @@
       }
       <form class="grid gap-[0.6rem] mt-4 pt-3 border-t border-default" [formGroup]="armorDraftForm" (ngSubmit)="addArmorDraft()">
         <label class="grid font-medium gap-1">
-          Name
-          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+          <span>Name <span class="text-danger">*</span></span>
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" maxlength="255" />
         </label>
         <label class="grid font-medium gap-1">
           Description
           <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
         </label>
         <label class="grid font-medium gap-1">
-          Harm Soak
+          <span>Harm Soak <span class="text-danger">*</span></span>
           <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="number" formControlName="harmSoak" min="0" />
         </label>
         <label class="flex items-center gap-[0.4rem]">
@@ -180,7 +180,10 @@
           Special
         </label>
         <label class="grid font-medium gap-1">
-          Special Description
+          <span>Special Description
+          @if (armorDraftForm.controls.isSpecial.value) {
+            <span class="text-danger">*</span>
+          }</span>
           <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="specialDescription" rows="9"></textarea>
         </label>
         <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" type="submit" [disabled]="isSaving()">Add Armor</button>
@@ -214,8 +217,8 @@
       }
       <form class="grid gap-[0.6rem] mt-4 pt-3 border-t border-default" [formGroup]="weaknessDraftForm" (ngSubmit)="addWeaknessDraft()">
         <label class="grid font-medium gap-1">
-          Name
-          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+          <span>Name <span class="text-danger">*</span></span>
+          <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" maxlength="255" />
         </label>
         <label class="grid font-medium gap-1">
           Description

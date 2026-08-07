@@ -663,6 +663,24 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 - Like Location's page (and unlike Monster's/Minion's), `ReactiveFormsModule`, `CustomSelectComponent`, `FormBuilder`, `Validators` *and* `toNullable()` all became unused on `bystander-detail.ts` and were removed — the only other content on the page is the read-only custom-moves `<ul>`.
 - Working tree already carried BC-1's backend changes (`BystandersController.cs`, `BystanderService.cs`, `IBystanderService.cs`, `core/bystander.ts` + Bowser/Yoshi history) from Bowser's run — not mine, left alone.
 
+---
+
+## 2026-08-06 — Required-Field Validation Phase 4: Location (`location-form.html`)
+
+### Task
+`docs/updates/location-required-fields-validation.md`'s "Revision — Skyler's 2 Answers Resolved" section — smallest phase of the initiative so far. Full write-up: `.squad/decisions/inbox/luigi-location-required-fields-validation.md`.
+
+### Key patterns / gotchas
+- **Smallest phase yet, genuinely** — unlike Monster/Minion, `location-form.ts`'s `locationTypeId` already had `Validators.required` (pre-dated the standalone-creation extraction per Yoshi's doc), so no validator bug to fix. Only 1 Name `<input>` in the whole feature (no sub-resource authoring UI at all) vs. Monster's/Minion's 9 each.
+- **Checked `location-form.html`'s label class before writing markup** (same `grid font-medium gap-1` as Monster/Minion) and used the wrapper-span trick (`<span>Name <span class="text-danger">*</span></span>`) from the start — no repeat of Monster's original grid-auto-placement layout bug.
+- Since `LocationFormComponent` is the single shared component for both `location-create.ts` and `location-detail.ts`, one file's edit covers both pages — no page-level template changes needed.
+
+### Files
+- Modified: `features/locations/shared/location-form/location-form.html` (asterisks + `maxlength="255"`), `features/locations/shared/location-form/location-form.spec.ts` (2 new specs).
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 276 passed (274 → 276, 2 new). Visually verified via a throwaway Playwright script against the already-running dev API + `ng serve --port 4200` on `/locations/new` and an existing location's edit page — asterisks render inline with labels on both, no wrap. Cleaned up throwaway script/screenshots.
+
 ### Files
 - New: `features/bystanders/shared/bystander-form/{bystander-form.ts, bystander-form.html, bystander-form.spec.ts}` (no `.scss`).
 - Modified: `features/bystanders/pages/bystander-detail/{bystander-detail.ts, bystander-detail.html, bystander-detail.spec.ts}`.
@@ -821,3 +839,109 @@ Skyler answered the 3 open questions from `docs/updates/svg-symbol-icons.md`. Up
 
 ### Files
 `docs/updates/svg-symbol-icons.md` only — revised Recommendation, Naming convention, and Phased rollout sections (now 5 phases: 0 sprite infra, 1 trash-icon migration, 2 hover-styling unification, 3 shell/chrome one-offs, 4 domain/mystery-section sprite migration). Open Questions section removed — no unresolved forks remained after making the calls above. No application code touched.
+
+---
+
+## 2026-08-06 — Monster Required-Field Validation: Frontend (Phase 2 of the required-field initiative)
+
+### Task
+Implemented the unconditional frontend scope from `docs/updates/monster-required-fields-validation.md`'s revision section (paired with Bowser's backend `ApiContracts.cs` DataAnnotations pass, done in parallel — I did not touch any `.cs` file): fix `monsterTypeId`'s missing `Validators.required` in `shared/monster-form/monster-form.ts`, `maxlength="255"` on all 9 Name inputs (1 in `monster-form.html` + 4 draft forms in `monster-create.html` + 4 immediate-edit forms in `monster-detail.html`), the `<span class="text-danger">*</span>` asterisk convention (copied from `mystery-create-mystery-phase.html`) on every required field, and a UI-only conditional-required rule on `MonsterArmor.SpecialDescription` gated by `isSpecial`.
+
+### Key patterns confirmed / established
+- **Conditional cross-field required validator, toggled via `valueChanges`:** `isSpecial.valueChanges.pipe(startWith(isSpecial.value), takeUntilDestroyed(this.destroyRef)).subscribe(isSpecial => { control.setValidators(isSpecial ? [Validators.required] : []); control.updateValueAndValidity({ emitEvent: false }); })`, wired in `ngOnInit`. This matches `data-admin.ts:50`'s existing precedent (subscribe-in-`ngOnInit`, `takeUntilDestroyed`) rather than inventing a form-level cross-field validator — the codebase has no precedent for the latter and doesn't need one for a 2-control case. `startWith` covers "wire it correctly on initial form setup" without a duplicate one-off call. `{ emitEvent: false }` on `updateValueAndValidity` avoids a needless second `valueChanges` emission nobody listens to.
+- **`Validators.compose([])` (i.e. `setValidators([])`) resolves to `control.validator === null`**, not a no-op empty-composed-function — confirmed by testing `expect(control.validator).toBeNull()` both before `ngOnInit` wires anything and after `isSpecial` toggles back to `false`. Useful for asserting "no validators currently attached" precisely rather than only asserting `.valid` with a truthy value.
+- **No prior spec in this repo asserts asterisk-indicator presence** (grepped `text-danger` across all `mysteries/**/*.spec.ts` — zero hits, despite the convention shipping there first). Added straightforward `label.querySelector('span.text-danger')` presence/absence checks anyway, reusing the existing `fixture.nativeElement.querySelector(...)` idiom already used throughout `monster-create.spec.ts`/`monster-detail.spec.ts` — no new test infra needed.
+- Reconfirmed the sub-resource Name-input count from the doc's own correction: 9 total `<input>` elements (not 6 DTO fields) — 1 core form + 4 create-page draft forms + 4 detail-page immediate forms, since attack/power/armor/weakness each have two UI call sites.
+
+### Files
+`features/monsters/shared/monster-form/monster-form.{ts,html,spec.ts}`, `features/monsters/pages/monster-create/monster-create.{ts,html,spec.ts}`, `features/monsters/pages/monster-detail/monster-detail.{ts,html,spec.ts}`.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings: `mystery-create.scss`, `custom-select.component.scss`). `npm run test -- --watch=false`: 38 files / 272 tests passed, 0 skipped (6 new specs + 1 existing test extended with a new assertion).
+
+---
+
+## 2026-08-06 — Follow-up: Fixed asterisk-wrapping bug from the pass above
+
+### Task
+Skyler reported the required-field asterisks wrapping onto their own line on the Monster form. Root cause was NOT "asterisk placed as a sibling outside the label" (Mystery's working pattern already matched that structurally) — it was that all 10 asterisk-bearing `<label>`s in this feature use `class="grid font-medium gap-1"` (`display: grid`, no explicit columns). **CSS Grid makes every in-flow child of a grid container its own grid item, including the anonymous box wrapping a bare text run** — so `Name <span class="text-danger">*</span>` inside a `grid`-display label became two separate grid items (the "Name" text run and the `*` span), each auto-placed onto its own implicit row via the default `grid-auto-flow: row` + single implicit column, stacking label-text / asterisk / input as three separate rows instead of two. Mystery's equivalent label is `display: block`, not `grid`, so it never had this failure mode — not because the asterisk was positioned differently within the label.
+
+### Key pattern for next time
+**When a `*`/badge/icon needs to sit inline with label text inside a `display: grid` label (this app's "label text stacked above input" idiom), wrap the text + inline marker together in one `<span>` so they form a single grid item/row** — don't just place them as adjacent siblings the way you would in a `display: block` or plain inline context. `<span>Name <span class="text-danger">*</span></span>` as the grid's row-1 item, input/textarea/custom-select as row 2. This is a general gotcha for this codebase's `grid font-medium gap-1` label convention (used throughout `monster-form.html`/`monster-create.html`/`monster-detail.html`, likely elsewhere too) — any future addition of a second inline element next to label text in one of these grid-labels needs the same wrapper, or it'll silently drop to its own row.
+
+### Verification technique note
+Playwright dev-server verification against this app **must use port 4200**, not any other port — `appsettings.Development.json`'s `Cors:AllowedOrigins` only allow `http://localhost:4200`, so `ng serve --port 4300` silently CORS-blocks every API call (page hangs on a loading state, no thrown error visible without opening dev tools/network listeners). Confirmed by reading the actual appsettings rather than guessing. Also: the previously-running `dotnet run`/`ng serve` processes from an earlier session were no longer alive when I started this task (had to restart both — `dotnet run --launch-profile http` in `src/api/MonsterOfTheWeek.Api`, port 5225; `docker ps` confirmed Postgres was still up) — don't assume a live backend is already running just because it has been in past sessions.
+
+### Files
+`features/monsters/shared/monster-form/monster-form.html`, `features/monsters/pages/monster-create/monster-create.html`, `features/monsters/pages/monster-detail/monster-detail.html` — wrapped each `label`'s text + asterisk `<span>` (10 locations total) in an outer `<span>`. No `.ts`/`.spec.ts` changes needed — existing specs use `querySelector`/`textContent` which are insensitive to the added wrapper depth.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 272 tests passed, unchanged. Visually verified via throwaway Playwright script (`getBoundingClientRect().top` comparison + screenshot) against live `dotnet run` + `ng serve --port 4200`: all 10 asterisks on both `/monsters/:id` (edit) and `/monsters/new` (create) now sit on the same line as their label text, including the conditionally-`@if`-rendered Special Description asterisk after checking "Special". Cleaned up: deleted throwaway `.mjs` scripts and screenshots, killed the `dotnet run`/`ng serve` processes started for verification.
+
+---
+
+## 2026-08-06 — Follow-up #2: Extended asterisk convention to Mystery wizard's monster phase
+
+### Task
+Same-session coordinator follow-up: port the (corrected) red-asterisk convention to `mystery-create-monster-phase.html`, the wizard's monster-authoring step.
+
+### Key finding: this component does NOT need the grid-wrapper fix
+`mystery-create-monster-phase.html`'s core-field labels use `class="text-primary block text-sm font-semibold mb-[0.35rem]"` — `display: block`, not `grid`. This is literally the *original* pattern the standalone Monster form's asterisks were copied from (per the doc's own history) — it was never broken. Confirmed by reading before assuming; the plain sibling-span shape (`Name <span class="text-danger">*</span>`) is correct here as-is, no wrapper `<span>` needed. Good reminder: the grid-wrapper fix is specific to this app's `grid font-medium gap-1` label idiom (Monster feature only, so far) — don't reflexively apply it to every label with an asterisk elsewhere without checking `display` first.
+
+### Key finding: the sub-resource draft rows have no `<label>` elements at all
+Unlike `monster-create.ts`'s labeled draft forms, the wizard's Attack/Power/Weakness/Armor rows are bare `placeholder`-only inputs in a compact `flex flex-wrap` row (`<input formControlName="name" placeholder="Attack name">`) — confirmed by reading + a live screenshot. No label text exists to attach an asterisk to. Treated this as a structural mismatch worth flagging rather than inventing new label markup unilaterally (would be a real design change, 8 rows across monster+minion sub-phases, not a mechanical port) — left untouched, documented as a UX-owner decision.
+
+### Fixed (code + markup)
+- `mystery-create.store.ts`: added missing `Validators.required` to `monsterForm.harmCapacity` (had only `min(0)`), `monsterAttackForm.harm` (had **no validators at all**), `monsterArmorForm.harmSoak` (had only `min(0)`) — same class of gap as the original `monsterTypeId` bug, found by diffing against the standalone `monster-form.ts`/`monster-create.ts` ground truth. `monsterTypeId` itself already had the validator, just no visual asterisk.
+- `mystery-create-monster-phase.html`: added asterisks to "Harm Capacity"/"Monster Type" labels (Name/Monster Archetype already had them).
+- Deliberately did NOT: wire `isSpecial`→`specialDescription` conditional-required (never existed in this store at all — bigger feature port, flagged not fixed), add `maxlength="255"` (not asked, not this doc's scope), touch the Minion step/sub-resources (Minion domain has no ground-truth asterisk convention anywhere yet — confirmed `minion-form.ts`'s `minionTypeId` isn't even `Validators.required`).
+
+### Verification
+`npm run build`/`npm run test -- --watch=false` clean, 38/272 unchanged (checked `mystery-create.store.spec.ts` first — no test relies on a zero/blank value being valid for the three controls touched). Live Playwright walkthrough: filled the concept phase, advanced to the Monster phase, confirmed all 4 core-field asterisks render inline (not wrapped) via both `getBoundingClientRect()` comparison and screenshot. `ng serve`/`dotnet run` were already running (someone/something else's session) when this task started — used them as-is, didn't kill them since I didn't start them.
+
+### Files
+`features/mysteries/pages/mystery-create/mystery-create-monster-phase.html`, `features/mysteries/pages/mystery-create/mystery-create.store.ts`. Doc addendum: `docs/updates/monster-required-fields-validation.md` (flagging the wizard-side gap the doc's original audit couldn't have caught, since the wizard was outside its file scope). Full write-up: `.squad/decisions/inbox/luigi-monster-required-fields-validation.md`.
+
+---
+
+## 2026-08-06 — Minion Required-Field Validation (Phase 3, mechanical port of the Monster-phase work)
+
+### Task
+`docs/updates/minion-required-fields-validation.md`'s locked scope: `minionTypeId` required-validator bug fix, `maxlength="255"` on all 9 Name inputs, asterisk convention, conditional-required `MinionArmor.SpecialDescription`, and a bundled wizard validator fix — same shape as the already-shipped Monster-phase work, copied pattern-for-pattern rather than re-derived.
+
+### Confirmed before writing any markup: `minion-form.html`'s labels DO use the grid class, unlike the wizard's monster-phase labels
+`minion-form.html` uses the same `grid font-medium gap-1` label class Monster's standalone forms do (not the wizard's `display: block` pattern) — so the wrapper-span trick (`<span>Name <span class="text-danger">*</span></span>`) was required from the first edit here, not discovered after a Skyler bug report like it was for Monster. Checked the class before writing a single asterisk, per the "don't reflexively apply/skip the wrapper fix — check `display` first" note from the previous entry.
+
+### The wizard's minion phase is not a separate file
+There is no `mystery-create-minion-phase.html` — the minion step lives inside `mystery-create-monster-phase.html`, gated on `store.currentStep() === 1` (same file the Monster-phase asterisk follow-up touched for `currentStep() === 0`). This phase's scope only asked for 3 validators there (`minionForm.harmCapacity`, `minionAttackForm.harm`, `minionArmorForm.harmSoak`), not asterisks — so no markup was touched in that file this pass, only `mystery-create.store.ts`. Confirmed live via Playwright that Minion Name/Harm Capacity/Minion Type still render with no asterisk there (correct — out of scope, matching the previous entry's note that Minion has no asterisk ground truth to port from... except now it does, on the standalone pages, just not yet ported into the wizard).
+
+### `minionAttackForm.harm` had zero validators, not just a missing `required`
+Same shape as `monsterAttackForm.harm`'s pre-fix state — added both `Validators.required` and `Validators.min(0)`, not just `required`, since `min(0)` was also absent. Worth re-checking the live file instead of trusting a doc's "add Validators.required" paraphrase — the actual gap is sometimes bigger than the one-line summary says.
+
+### Verification technique: reaching the wizard's minion step via Playwright requires driving the real custom-select panel, not a generic `button`/`li` selector
+`app-custom-select`'s option buttons (`.custom-select__option`) live in the DOM *after* the trigger button (`.custom-select__trigger`), both under the same `app-custom-select` — a `.locator('li, [role="option"], button').first()` picks the trigger itself (closing the just-opened panel) instead of an option. Use `.locator('button.custom-select__trigger')` to open, then `.locator('button.custom-select__option').first()` to pick. Also: the wizard's create route is `/mysteries/create`, not `/mysteries/new` (`/mysteries/new` 404s) — confirmed via `mysteries.routes.ts` rather than guessing from the Monster/Minion domains' `/…/new` convention, which the Mystery domain doesn't share.
+
+### Files
+`features/minions/shared/minion-form/minion-form.{ts,html,spec.ts}`, `features/minions/pages/minion-create/minion-create.{html,ts}`, `features/minions/pages/minion-detail/minion-detail.{html,ts}`, `features/mysteries/pages/mystery-create/mystery-create.store.ts`. Full write-up: `.squad/decisions/inbox/luigi-minion-required-fields-validation.md`.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 274 tests passed (272 baseline + 2 new specs in `minion-form.spec.ts`). Live Playwright verification against `dotnet run` (5225) + `ng serve --port 4200` (both already running at session start, not started or killed by me): asterisks render inline (not wrapped) on `/monsters/:monsterId/minions/:minionId`, `/minions/new`, and all `maxlength=255` on Name inputs confirmed via `input.maxLength`; conditional Special Description asterisk toggles correctly; wizard minion step renders with no asterisks (correct, out of scope) and no console errors after walking the full wizard flow to reach it.
+
+---
+
+## 2026-08-06 — Bystander Required-Field Validation (Phase 5, final domain — closes the five-phase initiative)
+
+### Task
+`docs/updates/bystander-required-fields-validation.md`'s locked scope ("Revision — Skyler's 2 Answers Resolved" section): `maxlength="255"` on the Name input and the asterisk convention on Name/Bystander Type in `bystander-form.html`. Smallest of all five phases, same shape as my own Location phase — no validator bug (`bystanderTypeId` already had `Validators.required`, confirmed live and by the doc), no sub-resource forms, no numeric fields, no conditional-required shape.
+
+### Confirmed before writing markup, per the task's explicit instruction not to assume from Location's resemblance
+`bystander-form.html`'s labels use the same `grid font-medium gap-1` class as Monster/Minion/Location — used the wrapper-span trick (`<span>Name <span class="text-danger">*</span></span>`) from the first edit, same discipline as Location's phase.
+
+### Files
+`features/bystanders/shared/bystander-form/bystander-form.html`, `features/bystanders/shared/bystander-form/bystander-form.spec.ts`. Full write-up: `.squad/decisions/inbox/luigi-bystander-required-fields-validation.md`.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 278 tests passed (276 baseline + 2 new specs in `bystander-form.spec.ts`). Live Playwright verification against `dotnet run` (5225) + `ng serve --port 4200` (both already running at session start, not started or killed by me): asterisks render inline (not wrapped, bounding-box `y` within 2px of label text) on both `/bystanders/new` and an existing bystander's edit page; Name input `maxlength="255"` confirmed on both. This is the final implementation step of the five-phase required-field-validation initiative — all five domains' shared form components (Mystery, Monster, Minion, Location, Bystander) now have consistent `maxlength` guards and the asterisk convention.
+
+### Note: no Location entry exists in this history file
+Grepped for it before writing this entry — `.squad/decisions/inbox/luigi-location-required-fields-validation.md` exists and was used as the direct reference, but no matching history.md entry was ever appended for that phase. Not backfilled here (out of scope for this task), flagging in case it matters for a future retrospective pass.

@@ -2,15 +2,15 @@
   <h3>Details</h3>
   <div class="grid gap-[0.6rem] grid-cols-[2fr_1fr_1fr_1fr] max-md:grid-cols-1">
     <label class="grid font-medium gap-1">
-      Name
-      <input type="text" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="name" />
+      <span>Name <span class="text-danger">*</span></span>
+      <input type="text" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="name" maxlength="255" />
     </label>
     <label class="grid font-medium gap-1">
-      Harm Capacity
+      <span>Harm Capacity <span class="text-danger">*</span></span>
       <input type="number" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="harmCapacity" min="0" />
     </label>
     <label class="grid font-medium gap-1">
-      Monster Type
+      <span>Monster Type <span class="text-danger">*</span></span>
       <app-custom-select
         formControlName="monsterTypeId"
         [options]="monsterTypes"
@@ -18,7 +18,7 @@
       ></app-custom-select>
     </label>
     <label class="grid font-medium gap-1">
-      Monster Archetype
+      <span>Monster Archetype <span class="text-danger">*</span></span>
       <app-custom-select
         formControlName="monsterArchetypeId"
         [options]="monsterArchetypes"

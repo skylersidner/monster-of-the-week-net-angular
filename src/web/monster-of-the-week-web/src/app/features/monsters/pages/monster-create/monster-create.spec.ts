@@ -444,6 +444,34 @@ describe('MonsterCreateComponent', () => {
     expect(component.weaknessDrafts().length).toBe(1);
   });
 
+  it('requires specialDescription on the armor draft only while isSpecial is checked', () => {
+    const specialDescription = component.armorDraftForm.controls.specialDescription;
+
+    expect(specialDescription.validator).toBeNull();
+
+    component.armorDraftForm.controls.isSpecial.setValue(true);
+    specialDescription.setValue('');
+    expect(specialDescription.valid).toBe(false);
+
+    component.armorDraftForm.controls.isSpecial.setValue(false);
+    expect(specialDescription.valid).toBe(true);
+  });
+
+  it('shows the Special Description asterisk only while Is Special is checked', () => {
+    const armorArticle = Array.from(fixture.nativeElement.querySelectorAll('article')).find((article) =>
+      (article as HTMLElement).textContent?.includes('Armors')
+    ) as HTMLElement;
+    const labels = Array.from(armorArticle.querySelectorAll('label')) as HTMLLabelElement[];
+    const specialDescriptionLabel = labels.find((label) => label.textContent?.trim().startsWith('Special Description'));
+
+    expect(specialDescriptionLabel?.querySelector('span.text-danger')).toBeNull();
+
+    component.armorDraftForm.controls.isSpecial.setValue(true);
+    fixture.detectChanges();
+
+    expect(specialDescriptionLabel?.querySelector('span.text-danger')?.textContent?.trim()).toBe('*');
+  });
+
   it('still navigates and warns when the sub-resource batch fails after the monster exists', () => {
     failSubResources = true;
     addOneOfEachDraft();
