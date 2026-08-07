@@ -964,3 +964,24 @@ Implemented Phase 0 only of `docs/updates/svg-symbol-icons.md` (approved plan) �
 
 ### Notes for whoever picks up Phase 1+
 The sprite already has Phase 4's `icon-nav-*`/`icon-mystery-*` symbols defined and correct (verified by DOM inspection, not just by eye) — Phase 4 only needs to repoint `domain-icon.component.ts`/`mystery-section-icon.ts`'s templates onto `<use>`, no new symbol authoring. Phase 1 can start immediately: `<app-icon name="trash" class="h-5 w-5" />` is ready to drop into all 13 call sites.
+
+---
+
+## 2026-08-07 — SVG Symbol Sprite: Phase 1 Implementation (Migrate the Duplicated Trash Icon)
+
+### Task
+Implemented Phase 1 only of `docs/updates/svg-symbol-icons.md` (Phase 0 committed as `499fc24`) — swapped all 13 inline trash-icon `<svg>` occurrences onto `<app-icon name="trash" ...>`.
+
+### Files (14 total, 7 `.html`/`.ts` pairs, no other files touched)
+`features/minions/pages/minions-list/{minions-list.html,.ts}`, `features/locations/pages/locations-list/{locations-list.html,.ts}`, `features/bystanders/pages/bystanders-list/{bystanders-list.html,.ts}`, `features/monsters/pages/monsters-list/{monsters-list.html,.ts}`, `features/mysteries/pages/mysteries-list/{mysteries-list.html,.ts}` (1 trash occurrence each), `features/monsters/pages/monster-detail/{monster-detail.html,.ts}`, `features/minions/pages/minion-detail/{minion-detail.html,.ts}` (4 occurrences each — attack/power/armor/weakness delete buttons).
+
+### Approach
+- `.ts` files: added `import { IconComponent } from '../../../../shared/icons/icon.component';` and appended `IconComponent` to each component's `imports` array (all 7 files sit at the identical `features/{domain}/pages/{page}/{page}.ts` depth, so the relative import path is uniform across all of them).
+- `.html` files: replaced each `<svg ...viewBox="0 40 32 32"...><path d="m 12.914062,42 c...Z"/></svg>` block with `<app-icon name="trash" class="h-5 w-5" />` — the sizing class (`h-5 w-5`) moved onto `<app-icon>` per the doc's consumption example; `IconComponent`'s host already handles the rest (`inline-flex items-center justify-center`, inner `<svg class="h-full w-full">`). In `monster-detail.html`/`minion-detail.html` all 4 occurrences were byte-identical, so `Edit`'s `replace_all: true` handled each file in one call. `mysteries-list.html`'s unrelated edit-pencil `<svg>` (same file, different icon) was left untouched — verified via `git diff` that only the trash block changed.
+- Did **not** touch `.action-btn`/`.action-btn--delete` classes or any hover-styling CSS on the wrapping `<button>` (Phase 2), and did not touch `domain-icon.component.ts`, `mystery-section-icon.ts`, or the mysteries-list edit-pencil/header-search/page-layout icons (Phase 3/4).
+
+### Verification
+- `npm run build`: clean, same 2 pre-existing budget warnings (unrelated). Lazy chunks for `monster-detail`/`minion-detail` shrank (~1.1-1.6 kB each) as expected from removing duplicated path data.
+- `npm run test -- --watch=false`: 38 files / 278 tests, all green, no regressions.
+- Live-verified via Playwright against a real stack (`docker compose up -d postgres` — already running, not started by me; `dotnet run` on 5225; `ng serve --port 4200`, not 4300 — **the API's CORS policy only allows origin :4200**, confirmed by hitting a CORS error on :4300 first and switching back to the default port fixed it, worth remembering for future one-off `ng serve` verification runs in this repo). Confirmed via `document.querySelectorAll('app-icon svg use[href="#icon-trash"]')` that the `<use>` count exactly matches the visible row count on `monsters-list` (3), `minions-list` (3), `locations-list` (9), `bystanders-list` (5), `mysteries-list` (5, pencil icon still present and untouched), `monster-detail` (6, data-dependent — this monster has extra attacks), `minion-detail` (4) — zero missing/duplicated icons, zero console errors. Hover-state check (real `page.mouse.move` + `getComputedStyle`, not just static CSS reading): `monster-detail`'s `.action-btn--delete:hover:not(:disabled)` button correctly transitions from muted gray text to red text (`oklch(0.577 0.245 27.325)`) with a red-tinted background on hover; `minions-list`'s plain-Tailwind-hover delete button (no `.action-btn` class) resolves to the *identical* red hover color — confirms both of Phase 1's still-untouched hover mechanisms (to be unified in Phase 2) keep working exactly as before. Screenshotted `monsters-list` and the `monster-detail` hover state for visual confirmation — pixel-equivalent to pre-Phase-1.
+- Cleanup: removed the throwaway `.mjs` verification script, killed only the `ng serve`/`dotnet run` processes I started myself (confirmed via `netstat` the ports were freed), left the already-running `motw-postgres` container alone.

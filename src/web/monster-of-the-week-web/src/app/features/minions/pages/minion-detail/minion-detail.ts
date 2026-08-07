@@ -7,6 +7,7 @@ import { MinionService } from '../../../../core/minion';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import { IconComponent } from '../../../../shared/icons/icon.component';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
 import { MinionFormComponent } from '../../shared/minion-form/minion-form';
 import {
@@ -23,7 +24,7 @@ import {
 
 @Component({
   selector: 'app-minion-detail',
-  imports: [ReactiveFormsModule, RouterLink, MinionFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent],
+  imports: [ReactiveFormsModule, RouterLink, MinionFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './minion-detail.html',
   styleUrl: './minion-detail.scss',
 })

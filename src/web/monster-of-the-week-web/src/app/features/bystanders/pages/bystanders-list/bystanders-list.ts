@@ -5,10 +5,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BystanderService } from '../../../../core/bystander';
 import { BystanderListItemResponse } from '../../../../core/models';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import { IconComponent } from '../../../../shared/icons/icon.component';
 
 @Component({
   selector: 'app-bystanders-list',
-  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './bystanders-list.html',
 })
 export class BystandersListComponent implements OnInit {

@@ -6,10 +6,11 @@ import { MonsterService } from '../../../../core/monster';
 import { MinionService } from '../../../../core/minion';
 import { MonsterListItemResponse } from '../../../../core/models';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import { IconComponent } from '../../../../shared/icons/icon.component';
 
 @Component({
   selector: 'app-monsters-list',
-  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './monsters-list.html',
   styleUrl: './monsters-list.scss',
 })
