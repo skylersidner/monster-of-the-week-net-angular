@@ -8,6 +8,7 @@ import { MonsterService } from '../../../../core/monster';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import { IconComponent } from '../../../../shared/icons/icon.component';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
 import { MonsterFormComponent } from '../../shared/monster-form/monster-form';
 import {
@@ -26,9 +27,8 @@ import {
 
 @Component({
   selector: 'app-monster-detail-component',
-  imports: [ReactiveFormsModule, RouterLink, MonsterFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent],
+  imports: [ReactiveFormsModule, RouterLink, MonsterFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './monster-detail.html',
-  styleUrl: './monster-detail.scss',
 })
 export class MonsterDetailComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);

@@ -5,6 +5,7 @@ import { Subject, catchError, debounceTime, distinctUntilChanged, filter, of, sw
 import { SearchResultItem } from '../../core/models';
 import { SearchService } from '../../core/search';
 import { DomainIconComponent } from '../domain-icon.component';
+import { IconComponent } from '../icons/icon.component';
 
 /** Frontend-only minimum query length gate (`architecture.md` Section 2) — the backend does not reject short queries. */
 const MIN_QUERY_LENGTH = 3;
@@ -21,7 +22,7 @@ const DETAIL_ROUTE_SEGMENT: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-header-search',
   standalone: true,
-  imports: [DomainIconComponent],
+  imports: [DomainIconComponent, IconComponent],
   templateUrl: './header-search.html',
   styleUrl: './header-search.scss',
   host: { class: 'block' },

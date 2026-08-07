@@ -5,10 +5,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MinionService } from '../../../../core/minion';
 import { MinionListItemResponse } from '../../../../core/models';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import { IconComponent } from '../../../../shared/icons/icon.component';
 
 @Component({
   selector: 'app-minions-list',
-  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './minions-list.html',
 })
 export class MinionsListComponent implements OnInit {

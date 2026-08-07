@@ -5,10 +5,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MysteryService } from '../../../../core/mystery';
 import { MysteryListItemResponse } from '../../../../core/models';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import { IconComponent } from '../../../../shared/icons/icon.component';
 
 @Component({
   selector: 'app-mysteries-list',
-  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './mysteries-list.html',
 })
 export class MysteriesListComponent implements OnInit {

@@ -232,6 +232,49 @@
   box-shadow: 0 0 0 2px var(--color-focus-ring);
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * Shared "action button" pattern (row-level icon-only delete/edit affordances).
+ * ---------------------------------------------------------------------------
+ * Consolidated here per docs/updates/svg-symbol-icons.md, Phase 2: every
+ * delete/edit icon button across the list and detail pages now shares one
+ * class family instead of two competing conventions — a per-component SCSS
+ * `.action-btn` class on some pages (monsters-list, monster-detail,
+ * minion-detail), plain inline `hover:`/`disabled:` Tailwind utilities on
+ * others (minions-list, locations-list, bystanders-list, mysteries-list).
+ *
+ * `:hover:not(:disabled)` is a compound pseudo-selector Tailwind cannot
+ * express as a single utility class (no `hover:not-disabled:` variant),
+ * hence hand-written CSS here rather than inline utility classes — even on
+ * buttons/links that have no `[disabled]` state today, applied uniformly so
+ * every consumer's CSS is identical and any button that later gains a
+ * disabled state is already covered.
+ *
+ * Lives here, not in a per-component `.scss` file: these classes have zero
+ * component-specific content (every consumer applies the identical `@apply`
+ * targets), so per-file duplication (as `monsters-list.scss`/
+ * `monster-detail.scss`/`minion-detail.scss` did before this phase, each
+ * byte-for-byte the same block) was duplication for its own sake, not a
+ * component-scoping requirement. This app has no shared-partial-`.scss`
+ * convention to split into instead — `src/styles.css` is the sole global
+ * stylesheet — so global CSS already means "add to `styles.css`" here.
+ */
+.action-btn:hover:not(:disabled) {
+  @apply bg-surface-hover;
+}
+
+.action-btn--delete:hover:not(:disabled) {
+  @apply bg-danger-subtle text-danger;
+}
+
+.action-btn--edit:hover:not(:disabled) {
+  @apply bg-accent-subtle text-accent;
+}
+
+.action-btn:disabled {
+  @apply cursor-not-allowed opacity-40;
+}
+
 @layer base {
   html,
   body {

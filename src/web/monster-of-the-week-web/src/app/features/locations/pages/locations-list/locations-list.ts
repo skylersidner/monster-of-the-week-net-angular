@@ -5,10 +5,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LocationService } from '../../../../core/location';
 import { LocationListItemResponse } from '../../../../core/models';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import { IconComponent } from '../../../../shared/icons/icon.component';
 
 @Component({
   selector: 'app-locations-list',
-  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './locations-list.html',
 })
 export class LocationsListComponent implements OnInit {

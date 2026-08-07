@@ -945,3 +945,114 @@ Same shape as `monsterAttackForm.harm`'s pre-fix state — added both `Validator
 
 ### Note: no Location entry exists in this history file
 Grepped for it before writing this entry — `.squad/decisions/inbox/luigi-location-required-fields-validation.md` exists and was used as the direct reference, but no matching history.md entry was ever appended for that phase. Not backfilled here (out of scope for this task), flagging in case it matters for a future retrospective pass.
+
+---
+
+## 2026-08-06 — SVG Symbol Sprite: Phase 0 Implementation (Sprite Infrastructure Only)
+
+### Task
+Implemented Phase 0 only of `docs/updates/svg-symbol-icons.md` (approved plan) — sprite infrastructure, purely additive, no existing icon call sites touched.
+
+### Files
+- New `shared/icons/icon-sprite.component.ts` (`app-icon-sprite`) — one `<svg style="display:none" aria-hidden="true">` with 26 `<symbol>` defs, all 3 namespaces from the doc populated now (not just Phase 1's action/chrome set) to avoid a second inventory pass later: 7 unprefixed `icon-*` (trash, pencil, close, menu, plus, spinner, search), 7 `icon-nav-*` (one per `NavIconKey`), 12 `icon-mystery-*` (one per `MysterySectionIconKind`). Every symbol's `viewBox`/fill/stroke attributes and path data copied verbatim from the actual existing inline `<svg>` markup (re-read source files fresh rather than trusting memory from the earlier research pass, to avoid path-data transcription errors).
+- New `shared/icons/icon.component.ts` (`app-icon`/`IconComponent`) — typed wrapper per the doc's code sample, `IconName` scoped to just the 7 action/chrome names.
+- Modified `layout/page-layout/page-layout.ts` (import + register `IconSpriteComponent` in `imports`) and `page-layout.html` (`<app-icon-sprite />` mounted as the first child of the root `<div>`, before the sidebar `<aside>`).
+- Nothing else touched — no existing `<svg>` call site (13 trash-icon copies, `domain-icon.component.ts`, `mystery-section-icon.ts`, etc.) repointed. Confirmed via `git status`.
+
+### Verification
+`npm run build`: clean, same 2 pre-existing `anyComponentStyle` budget warnings (`custom-select.component.scss`, `mystery-create.scss`), unrelated. `npm run test -- --watch=false`: 38 files / 278 tests, all green, no regressions, no new specs needed (Phase 0 has no new behavior to test — the sprite renders nothing visible and nothing consumes it yet). Live-verified via Playwright against `ng serve` (no backend running, so pages loaded with the expected "API unavailable" state — unrelated to this change): `app-icon-sprite svg` present in the DOM with `computedStyle.display === 'none'` and all 26 expected symbol IDs; screenshotted `/dashboard` and `/minions` and confirmed pixel-identical layout to pre-change (sidebar icons, search glass, plus button, API-modal all render exactly as before — no visual diff, as expected for a `display:none` sprite). Cleaned up the throwaway `.mjs` verification script and killed the `ng serve` process I started (confirmed via `netstat` that the port was freed, didn't touch any other process).
+
+### Notes for whoever picks up Phase 1+
+The sprite already has Phase 4's `icon-nav-*`/`icon-mystery-*` symbols defined and correct (verified by DOM inspection, not just by eye) — Phase 4 only needs to repoint `domain-icon.component.ts`/`mystery-section-icon.ts`'s templates onto `<use>`, no new symbol authoring. Phase 1 can start immediately: `<app-icon name="trash" class="h-5 w-5" />` is ready to drop into all 13 call sites.
+
+---
+
+## 2026-08-07 — SVG Symbol Sprite: Phase 1 Implementation (Migrate the Duplicated Trash Icon)
+
+### Task
+Implemented Phase 1 only of `docs/updates/svg-symbol-icons.md` (Phase 0 committed as `499fc24`) — swapped all 13 inline trash-icon `<svg>` occurrences onto `<app-icon name="trash" ...>`.
+
+### Files (14 total, 7 `.html`/`.ts` pairs, no other files touched)
+`features/minions/pages/minions-list/{minions-list.html,.ts}`, `features/locations/pages/locations-list/{locations-list.html,.ts}`, `features/bystanders/pages/bystanders-list/{bystanders-list.html,.ts}`, `features/monsters/pages/monsters-list/{monsters-list.html,.ts}`, `features/mysteries/pages/mysteries-list/{mysteries-list.html,.ts}` (1 trash occurrence each), `features/monsters/pages/monster-detail/{monster-detail.html,.ts}`, `features/minions/pages/minion-detail/{minion-detail.html,.ts}` (4 occurrences each — attack/power/armor/weakness delete buttons).
+
+### Approach
+- `.ts` files: added `import { IconComponent } from '../../../../shared/icons/icon.component';` and appended `IconComponent` to each component's `imports` array (all 7 files sit at the identical `features/{domain}/pages/{page}/{page}.ts` depth, so the relative import path is uniform across all of them).
+- `.html` files: replaced each `<svg ...viewBox="0 40 32 32"...><path d="m 12.914062,42 c...Z"/></svg>` block with `<app-icon name="trash" class="h-5 w-5" />` — the sizing class (`h-5 w-5`) moved onto `<app-icon>` per the doc's consumption example; `IconComponent`'s host already handles the rest (`inline-flex items-center justify-center`, inner `<svg class="h-full w-full">`). In `monster-detail.html`/`minion-detail.html` all 4 occurrences were byte-identical, so `Edit`'s `replace_all: true` handled each file in one call. `mysteries-list.html`'s unrelated edit-pencil `<svg>` (same file, different icon) was left untouched — verified via `git diff` that only the trash block changed.
+- Did **not** touch `.action-btn`/`.action-btn--delete` classes or any hover-styling CSS on the wrapping `<button>` (Phase 2), and did not touch `domain-icon.component.ts`, `mystery-section-icon.ts`, or the mysteries-list edit-pencil/header-search/page-layout icons (Phase 3/4).
+
+### Verification
+- `npm run build`: clean, same 2 pre-existing budget warnings (unrelated). Lazy chunks for `monster-detail`/`minion-detail` shrank (~1.1-1.6 kB each) as expected from removing duplicated path data.
+- `npm run test -- --watch=false`: 38 files / 278 tests, all green, no regressions.
+- Live-verified via Playwright against a real stack (`docker compose up -d postgres` — already running, not started by me; `dotnet run` on 5225; `ng serve --port 4200`, not 4300 — **the API's CORS policy only allows origin :4200**, confirmed by hitting a CORS error on :4300 first and switching back to the default port fixed it, worth remembering for future one-off `ng serve` verification runs in this repo). Confirmed via `document.querySelectorAll('app-icon svg use[href="#icon-trash"]')` that the `<use>` count exactly matches the visible row count on `monsters-list` (3), `minions-list` (3), `locations-list` (9), `bystanders-list` (5), `mysteries-list` (5, pencil icon still present and untouched), `monster-detail` (6, data-dependent — this monster has extra attacks), `minion-detail` (4) — zero missing/duplicated icons, zero console errors. Hover-state check (real `page.mouse.move` + `getComputedStyle`, not just static CSS reading): `monster-detail`'s `.action-btn--delete:hover:not(:disabled)` button correctly transitions from muted gray text to red text (`oklch(0.577 0.245 27.325)`) with a red-tinted background on hover; `minions-list`'s plain-Tailwind-hover delete button (no `.action-btn` class) resolves to the *identical* red hover color — confirms both of Phase 1's still-untouched hover mechanisms (to be unified in Phase 2) keep working exactly as before. Screenshotted `monsters-list` and the `monster-detail` hover state for visual confirmation — pixel-equivalent to pre-Phase-1.
+- Cleanup: removed the throwaway `.mjs` verification script, killed only the `ng serve`/`dotnet run` processes I started myself (confirmed via `netstat` the ports were freed), left the already-running `motw-postgres` container alone.
+
+---
+
+## 2026-08-07 — SVG Symbol Sprite: Phase 2 Implementation (Unify Delete/Edit Hover Styling)
+
+### Task
+Implemented Phase 2 only of `docs/updates/svg-symbol-icons.md` (Phase 1 committed as `36af66e`) — consolidated the `.action-btn`/plain-Tailwind hover-styling split onto one shared `.action-btn` class family, defined globally.
+
+### Approach
+- Added a global `.action-btn` / `.action-btn--delete` / `.action-btn--edit` / `.action-btn:disabled` block directly to `src/styles.css` (after the `@utility` section, before `@layer base`), with a comment explaining why it's global rather than per-component (identical `@apply` targets everywhere; no shared-partial-`.scss` convention exists in this app to split into instead). `.action-btn--edit` is new (`bg-accent-subtle text-accent` on `:hover:not(:disabled)`), needed for `mysteries-list.html`'s edit-pencil link.
+- **Deleted** (not just emptied) `monsters-list.scss`, `monster-detail.scss`, `minion-detail.scss` — each contained *only* the now-superseded `.action-btn` block plus the `@reference "#styles.css"` boilerplate comment, nothing else, so an empty file would have been pure debris. Removed the corresponding `styleUrl: './*.scss'` line from each of the 3 components' `@Component` decorator (`monsters-list.ts`, `monster-detail.ts`, `minion-detail.ts`).
+- `minion-detail.html`: removed the inline `disabled:cursor-not-allowed disabled:opacity-40` Tailwind classes from all 4 delete buttons (its pre-existing divergence — it never had an `.action-btn:disabled` SCSS rule like its two siblings) — now covered by the same global rule as `monster-detail`/`monsters-list`.
+- `minions-list.html`/`locations-list.html`/`bystanders-list.html`: swapped `hover:bg-danger-subtle hover:text-danger` for `action-btn action-btn--delete` on the delete button's `class` list.
+- `mysteries-list.html`: swapped `hover:bg-danger-subtle hover:text-danger` → `action-btn action-btn--delete` on the delete button, and `hover:bg-accent-subtle hover:text-accent` → `action-btn action-btn--edit` on the edit-pencil link. `monster-detail.html` needed **no changes** — it already used the `.action-btn` classes correctly and had no inline disabled-Tailwind divergence.
+- Grepped for other `hover:bg-danger-subtle`/`hover:bg-accent-subtle` usages before finishing to confirm no incidental over-migration — found only unrelated "+ Add" buttons in the mystery-create wizard phases (plain single `:hover`, no delete/trash icon, correctly left alone).
+
+### Verification
+- `npm run build`: clean, same 2 pre-existing budget warnings (unrelated). `monsters-list`/`monster-detail`/`minion-detail` lazy chunks shrank slightly (component-scoped style removed).
+- `npm run test -- --watch=false`: 38 files / 278 tests, all green, no regressions.
+- Live-verified via Playwright (`docker compose up -d postgres` already running; `dotnet run` on 5225; `ng serve --port 4200` — CORS still requires :4200, per Phase 1's note) across all 7 pages in **both light and dark theme** (toggled via `document.documentElement.classList.add/remove('dark')`, same technique the theming-plan docs use): real `page.mouse.move` + `getComputedStyle` before/after on every delete/edit button confirmed the hover color transition is the *same* red (`text-danger`/`bg-danger-subtle`) or indigo (`text-accent`/`bg-accent-subtle`) pair on **all 7 pages, in both themes** — the oklch vs. oklab differences in the raw computed-style strings across pages are just different serializations of the identical color (verified numerically), not an actual mismatch. Disabled-state check (`monster-detail`/`minion-detail`, temporarily setting `disabled` via `evaluate` then reading `getComputedStyle`): `cursor: not-allowed`, `opacity: 0.4` in both themes on both pages — confirms `minion-detail`'s reconciled disabled-state now matches `monster-detail`'s exactly. Zero console errors on any page/theme combination. Screenshotted `mysteries-list` (dark) and `monster-detail` (light) for visual confirmation — both render correctly, icons unaffected (Phase 1's `<app-icon>` usage untouched by this phase, confirmed via `git status` showing no changes to `monster-detail.html`).
+- Cleanup: removed the throwaway `.mjs` script, killed only the `ng serve`/`dotnet run` processes started for this verification (confirmed via `netstat`), left `motw-postgres` running.
+
+### Files (11 total)
+Modified: `styles.css`; `minions-list.html`, `locations-list.html`, `bystanders-list.html`, `mysteries-list.html`, `minion-detail.html`; `monsters-list.ts`, `monster-detail.ts`, `minion-detail.ts` (styleUrl removed). Deleted: `monsters-list.scss`, `monster-detail.scss`, `minion-detail.scss`. `monster-detail.html` needed no change.
+
+---
+
+## 2026-08-07 — SVG Symbol Sprite: Phase 3 Implementation (Migrate Shell/Chrome Icons)
+
+### Task
+Implemented Phase 3 only of `docs/updates/svg-symbol-icons.md` (Phase 2 committed as `2ed307c`) — migrated the remaining one-off inline icons (edit-pencil, search glass, page-layout's hamburger/close/plus/spinner) onto `<app-icon>`.
+
+### Verification-before-trust
+Per the coordinator's instruction, did not assume Phase 0's extracted sprite symbols still matched their source call sites — re-read all 4 source files (`icon-sprite.component.ts`, `mysteries-list.html`, `header-search.html`, `page-layout.html`) fresh and diffed the `viewBox`/`fill`/`stroke`/path data by eye before touching anything. All matched byte-for-byte (Phases 1/2 never touched these icons' markup, only the trash icon and hover classes respectively), so no sprite corrections were needed.
+
+### Real finding: the "spinner" icon has never actually animated/rotated in this app
+Went looking for what makes the API-unavailable modal's spinner spin (per the coordinator's explicit ask to check whether the `style="opacity:.25"`/`style="opacity:.75"` inline styles are animation-related or just static). **Grepped the whole app for `animate-spin`/`@keyframes`/any rotation — found none, anywhere.** The two inline `style="opacity:..."` attributes are purely static per-element opacity values that create the classic "partial-ring" glyph (a full ring at 25% opacity + a highlighted quarter-arc at 75% opacity) — there is no CSS animation rotating it, today or previously. This is not something Phase 3 broke; it's the pre-existing (if slightly misleadingly-named) behavior, and the sprite's `icon-spinner` symbol (built in Phase 0) already reproduces the exact same two static opacity values verbatim, so the migration is a faithful no-op here. Flagging as a known gap in case Skyler wants a real spin animation added later — that would be a separate, small follow-up (a Tailwind `animate-spin` class on the `<app-icon name="spinner">` call site, no sprite change needed since `<use>` content inherits animations applied to its ancestor), not part of this phase.
+- Also converted the spinner's inline `style="height:1rem;width:1rem;flex-shrink:0"` to the exact equivalent Tailwind classes `h-4 w-4 shrink-0` on the `<app-icon>` call site (1rem = Tailwind's `4` spacing step) — judgment call to keep the codebase's now-uniform "icon size via class, not inline style" convention consistent with every other Phase 1/2/3 migration, rather than leaving one `<app-icon>` call site as the only one still using an inline `style` attribute for sizing.
+
+### Files (5 total)
+`mysteries-list.html` (pencil), `header-search.html` + `header-search.ts` (search — added `IconComponent` import), `page-layout.html` + `page-layout.ts` (close/menu/plus/spinner — added `IconComponent` import alongside the existing `IconSpriteComponent` one from Phase 0). `mysteries-list.ts` needed **no** import change — it already imported `IconComponent` from Phase 1 (for the trash icon). Did not touch `domain-icon.component.ts`/`mystery-section-icon.ts` (Phase 4) or any trash-icon/hover-class code (Phases 1/2) — confirmed via `git status` showing exactly these 5 files.
+
+### Verification
+- `npm run build`: clean, same 2 pre-existing budget warnings (unrelated).
+- `npm run test -- --watch=false`: 38 files / 278 tests, all green. Additionally ran `page-layout.spec.ts` in isolation with `--reporters=verbose` per the coordinator's explicit ask (not just trusting the aggregate count) — all 9 tests individually confirmed passing, including `retries API health check and closes modal after success` (the one asserting `.api-modal svg` truthy for the spinner — stays valid since `<app-icon>` still renders a real `<svg>` wrapping the `<use>`).
+- Live-verified via Playwright (`docker compose up -d postgres` already running; `dotnet run` on 5225; `ng serve --port 4200`) in **both light and dark theme**: `mysteries-list` renders 5 pencil + 5 trash icons (1 each per row, matching row count); header-search's magnifying glass confirmed present via `<use href="#icon-search">` on both `/dashboard` and `/monsters` (shell-mounted, present everywhere); desktop viewport (1280px) shows the quick-action plus icon; mobile viewport (500px) — clicked the hamburger to open the mobile sidebar (confirmed `.sidebar-mobile` becomes visible and the close (X) icon renders), then clicked close and confirmed the sidebar closes again; triggered the real API-unavailable modal by intercepting/aborting `**/health/live` via `page.route`, then clicked "Try again" with a delayed-but-successful health response to catch the button mid-check — confirmed `<use href="#icon-spinner">` renders and the button reads "Checking..." during that window, then the modal correctly disappears once the health check resolves. Zero unexpected console errors (the only console errors logged were the *intentional* aborted health-check requests from the test's own route interception). Screenshots confirm pixel-correct rendering in both themes: mobile menu open state, the spinner mid-retry, and mysteries-list in dark mode.
+- Cleanup: removed the throwaway `.mjs` script, killed only the `ng serve`/`dotnet run` processes started for this verification (confirmed via `netstat`), left `motw-postgres` running.
+
+---
+
+## 2026-08-07 — SVG Symbol Sprite: Phase 4 Implementation (Re-point Domain/Mystery-Section Icon Components) — Plan Complete
+
+### Task
+Implemented Phase 4, the **final phase** of `docs/updates/svg-symbol-icons.md` (Phase 3 committed as `f9e5b3a`) — re-pointed `DomainIconComponent`/`MysterySectionIconComponent`'s internal templates from a hand-copied `@switch` of inline `<svg>` markup onto `<use>` references into the sprite. Public APIs (`domain` input, `kind` input) untouched.
+
+### Approach
+- `domain-icon.component.ts`: collapsed the 7-case `@switch` into a single `<svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><use [attr.href]="'#icon-nav-' + normalizedDomain()" /></svg>` — verified fresh (not trusting Phase 0's weeks-old extraction) that all 7 cases still shared the identical `viewBox`/`fill`/`stroke`/`stroke-width` wrapper attributes before hoisting them onto one `<svg>`; they did.
+- `mystery-section-icon.ts`: collapsed the 12-case `@switch` into `<use [attr.href]="'#icon-mystery-' + kind" />` inside the existing wrapper `<svg class="icon" viewBox="0 0 24 24" ...>`, itself untouched — confirmed the `:host`/`.icon` sizing rules (the `--mystery-section-icon-size` custom property) size the wrapper element, not its children, so they're structurally unaffected by what's inside it.
+- Re-verified (byte-for-byte, not assumed) all 7 `icon-nav-*` and 12 `icon-mystery-*` sprite symbols from Phase 0 still match current source markup exactly — no drift found, no sprite corrections needed.
+- No import changes needed on either file (`IconComponent`/`IconSpriteComponent` aren't referenced by either component's own template — they only reference symbol IDs the already-globally-mounted sprite provides).
+- Checked for dedicated `domain-icon.component.spec.ts`/`mystery-section-icon.spec.ts` files — **neither exists** — so no spec updates were needed for internal-markup assertions (there were none to begin with).
+
+### Verification
+- `npm run build`: clean, same 2 pre-existing budget warnings (unrelated); main bundle shrank ~1.6 kB from removing the duplicated inline path data.
+- `npm run test -- --watch=false`: 38 files / 278 tests, all green. Per the coordinator's explicit instruction not to just trust the doc's claim, ran `mystery-detail.spec.ts` + `mystery-create.spec.ts` **in isolation** with `--reporters=verbose`: all 6 tests individually confirmed passing, including `renders section icons across the mystery detail sections` (the `app-mystery-section-icon` count-14 assertion) and `renders countdown stage icons in the countdown step and dossier preview` (count-6/count-2 assertions) — both green, confirming the doc's analysis (these count the custom element instantiation in the host template, unaffected by a component's own internal template change) held up in practice, not just in theory.
+- Live-verified via Playwright (`docker compose up -d postgres` already running; `dotnet run` on 5225; `ng serve --port 4200`) in **both light and dark theme** against real seeded data: sidebar nav renders all 7 `<use href="#icon-nav-*">` refs correctly (one per nav item, correct keys); header-search dropdown (searched "sto", 4 real results) renders correct per-domain icons (location pin ×2, bystander ×2); `/search?q=a` results page renders 20 correctly-typed domain icons plus the 7 sidebar nav icons; a real mystery's full dossier (`mystery-detail`) renders exactly 14 `<use href="#icon-mystery-*">` refs with the correct kind mix (mystery ×3, countdown ×1, all 6 countdown-stage kinds, monster/minions/locations/bystanders ×1 each) — matching the spec's own expected count; `mystery-create`'s Phase 1 Step 1 (concept form) renders 5 correctly-typed section icons across the tracker + step heading. Zero console errors anywhere in either theme. Screenshots confirm pixel-correct rendering: mystery-detail's CONCEPT/HOOK/OVERVIEW section icons, the dark-theme header-search dropdown with per-result-type icons, and the dark-theme mystery-create tracker/step icons.
+- **Final sweep (plan-completion check):** grepped the whole `src/app` tree for `<svg` — exactly 4 files matched: `icon-sprite.component.ts` (the sprite's own symbol source of truth), `icon.component.ts` and the now-updated `domain-icon.component.ts`/`mystery-section-icon.ts` (each just their own thin `<svg><use></svg>` wrapper). **Zero hand-copied inline icon markup remains anywhere else in the app** — the plan's stated end-state is achieved.
+- Cleanup: removed the throwaway `.mjs` script, killed only the `ng serve`/`dotnet run` processes started for this verification (confirmed via `netstat`), left `motw-postgres` running.
+
+### Files (2 total)
+`shared/domain-icon.component.ts`, `features/mysteries/shared/mystery-section-icon.ts` — both template-only changes plus an explanatory doc comment above each `@Component` decorator. No other file touched (confirmed via `git status`). This closes out all 5 phases (0-4) of `docs/updates/svg-symbol-icons.md`.
