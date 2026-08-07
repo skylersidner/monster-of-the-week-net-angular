@@ -945,3 +945,22 @@ Same shape as `monsterAttackForm.harm`'s pre-fix state — added both `Validator
 
 ### Note: no Location entry exists in this history file
 Grepped for it before writing this entry — `.squad/decisions/inbox/luigi-location-required-fields-validation.md` exists and was used as the direct reference, but no matching history.md entry was ever appended for that phase. Not backfilled here (out of scope for this task), flagging in case it matters for a future retrospective pass.
+
+---
+
+## 2026-08-06 — SVG Symbol Sprite: Phase 0 Implementation (Sprite Infrastructure Only)
+
+### Task
+Implemented Phase 0 only of `docs/updates/svg-symbol-icons.md` (approved plan) — sprite infrastructure, purely additive, no existing icon call sites touched.
+
+### Files
+- New `shared/icons/icon-sprite.component.ts` (`app-icon-sprite`) — one `<svg style="display:none" aria-hidden="true">` with 26 `<symbol>` defs, all 3 namespaces from the doc populated now (not just Phase 1's action/chrome set) to avoid a second inventory pass later: 7 unprefixed `icon-*` (trash, pencil, close, menu, plus, spinner, search), 7 `icon-nav-*` (one per `NavIconKey`), 12 `icon-mystery-*` (one per `MysterySectionIconKind`). Every symbol's `viewBox`/fill/stroke attributes and path data copied verbatim from the actual existing inline `<svg>` markup (re-read source files fresh rather than trusting memory from the earlier research pass, to avoid path-data transcription errors).
+- New `shared/icons/icon.component.ts` (`app-icon`/`IconComponent`) — typed wrapper per the doc's code sample, `IconName` scoped to just the 7 action/chrome names.
+- Modified `layout/page-layout/page-layout.ts` (import + register `IconSpriteComponent` in `imports`) and `page-layout.html` (`<app-icon-sprite />` mounted as the first child of the root `<div>`, before the sidebar `<aside>`).
+- Nothing else touched — no existing `<svg>` call site (13 trash-icon copies, `domain-icon.component.ts`, `mystery-section-icon.ts`, etc.) repointed. Confirmed via `git status`.
+
+### Verification
+`npm run build`: clean, same 2 pre-existing `anyComponentStyle` budget warnings (`custom-select.component.scss`, `mystery-create.scss`), unrelated. `npm run test -- --watch=false`: 38 files / 278 tests, all green, no regressions, no new specs needed (Phase 0 has no new behavior to test — the sprite renders nothing visible and nothing consumes it yet). Live-verified via Playwright against `ng serve` (no backend running, so pages loaded with the expected "API unavailable" state — unrelated to this change): `app-icon-sprite svg` present in the DOM with `computedStyle.display === 'none'` and all 26 expected symbol IDs; screenshotted `/dashboard` and `/minions` and confirmed pixel-identical layout to pre-change (sidebar icons, search glass, plus button, API-modal all render exactly as before — no visual diff, as expected for a `display:none` sprite). Cleaned up the throwaway `.mjs` verification script and killed the `ng serve` process I started (confirmed via `netstat` that the port was freed, didn't touch any other process).
+
+### Notes for whoever picks up Phase 1+
+The sprite already has Phase 4's `icon-nav-*`/`icon-mystery-*` symbols defined and correct (verified by DOM inspection, not just by eye) — Phase 4 only needs to repoint `domain-icon.component.ts`/`mystery-section-icon.ts`'s templates onto `<use>`, no new symbol authoring. Phase 1 can start immediately: `<app-icon name="trash" class="h-5 w-5" />` is ready to drop into all 13 call sites.
