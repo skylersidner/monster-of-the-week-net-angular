@@ -12,7 +12,6 @@ import { IconComponent } from '../../../../shared/icons/icon.component';
   selector: 'app-monsters-list',
   imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './monsters-list.html',
-  styleUrl: './monsters-list.scss',
 })
 export class MonstersListComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);

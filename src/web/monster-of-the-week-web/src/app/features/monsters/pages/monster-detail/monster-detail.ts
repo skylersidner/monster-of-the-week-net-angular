@@ -29,7 +29,6 @@ import {
   selector: 'app-monster-detail-component',
   imports: [ReactiveFormsModule, RouterLink, MonsterFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './monster-detail.html',
-  styleUrl: './monster-detail.scss',
 })
 export class MonsterDetailComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);

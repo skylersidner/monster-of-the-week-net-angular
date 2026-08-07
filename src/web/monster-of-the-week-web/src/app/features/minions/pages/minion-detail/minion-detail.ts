@@ -26,7 +26,6 @@ import {
   selector: 'app-minion-detail',
   imports: [ReactiveFormsModule, RouterLink, MinionFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './minion-detail.html',
-  styleUrl: './minion-detail.scss',
 })
 export class MinionDetailComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
