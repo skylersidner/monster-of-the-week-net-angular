@@ -4,6 +4,7 @@ import { HealthService } from '../../core/health';
 import { NotificationService } from '../../core/notifications';
 import { DomainIconComponent } from '../../shared/domain-icon.component';
 import { HeaderSearchComponent } from '../../shared/header-search/header-search';
+import { IconComponent } from '../../shared/icons/icon.component';
 import { IconSpriteComponent } from '../../shared/icons/icon-sprite.component';
 
 interface NavItem {
@@ -15,7 +16,7 @@ interface NavItem {
 
 @Component({
   selector: 'app-page-layout',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, DomainIconComponent, HeaderSearchComponent, IconSpriteComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, DomainIconComponent, HeaderSearchComponent, IconSpriteComponent, IconComponent],
   templateUrl: './page-layout.html',
   host: { class: 'block h-full' },
 })

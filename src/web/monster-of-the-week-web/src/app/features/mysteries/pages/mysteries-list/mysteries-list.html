@@ -27,9 +27,7 @@
           </div>
           <div class="flex items-center shrink-0 gap-1">
             <a [routerLink]="['/mysteries', mystery.id, 'edit']" class="action-btn action-btn--edit flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] no-underline transition-colors" title="Edit mystery">
-              <svg class="h-5 w-5" width="20" height="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor">
-                <path fill-rule="evenodd" d="m76.699 64.445v28.754c0 1.3242-1.0742 2.3984-2.3984 2.3984l-67.496 0.003906c-1.3242 0-2.3984-1.0742-2.3984-2.3984l-0.003906-71.754 0.74219-1.7383 15.09-14.977c0.35547-0.21094 0.77344-0.33594 1.2188-0.33594h52.848c1.3242 0 2.3984 1.0742 2.3984 2.3984v24.02c5.8594-10.145 4.0664-9.707 12.496-4.8281l5.1992 3.0078c1.1602 0.66797 1.5391 2.168 0.87891 3.2695l0.003906 0.003906zm-56.125-24.875v4.8008h39.949v-4.8008zm0 30.113v4.8008h26.867v-4.8008zm0-15.059v4.8008h31.559v-4.8008zm-7.9766-35.574h6.4531v-6.4531zm59.301 20.086v-29.938h-48.047v12.25c0 1.3242-1.0742 2.3984-2.3984 2.3984h-12.25v66.953h62.695v-18.039c-1.0664 1.8477-2.0586 4.2539-3.418 4.7891l-9.1172 3.9414c-1.4609 0.63281-3.1445-0.36719-3.3203-1.9219h-0.007813l-1.1602-10.012c-0.066406-0.56641 0.074219-1.1133 0.35938-1.5586zm-11.473 36.691 5.5625-2.4062 23.949-41.48-6.2695-3.6133-23.941 41.469z"/>
-              </svg>
+              <app-icon name="pencil" class="h-5 w-5" />
             </a>
             <button type="button" class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] transition-colors" title="Delete mystery" (click)="requestDelete(mystery.id, mystery.name)">
               <app-icon name="trash" class="h-5 w-5" />
