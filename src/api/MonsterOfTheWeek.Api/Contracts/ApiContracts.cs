@@ -175,15 +175,23 @@ public sealed record MinionDetailResponse(
     IReadOnlyList<CustomMoveResponse> CustomMoves);
 
 public sealed record UpsertMinionRequest(
-    string Name,
+    [param: Required, MaxLength(255)] string Name,
     string? Description,
-    int HarmCapacity,
+    [param: Range(0, int.MaxValue)] int HarmCapacity,
     Guid MinionTypeId);
 
-public sealed record UpsertMinionAttackRequest(string Name, string? Description, int Harm);
-public sealed record UpsertMinionPowerRequest(string Name, string? Description);
-public sealed record UpsertMinionArmorRequest(string Name, string? Description, int HarmSoak, bool IsSpecial, string? SpecialDescription);
-public sealed record UpsertMinionWeaknessRequest(string Name, string? Description);
+public sealed record UpsertMinionAttackRequest(
+    [param: Required, MaxLength(255)] string Name,
+    string? Description,
+    [param: Range(0, int.MaxValue)] int Harm);
+public sealed record UpsertMinionPowerRequest([param: Required, MaxLength(255)] string Name, string? Description);
+public sealed record UpsertMinionArmorRequest(
+    [param: Required, MaxLength(255)] string Name,
+    string? Description,
+    [param: Range(0, int.MaxValue)] int HarmSoak,
+    bool IsSpecial,
+    string? SpecialDescription);
+public sealed record UpsertMinionWeaknessRequest([param: Required, MaxLength(255)] string Name, string? Description);
 
 public sealed record LocationListItemResponse(
     Guid Id,

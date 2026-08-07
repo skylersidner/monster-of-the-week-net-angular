@@ -883,3 +883,28 @@ Unlike `monster-create.ts`'s labeled draft forms, the wizard's Attack/Power/Weak
 
 ### Files
 `features/mysteries/pages/mystery-create/mystery-create-monster-phase.html`, `features/mysteries/pages/mystery-create/mystery-create.store.ts`. Doc addendum: `docs/updates/monster-required-fields-validation.md` (flagging the wizard-side gap the doc's original audit couldn't have caught, since the wizard was outside its file scope). Full write-up: `.squad/decisions/inbox/luigi-monster-required-fields-validation.md`.
+
+---
+
+## 2026-08-06 — Minion Required-Field Validation (Phase 3, mechanical port of the Monster-phase work)
+
+### Task
+`docs/updates/minion-required-fields-validation.md`'s locked scope: `minionTypeId` required-validator bug fix, `maxlength="255"` on all 9 Name inputs, asterisk convention, conditional-required `MinionArmor.SpecialDescription`, and a bundled wizard validator fix — same shape as the already-shipped Monster-phase work, copied pattern-for-pattern rather than re-derived.
+
+### Confirmed before writing any markup: `minion-form.html`'s labels DO use the grid class, unlike the wizard's monster-phase labels
+`minion-form.html` uses the same `grid font-medium gap-1` label class Monster's standalone forms do (not the wizard's `display: block` pattern) — so the wrapper-span trick (`<span>Name <span class="text-danger">*</span></span>`) was required from the first edit here, not discovered after a Skyler bug report like it was for Monster. Checked the class before writing a single asterisk, per the "don't reflexively apply/skip the wrapper fix — check `display` first" note from the previous entry.
+
+### The wizard's minion phase is not a separate file
+There is no `mystery-create-minion-phase.html` — the minion step lives inside `mystery-create-monster-phase.html`, gated on `store.currentStep() === 1` (same file the Monster-phase asterisk follow-up touched for `currentStep() === 0`). This phase's scope only asked for 3 validators there (`minionForm.harmCapacity`, `minionAttackForm.harm`, `minionArmorForm.harmSoak`), not asterisks — so no markup was touched in that file this pass, only `mystery-create.store.ts`. Confirmed live via Playwright that Minion Name/Harm Capacity/Minion Type still render with no asterisk there (correct — out of scope, matching the previous entry's note that Minion has no asterisk ground truth to port from... except now it does, on the standalone pages, just not yet ported into the wizard).
+
+### `minionAttackForm.harm` had zero validators, not just a missing `required`
+Same shape as `monsterAttackForm.harm`'s pre-fix state — added both `Validators.required` and `Validators.min(0)`, not just `required`, since `min(0)` was also absent. Worth re-checking the live file instead of trusting a doc's "add Validators.required" paraphrase — the actual gap is sometimes bigger than the one-line summary says.
+
+### Verification technique: reaching the wizard's minion step via Playwright requires driving the real custom-select panel, not a generic `button`/`li` selector
+`app-custom-select`'s option buttons (`.custom-select__option`) live in the DOM *after* the trigger button (`.custom-select__trigger`), both under the same `app-custom-select` — a `.locator('li, [role="option"], button').first()` picks the trigger itself (closing the just-opened panel) instead of an option. Use `.locator('button.custom-select__trigger')` to open, then `.locator('button.custom-select__option').first()` to pick. Also: the wizard's create route is `/mysteries/create`, not `/mysteries/new` (`/mysteries/new` 404s) — confirmed via `mysteries.routes.ts` rather than guessing from the Monster/Minion domains' `/…/new` convention, which the Mystery domain doesn't share.
+
+### Files
+`features/minions/shared/minion-form/minion-form.{ts,html,spec.ts}`, `features/minions/pages/minion-create/minion-create.{html,ts}`, `features/minions/pages/minion-detail/minion-detail.{html,ts}`, `features/mysteries/pages/mystery-create/mystery-create.store.ts`. Full write-up: `.squad/decisions/inbox/luigi-minion-required-fields-validation.md`.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 274 tests passed (272 baseline + 2 new specs in `minion-form.spec.ts`). Live Playwright verification against `dotnet run` (5225) + `ng serve --port 4200` (both already running at session start, not started or killed by me): asterisks render inline (not wrapped) on `/monsters/:monsterId/minions/:minionId`, `/minions/new`, and all `maxlength=255` on Name inputs confirmed via `input.maxLength`; conditional Special Description asterisk toggles correctly; wizard minion step renders with no asterisks (correct, out of scope) and no console errors after walking the full wizard flow to reach it.

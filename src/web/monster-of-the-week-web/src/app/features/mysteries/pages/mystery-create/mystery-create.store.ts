@@ -283,7 +283,7 @@ export class MysteryCreateStore {
   readonly minionForm = this.fb.group({
     name: this.fb.nonNullable.control(''),
     description: this.fb.control(''),
-    harmCapacity: this.fb.nonNullable.control(3, [Validators.min(0)]),
+    harmCapacity: this.fb.nonNullable.control(3, [Validators.required, Validators.min(0)]),
     minionTypeId: this.fb.nonNullable.control(''),
   });
 
@@ -306,7 +306,7 @@ export class MysteryCreateStore {
 
   readonly minionAttackForm: AttackFormGroup = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required]),
-    harm: this.fb.nonNullable.control(0),
+    harm: this.fb.nonNullable.control(0, [Validators.required, Validators.min(0)]),
     description: this.fb.control(''),
     weaponTagIds: this.fb.nonNullable.control<string[]>([]),
   });
@@ -332,7 +332,7 @@ export class MysteryCreateStore {
   readonly minionArmorForm: ArmorFormGroup = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
-    harmSoak: this.fb.nonNullable.control(0, [Validators.min(0)]),
+    harmSoak: this.fb.nonNullable.control(0, [Validators.required, Validators.min(0)]),
     isSpecial: this.fb.nonNullable.control(false),
     specialDescription: this.fb.control(''),
   });

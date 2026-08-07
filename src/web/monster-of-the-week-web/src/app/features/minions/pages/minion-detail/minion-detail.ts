@@ -2,7 +2,7 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { forkJoin, Observable, of, switchMap } from 'rxjs';
+import { forkJoin, Observable, of, startWith, switchMap } from 'rxjs';
 import { MinionService } from '../../../../core/minion';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
@@ -86,6 +86,16 @@ export class MinionDetailComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Special Description is only required while Is Special is checked - UI-only rule,
+    // the server continues to accept a null SpecialDescription regardless.
+    this.armorForm.controls.isSpecial.valueChanges
+      .pipe(startWith(this.armorForm.controls.isSpecial.value), takeUntilDestroyed(this.destroyRef))
+      .subscribe((isSpecial) => {
+        const specialDescription = this.armorForm.controls.specialDescription;
+        specialDescription.setValidators(isSpecial ? [Validators.required] : []);
+        specialDescription.updateValueAndValidity({ emitEvent: false });
+      });
+
     this.route.paramMap
       .pipe(
         takeUntilDestroyed(this.destroyRef),

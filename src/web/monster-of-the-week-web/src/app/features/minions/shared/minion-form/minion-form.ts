@@ -35,7 +35,7 @@ export class MinionFormComponent implements OnChanges {
     name: this.formBuilder.nonNullable.control('', [Validators.required]),
     description: this.formBuilder.control(''),
     harmCapacity: this.formBuilder.nonNullable.control(0, [Validators.required, Validators.min(0)]),
-    minionTypeId: this.formBuilder.nonNullable.control(''),
+    minionTypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
   });
 
   ngOnChanges(changes: SimpleChanges): void {
