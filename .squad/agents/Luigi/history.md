@@ -663,6 +663,24 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 - Like Location's page (and unlike Monster's/Minion's), `ReactiveFormsModule`, `CustomSelectComponent`, `FormBuilder`, `Validators` *and* `toNullable()` all became unused on `bystander-detail.ts` and were removed — the only other content on the page is the read-only custom-moves `<ul>`.
 - Working tree already carried BC-1's backend changes (`BystandersController.cs`, `BystanderService.cs`, `IBystanderService.cs`, `core/bystander.ts` + Bowser/Yoshi history) from Bowser's run — not mine, left alone.
 
+---
+
+## 2026-08-06 — Required-Field Validation Phase 4: Location (`location-form.html`)
+
+### Task
+`docs/updates/location-required-fields-validation.md`'s "Revision — Skyler's 2 Answers Resolved" section — smallest phase of the initiative so far. Full write-up: `.squad/decisions/inbox/luigi-location-required-fields-validation.md`.
+
+### Key patterns / gotchas
+- **Smallest phase yet, genuinely** — unlike Monster/Minion, `location-form.ts`'s `locationTypeId` already had `Validators.required` (pre-dated the standalone-creation extraction per Yoshi's doc), so no validator bug to fix. Only 1 Name `<input>` in the whole feature (no sub-resource authoring UI at all) vs. Monster's/Minion's 9 each.
+- **Checked `location-form.html`'s label class before writing markup** (same `grid font-medium gap-1` as Monster/Minion) and used the wrapper-span trick (`<span>Name <span class="text-danger">*</span></span>`) from the start — no repeat of Monster's original grid-auto-placement layout bug.
+- Since `LocationFormComponent` is the single shared component for both `location-create.ts` and `location-detail.ts`, one file's edit covers both pages — no page-level template changes needed.
+
+### Files
+- Modified: `features/locations/shared/location-form/location-form.html` (asterisks + `maxlength="255"`), `features/locations/shared/location-form/location-form.spec.ts` (2 new specs).
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 276 passed (274 → 276, 2 new). Visually verified via a throwaway Playwright script against the already-running dev API + `ng serve --port 4200` on `/locations/new` and an existing location's edit page — asterisks render inline with labels on both, no wrap. Cleaned up throwaway script/screenshots.
+
 ### Files
 - New: `features/bystanders/shared/bystander-form/{bystander-form.ts, bystander-form.html, bystander-form.spec.ts}` (no `.scss`).
 - Modified: `features/bystanders/pages/bystander-detail/{bystander-detail.ts, bystander-detail.html, bystander-detail.spec.ts}`.

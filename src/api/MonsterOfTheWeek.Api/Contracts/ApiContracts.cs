@@ -213,7 +213,7 @@ public sealed record LocationDetailResponse(
     string LocationTypeMotivation,
     IReadOnlyList<CustomMoveResponse> CustomMoves);
 
-public sealed record UpsertLocationRequest(string Name, string? Description, Guid LocationTypeId);
+public sealed record UpsertLocationRequest([param: Required, MaxLength(255)] string Name, string? Description, Guid LocationTypeId);
 
 public sealed record BystanderListItemResponse(
     Guid Id,

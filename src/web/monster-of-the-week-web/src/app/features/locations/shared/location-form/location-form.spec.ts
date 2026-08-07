@@ -169,4 +169,18 @@ describe('LocationFormComponent', () => {
       locationTypeId: '',
     });
   });
+
+  it('shows a required-field asterisk on Name and Location Type labels but not Description', () => {
+    const labels = fixture.nativeElement.querySelectorAll('label');
+    const [nameLabel, descriptionLabel, locationTypeLabel] = Array.from(labels) as HTMLLabelElement[];
+
+    expect(nameLabel.querySelector('span.text-danger')?.textContent?.trim()).toBe('*');
+    expect(locationTypeLabel.querySelector('span.text-danger')?.textContent?.trim()).toBe('*');
+    expect(descriptionLabel.querySelector('span.text-danger')).toBeNull();
+  });
+
+  it('enforces maxlength 255 on the Name input', () => {
+    const nameInput = fixture.nativeElement.querySelector('input[formControlName="name"]') as HTMLInputElement;
+    expect(nameInput.maxLength).toBe(255);
+  });
 });

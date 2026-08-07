@@ -1,14 +1,14 @@
 <form class="grid gap-[0.6rem] my-4 max-w-[30rem]" [formGroup]="locationForm" (ngSubmit)="onSubmit()">
   <label class="grid font-medium gap-1">
-    Name
-    <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" />
+    <span>Name <span class="text-danger">*</span></span>
+    <input class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" type="text" formControlName="name" maxlength="255" />
   </label>
   <label class="grid font-medium gap-1">
     Description
     <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full" formControlName="description" rows="9"></textarea>
   </label>
   <label class="grid font-medium gap-1">
-    Location Type
+    <span>Location Type <span class="text-danger">*</span></span>
     <app-custom-select
       formControlName="locationTypeId"
       [options]="locationTypes"
