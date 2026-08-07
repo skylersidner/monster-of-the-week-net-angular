@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
@@ -127,6 +129,81 @@ public sealed class MonsterServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(0, repository.AssignAttackWeaponTagCalls);
         Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    // Upsert*Request records carry their DataAnnotations on the primary constructor's
+    // parameters ([param: Required, MaxLength]/[param: Range], matching UpsertMysteryRequest's
+    // established precedent), not on the generated properties — so these attributes are read via
+    // ParameterInfo, not PropertyInfo/Validator.TryValidateObject. This covers Monster's own
+    // Name field plus all five sub-resource Name fields (Attack/Power/Armor/Weakness/CustomMove),
+    // each of which live-verified the identical blank/whitespace-persists-as-"" and
+    // oversized-name-500s gaps this fix closes.
+    public static IEnumerable<object[]> NameRequestTypes =>
+    [
+        [typeof(UpsertMonsterRequest)],
+        [typeof(UpsertMonsterAttackRequest)],
+        [typeof(UpsertMonsterPowerRequest)],
+        [typeof(UpsertMonsterArmorRequest)],
+        [typeof(UpsertMonsterWeaknessRequest)],
+        [typeof(UpsertCustomMoveRequest)],
+    ];
+
+    public static IEnumerable<object[]> HarmFields =>
+    [
+        [typeof(UpsertMonsterRequest), "HarmCapacity"],
+        [typeof(UpsertMonsterAttackRequest), "Harm"],
+        [typeof(UpsertMonsterArmorRequest), "HarmSoak"],
+    ];
+
+    [Theory]
+    [MemberData(nameof(NameRequestTypes))]
+    public void Name_RequiredAttribute_RejectsNullOrBlankValues(Type requestType)
+    {
+        var attribute = GetParameterAttribute<RequiredAttribute>(requestType, "Name");
+
+        Assert.False(attribute.IsValid(null));
+        Assert.False(attribute.IsValid(""));
+        Assert.False(attribute.IsValid("   "));
+    }
+
+    [Theory]
+    [MemberData(nameof(NameRequestTypes))]
+    public void Name_RequiredAttribute_AcceptsNonBlankValue(Type requestType)
+    {
+        var attribute = GetParameterAttribute<RequiredAttribute>(requestType, "Name");
+
+        Assert.True(attribute.IsValid("Valid Name"));
+    }
+
+    [Theory]
+    [MemberData(nameof(NameRequestTypes))]
+    public void Name_MaxLengthAttribute_Is255_AndRejectsOversizedValue(Type requestType)
+    {
+        var attribute = GetParameterAttribute<MaxLengthAttribute>(requestType, "Name");
+
+        Assert.Equal(255, attribute.Length);
+        Assert.True(attribute.IsValid(new string('a', 255)));
+        Assert.False(attribute.IsValid(new string('a', 256)));
+    }
+
+    [Theory]
+    [MemberData(nameof(HarmFields))]
+    public void HarmField_RangeAttribute_RejectsNegativeValues(Type requestType, string parameterName)
+    {
+        var attribute = GetParameterAttribute<RangeAttribute>(requestType, parameterName);
+
+        Assert.False(attribute.IsValid(-1));
+        Assert.True(attribute.IsValid(0));
+        Assert.True(attribute.IsValid(int.MaxValue));
+    }
+
+    private static TAttribute GetParameterAttribute<TAttribute>(Type requestType, string parameterName)
+        where TAttribute : Attribute
+    {
+        var ctor = requestType.GetConstructors().Single();
+        var parameter = ctor.GetParameters().Single(p => p.Name == parameterName);
+        return parameter.GetCustomAttribute<TAttribute>()
+            ?? throw new InvalidOperationException($"{requestType.Name}.{parameterName} is missing {typeof(TAttribute).Name}.");
     }
 
     private sealed class FakeMonsterRepository : IMonsterRepository

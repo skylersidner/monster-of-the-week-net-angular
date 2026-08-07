@@ -37,7 +37,7 @@ export class MonsterFormComponent implements OnChanges {
     name: this.formBuilder.nonNullable.control('', [Validators.required]),
     description: this.formBuilder.control(''),
     harmCapacity: this.formBuilder.nonNullable.control(0, [Validators.required, Validators.min(0)]),
-    monsterTypeId: this.formBuilder.nonNullable.control(''),
+    monsterTypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
     monsterArchetypeId: this.formBuilder.nonNullable.control('', [Validators.required]),
   });
 

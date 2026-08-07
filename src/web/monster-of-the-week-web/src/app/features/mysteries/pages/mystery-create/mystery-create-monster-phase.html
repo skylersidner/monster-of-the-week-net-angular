@@ -14,12 +14,12 @@
         class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-accent focus:outline-none focus:ring-focus"></textarea>
     </div>
     <div class="mb-4">
-      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterHarmCapacity">Harm Capacity</label>
+      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterHarmCapacity">Harm Capacity <span class="text-danger">*</span></label>
       <input id="monsterHarmCapacity" type="number" formControlName="harmCapacity" min="0"
         class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
     </div>
     <div class="mb-4">
-      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterType">Monster Type</label>
+      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterType">Monster Type <span class="text-danger">*</span></label>
       <app-custom-select id="monsterType" formControlName="monsterTypeId" [options]="store.monsterTypes()" placeholder="Select a type..."></app-custom-select>
     </div>
     <div class="mb-4">
