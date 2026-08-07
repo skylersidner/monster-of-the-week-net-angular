@@ -926,3 +926,22 @@ Same shape as `monsterAttackForm.harm`'s pre-fix state — added both `Validator
 
 ### Verification
 `npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 274 tests passed (272 baseline + 2 new specs in `minion-form.spec.ts`). Live Playwright verification against `dotnet run` (5225) + `ng serve --port 4200` (both already running at session start, not started or killed by me): asterisks render inline (not wrapped) on `/monsters/:monsterId/minions/:minionId`, `/minions/new`, and all `maxlength=255` on Name inputs confirmed via `input.maxLength`; conditional Special Description asterisk toggles correctly; wizard minion step renders with no asterisks (correct, out of scope) and no console errors after walking the full wizard flow to reach it.
+
+---
+
+## 2026-08-06 — Bystander Required-Field Validation (Phase 5, final domain — closes the five-phase initiative)
+
+### Task
+`docs/updates/bystander-required-fields-validation.md`'s locked scope ("Revision — Skyler's 2 Answers Resolved" section): `maxlength="255"` on the Name input and the asterisk convention on Name/Bystander Type in `bystander-form.html`. Smallest of all five phases, same shape as my own Location phase — no validator bug (`bystanderTypeId` already had `Validators.required`, confirmed live and by the doc), no sub-resource forms, no numeric fields, no conditional-required shape.
+
+### Confirmed before writing markup, per the task's explicit instruction not to assume from Location's resemblance
+`bystander-form.html`'s labels use the same `grid font-medium gap-1` class as Monster/Minion/Location — used the wrapper-span trick (`<span>Name <span class="text-danger">*</span></span>`) from the first edit, same discipline as Location's phase.
+
+### Files
+`features/bystanders/shared/bystander-form/bystander-form.html`, `features/bystanders/shared/bystander-form/bystander-form.spec.ts`. Full write-up: `.squad/decisions/inbox/luigi-bystander-required-fields-validation.md`.
+
+### Verification
+`npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 278 tests passed (276 baseline + 2 new specs in `bystander-form.spec.ts`). Live Playwright verification against `dotnet run` (5225) + `ng serve --port 4200` (both already running at session start, not started or killed by me): asterisks render inline (not wrapped, bounding-box `y` within 2px of label text) on both `/bystanders/new` and an existing bystander's edit page; Name input `maxlength="255"` confirmed on both. This is the final implementation step of the five-phase required-field-validation initiative — all five domains' shared form components (Mystery, Monster, Minion, Location, Bystander) now have consistent `maxlength` guards and the asterisk convention.
+
+### Note: no Location entry exists in this history file
+Grepped for it before writing this entry — `.squad/decisions/inbox/luigi-location-required-fields-validation.md` exists and was used as the direct reference, but no matching history.md entry was ever appended for that phase. Not backfilled here (out of scope for this task), flagging in case it matters for a future retrospective pass.

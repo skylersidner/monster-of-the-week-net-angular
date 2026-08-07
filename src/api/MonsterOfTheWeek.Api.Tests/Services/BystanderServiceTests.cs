@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
@@ -85,6 +87,49 @@ public sealed class BystanderServiceTests
 
         var all = await service.GetAllAsync(CancellationToken.None);
         Assert.Contains(all, x => x.Id == createdId);
+    }
+
+    // UpsertBystanderRequest.Name is the only field this phase adds DataAnnotations to (per
+    // docs/updates/bystander-required-fields-validation.md's Revision section) - it gates all
+    // three write paths (mystery-scoped CreateAsync, standalone CreateAsync, UpdateAsync) since
+    // they all bind the same request type via [ApiController]'s model-validation pipeline, same
+    // reasoning as Monster's/Minion's/Location's phases for why one reflection-based check per
+    // record suffices rather than one test per service method.
+    [Fact]
+    public void Name_RequiredAttribute_RejectsNullOrBlankValues()
+    {
+        var attribute = GetParameterAttribute<RequiredAttribute>(typeof(UpsertBystanderRequest), "Name");
+
+        Assert.False(attribute.IsValid(null));
+        Assert.False(attribute.IsValid(""));
+        Assert.False(attribute.IsValid("   "));
+    }
+
+    [Fact]
+    public void Name_RequiredAttribute_AcceptsNonBlankValue()
+    {
+        var attribute = GetParameterAttribute<RequiredAttribute>(typeof(UpsertBystanderRequest), "Name");
+
+        Assert.True(attribute.IsValid("Valid Name"));
+    }
+
+    [Fact]
+    public void Name_MaxLengthAttribute_Is255_AndRejectsOversizedValue()
+    {
+        var attribute = GetParameterAttribute<MaxLengthAttribute>(typeof(UpsertBystanderRequest), "Name");
+
+        Assert.Equal(255, attribute.Length);
+        Assert.True(attribute.IsValid(new string('a', 255)));
+        Assert.False(attribute.IsValid(new string('a', 256)));
+    }
+
+    private static TAttribute GetParameterAttribute<TAttribute>(Type requestType, string parameterName)
+        where TAttribute : Attribute
+    {
+        var ctor = requestType.GetConstructors().Single();
+        var parameter = ctor.GetParameters().Single(p => p.Name == parameterName);
+        return parameter.GetCustomAttribute<TAttribute>()
+            ?? throw new InvalidOperationException($"{requestType.Name}.{parameterName} is missing {typeof(TAttribute).Name}.");
     }
 
     private sealed class FakeBystanderRepository : IBystanderRepository

@@ -235,7 +235,7 @@ public sealed record BystanderDetailResponse(
     string BystanderTypeMotivation,
     IReadOnlyList<CustomMoveResponse> CustomMoves);
 
-public sealed record UpsertBystanderRequest(string Name, string? Description, Guid BystanderTypeId);
+public sealed record UpsertBystanderRequest([param: Required, MaxLength(255)] string Name, string? Description, Guid BystanderTypeId);
 
 public sealed record SearchResultItemResponse(
     string EntityType,
