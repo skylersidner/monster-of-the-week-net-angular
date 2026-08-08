@@ -11,14 +11,33 @@ export type MysterySectionIconKind =
   | MysteryCountdownStageIconKind;
 
 /**
+ * Domain kinds that share art with the left toolbar nav (`DomainIconComponent`,
+ * `shared/domain-icon.component.ts`). Maps this component's `kind` values to the
+ * `icon-nav-{key}` symbol they now render, mirroring `DomainIconComponent`'s
+ * `SINGULAR_ENTITY_TYPE_TO_NAV_KEY` lookup. Kinds not listed here (`countdown` and
+ * the 6 countdown-stage kinds) keep rendering their own `icon-mystery-{kind}` symbol.
+ */
+const DOMAIN_KIND_TO_NAV_KEY: Readonly<Partial<Record<MysterySectionIconKind, string>>> = {
+  mystery: 'mysteries',
+  monster: 'monsters',
+  minions: 'minions',
+  locations: 'locations',
+  bystanders: 'bystanders',
+};
+
+/**
  * Renders via a `<use>` reference into the app-wide icon sprite (`shared/icons/icon-sprite.component.ts`,
  * mounted once in `page-layout.html`) rather than an inline `@switch` of hand-copied `<svg>` markup —
- * `docs/updates/svg-symbol-icons.md`, Phase 4. Every `icon-mystery-{kind}` symbol shares the same
- * `viewBox`/`fill`/`stroke`/`stroke-linecap`/`stroke-linejoin`/`stroke-width` attributes this `<svg>`
- * wrapper still declares, so this is a visual no-op versus the prior per-case markup. The `:host`/`.icon`
- * sizing rules below (the `--mystery-section-icon-size` custom property) size this wrapper `<svg>`
- * itself, not its contents — unaffected by what's inside it, whether that's a `@switch`-selected inline
- * `<path>` or a `<use>` reference. The component's public `kind` input is unchanged.
+ * `docs/updates/svg-symbol-icons.md`, Phase 4. Domain kinds (`mystery`, `monster`, `minions`,
+ * `locations`, `bystanders`) render the same `icon-nav-{key}` symbol as the left toolbar nav —
+ * those two icon sets were deliberately drawn differently in the Phase 4 migration but have since
+ * been repointed to share art. `countdown` and the 6 countdown-stage kinds still render their own
+ * `icon-mystery-{kind}` symbol. Either way, every symbol shares the same
+ * `viewBox`/`fill`/`stroke`/`stroke-width` attributes this `<svg>` wrapper still declares (this
+ * wrapper additionally declares `stroke-linecap`/`stroke-linejoin`, which apply to whichever path
+ * data is referenced regardless of symbol set). The `:host`/`.icon` sizing rules below (the
+ * `--mystery-section-icon-size` custom property) size this wrapper `<svg>` itself, not its contents.
+ * The component's public `kind` input is unchanged.
  */
 @Component({
   selector: 'app-mystery-section-icon',
@@ -32,7 +51,7 @@ export type MysterySectionIconKind =
       stroke-linejoin="round"
       stroke-width="1.8"
       aria-hidden="true">
-      <use [attr.href]="'#icon-mystery-' + kind" />
+      <use [attr.href]="'#' + symbolId" />
     </svg>
   `,
   styles: [
@@ -58,4 +77,9 @@ export type MysterySectionIconKind =
 })
 export class MysterySectionIconComponent {
   @Input({ required: true }) kind!: MysterySectionIconKind;
+
+  get symbolId(): string {
+    const navKey = DOMAIN_KIND_TO_NAV_KEY[this.kind];
+    return navKey ? `icon-nav-${navKey}` : `icon-mystery-${this.kind}`;
+  }
 }

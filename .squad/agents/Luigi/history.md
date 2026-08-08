@@ -1056,3 +1056,21 @@ Implemented Phase 4, the **final phase** of `docs/updates/svg-symbol-icons.md` (
 
 ### Files (2 total)
 `shared/domain-icon.component.ts`, `features/mysteries/shared/mystery-section-icon.ts` — both template-only changes plus an explanatory doc comment above each `@Component` decorator. No other file touched (confirmed via `git status`). This closes out all 5 phases (0-4) of `docs/updates/svg-symbol-icons.md`.
+
+---
+
+## 2026-08-08 — Repoint MysterySectionIconComponent's domain kinds onto icon-nav-* symbols
+
+### Task
+Product owner decided (after a separate investigation flagged the Phase 4 migration deliberately kept two differently-drawn icon sets for the same domains) to unify art: `MysterySectionIconComponent`'s domain kinds (`mystery`, `monster`, `minions`, `locations`, `bystanders`) now render the nav's `icon-nav-{key}` sprite symbols instead of their own `icon-mystery-{kind}` symbols. `countdown` + the 6 countdown-stage kinds are untouched. Component kept as the wrapper everywhere (no call-site swap to `<app-domain-icon>`) — sizing (`--mystery-section-icon-size`) is a wrapper concern, orthogonal to which symbol the `<use>` points at.
+
+### Approach
+- Added `DOMAIN_KIND_TO_NAV_KEY` lookup in `mystery-section-icon.ts` (mirrors `domain-icon.component.ts`'s `SINGULAR_ENTITY_TYPE_TO_NAV_KEY`), mapping `mystery→mysteries`, `monster→monsters`, `minions→minions`, `locations→locations`, `bystanders→bystanders`. Replaced the template's inline `'#icon-mystery-' + kind` string concat with a `get symbolId()` accessor returning `icon-nav-{navKey}` when the kind is a mapped domain kind, else falling back to `icon-mystery-{kind}` for countdown/stage kinds.
+- Deleted the 5 now-orphaned `icon-mystery-mystery/monster/minions/locations/bystanders` `<symbol>` definitions from `icon-sprite.component.ts`; kept `icon-mystery-countdown` and the 6 stage symbols. Grepped the whole repo for each deleted symbol ID first — only the sprite file itself and a historical `docs/updates/svg-symbol-icons.md` line referenced them (doc left as-is, it's a dated changelog of the original Phase 4 plan, not living reference).
+- Left the wrapper `<svg>`'s `stroke-linecap`/`stroke-linejoin="round"` untouched — those attributes apply to whatever `<use>` pulls in regardless of symbol set, so reused nav art still gets rounded caps automatically without copying `DomainIconComponent`'s (missing) linecap attrs.
+
+### Verification
+`ng test --include "src/app/features/mysteries/**/*.spec.ts"`: 4 files / 15 tests green (`mysteries-list`, `mystery-detail`, `mystery-create`, `mystery-create.store`) — confirms `mystery-detail.spec.ts`'s 14-count and `mystery-create.spec.ts`'s count assertions on `app-mystery-section-icon` (element/tag-count only, no href assertions) are unaffected by which symbol the tag's internal `<use>` resolves to. `ng test --include "src/app/shared/**/*.spec.ts"`: 3 files / 28 tests green.
+
+### Files (2 total)
+`features/mysteries/shared/mystery-section-icon.ts` (lookup + `symbolId` getter + updated doc comment), `shared/icons/icon-sprite.component.ts` (5 symbols deleted, section comments + top-of-file doc comment updated to reflect the new split).

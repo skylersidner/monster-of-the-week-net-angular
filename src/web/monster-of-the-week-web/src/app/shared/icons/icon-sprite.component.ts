@@ -19,7 +19,10 @@ import { Component } from '@angular/core';
  *   one per `NavIconKey`.
  * - Mystery-section icons (extracted from `features/mysteries/shared/mystery-section-icon.ts`'s
  *   `@switch`, likewise for that component's own future internal use — Phase 4):
- *   `icon-mystery-{kind}`, one per `MysterySectionIconKind`.
+ *   `icon-mystery-{kind}`, one per non-domain `MysterySectionIconKind` (`countdown` plus the 6
+ *   countdown-stage kinds). Domain kinds (`mystery`, `monster`, `minions`, `locations`,
+ *   `bystanders`) were repointed to reuse the `icon-nav-{key}` symbols above instead, so they have
+ *   no `icon-mystery-*` symbol of their own.
  *
  * Every symbol's markup (`viewBox`, `fill`/`stroke` presentation attributes, `<path>`/`<circle>`
  * data) is copied verbatim from the existing inline `<svg>` it replaces, so a `<use>` reference
@@ -119,26 +122,14 @@ import { Component } from '@angular/core';
         <path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" />
       </symbol>
 
-      <!-- ======================================================================= -->
-      <!-- Mystery-section / countdown-stage icons (icon-mystery-*), extracted from -->
-      <!-- features/mysteries/shared/mystery-section-icon.ts — not yet consumed    -->
-      <!-- (Phase 4)                                                               -->
-      <!-- ======================================================================= -->
-
-      <symbol
-        id="icon-mystery-mystery"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.8"
-      >
-        <path d="M7 4.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V6A1.5 1.5 0 0 1 7.5 4.5z" />
-        <path d="M14 4.5v4h4" />
-        <path d="M9 12h6" />
-        <path d="M9 15.5h6" />
-      </symbol>
+      <!-- ============================================================================ -->
+      <!-- Mystery-section / countdown-stage icons (icon-mystery-*), consumed by         -->
+      <!-- features/mysteries/shared/mystery-section-icon.ts for its non-domain kinds    -->
+      <!-- (countdown + the 6 countdown-stage kinds). Its domain kinds (mystery,         -->
+      <!-- monster, minions, locations, bystanders) were repointed to reuse the          -->
+      <!-- icon-nav-* symbols above instead of a separate icon-mystery-* symbol, so       -->
+      <!-- icon-mystery-mystery/monster/minions/locations/bystanders no longer exist.    -->
+      <!-- ============================================================================ -->
 
       <symbol
         id="icon-mystery-countdown"
@@ -254,61 +245,6 @@ import { Component } from '@angular/core';
         <path d="m18.3 11.8.4 1 1 .4-1 .4-.4 1-.4-1-1-.4 1-.4z" />
       </symbol>
 
-      <symbol
-        id="icon-mystery-monster"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.8"
-      >
-        <path d="M7.5 5.5 10.5 13 12 10.5 13.5 13 16.5 5.5" />
-        <path d="M7 17c1.4-1.7 3.1-2.5 5-2.5s3.6.8 5 2.5" />
-      </symbol>
-
-      <symbol
-        id="icon-mystery-minions"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.8"
-      >
-        <path d="M7.5 7.5 9.5 12l1.4-1.8L12.2 12l1.9-4.5" />
-        <path d="M9 16.2c.8-.8 1.8-1.2 3-1.2s2.2.4 3 1.2" />
-        <path d="M4.5 9.5 6 13l1-1.2 1.1 1.2 1.4-3.5" />
-        <path d="M5.5 17c.6-.6 1.3-.9 2.1-.9.4 0 .8.1 1.2.2" />
-      </symbol>
-
-      <symbol
-        id="icon-mystery-locations"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.8"
-      >
-        <path d="M12 20.5s5-4.7 5-9a5 5 0 1 0-10 0c0 4.3 5 9 5 9Z" />
-        <circle cx="12" cy="11.5" r="1.8" />
-      </symbol>
-
-      <symbol
-        id="icon-mystery-bystanders"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.8"
-      >
-        <circle cx="9" cy="9.2" r="2.2" />
-        <circle cx="15.2" cy="10.2" r="1.9" />
-        <path d="M5.8 18.5c.6-2 2.2-3.2 4.2-3.2s3.6 1.2 4.2 3.2" />
-        <path d="M13 18.5c.4-1.5 1.5-2.4 3-2.4 1.4 0 2.5.9 3 2.4" />
-      </symbol>
     </svg>
   `,
 })
