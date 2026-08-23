@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Repositories;
@@ -17,11 +18,15 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<MotwDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<MotwDbContext>()
+    .SetApplicationName("MonsterOfTheWeek");
 builder.Services.AddScoped<IMysteryRepository, MysteryRepository>();
 builder.Services.AddScoped<IMonsterRepository, MonsterRepository>();
 builder.Services.AddScoped<ILocationRepository, LocationRepository>();
 builder.Services.AddScoped<IBystanderRepository, BystanderRepository>();
 builder.Services.AddScoped<IReferenceRepository, ReferenceRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IMysteryService, MysteryService>();
 builder.Services.AddScoped<IMonsterService, MonsterService>();
 builder.Services.AddScoped<IMinionRepository, MinionRepository>();

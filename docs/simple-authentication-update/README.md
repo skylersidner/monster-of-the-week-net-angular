@@ -227,6 +227,14 @@ below was **re-verified against the code today**, not cited from that document.
   confirmations that shaped §2.3 and §4.1, **question #5 from Luigi's review with its resolution and the
   two rejected options, the still-open question #6 from Bowser's, and the "Luigi review dispositions"
   and "Bowser review dispositions" audit trails.** Kept as a decision record so the reasoning survives.
+- **`dotnet-version-considerations.md`** — **reference material, not part of the design and not subject
+  to the review gate.** A focused side-note written after Phase 0 landed, on whether the repo should move
+  .NET version and what clearing Phase 0's NuGet audit warnings would actually involve. Headline: the
+  audit warning and the real vulnerability are separate problems, and the package bump only fixes the
+  cosmetic one — **the installed ASP.NET Core runtime (10.0.6) is inside the affected range of
+  CVE-2026-40372, a CVSS 9.1 cookie-forging flaw in `Microsoft.AspNetCore.DataProtection`, patched in
+  10.0.7.** Recommends updating the runtime before Phase 1 and deferring the package pins to the
+  infrastructure pass. `net10.0` itself is current and should not move.
 
 ## Recommendation in one paragraph
 

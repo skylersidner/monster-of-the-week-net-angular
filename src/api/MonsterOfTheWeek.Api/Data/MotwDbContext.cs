@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MonsterOfTheWeek.Api.Data.Entities;
 
 namespace MonsterOfTheWeek.Api.Data;
 
-public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbContext(options)
+public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
+    : DbContext(options), IDataProtectionKeyContext
 {
     public DbSet<Mystery> Mysteries => Set<Mystery>();
     public DbSet<AdventureType> AdventureTypes => Set<AdventureType>();
@@ -36,6 +38,11 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
     public DbSet<MinionArmor> MinionArmors => Set<MinionArmor>();
     public DbSet<MinionWeakness> MinionWeaknesses => Set<MinionWeakness>();
     public DbSet<MinionCustomMove> MinionCustomMoves => Set<MinionCustomMove>();
+
+    // Named AppUsers, not Users: IdentityUserContext<TUser, ...> already declares a
+    // DbSet<TUser> Users, so Users here would collide if this context ever derives from it.
+    public DbSet<AppUser> AppUsers => Set<AppUser>();
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     public override int SaveChanges()
     {
@@ -420,6 +427,26 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options) : DbC
             entity.Property(e => e.Description).HasColumnName("description");
             entity.HasOne(e => e.Minion).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MinionId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.ToTable("app_users");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Email).HasColumnName("email").IsRequired();
+            entity.Property(e => e.Password).HasColumnName("password").IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.HasIndex(e => e.Email).IsUnique().HasDatabaseName("idx_app_users_email");
+        });
+
+        modelBuilder.Entity<DataProtectionKey>(entity =>
+        {
+            entity.ToTable("data_protection_keys");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.FriendlyName).HasColumnName("friendly_name");
+            entity.Property(e => e.Xml).HasColumnName("xml");
         });
     }
 
