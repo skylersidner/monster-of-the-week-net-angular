@@ -83,6 +83,28 @@ import { Component } from '@angular/core';
         />
       </symbol>
 
+      <!--
+        Brand logo mark — the unified favicon + sidebar mark (see
+        .squad/decisions/inbox/luigi-favicon-logo-mark.md). Redrawn (not exported) from
+        icon-nav-monsters' horns+trapezoid silhouette below, as a single filled shape instead of
+        1.8px strokes, with the mouth line dropped (per Rosalina's design decision — it smudges
+        away at favicon sizes). Colors are hardcoded (indigo-600 #4f46e5 chip, white glyph)
+        rather than currentColor/theme tokens — this is a fixed brand mark, not a themed icon,
+        and is deliberately identical in both light and dark mode. A filled purple crescent
+        grin was added after initial ship, per Rosalina's follow-up design call; its color
+        (#7e22ce) reuses the existing purple-700 (on-badge-archetype) token value rather than
+        introducing a new purple. Path data (viewBox, chip rx, glyph/grin
+        coordinates) is kept byte-identical to public/favicon.svg's inline markup so the two
+        stay visually in sync; public/favicon.svg can't reference this symbol directly since
+        it's loaded by the browser as a standalone file, outside the Angular DOM this sprite
+        mounts into.
+      -->
+      <symbol id="icon-logo" viewBox="0 0 24 24">
+        <rect width="24" height="24" rx="6" fill="#4f46e5" />
+        <path d="M7 5 9 8 15 8 17 5 18 8 20 19 4 19 6 8Z" fill="#fff" />
+        <path d="M8,14 C9,17.5 15,17.5 16,14 C15,14.5 9,14.5 8,14 Z" fill="#7e22ce" />
+      </symbol>
+
       <!-- ================================================================ -->
       <!-- Domain / nav icons (icon-nav-*), extracted from                  -->
       <!-- shared/domain-icon.component.ts — not yet consumed (Phase 4)     -->

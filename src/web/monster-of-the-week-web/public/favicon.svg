@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!--
+    Monster of the Week brand mark. Solid indigo-600 (#4f46e5, matches the accent color
+    token's light value in src/styles.css) rounded-square chip with a white filled monster-head
+    glyph, redrawn from icon-nav-monsters' horns+trapezoid silhouette as a solid shape (no
+    strokes, no mouth line) so it stays legible and high-contrast at favicon sizes (16x16) on
+    any browser tab chrome, light or dark. A filled purple crescent grin was added after initial
+    ship, per Rosalina's follow-up design call; its color (#7e22ce) reuses the existing
+    purple-700 (on-badge-archetype) token value rather than introducing a new purple.
+    Kept byte-identical to the icon-logo symbol in src/app/shared/icons/icon-sprite.component.ts,
+    which renders this same mark in the app shell (sidebar). See
+    .squad/decisions/inbox/luigi-favicon-logo-mark.md.
+  -->
+  <rect width="24" height="24" rx="6" fill="#4f46e5" />
+  <path d="M7 5 9 8 15 8 17 5 18 8 20 19 4 19 6 8Z" fill="#fff" />
+  <path d="M8,14 C9,17.5 15,17.5 16,14 C15,14.5 9,14.5 8,14 Z" fill="#7e22ce" />
+</svg>

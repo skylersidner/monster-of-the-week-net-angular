@@ -2,7 +2,7 @@
   <app-icon-sprite />
 
   <aside class="hidden md:flex flex-col bg-sidebar-surface text-sidebar w-28" aria-label="Primary navigation">
-    <div class="self-center bg-white/20 rounded-full text-white text-xs font-bold tracking-[0.04em] mt-6 px-[0.65rem] py-[0.45rem]" aria-hidden="true">MOTW</div>
+    <app-icon name="logo" class="self-center h-9 w-9 mt-6" />
     <nav class="flex flex-col flex-1 gap-[0.4rem] mt-5 px-2 pb-3">
       @for (item of navItems; track item.label) {
         @if (item.route) {
@@ -49,7 +49,7 @@
         >
           <app-icon name="close" class="h-5 w-5" />
         </button>
-        <div class="self-center bg-white/20 rounded-full text-white text-xs font-bold tracking-[0.04em] mt-3 mb-1 px-[0.65rem] py-[0.45rem]" aria-hidden="true">MOTW</div>
+        <app-icon name="logo" class="self-center h-8 w-8 mt-3 mb-1" />
         <nav class="flex flex-col flex-1 gap-[0.4rem] mt-3 px-2 pb-3">
           @for (item of navItems; track item.label) {
             @if (item.route) {
