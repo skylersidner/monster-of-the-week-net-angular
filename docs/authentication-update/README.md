@@ -9,15 +9,52 @@ pending list. No application code has been written or modified as part of produc
 
 **Two follow-up questions (#18, #19) were opened by the correction to #7 and are also resolved —
 #18 confirmed as recommended, #19 overridden by the owner.** See "Resolved follow-ups" below.
-**There are no open questions remaining.**
+**There are no open questions remaining**, and no review item is outstanding with the owner — the one
+sub-recommendation that was referred back (a `UrlTree`-returning guard) was ruled on 2026-08-15 and
+the decline stands, with the reasoning recorded in `architecture.md` §6.
 
 > ## Review gate — implementation may not begin until all three sign off
 >
 > **Boo** (Web Security Specialist), **Luigi** (Frontend Developer), and **Bowser** (Backend
 > Developer / DevOps) must each review this plan before Phase 0 starts.
 >
-> Boo's review must specifically cover the three items where this design makes a deliberate,
-> non-obvious security trade:
+> ### ⏳ Luigi's review — four blocking findings resolved (2026-08-15); his non-blocking findings and 10 questions are still with the owner
+>
+> **All four were gaps between a requirement stated in one section and the wiring that would
+> implement it in another — nothing in the design was wrong, four things were unreachable, and two of
+> them fail silently.** Adopted: `AuthService.initialize()` now fetches the CSRF token alongside
+> `/api/auth/me` (without it *nothing* fetched it and login was impossible as specified); the auth
+> shell gains an empty-path child (without it logged-out `/` and every unknown URL failed to route at
+> all); the dev proxy forwards `/health` as well as `/api` (without it `ng serve` answers the
+> liveness probe with `index.html` and a 200, so the API-unavailable modal is silently dead); and
+> **new decision #37** — `/api/auth/*` failures return `400` with a `code`, `401` is reserved for
+> "your session is gone," and both error interceptors skip `/api/auth/` — without which
+> `authErrorInterceptor` would have swallowed the login failure and **resolution #18 would silently
+> not have shipped**. One sub-recommendation (`authenticatedMatch` returning a `UrlTree`) was
+> **declined** — it would create the infinite redirect it was meant to avoid — and the owner
+> confirmed the decline on 2026-08-15. See **`open-questions.md` → "Luigi review dispositions"**.
+>
+> **Still open from Luigi's review:** his non-blocking findings (8 rework items, several convention
+> notes) and **10 questions for the owner**, covering among other things the mid-session-expiry
+> experience, whether the app auto-refreshes auth state, where toasts and the icon sprite live once
+> there are two shells, and whether non-admins get any acknowledgement that reference data became
+> admin-only (resolution #5). **These have not been dispositioned. Bowser is also still outstanding.**
+>
+> ### ✅ Boo's review is complete (2026-08-09)
+>
+> **Verdict: broadly sound. No finding changed the design's shape.** Boo agreed with all four flagged
+> items below and confirmed resolution #19 enables nothing unintended. His findings are folded into
+> these documents; **`open-questions.md` → "Boo review dispositions"** records what was adopted and
+> the five recommendations the owner declined (response security headers, registration-cap changes, a
+> global mail-quota cap, "sign out everywhere", and the `__Host-` prefix), each with reasoning.
+>
+> The highest-severity items he found, none of which were in the original four: `options.Events`
+> replacement silently disabling security-stamp validation; antiforgery tokens being identity-bound so
+> every write fails after login; query filters on the roots alone leaving child and bridge entities
+> exposed (three verified live examples); and the login snippet leaving unconfirmed accounts with no
+> brute-force lockout.
+>
+> The four items originally flagged for him, all confirmed sound:
 >
 > - **The login endpoint's account-enumeration exception.** Restoring the email-confirmation gate
 >   (resolution #7) reintroduces a "correct password, unconfirmed account" case. This design returns
@@ -32,6 +69,11 @@ pending list. No application code has been written or modified as part of produc
 >   keyed on `(purpose, userId)` rather than `(endpoint, userId)` specifically so the two cannot be
 >   alternated to double the rate against one address. Adding a fourth mail-producing path later
 >   without registering it against the right purpose silently reopens the bypass. `architecture.md` §7.
+> - **Revocation is not instant, by design.** There is no session store — the encrypted cookie *is*
+>   the session. Sign-out ends the session server-side, but a cookie **copied beforehand** stays valid
+>   until its own expiry; the only true kill switch is bumping `security_stamp`, which sign-out
+>   deliberately does not do (it would log the user out on every device). Review whether that residual
+>   window is acceptable given `HttpOnly` + `Secure` + `SameSite=Lax` + HSTS. `architecture.md` §1.
 > - **Resolution #8 — there is no super-admin bootstrap mechanism.** The first super-admin role is
 >   assigned by direct database manipulation. The role travels as a claim inside the encrypted
 >   session cookie and is validated at the controller level. `architecture.md` §3 documents how a
@@ -125,10 +167,10 @@ after all) opened two follow-ups, **both now resolved by the owner:**
 | 0 | Identity foundations — `AppUser`/`AppRole`, `MotwDbContext : IdentityDbContext<...>`, snake_case table mapping, migration, Data Protection key persistence, role-row seeding. No endpoints, no gating. | Medium |
 | 1 | Auth endpoints + cookie session — register/login/logout/me, confirm-email, resend-confirmation, forgot/reset password, change password; `IEmailSender` with a log-only local implementation; password policy, lockout, rate limiting, antiforgery; global fallback authorization policy. | Medium |
 | 2 | **Data ownership** — `owner_id` on the four owned roots, `ICurrentUser`, global query filters, ownership assignment on create, cross-owner link guards, backfill, NOT NULL migration. | **High** |
-| 3 | Angular auth shell — unauthenticated `AuthLayoutComponent` + login/register/forgot/reset/resend/confirm pages, `AuthService` (signals), `credentialsInterceptor`, `authErrorInterceptor`, `authGuard` via `canMatch`. | Medium |
+| 3 | Angular auth shell — **same-origin dev loop first** (`proxy.conf.json` forwarding **`/api` *and* `/health`** + `apiBaseUrl: ''`, without which Angular's XSRF interceptor skips the cross-origin API and auth cannot be tested locally), then unauthenticated `AuthLayoutComponent` + login/register/forgot/reset/resend/confirm pages **plus an empty-path child redirecting to `login`**, `AuthService` (signals, with a `csrf` + `me` bootstrap), `credentialsInterceptor`, `authErrorInterceptor`, `authGuard` via `canMatch`. | Medium |
 | 4 | Profile + user menu rework + Data Admin gating **+ the super-admin Users panel** — `/profile` page, real Sign out, `adminGuard`, nav-item hiding, `[Authorize(Policy = "DataAdmin")]` on reference-data writes, and role management as a super-admin-only panel inside the existing Data Admin page (resolution #13). | Low |
 | 5 | *(no longer a standalone phase — role management folded into Phase 4 by resolution #13; the number is retired rather than reused so Phase 6 keeps its identity in existing references)* | — |
-| 6 | Deployment configuration — single-origin hosting, cookie/CORS/HSTS/forwarded-headers config, secret storage, the real Resend email sender, and the deferred `environment.ts` / `angular.json` production-build work. **The owner will do a separate focused analysis and plan for this phase before deploying.** | Medium-High |
+| 6 | Deployment configuration — single-origin hosting, cookie/CORS/HSTS/forwarded-headers config, secret storage, the real Resend email sender, and the **remaining** frontend build work (`environment.prod.ts` + `angular.json` `fileReplacements` + the `ng build` → `wwwroot` publish step; the dev-loop half moved up to Phase 3). **The owner will do a separate focused analysis and plan for this phase before deploying.** | Medium-High |
 
 Phases 0–4 are intended to land on a feature branch; **nothing is publicly deployed until Phase 6.**
 That removes a lot of otherwise-artificial sequencing constraints (e.g. the API is briefly
