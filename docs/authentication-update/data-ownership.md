@@ -67,15 +67,27 @@ must revalidate ownership of the new parent.
 `MysteryMonster`, `MysteryLocation`, `MysteryBystander`.
 
 These have no owner of their own; both endpoints are owned rows. The vulnerability is **linking**:
-`POST /api/mysteries/{mysteryId}/monsters` and the equivalent location/bystander routes let a caller
-attach an entity to a mystery. If only one side is ownership-checked, a caller can attach *someone
-else's* monster into *their own* mystery — and then read its full detail through
-`GET /api/mysteries/{id}/monsters`, which is a legitimate, owner-passing query.
+> **Correction from Boo's review — the exposure is *unlinking*, not linking.** An earlier draft of
+> this section described `POST /api/mysteries/{mysteryId}/monsters` as letting a caller "attach an
+> entity," and named a `LinkToMysteryAsync` method to guard. **That method does not exist**, and
+> there is no endpoint that attaches an *existing* entity to a mystery. `MonsterService.CreateAsync
+> (mysteryId, request)` creates a new monster and links it in one step, so the parent guard it already
+> has is sufficient. The draft sent implementers to check a method that isn't there, and past the one
+> that is actually vulnerable.
 
-**Both sides must be verified as owned by the caller before any bridge row is written.** With the
-query filters in §4 this happens naturally — `MysteryExistsAsync` and `MonsterExistsAsync` both
-become owner-scoped — but it must be an explicit, tested requirement, not an emergent property
-someone can accidentally remove.
+The real bridge exposure is the **unlink** path. `MonsterService.UnlinkFromMysteryAsync(mysteryId, id)`
+(`Services/MonsterService.cs:130`) executes
+`dbContext.MysteryMonsters.Where(x => x.MysteryId == mysteryId && x.MonsterId == id).ExecuteDeleteAsync()`
+with **no ownership check on either side**, so a caller who knows two GUIDs can detach another user's
+monster from another user's mystery. `LocationService.cs:137` and `BystanderService.cs:144` have the
+same shape.
+
+**Both sides must be owner-verified before any bridge row is written or deleted.** The query filters
+in §4 — *including the bridge-type filters added in the callout there* — make this hold structurally:
+an owner-scoped filter on `MysteryMonster` means the `ExecuteDelete` above simply matches nothing for
+a non-owner. That is the mechanism; the explicit guards remain as defence in depth and for correct
+404 semantics. It must be a tested requirement either way, not an emergent property someone can
+quietly remove.
 
 ### Reference / system — global, never owned (7 entities + Identity)
 
@@ -175,8 +187,50 @@ modelBuilder.Entity<Bystander>().HasQueryFilter(x => x.OwnerId == currentUser.Us
 modelBuilder.Entity<Minion>()   .HasQueryFilter(x => x.Monster.OwnerId == currentUser.UserId);
 ```
 
+> ### ⚠️ Filters on the roots alone are not sufficient — the derived and bridge types need them too
+>
+> **This was the most consequential finding of Boo's security review, and it is not theoretical.**
+> The five filters above protect the roots, but the repositories query child and bridge types *at
+> root*, where no filter applies. Three verified examples from the current codebase:
+>
+> - **`MysteryService.GetCountdownAsync(id)`** (`Services/MysteryService.cs:90`) has no guard and calls
+>   `GetCountdownByMysteryIdAsync` → `dbContext.Countdowns.Where(x => x.MysteryId == id)`
+>   (`Repositories/MysteryRepository.cs:57`). Under the root-only filter,
+>   **`GET /api/mysteries/{someone-elses-id}/countdown` returns another user's data.**
+> - **`MonsterService.UnlinkFromMysteryAsync(mysteryId, id)`** (`Services/MonsterService.cs:130`) goes
+>   straight to `dbContext.MysteryMonsters.Where(…).ExecuteDeleteAsync()` with **no guard on either
+>   side** — user A can detach user B's monster from user B's mystery given two GUIDs. Same shape in
+>   `LocationService.cs:137` and `BystanderService.cs:144`.
+> - **`MonsterRepository.RemoveAttackWeaponTagAsync(attackId, tagId)`** (`:149`) is keyed on
+>   `attackId` alone — no monster id reaches the query at all.
+>
+> **The ~30 hand-added parent guards are not the fix.** They are the *same anti-pattern* this section
+> rejects for repositories: a hand-maintained predicate at N call sites, where a forgotten one is
+> invisible and every method written after Phase 2 is a new opportunity to forget. The argument that
+> defeats 85 `.Where()` clauses defeats 30 guards for exactly the same reason.
+>
+> **Add filters to the derived and bridge entity types**, navigating to the owning root:
+>
+> ```csharp
+> modelBuilder.Entity<Countdown>()  .HasQueryFilter(x => x.Mystery.OwnerId == currentUser.UserId);
+> modelBuilder.Entity<MonsterAttack>().HasQueryFilter(x => x.Monster.OwnerId == currentUser.UserId);
+> modelBuilder.Entity<MysteryMonster>().HasQueryFilter(x => x.Mystery.OwnerId == currentUser.UserId);
+> // …and so on for every derived and bridge type in §1's classification
+> ```
+>
+> Roughly 24 additional lines in `OnModelCreating`, written once. They cover `ExecuteDelete` and
+> `ExecuteUpdate`, they cover every method written in future, and at this data scale the extra joins
+> cost nothing measurable. The design already suppresses EF's required-navigation warning for `Minion`,
+> so the mechanism is established.
+>
+> **Keep the ~30 parent guards** — they give correct 404-vs-403 semantics and are useful defence in
+> depth. They are simply not the enforcement mechanism.
+
 There is **no bypass expression** — resolution #4 confirmed that admins do not see other users' game
-data, so the filter has exactly one form and no admin branch (§5).
+data, so the filter has exactly one form and no admin branch (§5). Boo recommends making that
+mechanically enforceable rather than a convention: **a CI check (grep or Roslyn analyzer) that fails
+the build if `IgnoreQueryFilters` appears outside an explicit allowlist.** A rule nothing checks is a
+comment.
 
 ### Why filters rather than `.Where()` in the repositories
 
@@ -300,7 +354,8 @@ owner's machine. It is not "production data" — production doesn't exist yet.
    ```sql
    INSERT INTO user_roles (user_id, role_id)
    SELECT u.id, r.id FROM users u, roles r
-   WHERE u.email = 'owner@example.com' AND r.name = 'SuperAdmin';
+   WHERE u.email = 'owner@example.com' AND r.name = 'SuperAdmin'
+   ON CONFLICT DO NOTHING;   -- composite PK: a re-run errors without this
    ```
 
    (`architecture.md` §3 covers how that role reaches a live session.)

@@ -41,9 +41,12 @@ Everything below is grounded in the current code, not in the docs. What was veri
 | Most, but **not all**, sub-resource service methods guard on parent existence | `MonsterService` has 31 public methods and 19 `*ExistsAsync(` guards; `MinionService` 29/15; `Location`/`Bystander` 12/7 each; `Mystery` 7/3. The unguarded ones are the update/delete-by-child-id paths that rely on the repository's parent-scoped `Get…` returning null. **Parent-scoped is not owner-scoped** — see `data-ownership.md` §4. |
 | The five search providers query `MotwDbContext` directly, bypassing repositories and services | `Services/Search/*SearchProvider.cs` — e.g. `MonsterSearchProvider` does `dbContext.Monsters.AsNoTracking().Select(…)`. Any ownership enforcement that lives in the repository or service layer would silently miss global search. |
 | `HealthService` uses `HttpClient` directly, not `ApiService` | `core/health.ts` — so `withCredentials` cannot be set in `ApiService`'s four methods alone; it needs an interceptor. |
-| `environment.ts` hardcodes `http://localhost:5225` and there is **no** production environment file or `fileReplacements` entry | `src/environments/environment.ts`, `angular.json` `build.configurations.production` (budgets + `outputHashing` only). **Deferred to Phase 6** per the owner. |
+| `environment.ts` hardcodes `http://localhost:5225`, there is **no** `proxy.conf.json`, and **no** production environment file or `fileReplacements` entry | `src/environments/environment.ts`, `angular.json` `build.configurations.production` (budgets + `outputHashing` only). **Split across two phases:** `apiBaseUrl → ''` and a new dev proxy are **Phase 3 step 1** — without them Angular's XSRF interceptor skips the cross-origin API and auth can't be tested locally at all. The production environment file and `fileReplacements` remain **Phase 6** per the owner. |
+| **`angular.json`'s `serve` target has no `options` block at all** | The `serve` target carries only `builder`, `configurations`, and `defaultConfiguration`. The `proxyConfig` key Phase 3 step 1 depends on has nowhere to go yet — that step must **create** the `options` object, not add a key to an existing one. (Luigi's review.) |
+| **`/health/live` is not under `/api`, on either side** | `core/health.ts:10` builds `` `${environment.apiBaseUrl}/health/live` ``; `Program.cs:65` maps it at the root (`app.MapHealthChecks("/health/live")`). Once `apiBaseUrl` becomes `''` in Phase 3 step 1, that request goes out as `/health/live` and **no `/api` proxy rule covers it**. Load-bearing for the second proxy entry in Phase 3 step 1. (Luigi's review.) |
+| `core/api.spec.ts` asserts the absolute API base URL | `core/api.spec.ts:30` expects `http://localhost:5225/health/live`. It goes red the moment `apiBaseUrl` becomes `''`, so it is enumerated as part of Phase 3 step 1 rather than discovered as a failing suite. (`core/health.spec.ts` asserts against `service.endpoint` and needs no change.) (Luigi's review.) |
 | Test project is pure unit tests with hand-written fakes; no `WebApplicationFactory`, no `Microsoft.AspNetCore.Mvc.Testing` | `MonsterOfTheWeek.Api.Tests.csproj` — xunit, EF Sqlite, coverlet. Frontend is vitest + jsdom/playwright. |
-| 107 controller actions across six domain controllers | `grep -c '\[Http' Controllers/*.cs` — 12/12/29/31/7/14/2. Load-bearing for the fail-closed argument in §3. |
+| 107 controller actions across seven controllers | `grep -c '\[Http' Controllers/*.cs` — 12/12/29/31/7/14/2. Load-bearing for the fail-closed argument in §3. |
 | `ThemeService` already anticipates this feature | `core/theme.ts` lines 10–14: "swapping the backing store later (e.g. a per-user backend setting once auth exists) is a change confined to this file." Not acted on — resolution #16 defers it; theme stays in `localStorage`. |
 
 ---
@@ -53,8 +56,10 @@ Everything below is grounded in the current code, not in the docs. What was veri
 ### The requirements that actually constrain the choice
 
 - **#1 "secure authentication flow with a session"** — the word *session* is used deliberately.
-- **#7 "Sign out must actually revoke the session"** — revocation must be real, server-acknowledged,
-  not "the client threw the token away."
+- **#7 "Sign out must actually revoke the session"** — revocation must be real and server-side, not
+  "the client threw the token away." *Precisely what this does and does not guarantee is worked
+  through under "What the session actually costs per request" below — in particular, sign-out ends
+  the session but does not invalidate a cookie copied beforehand.*
 - **#6 bare-bones login/enrollment landing page matching the current design** — the login UI is
   *ours*, rendered by our Angular app, styled with our existing Tailwind token layer.
 - **#8 ideal .NET and Angular patterns** — don't hand-roll crypto; don't fight the framework.
@@ -161,11 +166,105 @@ Identity's internals stay consistent; the login endpoint takes `email` and resol
 | `HttpOnly` | `true` | JS never reads it; the SPA learns identity from `GET /api/auth/me`, not from the cookie. This is what makes XSS token theft impossible. |
 | `SecurePolicy` | `Always` in Production, `SameAsRequest` in Development | Dev runs plain HTTP on `localhost:5225`. |
 | `SameSite` | `Lax` | Viable *because* of the same-origin deployment decision in §2. Blocks the cookie on cross-site POST/PUT/DELETE, which is the primary CSRF vector. |
-| `ExpireTimeSpan` | **14 days** (resolution #11) | |
-| `SlidingExpiration` | `true` (resolution #11) | Active users are never logged out mid-session. |
+| `ExpireTimeSpan` | **24 hours** (resolution #11, revised after Boo's review) | Originally 14 days. Shortened because sliding expiration with no absolute cap means a cookie used at least once per window *never* expires — so the window is also the practical bound on a stolen cookie's life. At 24 hours an idle session ends daily; an actively used one keeps sliding. |
+| `SlidingExpiration` | `true` (resolution #11) | Active users are never logged out mid-session. **There is no absolute lifetime cap** — see the revocation discussion below. |
 | `IsPersistent` | `true`, unconditionally — **no "Remember me" checkbox** (resolution #11) | Survives browser restart. One fewer control on a bare-bones login page. |
-| `SecurityStampValidationInterval` | **30 minutes** (resolution #11) | Upper bound on how long a revoked session stays usable — and, per resolution #8, **the only mechanism by which a database role change reaches a live session.** See §3. |
-| 401/403 behaviour | `OnRedirectToLogin`/`OnRedirectToAccessDenied` overridden to return bare `401`/`403` | Default cookie handler issues a `302` to `/Account/Login`, which is wrong for an API and confusing for `HttpClient`. This override is mandatory, not optional. |
+| `SecurityStampValidationInterval` | **10 minutes** (resolution #11, revised after Boo's review) | Originally 30 minutes. Upper bound on how long a revoked session or a stale role stays usable — and, per resolution #8, **the only mechanism by which a database role change reaches a live session.** At this scale the per-interval database read is one indexed primary-key lookup; 10 minutes buys materially better propagation for no measurable cost. See §3. |
+| 401/403 behaviour | `OnRedirectToLogin`/`OnRedirectToAccessDenied` overridden to return bare `401`/`403` | Default cookie handler issues a `302` to `/Account/Login`, which is wrong for an API and confusing for `HttpClient`. This override is mandatory, not optional — **but it must be written as a mutation, not a replacement.** See the warning immediately below. |
+
+> ### ⚠️ Configure `options.Events` by mutation — never assign a new instance
+>
+> `AddIdentityCookies()` sets `OnValidatePrincipal = SecurityStampValidator.ValidatePrincipalAsync`
+> on the application cookie's `Events` object. Writing the 401/403 override the natural way —
+>
+> ```csharp
+> options.Events = new CookieAuthenticationEvents { OnRedirectToLogin = ctx => { … } };  // ❌ WRONG
+> ```
+>
+> — **replaces that object and silently discards `OnValidatePrincipal`.** The failure mode is that
+> nothing fails: login works, logout works, 401s are correct. But sessions are never revalidated, so
+> security stamps are never checked, `ChangePasswordAsync` no longer kills other sessions,
+> `ValidationInterval` does nothing, and role changes never reach a live session. **Every guarantee
+> in this section and in §3 is gone, and nothing errors.**
+>
+> ```csharp
+> options.Events.OnRedirectToLogin = ctx => { … };        // ✅ mutate in place
+> options.Events.OnRedirectToAccessDenied = ctx => { … };
+> ```
+>
+> This is verified behaviourally, not by reading config: change the password in browser A and confirm
+> browser B's session dies within the validation interval (Phase 1 checklist).
+
+### What the session actually costs per request — and what sign-out actually revokes
+
+Two properties of this design are easy to misread in opposite directions: the session looks more
+expensive than it is, and sign-out looks stronger than it is. Both come from the same fact — **there
+is no session store.** No session table, no `ITicketStore`, no server-side session record of any
+kind. The encrypted cookie *is* the session, and the only server-side authentication state in the
+entire design is a single column: `security_stamp` on the users table.
+
+**Per-request cost: no database round trip.** `SecurityStampValidator` hooks
+`CookieAuthenticationOptions.Events.OnValidatePrincipal`, but it compares timestamps *before* it
+touches the database:
+
+```csharp
+var issuedUtc = context.Properties.IssuedUtc;   // stamped inside the ticket
+var validate  = issuedUtc is null
+             || currentUtc - issuedUtc.Value > Options.ValidationInterval;
+
+if (validate) { /* only now does it reach UserManager → DB */ }
+```
+
+So a typical authenticated request is an AES decrypt of the ticket plus a subtraction. Claims — user
+id, email, roles — are already inside the ticket, so `[Authorize(Policy = "SuperAdmin")]` resolves
+with **zero** database access, and the `owner_id` global query filter (`data-ownership.md`) reads the
+current user's id from a claim rather than looking it up. The database is read **once per
+`ValidationInterval` per active user** — roughly once per 10 minutes — and when that revalidation
+succeeds, `RefreshSignInAsync` reissues the cookie with a fresh `IssuedUtc`, resetting the clock.
+
+> **`ValidationInterval` is one dial with two labels.** Cheap requests and fast role propagation are
+> the same setting: requests avoid the database *because* roles are read from cookie claims, which is
+> exactly why a role changed by direct `INSERT` takes up to 10 minutes to appear (§3, resolutions #8
+> and #10). Lowering the interval buys faster propagation and pays for it with a database read on
+> every request; `TimeSpan.Zero` means every request. This is a deliberate trade, not an oversight —
+> **do not tune it without understanding both sides.**
+
+**What sign-out revokes.** `POST /api/auth/logout` calls `SignOutAsync()`, which emits a `Set-Cookie`
+that expires the cookie; the Angular side clears the `user` signal and routes to the login page. No
+database write is involved. That satisfies requirement #7 — the session ends server-side, and it is
+not merely a client discarding a token it still holds, which is the failure mode that disqualifies
+`MapIdentityApi`'s bearer tokens (§1).
+
+But the guarantee should be stated precisely rather than left to the word "revoke":
+
+> **A cookie copied *before* sign-out is not invalidated by sign-out.** The ticket is self-contained
+> and stays valid until its own expiry, because there is no server-side record to delete. The only
+> true kill switch is bumping `security_stamp`, which invalidates *every* cookie for that user within
+> `ValidationInterval`.
+
+**Sign-out deliberately does not bump the stamp**, because that would sign the user out of every
+device they own — wrong behaviour for a logout button. The stamp is bumped where it *is* correct:
+`ChangePasswordAsync` does it automatically, so changing a password kills every other session while
+`RefreshSignInAsync` keeps the caller's own alive (§5); and role assignment does it explicitly (§3).
+
+**"Until its own expiry" is doing real work here, and it is why `ExpireTimeSpan` is 24 hours.**
+With `SlidingExpiration = true` and **no absolute lifetime cap**, a cookie that is used at least once
+per window never expires at all — the window is the idle timeout, not a ceiling. Under the original
+14-day setting a stolen cookie exercised fortnightly would have lived indefinitely, since nothing in
+normal operation bumps the security stamp (only a password change or reset does). Shortening the
+window to 24 hours bounds that: an attacker must keep using the cookie daily, and any lapse ends it.
+This is the mitigation that replaces an absolute cap, which cookie authentication does not offer.
+
+**No "sign out everywhere" action ships.** It was considered — `UpdateSecurityStampAsync` +
+`RefreshSignInAsync` on a Profile-page button — and **deliberately declined by the owner** as
+unnecessary for this threat model. The recovery path for a suspected session compromise is therefore
+a password change, which bumps the stamp and kills every other session as a side effect. Worth
+knowing that this is the *only* user-reachable revocation lever, and it is not labelled as one.
+
+Residual risk accepted, explicitly, for a small private application: stealing the cookie requires
+XSS, a compromised device, or TLS interception (blocked by `Secure` + HSTS). `HttpOnly` prevents the
+cookie being *read* by script. **Reviewed by Boo and accepted by the owner** — this is the design's
+main "revocation is not instant" caveat, and it is a knowing trade rather than an oversight.
 
 ---
 
@@ -205,10 +304,15 @@ development-only configuration in the chosen shape.
 in-memory outbound-mail throttle (§7) is adequate precisely because of that, and would need to move
 to the database or a distributed cache if the app ever scaled out.
 
-**The frontend build consequence — `environment.ts`'s hardcoded `http://localhost:5225`, the missing
-production environment file, and the missing `angular.json` `fileReplacements` entry — is deferred to
-Phase 6**, where the owner will run a separate focused analysis before deploying. It is recorded in
-`phases.md` under Phase 6 and is not current work.
+**The frontend build consequence is split across two phases, and this paragraph previously said
+otherwise** — it claimed the whole of it was deferred to Phase 6, which contradicts §0's row and
+Phase 3 step 1. Corrected:
+
+- **Phase 3 step 1:** `environment.ts`'s hardcoded `http://localhost:5225` → `''`, plus a new
+  `proxy.conf.json` covering **`/api` *and* `/health`**. Not deployment polish — without it Angular's
+  XSRF interceptor skips the cross-origin API and auth cannot be tested locally at all (§6).
+- **Phase 6:** the missing production environment file and the missing `angular.json`
+  `fileReplacements` entry, where the owner will run a separate focused analysis before deploying.
 
 ---
 
@@ -254,7 +358,10 @@ Endpoints that must carry `[AllowAnonymous]`:
   `POST /api/auth/resend-confirmation`
 - `GET /api/auth/csrf` (issues the antiforgery cookie before login)
 - `GET /health/live` — **must** stay anonymous or `PageLayoutComponent`'s API-availability modal
-  (`page-layout.ts` `checkApiAvailability()`) will show "API unavailable" to every logged-out user
+  (`page-layout.ts` `checkApiAvailability()`) will show "API unavailable" to every logged-out user.
+  The same modal has a second, opposite failure mode in development: if the dev proxy doesn't forward
+  `/health` as well as `/api`, the probe is answered by `ng serve`'s history fallback with a `200`
+  and the modal can never appear at all. See Phase 3 step 1
 - The SPA static-file fallback
 
 `GET /api/auth/me` is `[AllowAnonymous]` and returns `null` when the caller isn't signed in — if it
@@ -272,8 +379,13 @@ config-seeded user, no first-registered-user-wins. **The model is:**
    ```sql
    INSERT INTO user_roles (user_id, role_id)
    SELECT u.id, r.id FROM users u, roles r
-   WHERE u.email = 'owner@example.com' AND r.name = 'SuperAdmin';
+   WHERE u.email = 'owner@example.com' AND r.name = 'SuperAdmin'
+   ON CONFLICT DO NOTHING;
    ```
+
+   `user_roles` has a composite primary key, so **without `ON CONFLICT DO NOTHING` a re-run errors
+   rather than no-ops** — which is exactly the wrong behaviour for a statement someone pastes into a
+   production console under pressure, unsure whether it already ran.
 
 3. From then on, that super-admin assigns `Admin` (and `SuperAdmin`) to others through the Users
    panel in the Data Admin section (resolution #13, below). Direct SQL is the *bootstrap* path, not
@@ -302,7 +414,7 @@ Role claims are baked into the encrypted cookie **at sign-in**. Running the `INS
 nothing to a cookie that already exists. Propagation happens through exactly one mechanism:
 
 **`SecurityStampValidator`, running on every request, but doing work only once per
-`ValidationInterval` (30 minutes, resolution #11).** When the interval has elapsed since the ticket
+`ValidationInterval` (10 minutes, resolution #11).** When the interval has elapsed since the ticket
 was issued, it:
 
 1. loads the user from the database,
@@ -312,25 +424,45 @@ was issued, it:
    `context.ReplacePrincipal(...)` and sets `ShouldRenew = true`, reissuing the cookie,
 4. if they don't match, rejects the principal and signs the user out.
 
-So: **a role added or removed in the database takes effect for a signed-in user within 30 minutes,
+So: **a role added or removed in the database takes effect for a signed-in user within 10 minutes,
 automatically, with no restart and no action by the user.** Immediate effect requires the user to
 sign out and back in.
 
 Two consequences worth planning around:
 
-- **The 30-minute window is now a functional characteristic, not just a security bound.** If the
+- **The 10-minute window is now a functional characteristic, not just a security bound.** If the
   owner grants themselves `SuperAdmin` while already signed in, the Data Admin section will not
   appear until the interval turns over or they re-login. Signing out and back in is the documented
   answer; without it this reads as a bug.
-- **Revoking a role is not instantaneous.** For up to 30 minutes a demoted admin keeps admin
-  capability. To force it immediately, change that user's `security_stamp` in the database — the
-  stamp mismatch path signs them out at the next validation check. That is the break-glass
-  procedure and it belongs in the runbook.
+- **Revoking a role is not instantaneous, and nothing in this design makes it so.** For up to 10
+  minutes a demoted admin keeps admin capability.
 
-**Flagged for Boo's review:** this is the entire authorization-propagation story. There is no
-per-request database role check, no cache invalidation hook, and no admin-triggered "force re-auth"
-endpoint. Shortening `ValidationInterval` trades database reads for freshness if 30 minutes proves
-too slack.
+> **Correction (Boo's review): there is no immediate revocation mechanism anywhere in this design.**
+> An earlier draft of this section said a `security_stamp` change forces the effect "immediately."
+> **That is wrong**, and it contradicted §1. `SecurityStampValidator` compares `IssuedUtc` against
+> `ValidationInterval` *before* touching the database — that is precisely the code §1 quotes to show
+> there is no per-request database cost. So a stamp bump is only *noticed* at the next interval
+> boundary, and is bounded by the same 10 minutes as the role change itself. Bumping the stamp changes
+> the *outcome* at that boundary (session terminated rather than principal refreshed); it does not
+> change *when* the boundary arrives. The owner has accepted this — see "no sign out everywhere" in §1.
+
+**Role assignment must bump the target's security stamp.** `PUT /api/admin/users/{id}/roles` calls
+`UserManager.UpdateSecurityStampAsync(target)` after changing the roles. This does not make revocation
+instant, but it converts "stale claims stay live in the cookie for up to 10 minutes" into "the target's
+session is *terminated* at the next check." The distinction matters for demotion: without the bump, a
+demoted super-admin keeps `SuperAdmin` capability for the remainder of the interval **and the Users
+panel's own endpoint lets them re-grant it to themselves**. The "can't demote yourself / can't demote
+the last super-admin" guard rails do not close that window; the stamp bump does.
+
+**Log every role change.** Audit logging is out of scope as a feature, but role assignment writes a
+single `logger.LogWarning("Role change: {Actor} set {Target} roles to {Roles}", …)`. In a system where
+privilege is a database row a human inserts by hand, this is the only record a privilege change will
+ever leave.
+
+**Reviewed by Boo:** this is the entire authorization-propagation story. There is no per-request
+database role check, no cache invalidation hook, and no admin-triggered "force re-auth" endpoint. The
+interval was shortened from 30 to 10 minutes on review; at this scale the per-interval read is one
+indexed primary-key lookup.
 
 ### "Data Admin section = admin or super admin"
 
@@ -380,7 +512,7 @@ New controllers, following the existing thin-controller convention (controllers 
 | Method | Route | Auth | Notes |
 |---|---|---|---|
 | `POST` | `/api/auth/register` | Anonymous, rate-limited (§7) | Enumeration-safe: always returns the same 200 "check your email" body. Sends the confirmation mail; the account cannot sign in until the link is followed (§5) |
-| `POST` | `/api/auth/login` | Anonymous, rate-limited | Email + password. `PasswordSignInAsync(…, lockoutOnFailure: true)`. Returns one generic failure for wrong-password / no-such-account / locked-out, and **one distinct response for correct-credentials-but-unconfirmed** — the deliberate narrow exception in §7 (resolution #18) |
+| `POST` | `/api/auth/login` | Anonymous, rate-limited | Email + password. `PasswordSignInAsync(…, lockoutOnFailure: true)`. Failure is **`400` with a machine-readable `code`** (never `401` — see "Failure shape" below): one generic `invalid_credentials` for wrong-password / no-such-account / locked-out, and **one distinct `email_not_confirmed`** for correct-credentials-but-unconfirmed — the deliberate narrow exception in §7 (resolution #18) |
 | `POST` | `/api/auth/logout` | Authenticated | `SignOutAsync()` — deletes the cookie server-side |
 | `GET` | `/api/auth/me` | Anonymous, returns `null` if not signed in | `{ id, email, roles: string[] }`. **No `emailConfirmed` field** — an authenticated user is confirmed by definition, so it would be dead data |
 | `GET` | `/api/auth/csrf` | Anonymous | Issues the `XSRF-TOKEN` cookie for the login form |
@@ -397,6 +529,49 @@ Existing controllers: **no route changes, no signature changes.** They inherit t
 filtering happens below the controller (see `data-ownership.md`), so no controller learns about
 `ownerId` — that stays out of the HTTP contract entirely, which is the right boundary: ownership is
 ambient, derived from the authenticated principal, and must never be client-supplied.
+
+### Failure shape on `/api/auth/*` — `400` with a code, because `401` is reserved
+
+*Added after Luigi's review, which found that the login endpoint's failure status was undefined
+anywhere in this design while §6 simultaneously required the login component — not the interceptor —
+to handle it. Those two gaps combine into a silent one.*
+
+Every failure an auth endpoint produces **about the credentials it was handed** returns `400` with a
+body carrying a machine-readable `code`:
+
+```jsonc
+// POST /api/auth/login
+400 { "code": "invalid_credentials" }   // wrong password / no such account / locked out
+400 { "code": "email_not_confirmed" }   // correct password, unconfirmed (§7, resolution #18)
+```
+
+This is also the cheapest shape in this codebase: every existing controller already maps
+`ServiceErrorType.Validation` to `BadRequest(new { message = … })`, and `ServiceErrorType`
+(`Services/ServiceResults.cs`) has exactly two members — `NotFound` and `Validation`. A `401` from
+login would need a third enum member *and* a new arm in the translation switch. `400` needs neither.
+
+**`401` is reserved, across the entire API, for one meaning: the caller has no valid session.** It is
+produced only by the cookie handler's `OnRedirectToLogin` override (§1), never by an auth endpoint
+reasoning about a password it was just given.
+
+That reservation is not cosmetic, and it is the whole reason this section exists. `authErrorInterceptor`
+(§6) treats `401` as "the session died": clear the `user` signal, bounce to `/login`, swallow the error.
+If a failed login also answered `401`, that branch would fire on the login POST itself — the
+`email_not_confirmed` code would never reach the login component and **resolution #18 would silently
+not ship.** The interceptor *additionally* skips every request under `/api/auth/` (§6). The two
+defences are deliberately redundant: either one alone is a single refactor away from reopening the
+hole, and the failure is quiet enough to be misdiagnosed as a backend bug.
+
+Two consequences worth stating rather than discovering:
+
+- **`POST /api/auth/logout` can still legitimately `401`** — the session may have expired before the
+  button was pressed — and the interceptor will *not* act on it, because it is under `/api/auth/`.
+  Already covered: §6 requires the client to clear its own state and route to `/login` regardless of
+  what logout returns.
+- **Not every non-2xx from an auth endpoint carries a `code`.** The rate limiter answers `429`/`503`,
+  antiforgery answers a `400` that is none of ours, and an unhandled fault answers `500`. The auth
+  components must therefore render the generic message for **any failure without a recognised `code`**,
+  rather than switching on the status.
 
 ---
 
@@ -458,6 +633,16 @@ gate makes it load-bearing rather than merely useful: **no email delivery means 
 Selection is by configuration, not by `IWebHostEnvironment` checks scattered through the code — one
 registration branch in `Program.cs` keyed on `Email:Provider` (`"Logging"` | `"Resend"`).
 
+> **⚠️ The provider switch must fail closed — there is no default.** If `Email:Provider` is absent,
+> misspelled, or falls back to `"Logging"` in production, `LoggingEmailSender` writes **live
+> password-reset and confirmation links into the production application log**. That is a full
+> account-takeover primitive, available to anyone with log access, produced by a typo in an
+> environment variable.
+>
+> Two rules, both one line: an unrecognised or missing `Email:Provider` **throws at startup**; and
+> `LoggingEmailSender` is refused registration outright when `!env.IsDevelopment()`, regardless of
+> configuration. A misconfigured deployment must fail loudly at boot, never degrade to logging secrets.
+
 Configuration needed at deploy time: `Email:Provider`, `Email:ApiKey` (secret, resolution #14),
 `Email:FromAddress`, `Email:FromName`, and `App:PublicBaseUrl` (used to build confirmation/reset
 links — the API cannot infer this reliably from behind a reverse proxy).
@@ -476,7 +661,13 @@ sends them. Two reasons, and the second is the load-bearing one:
 
 This is a modest side channel (statistical, needs many samples, reveals only registration status),
 but the mitigation is ~40 lines and it is the difference between "identical response" being true and
-being approximately true.
+being approximately true. **Note that the far larger timing channel is the PBKDF2 cost on login and
+register — see "Timing side channels" in §7**; queueing the mail does not address that one.
+
+> **The mail `BackgroundService` must never query owned entities.** `ICurrentUser` is
+> `IHttpContextAccessor`-backed, so inside the background service there is no request, `UserId` is
+> `null`, and **every global query filter matches nothing — silently**. Queued messages must carry
+> everything the sender needs (address, link, purpose) at enqueue time. Do not pass an id and re-read.
 
 ### Token lifetimes
 
@@ -489,8 +680,33 @@ every purpose. Different purposes want different lifetimes, so register a second
 - **Password reset: 1 hour** (named provider with its own `DataProtectionTokenProviderOptions`).
   A reset token is a full account takeover if intercepted; keep the window short.
 
-Both are single-use in effect because consuming them rotates the user's security stamp, which the
-token is derived from.
+**Only the reset token is single-use.** `ResetPasswordAsync` → `UpdatePasswordHash` rotates the
+security stamp the token is derived from, so a consumed reset link is dead. **`ConfirmEmailAsync`
+does *not* rotate the stamp** — it sets `EmailConfirmed` and saves — so a confirmation link stays
+**replayable for its full 24 hours**. Practical impact is near zero (re-confirming an already-confirmed
+account is idempotent), but an earlier draft claimed both were single-use, and nothing should be built
+on that assumption later.
+
+> **Tokens travel in the URL, which puts them in logs and history.**
+> `{PublicBaseUrl}/reset-password?userId=…&token=…` means a full account-takeover credential lands in
+> the reverse proxy's and Kestrel's access logs (the SPA route hits the server for the static
+> fallback), in browser history, and in the `Referer` header of any cross-origin subresource an auth
+> page loads. The 1-hour lifetime limits the exposure; it does not remove it.
+>
+> Two mitigations, both cheap and both adopted here:
+> 1. **Put the token in the URL fragment** (`/reset-password#userId=…&token=…`) rather than the query
+>    string. Fragments are never transmitted to the server, so they cannot reach an access log at all.
+>    Angular reads it from `location.hash`. This is free to decide now and awkward to change later.
+> 2. **`history.replaceState` the token out of the URL** immediately after the page reads it, so it
+>    does not persist in browser history or get shoulder-surfed from the address bar.
+>
+> Note that the usual third mitigation — a `Referrer-Policy: no-referrer` header — is **not** part of
+> this design; response security headers were considered and declined by the owner as unnecessary for
+> a small private application. That makes mitigation 1 carry more weight than it otherwise would.
+
+**Encode the token for URL transport.** Identity tokens are raw Base64 and contain `+` and `/`. Use
+`WebEncoders.Base64UrlEncode` (or URL-encode explicitly) when building the link and decode on the way
+in; the classic symptom of getting this wrong is "confirmation links work sometimes."
 
 **The gap between these two lifetimes is why resolution #19's flow does not chain into a reset** —
 see "After following a confirmation link that came from forgot-password" below.
@@ -615,6 +831,7 @@ children, plus `{ path: '**', redirectTo: '' }`. Add a second, sibling shell:
 ```
 ''                → PageLayoutComponent      canMatch: [authenticatedMatch]   (existing 9 children)
 ''                → AuthLayoutComponent      canMatch: [anonymousMatch]
+                     ├ ''  pathMatch: 'full' → redirectTo: 'login'
                      ├ login
                      ├ register
                      ├ forgot-password
@@ -631,6 +848,26 @@ children, plus `{ path: '**', redirectTo: '' }`. Add a second, sibling shell:
 - Two shells matching the same `''` path with complementary `canMatch` guards is the idiomatic
   Angular way to express "different chrome depending on auth state." The router tries them in order
   and takes the first that matches.
+- **The auth shell's empty-path child is mandatory, not tidiness** — it mirrors the existing
+  `{ path: '', pathMatch: 'full', redirectTo: 'dashboard' }` child on `PageLayoutComponent`
+  (`app.routes.ts:9`), which the app has always needed for the same reason. *Found by Luigi's review;
+  an earlier draft of this section listed six children and no `''`.* Without it, a logged-out visit to
+  any unknown URL cannot resolve: `/dashboard` → shell 1 `canMatch` false → shell 2 matches `''` but
+  has no `dashboard` child → no match → `**` → `redirectTo: ''` → shell 1 false → shell 2 has no `''`
+  child → no match → `**` again. Angular gives up with "Cannot match any routes" or a possible-infinite-
+  redirect error. **Every logged-out entry point except a hand-typed `/login` lands there**, including
+  `/` itself, so this is not an edge case — it is the default first experience.
+- **The guards must return `false`, never a `UrlTree` — and the two-hop bounce is deliberate.**
+  Returning `false` is what allows the router to fall through to the sibling shell, and that
+  fall-through *is* the two-shell pattern. A `UrlTree` does not fall through: it cancels the
+  navigation and redirects. Because shell 1's path is `''`, it prefix-matches **every** URL, so
+  `authenticatedMatch` runs even for `/login` — and a `UrlTree` there would produce
+  `/login` → guard → `UrlTree('/login')` → `/login` → guard → … until Angular's redirect limit throws.
+  *Raised in Luigi's review as a way to make the logged-out bounce one hop instead of two, and
+  declined for this reason (`open-questions.md` → "Luigi review dispositions").* The two hops
+  (`**` → `''` → `login`) are the same two the signed-in app already takes to reach `/dashboard`.
+  **Recorded because collapsing them looks like a harmless cleanup and silently breaks logged-out
+  routing.**
 - `AuthLayoutComponent` is bare: centred card on `bg-surface-sunken`, the `MOTW` badge, no sidebar,
   no header, no search, no user menu — consistent with the existing token layer
   (`docs/theming/theming-plan.md`) so it matches the app without new design work.
@@ -644,8 +881,9 @@ children, plus `{ path: '**', redirectTo: '' }`. Add a second, sibling shell:
   being bounced by `anonymousMatch` — e.g. a confirmed user clicking a stale link from their inbox.
   Register them as guard-free routes, or exempt them from `anonymousMatch`'s redirect.
 - `data-admin` child route gains `canMatch: [adminMatch]`.
-- The `**` wildcard keeps redirecting to `''`; the two shells' guards then route the visitor to
-  `/dashboard` or `/login` appropriately.
+- The `**` wildcard keeps redirecting to `''`. From there the guards pick a shell and **that shell's
+  own empty-path child** does the rest: `dashboard` when signed in, `login` when not. Both halves are
+  required — the wildcard alone has nowhere to land.
 
 ### Auth state — signals, mirroring `ThemeService`
 
@@ -669,13 +907,42 @@ removes the entire "where do we store the token / how do we avoid XSS exfiltrati
 bearer-token design would force.
 
 The consequence is that the app must **ask** on boot:
-`provideAppInitializer(() => inject(AuthService).initialize())`, which `GET`s `/api/auth/me` once and
-populates the signal before the first route resolves. This mirrors the existing
+`provideAppInitializer(() => inject(AuthService).initialize())`, which populates the signal before the
+first route resolves. This mirrors the existing
 `provideAppInitializer(() => inject(ThemeService).initialize())` line in `app.config.ts` exactly —
 same pattern, same place, same reasoning. The initializer must resolve, not reject, on failure — a
 network error means "not signed in," not "crash the bootstrap."
 
-**Note the interaction with resolution #8's 30-minute propagation window:** `isAdmin()` is seeded
+> **`initialize()` makes *two* calls, not one — and the second is the CSRF token.**
+> *Found by Luigi's review: §7 required `GET /api/auth/csrf` at bootstrap, but that requirement had
+> never reached this section or any Phase 3 step, and nothing else in the design fetched it.*
+>
+> ```ts
+> initialize(): Observable<unknown> {
+>   return forkJoin([
+>     this.api.get('/api/auth/csrf').pipe(catchError(() => of(null))),
+>     this.api.get<CurrentUser | null>('/api/auth/me').pipe(catchError(() => of(null))),
+>   ]).pipe(tap(([, me]) => this.user.set(me)));
+> }
+> ```
+>
+> **Why it is not optional and cannot be lazy.** With a globally registered
+> `AutoValidateAntiforgeryTokenAttribute` (§7) and no `XSRF-TOKEN` cookie in the browser, Angular's
+> `HttpXsrfInterceptor` attaches no header — so **`POST /api/auth/login` is itself rejected**, and
+> so is register, forgot-password, reset-password, and resend-confirmation. Nothing in the app can be
+> done at all. The token has to exist before the first mutating request, and on a login page that is
+> the *first* request the user makes.
+>
+> **Why both calls fail soft, individually.** `forkJoin` errors as a unit, so the `catchError` must be
+> on each inner stream, not on the outer one — otherwise a failed CSRF fetch also discards a perfectly
+> good `/api/auth/me` result (and vice versa), and the API-down case takes the whole bootstrap with it.
+>
+> **Order does not matter, so they run in parallel.** Both are anonymous `GET`s and neither changes
+> the identity, so the antiforgery pair issued by `/api/auth/csrf` is bound to whatever the session
+> cookie already said — signed-in or anonymous — either way correctly. (Login and logout *do* change
+> the identity, which is why they re-issue the pair themselves; §7.)
+
+**Note the interaction with resolution #8's 10-minute propagation window:** `isAdmin()` is seeded
 from the cookie's claims at bootstrap. A role granted in the database mid-session will not appear in
 the UI until the security-stamp revalidation reissues the cookie *and* the app re-reads
 `/api/auth/me` (i.e. a page reload). "Sign out and sign back in" is the reliable instruction, and it
@@ -700,24 +967,38 @@ provideHttpClient(
   (`core/health.ts`) calls `HttpClient` directly and bypasses `ApiService` entirely.
 - **`withXsrfConfiguration`** — Angular's built-in XSRF support reads the `XSRF-TOKEN` cookie and
   echoes it as `X-XSRF-TOKEN` on mutating requests. It deliberately skips absolute cross-origin
-  URLs, which is another reason for the same-origin production topology (§2). In development, where
-  the API is on a different origin, an `ng serve` proxy so dev is same-origin too is the simplest
-  resolution; otherwise a small explicit interceptor is needed.
+  URLs, which is another reason for the same-origin production topology (§2). **In development this
+  is a hard prerequisite, not a footnote:** `:4200` and `:5225` are different origins, so without a
+  proxy the header never attaches and every mutating request fails antiforgery — locally only, in a
+  way that reads as a server bug. A `proxy.conf.json` forwarding `/api` to `:5225`, plus
+  `apiBaseUrl: ''`, makes dev same-origin and is **Phase 3 step 1** (`phases.md`). The alternative,
+  a hand-written XSRF interceptor for dev only, means dev and production exercise different code.
 - **`authErrorInterceptor`** — new, ordered *before* `httpErrorInterceptor`:
+  - **First line of the interceptor: if the request URL is under `/api/auth/`, pass it straight
+    through, untouched.** This is the mechanism §4's "Failure shape" section refers to, and it is
+    stated here as code shape rather than as an intention because *"the login endpoint's own failures
+    are handled by the login component"* is not implementable as prose. The check has the same form as
+    the health-check exemption `httpErrorInterceptor` already carries
+    (`req.urlWithParams.includes('/health/live')`, `core/http-error-interceptor.ts:8`) — follow that
+    precedent rather than inventing a second style.
   - `401` → clear `user` signal, `router.navigate(['/login'], { queryParams: { returnUrl } })`,
-    and swallow the error so no toast fires.
+    and swallow the error so no toast fires. Per §4 this can only mean "your session is gone."
   - `403` → surface a single "You don't have access to that" notification; do **not** sign out. This
     is the observable symptom of a role revoked mid-session (§3), so the message should be
     survivable rather than alarming.
-  - **The login endpoint's own failures are handled by the login component, not here** — the
-    distinct "email not confirmed" response (§7) needs to render an inline resend link, not a
-    generic toast. The interceptor must not swallow or genericise it.
   - Everything else → pass through to the existing handler untouched.
-- **`httpErrorInterceptor`** (existing, `core/http-error-interceptor.ts`) — needs one change beyond
-  ordering: it currently toasts the full request URL
-  (`Request failed (401) for GET http://localhost:5225/api/…`). For auth failures that's both ugly
-  and a minor information leak into the UI. With `authErrorInterceptor` handling 401/403 first, the
-  existing behaviour can otherwise stay as-is.
+- **`httpErrorInterceptor`** (existing, `core/http-error-interceptor.ts`) — **needs the same
+  `/api/auth/` exemption**, for the same reason and in the same place its `/health/live` exemption
+  already sits. Without it the fix above is only half done: the login component renders its inline
+  "confirm your email address to sign in" message *and* a generic
+  `Request failed (400) for POST /api/auth/login` toast fires underneath it. The auth pages own their
+  own error rendering completely — no toast should ever fire for a request they made.
+  - Extract the two exemptions as one shared predicate (`isSelfHandledRequest(req)` or similar) used
+    by both interceptors, rather than copying an `includes()` into a second file. Two independent
+    copies of an exemption list is exactly how one of them goes stale.
+  - Beyond that, one pre-existing wart is worth fixing while here: it toasts the full request URL
+    (`Request failed (401) for GET http://localhost:5225/api/…`), which is both ugly and a minor
+    information leak into the UI. Otherwise the existing behaviour stays as-is.
 
 ### Profile and Sign out (requirement #7)
 
@@ -770,10 +1051,38 @@ Layered, all three required:
    `TRACE` action validates automatically. Global registration matters for the same fail-closed
    reason as the fallback policy: per-action `[ValidateAntiForgeryToken]` is one forgotten attribute
    away from a hole. Angular's `withXsrfConfiguration` supplies the header end.
-3. **Strict CORS.** The existing `FrontendDev` policy uses `AllowAnyHeader().AllowAnyMethod()` with
-   a configured origin list; it must gain `.AllowCredentials()` to work with cookies at all, and
-   must never be widened to `AllowAnyOrigin` (which is illegal with credentials anyway). In the
-   chosen production topology this policy is development-only.
+
+   > **⚠️ Antiforgery tokens are bound to the claims identity — login and logout must re-issue them.**
+   >
+   > `DefaultAntiforgeryTokenGenerator` embeds the authenticated user's identity in the token pair,
+   > and validation rejects a token minted for a different identity with *"The provided antiforgery
+   > token was meant for a different claims-based user than the current user."*
+   >
+   > So the naive flow breaks on its second request: the SPA boots anonymous → `GET /api/auth/csrf`
+   > issues the pair → `POST /api/auth/login` validates fine (anonymous ↔ anonymous) and sets
+   > `motw.session` → **the very next mutating request fails antiforgery, including
+   > `POST /api/auth/logout`**, because the browser's token is still bound to the anonymous identity.
+   > Sign-out has the same problem in reverse.
+   >
+   > **Fix:** the login and logout actions must call `IAntiforgery.GetAndStoreTokens(HttpContext)` and
+   > rewrite the `XSRF-TOKEN` cookie from `tokens.RequestToken` **in their own responses**, after the
+   > sign-in/sign-out has changed the identity. Also: `GET /api/auth/csrf` must be called during SPA
+   > bootstrap, not lazily, or the login POST itself has no token to send. **That call is
+   > `AuthService.initialize()`'s job, alongside the `/api/auth/me` probe — §6 has the shape, Phase 3
+   > steps 2 and 9 have the wiring. Nothing else in the app fetches it, so if it is dropped from
+   > either place, login is impossible and nothing else is.**
+   >
+   > This surfaces in Phase 3 as "every write fails after login," where the fastest-looking fix is to
+   > disable the global antiforgery filter — which would discard this entire layer. Verify it from the
+   > `.http` file in Phase 1, before Angular exists: csrf → login → any mutating POST.
+
+3. **Strict CORS — in development only, and preferably not at all.** Once Phase 3's
+   `proxy.conf.json` lands, development is same-origin too and **the `FrontendDev` policy should be
+   deleted rather than given `.AllowCredentials()`**. Turning it into a credentialed cross-origin
+   surface to solve a problem the proxy already solves is strictly worse. Note that `Program.cs:9`
+   throws when `Cors:AllowedOrigins` is absent, so removing the policy means removing that guard too.
+   If the policy is kept for any reason, it must never be widened to `AllowAnyOrigin` (illegal with
+   credentials in any case). In the chosen production topology there is no CORS policy at all.
 
 ### Password policy (resolution #10)
 
@@ -812,10 +1121,15 @@ told it's wrong, and has no way to learn that a confirmation link is waiting in 
 
 | Case | Response |
 |---|---|
-| No such account | Generic: "invalid email or password" |
-| Account exists, wrong password | Generic: "invalid email or password" |
-| Account locked out | Generic: "invalid email or password" |
-| **Correct password, email not confirmed** | **Distinct**: a machine-readable `email_not_confirmed` code, rendered as "confirm your email address to sign in" with an inline resend action |
+| No such account | Generic: `400 { "code": "invalid_credentials" }` → "invalid email or password" |
+| Account exists, wrong password | Generic: `400 { "code": "invalid_credentials" }` → "invalid email or password" |
+| Account locked out | Generic: `400 { "code": "invalid_credentials" }` → "invalid email or password" |
+| **Correct password, email not confirmed** | **Distinct**: `400 { "code": "email_not_confirmed" }`, rendered as "confirm your email address to sign in" with an inline resend action |
+
+**`400`, not `401`, for all four** — §4's "Failure shape" section has the reasoning. In short: `401`
+is reserved for "your session is gone," and `authErrorInterceptor` acts on it globally, so a `401`
+here would swallow the distinct response and silently un-ship resolution #18. The three generic rows
+are byte-identical to each other; only the fourth differs.
 
 **Why the exception does not reopen enumeration.** The three collapsed cases are *unauthenticated*
 oracles: an attacker learns something by supplying an address alone. The exception is reachable
@@ -834,22 +1148,82 @@ checked. Wiring `SignInResult.IsNotAllowed` straight through to the distinct res
 "this address is registered and unconfirmed" for *any* password — turning it right back into an
 unauthenticated oracle. The correct sequence:
 
+**But the obvious form of that fix introduces a different defect in the same three lines.** An
+earlier draft of this document proposed:
+
+```csharp
+if (result.IsNotAllowed && await userManager.CheckPasswordAsync(user, password))
+    return EmailNotConfirmed();   // ❌ INSUFFICIENT — see below
+```
+
+`PreSignInCheck` returns `NotAllowed` (from `CanSignInAsync`) **before** it returns `LockedOut`, and
+both **before** the password is verified. Two consequences follow, and both are security defects:
+
+1. **`PasswordSignInAsync` never increments `AccessFailedCount` for an unconfirmed account** — the
+   short-circuit happens before the failure counter is touched, so `lockoutOnFailure: true` is inert
+   on this path. `UserManager.CheckPasswordAsync` does not touch lockout either. So unconfirmed
+   accounts have **no brute-force lockout at all**, while simultaneously returning a *distinct*
+   response on a correct password — a clean password oracle, bounded only by an IP-rotatable limiter.
+2. **An account that is both unconfirmed and locked out still returns `NotAllowed`**, so the snippet
+   calls `CheckPasswordAsync` and **bypasses the active lockout entirely.**
+
+The exploit is narrow — it needs a victim who registered and never confirmed, and the attacker still
+cannot sign in — but a guessed password is very often reused elsewhere, and becomes usable the moment
+the victim confirms. The corrected sequence re-checks lockout and drives the failure counter by hand:
+
 ```csharp
 var result = await signInManager.PasswordSignInAsync(
     user, password, isPersistent: true, lockoutOnFailure: true);
 
-if (result.IsNotAllowed && await userManager.CheckPasswordAsync(user, password))
-    return EmailNotConfirmed();   // distinct response — password was proven first
+if (result.Succeeded) return Success();
 
-if (!result.Succeeded)
-    return GenericFailure();      // all three collapsed cases
+if (result.IsNotAllowed)
+{
+    // NotAllowed precedes BOTH the lockout check and the password check in PreSignInCheck,
+    // so lockout must be re-checked and the failure counter driven manually here.
+    if (await userManager.IsLockedOutAsync(user)) return GenericFailure();
+
+    if (await userManager.CheckPasswordAsync(user, password))
+    {
+        await userManager.ResetAccessFailedCountAsync(user);
+        return EmailNotConfirmed();   // distinct response — password was proven first
+    }
+
+    await userManager.AccessFailedAsync(user);   // increments; locks out at the threshold
+    return GenericFailure();
+}
+
+return GenericFailure();              // all collapsed cases
 ```
-
-This preserves `PasswordSignInAsync`'s lockout integration and reveals the unconfirmed state only to
-a caller who supplied the correct password. **This is one of Boo's review items.**
 
 **Trade-off accepted:** a genuinely locked-out user sees "invalid email or password" and may keep
 retrying, extending their own lockout.
+
+### Timing side channels on login and register
+
+The enumeration invariant above is about *response content*. It does not hold on *response timing*
+unless timing is addressed explicitly, and by default it is not:
+
+- **Login, no such account.** `FindByEmailAsync` returns `null`, so no password hash is computed.
+  Identity's PBKDF2 on .NET 8+ runs 210,000 SHA-256 iterations — on the order of 50–100 ms. A
+  nonexistent account answers in single-digit milliseconds; a real account with a wrong password takes
+  ~100 ms. **That is a 10–20× delta — it needs one sample, not statistics.**
+- **Register, address already in use.** The identical-response design (§5) returns the same 200, but
+  the existing-account branch skips `CreateAsync` and therefore skips hashing, so it answers faster.
+- **Login, locked out.** `PreSignInCheck` returns before hashing, so responses get *faster* once an
+  account is locked — itself a signal.
+
+This design already takes trouble to make mail dispatch asynchronous so "was mail sent" is not a
+timing oracle. The same standard applies here, and the fix is comparable in size:
+
+> **On the no-such-account branch of login, and the already-registered branch of register, perform a
+> dummy password verification** against a known constant hash —
+> `userManager.PasswordHasher.VerifyHashedPassword(dummyUser, KnownDummyHash, password)` — so both
+> branches pay the same PBKDF2 cost. Roughly five lines, and it makes the §5/§15 enumeration
+> invariant actually true rather than true-only-in-the-response-body.
+
+Perfect constant time is not the goal and is not achievable over a network; removing an
+order-of-magnitude tell is.
 
 **Contrast with forgot-password (resolution #19).** Login gets an exception; forgot-password does
 not. The reason is the same test: forgot-password never verifies a password, so *every* branch of it
@@ -907,7 +1281,15 @@ login, forgot-password, reset-password, and resend-confirmation — plus a gener
 **2. Per-account outbound-mail throttling — and the bypass resolution #19 opened.**
 
 An IP-keyed limiter does not stop a rotating source from mail-bombing one *address*. So a second,
-independent throttle sits in `AuthService`, immediately before any mail is queued.
+independent throttle guards every mail send.
+
+**Enforce it inside the enqueue call, not in `AuthService` before it.** Make `purpose` and `userId`
+**required parameters of the queue's enqueue API**, and consume the budget there. The design's own
+stated worry is "a fourth mail-producing path added later without registering it against the right
+purpose" — putting the throttle in the caller makes that a convention anyone can forget, while putting
+it in the enqueue path makes sending mail without consuming a budget **unrepresentable**. The bypass
+can then only be reopened by deliberately passing the wrong purpose, not by omission. This is the same
+fail-closed reasoning that prefers a global fallback policy over per-controller `[Authorize]` (§3).
 
 **Key it on `(purpose, userId)` — not on `(endpoint, userId)`.** This is the specific gap resolution
 #19 created and it is worth stating as the reason for the shape:
@@ -941,9 +1323,23 @@ would give back exactly what §5's identical-response invariant is protecting.
 `KnownProxies`/`KnownNetworks` set**, or every request appears to come from the proxy's IP and they
 bucket the entire internet together. Deployment configuration item, not an afterthought.
 
-**Flagged for Boo's review:** the (purpose, account) throttle is now a shared cross-endpoint
-resource. Getting its key wrong — or adding a fourth mail-producing path later without registering
-it against the right purpose — silently reopens the alternation bypass.
+> **And the opposite warning, which matters more.** Clearing `KnownProxies`/`KnownNetworks` to "make
+> it work" makes `X-Forwarded-For` **attacker-controlled**, at which point every per-IP limiter in the
+> design is bypassable with a header. That is the shortcut someone reaches for at 1am on deploy day
+> when the limiters are misbehaving. Configure the real proxy addresses; never empty the lists.
+
+**Reviewed by Boo:** the (purpose, account) throttle is a shared cross-endpoint resource, and the mail
+paths were verified complete against the design (`register`→Confirmation, `register`(exists)→
+RegisterNotice, `resend-confirmation`→Confirmation, `forgot-password`(unconfirmed)→Confirmation,
+`forgot-password`(confirmed)→PasswordReset). Moving enforcement into the enqueue API, above, is what
+keeps that enumeration from silently going stale.
+
+**Not adopted — a global mail-quota cap.** Boo noted that the per-account throttle bounds mail
+per address but not in aggregate, so N addresses still permit N × 5 messages/day against the Resend
+quota, and that both the limiter and the throttle reset on restart. A global daily cap persisted in
+Postgres would close that. **Declined by the owner** along with the registration-cap changes: this is
+a private application with a known, small user base and no public marketing, so aggregate mail volume
+is not a realistic exposure. Recorded here because the reasoning changes if the app ever opens up.
 
 ### Data Protection keys — the most commonly missed piece
 
