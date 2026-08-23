@@ -1074,3 +1074,85 @@ Product owner decided (after a separate investigation flagged the Phase 4 migrat
 
 ### Files (2 total)
 `features/mysteries/shared/mystery-section-icon.ts` (lookup + `symbolId` getter + updated doc comment), `shared/icons/icon-sprite.component.ts` (5 symbols deleted, section comments + top-of-file doc comment updated to reflect the new split).
+
+---
+
+## 2026-08-18 — Review: `docs/simple-authentication-update/` Phase 2 (docs-only, no app code)
+
+### Task
+Frontend review at the gate named in that plan's `phases.md` — the two-shell restructure, the three interceptors, `AuthService`/`provideAppInitializer`, `logout()`'s error path, and the dev-proxy step. Findings folded in place into `architecture.md`/`phases.md`, review status added to `README.md`, dispositions + one new question in `open-questions.md`. Same convention as my earlier review of `docs/authentication-update/`. Four blocking findings, all adopted; the one scope question I referred to Skyler (`open-questions.md` #5 — how far to hoist the shell-level concerns) came back the same day as **option A, the full move to `App`** — *"app root level is fine."* Review closed, nothing outstanding.
+
+### Reusable technical facts (the point of this entry)
+
+- **`withInterceptors([A, B, C])` is REQUEST order; errors propagate back in reverse, so the LAST entry is the FIRST to see an error response.** Angular builds the chain with `reduceRight`, giving `A(next: B(next: C(next: backend)))`. Consequence: **any interceptor that swallows or transforms an error must be registered last**, below the generic reporter. Both auth designs specified `[credentials, authError, httpError]` with a "so no toast fires" claim; that ordering fires the toast. Full write-up + the code-comment phrasing (*"last in the array = first to see an error"*) in `.squad/decisions/inbox/luigi-interceptor-order-error-direction.md`. Generalises to retry, offline-queue, error-normalisation interceptors.
+- **`provideAppInitializer(() => svc.initialize())` only makes bootstrap wait if `initialize()` RETURNS a Promise/Observable.** `ThemeService.initialize()` (`core/theme.ts:66`) returns `void`, and any new initializer copying that adjacent line compiles and type-checks while silently not blocking. The router's initial navigation is an `APP_BOOTSTRAP_LISTENER`, which runs after initializers *resolve* — that's what makes "auth state is populated before the first `canMatch`" true, but only when the initializer is actually awaitable. Symptom of getting it wrong: signed-in user shown the login page on every cold load; reads as a cookie bug.
+- **Three app-wide things live inside `page-layout.html` and nowhere else**, which breaks the moment a second (auth) shell exists: `<app-icon-sprite />` (line 2 — the ONLY occurrence in `src/`; `icon.component.ts:14` calls it "app-wide", so an `<app-icon>` outside that shell renders a blank `<use>` with no error or console warning), the notification toast host (lines 130–150; `NotificationService` auto-dismisses after 4 s, so anything raised outside the shell is gone before it can render), and `checkApiAvailability()` + the API-unavailable modal (`page-layout.ts:44–46`, template 152–181 — probe runs only in `ngOnInit`, so it never re-fires and never runs at all for a logged-out visitor). `app.html` is a bare `<router-outlet />` and `app.ts` is an empty class, so hoisting all three to `App` is a template move + 3 tests relocated from `page-layout.spec.ts:42,108,117`. **Anyone adding a second shell to this app hits all three.**
+- **A `CanMatchFn` returning `false` cannot attach query params**, so the proactive guard path can never set a `returnUrl` — only the `401` interceptor can. Attaching one needs a `UrlTree`, which in the two-shell pattern (shell 1's `''` prefix-matches everything, including `/login`) causes an infinite redirect. So the lost deep link is structural; document it or stash the attempted path on the service, but never "fix" it with a `UrlTree`.
+- **Route-matching trace for two sibling `''` shells** (verified against current `app.routes.ts`): Angular backtracks when a route matches its own segment but no child matches the remainder, so logged-out `/dashboard` → shell 1 `canMatch` false → shell 2 matches `''` but has no `dashboard` child → backtrack → `**` → `''` → shell 2's `{ path: '', pathMatch: 'full', redirectTo: 'login' }`. Logged-in `/login` resolves symmetrically to `/dashboard`. Both terminate; the `**` wildcard needs no change.
+- `app.routes.spec.ts`'s two tests use `routes.find((r) => r.path === '')`, i.e. the FIRST `''` route — silently order-dependent once there are two shells.
+- Verified doc claims against the tree: `core/api.spec.ts:30` does hardcode `http://localhost:5225/health/live` and goes red on `apiBaseUrl: ''`; `core/health.spec.ts` asserts `service.endpoint` and doesn't; `angular.json`'s `serve` target genuinely has no `options` block, so `proxyConfig` needs one created.
+
+### Non-technical note
+Three of the four blocking findings were the same shape as my last review of the robust plan: a requirement stated in one section whose wiring in another doesn't implement it. Two of the four (interceptor order, the login form's inert non-`invalid_credentials` path) were things the robust plan already had right and this smaller plan dropped or inverted — **when reviewing a "stepping stone" derived from an already-reviewed plan, diff it against the source rather than reading it standalone.** That's where both came from.
+
+---
+
+## 2026-08-23 — Favicon + Unified Sidebar Logo Mark
+
+### Task
+Implement Rosalina's approved favicon/logo redesign: replace the stock Angular CLI `favicon.ico` and the translucent "MOTW" text pill in `page-layout.html` (desktop + mobile) with one unified indigo-600 chip + white monster-glyph mark. Full write-up: `.squad/decisions/inbox/luigi-favicon-logo-mark.md`.
+
+### Reusable technical facts
+- **SVG/XML `<!-- -->` comments cannot contain a literal `--` sequence anywhere in the body**, not just at the boundaries. Writing a CSS custom-property name (`--color-accent`) inside an SVG comment produces a fatal XML parse error — the browser renders its own "this page contains errors" page instead of the icon. `ng build` does NOT catch this (doesn't parse `public/` assets as XML); only caught by actually loading the file in a real browser engine (Playwright/Chromium). Any hand-written comment in a standalone `.svg` (or other XML) file that references `--`-prefixed CSS tokens/flags needs this check — build success is not sufficient verification for static SVG assets under `public/`.
+- Reused the existing generic `IconComponent`/`icon-{name}` (unprefixed) namespace in `icon-sprite.component.ts` for a new non-nav, non-mystery-section symbol (the brand mark, `icon-logo`) rather than inventing a new component — its doc comment's "generic action/chrome icon" scoping didn't explicitly cover a brand mark, but the mechanism (typed `IconName` + `<use>` wrapped in an `aria-hidden` `<svg>`) fit with zero new code needed.
+- Brand-mark colors (indigo-600 chip, white glyph) are hardcoded literals in both `favicon.svg` and the sprite symbol, not theme tokens — confirmed intentional via live Playwright check against both light (`sidebar-surface: indigo-700`) and `.dark`-class-injected (`indigo-900`) sidebars; a solid brand mark doesn't need to track `--color-accent`'s light/dark flip, same as the sidebar surface itself already being a fixed indigo-700/900 pair outside the accent-token family.
+- Environment check before choosing an SVG-favicon-over-ICO approach: confirmed via `where`/`Get-Command`-style checks that no SVG rasterizer exists on this machine (no ImageMagick/`magick`, Inkscape, `rsvg-convert`, `cairosvg`; the `convert.exe` on `PATH` is Windows' unrelated FAT→NTFS tool, not ImageMagick) — worth checking early on any future favicon/icon-export task on this machine before assuming a rasterizer is available.
+- Playwright health-check stub trick for verifying `page-layout.html` UI that's gated behind `checkApiAvailability()` when no backend is running: `page.route('**/health/live', route => route.fulfill({ status: 200, contentType: 'text/plain', body: 'Healthy' }))` before `page.goto()` — keeps the API-unavailable modal (z-60, blocks/obscures everything including the mobile drawer) from ever appearing, cleaner than trying to manually remove its DOM node (which Angular's `@if` just re-inserts once the real health check resolves asynchronously after the removal).
+
+### Verification
+`npm run build` clean (2 pre-existing unrelated budget warnings only). `npm run test -- --watch=false`: 38 files / 278 tests green, no regressions. Live-verified via `ng serve` + a throwaway Playwright script (deleted after use, per the established one-off-verification convention): desktop sidebar chip (36x36, correct position), mobile drawer chip, `.dark`-class sidebar, and `favicon.svg` served with `Content-Type: image/svg+xml` and rendering correctly post-fix.
+
+### Files
+New: `src/web/monster-of-the-week-web/public/favicon.svg`. Modified: `src/index.html`, `src/app/shared/icons/icon-sprite.component.ts`, `src/app/shared/icons/icon.component.ts`, `src/app/layout/page-layout/page-layout.html`.
+
+---
+
+## 2026-08-23 — Favicon/Logo Mark: Grin Addendum
+
+### Task
+Rosalina follow-up call: add a filled purple crescent grin (`fill="#7e22ce"`, `purple-700`/`--color-on-badge-archetype`'s value, reused not invented) as a third path in both `public/favicon.svg` and the `icon-logo` symbol. Addendum appended to `.squad/decisions/inbox/luigi-favicon-logo-mark.md` rather than a new decision doc.
+
+### Reusable technical facts
+- **Hit the exact same `--`-in-XML-comment bug again, immediately** — this time from writing the *token name* itself (`--color-on-badge-archetype`) into the `favicon.svg` comment while explaining the new color's provenance. The prior entry's warning ("any comment referencing a `--`-prefixed CSS custom property") is easy to re-trigger even right after having documented it once — the trap is specifically that referencing *any* custom-property name at all reintroduces the literal `--`. Fix pattern that avoids it entirely: write the Tailwind class name without its CSS custom-property prefix, e.g. `purple-700 (on-badge-archetype)` instead of `purple-700 / --color-on-badge-archetype`.
+- Playwright verification technique for confirming small design elements (a crescent grin) aren't broken/misaligned at native sidebar icon size (36x36/32x32, where it's genuinely too small to eyeball in a screenshot): `page.evaluate()` to temporarily inline-style the `<app-icon>` host element to a large size (e.g. `300px`), screenshot, then remove the style — proves the vector renders correctly at any scale without needing a magnifier on a tiny native-size screenshot. Native-size screenshots are still worth taking separately to confirm no layout/clipping regression in context.
+- `.locator('app-icon[name="logo"] svg').first()` picks up the DESKTOP instance even on a mobile viewport, because the desktop `<aside>` (`hidden md:flex`) is still present in the DOM (just `display:none`) and comes first in document order — Playwright's `element.screenshot()` then times out waiting for it to become visible. Scope the locator to the containing element (e.g. `.sidebar-mobile app-icon[...]`) when a component/icon appears twice in the DOM (desktop shell + mobile drawer) as it does in `page-layout.html`.
+
+### Verification
+`npm run build` clean (2 pre-existing unrelated budget warnings only). `npm run test -- --watch=false`: 38 files / 278 tests green, no regressions. Live-verified via `ng serve` + a throwaway Playwright script (deleted after use): grin renders as a smiling purple crescent at a large scaled-up render, native-size sidebar/drawer renders show no misalignment/clipping, `.dark`-class sidebar unaffected (color is hardcoded), and the fixed `favicon.svg` re-parses/renders correctly standalone after the XML-comment fix.
+
+### Files
+Modified: `src/web/monster-of-the-week-web/public/favicon.svg`, `src/app/shared/icons/icon-sprite.component.ts`. Addendum appended to `.squad/decisions/inbox/luigi-favicon-logo-mark.md`.
+
+---
+
+## 2026-08-23 — Favicon Bug Fix: Chrome preferred stale `favicon.ico` over the new SVG mark
+
+### Task
+Skyler tested locally after the favicon/logo-mark work shipped and found the browser tab was still showing the old default `.ico`, not the new SVG mark. Fixed `src/index.html`'s favicon `<link>` pair; addendum appended to `.squad/decisions/inbox/luigi-favicon-logo-mark.md`.
+
+### Reusable technical facts
+- **My original SVG-first `<link>` ordering (`svg` link before `ico` link) does NOT make Chrome prefer the SVG.** This is a documented Chromium bug, [crbug 1162276](https://crbug.com/1162276): Chrome prefers `.ico` over `.svg` favicons regardless of document order. Don't trust "first link wins" folklore for favicon resolution in Chrome specifically.
+- **The actual fix: add `sizes="any"` to the `.ico` link** (and drop its now-redundant `type="image/x-icon"`), which signals to Chrome the ICO isn't an ideal fit and triggers fallback to the SVG. Final working pair:
+  ```html
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  ```
+  The resulting asymmetry (sizes-only on ico, type-only on svg) looks like an inconsistency someone will want to "clean up" back to a symmetric type-based pair later — that would silently reintroduce the bug. Left an explicit warning comment about this in the decision-doc addendum, not just in this history file.
+- **Headless Chromium does not fetch favicons at all** (no tab-strip UI to render them in), so a Playwright favicon-verification script using the default headless launch silently returns zero favicon-related network events — false negative, not proof of anything. Must use `chromium.launch({ headless: false })` to actually observe real favicon-fetch network behavior. Worth remembering for any future favicon/tab-icon verification task, not just this one.
+- Confirmed a stale `ng serve` process (pre-existing on port 4200 before this task started, from an earlier session) was already running and live-picked-up the `index.html` edit via file watching — didn't need to start a new one; `curl localhost:4200/` is a fast way to confirm a running dev server has already picked up a template edit before reaching for Playwright.
+
+### Verification
+Live Playwright check (headed Chromium, fresh/uncached context) against `ng serve`: only `GET /favicon.svg` (200, `image/svg+xml`) was ever requested by the browser; `favicon.ico` was never requested post-fix. `npm run build` clean (same 2 pre-existing unrelated budget warnings). Throwaway verification script deleted after use.
+
+### Files
+Modified: `src/web/monster-of-the-week-web/src/index.html` (lines 8-9 only). Addendum appended to `.squad/decisions/inbox/luigi-favicon-logo-mark.md`.
