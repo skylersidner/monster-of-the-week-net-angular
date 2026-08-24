@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using MonsterOfTheWeek.Api.Data;
@@ -40,6 +42,46 @@ builder.Services.AddScoped<ISearchProvider, MinionSearchProvider>();
 builder.Services.AddScoped<ISearchProvider, LocationSearchProvider>();
 builder.Services.AddScoped<ISearchProvider, BystanderSearchProvider>();
 builder.Services.AddScoped<ISearchService, SearchService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "motw.session";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+        options.ExpireTimeSpan = TimeSpan.FromHours(24);
+        options.SlidingExpiration = true;
+
+        // Mutate the existing Events object; never assign a new CookieAuthenticationEvents.
+        // Assignment works today because nothing is pre-registered, but AddIdentityCookies()
+        // installs OnValidatePrincipal = SecurityStampValidator.ValidatePrincipalAsync, and
+        // replacing the object would discard it — after which sessions are never revalidated
+        // and nothing errors. architecture.md section 1.5.
+        //
+        // These two overrides are mandatory, not cosmetic: the default handler answers an
+        // unauthenticated API call with a 302 to /Account/Login, which is wrong for an API.
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    });
+
+// Fails closed across every endpoint with no authorization metadata of its own — all 107
+// existing controller actions — without editing a single controller. Opting out is per-endpoint
+// via [AllowAnonymous]. architecture.md section 2.1.
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendDev", policy =>
@@ -55,6 +97,11 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseCors("FrontendDev");
 app.UseHttpsRedirection();
+// UseAuthentication must precede UseAuthorization: without it the principal is unpopulated when
+// the fallback policy runs and every request is anonymous, which fails closed and therefore looks
+// like "the cookie isn't working."
+app.UseAuthentication();
+app.UseAuthorization();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -67,7 +114,10 @@ using (var scope = app.Services.CreateScope())
     await MotwDbInitializer.InitializeAsync(dbContext);
 }
 
-app.MapHealthChecks("/health/live");
+// AllowAnonymous is required now that the fallback policy is active — without it the health
+// endpoint is gated too, which breaks the SPA's availability probe and any container/proxy
+// liveness check. architecture.md section 2.2.
+app.MapHealthChecks("/health/live").AllowAnonymous();
 app.MapControllers();
 
 app.Run();
