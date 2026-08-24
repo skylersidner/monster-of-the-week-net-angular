@@ -1,0 +1,20 @@
+# Not redundant with .gitignore. This is what stops a STALE LOCAL BUILD being copied into the
+# image context, so what ships is always what the frontend stage just produced rather than
+# whatever a developer last had on disk (notably an unoptimised `npm run watch` build).
+src/api/MonsterOfTheWeek.Api/wwwroot/
+
+**/bin/
+**/obj/
+**/node_modules/
+**/.angular/
+.git/
+.github/
+.squad/
+.vs/
+.vscode/
+.idea/
+docs/
+prototypes/
+**/dist/
+**/*.user
+.env
