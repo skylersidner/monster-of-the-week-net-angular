@@ -1,10 +1,43 @@
 # .NET Version Considerations — reference note
 
-**Reference material, not a design document.** No review gate, no sign-off needed, nothing here is a
-committed decision. Written 2026-08-23 by Bowser, prompted by the NuGet audit warnings that surfaced
-while implementing Phase 0. **Nothing was changed to produce it** — no `.csproj` edit, no package
-version moved, no application code touched. Every claim below was verified against the live tree, the
-installed runtime, the NuGet v3 API and the `dotnet/core` release index rather than recalled.
+**Reference material, not a design document.** No review gate, no sign-off needed. Written 2026-08-23 by
+Bowser, prompted by the NuGet audit warnings that surfaced while implementing Phase 0. Every claim below
+was verified against the live tree, the installed runtime, the NuGet v3 API and the `dotnet/core` release
+index rather than recalled.
+
+> ## ✅ Acted on — local runtime updated 2026-08-23
+>
+> **Recommendation (a) below has been carried out on the development machine. CVE-2026-40372 is resolved
+> here.** Recorded rather than left as advice, because the rest of this document is written in the
+> present tense of "before".
+>
+> | | Before | After |
+> |---|---|---|
+> | .NET SDK | `10.0.202` | **`10.0.400`** (10.0.202 remains side by side — different feature band) |
+> | ASP.NET Core runtime | `10.0.6` ❌ affected | **`10.0.11`** ✅ patched (10.0.6 remains installed; roll-forward selects the highest) |
+> | `dotnet --info` host | `10.0.6` | **`10.0.11`** |
+>
+> - **Method:** `winget upgrade --id Microsoft.DotNet.SDK.10 -e`, matching how the SDK was originally
+>   installed. **Requires an elevated shell** — the non-elevated attempt hangs indefinitely on an
+>   unanswerable UAC prompt rather than failing, which is worth knowing before repeating this.
+> - **Verified the app actually runs on it,** not merely that it is installed: the running
+>   `MonsterOfTheWeek.Api` process loads its framework assemblies from the `…\shared\…\10.0.11`
+>   directory. No `.csproj`, `TargetFramework` or package version was changed to achieve this — exactly
+>   as §3 predicted, roll-forward did it for free.
+> - **Key ring rotated afterwards, in the right order:** the app was stopped, `DELETE FROM
+>   data_protection_keys;` removed the single key generated on the vulnerable 10.0.6 runtime
+>   (`key-47a42b7a-…`), and restarting on 10.0.11 eagerly generated a fresh replacement
+>   (`key-f8cd78c5-…`, one row). Rotating *before* the runtime update would have regenerated the key on
+>   the vulnerable runtime and achieved nothing.
+> - **Verification bar re-run and green:** `dotnet build` succeeds with zero non-audit warnings, all
+>   **160 tests pass**, the app starts cleanly, `/health/live` returns `200`, and ten existing endpoints
+>   return `200` with byte-identical payload sizes to the pre-update baseline.
+> - **The audit warnings are unchanged, and that is the expected result** — a live confirmation of this
+>   document's central point. They describe the package graph, which still pins `10.0.0`. Recommendation
+>   (b) is still outstanding and still deferred to the infrastructure pass.
+> - **Still outstanding:** recommendation (b), the package pins; and the Phase 3 Docker base image must
+>   pin `10.0.7`+ (a floating `10.0` tag is the right answer) or production re-inherits this regardless
+>   of what this machine has.
 
 ---
 
@@ -19,9 +52,10 @@ and the obvious fix solves the one that doesn't matter.**
 - Updating the **.NET runtime** fixes the real exposure and **does not silence the audit warning**,
   because the warning is about the package graph, not about what runs.
 
-And the real exposure is not hypothetical. **This machine's runtime is inside the affected range of a
-CVSS 9.1 vulnerability whose stated impact is forging authentication cookies** — which is precisely the
-mechanism this entire authentication plan rests on. Details in §3.
+And the real exposure was not hypothetical. **This machine's runtime was inside the affected range of a
+CVSS 9.1 vulnerability whose stated impact is forging authentication cookies** — precisely the mechanism
+this entire authentication plan rests on. Details in §3. *(Resolved on this machine 2026-08-23 — see the
+box above. The analysis below is left in its original "before" tense.)*
 
 ---
 
@@ -47,15 +81,17 @@ only because it's tidy, not because anything forces it.
 **But `net10.0` is a band, not a version, and that's where the confusion lives.** The `TargetFramework`
 is right; what's stale is everything underneath it:
 
-| | This repo / machine | Current | Delta |
-|---|---|---|---|
-| `TargetFramework` (both projects) | `net10.0` | `net10.0` | ✅ none |
-| SDK | `10.0.202` | `10.0.400` | behind |
-| ASP.NET Core runtime | **`10.0.6`** | **`10.0.11`** | **5 patches behind** |
-| EF Core / Npgsql package pins | `10.0.0` | `10.0.11` / `10.0.3` | 11 patches behind |
+| | This repo / machine *(as found)* | Current | Delta | Status |
+|---|---|---|---|---|
+| `TargetFramework` (both projects) | `net10.0` | `net10.0` | ✅ none | unchanged, correct |
+| SDK | `10.0.202` | `10.0.400` | behind | ✅ **updated 2026-08-23** |
+| ASP.NET Core runtime | **`10.0.6`** | **`10.0.11`** | **5 patches behind** | ✅ **updated 2026-08-23** |
+| EF Core / Npgsql package pins | `10.0.0` | `10.0.11` / `10.0.3` | 11 patches behind | ⏳ deferred — see §5(b) |
 
-(`dotnet --list-sdks` → `10.0.202`; `dotnet --list-runtimes` → `Microsoft.AspNetCore.App 10.0.6`. SDK
-`10.0.202` is exactly the SDK shipped with runtime `10.0.6`, so these are consistent, just old.)
+(As found: `dotnet --list-sdks` → `10.0.202`; `dotnet --list-runtimes` → `Microsoft.AspNetCore.App
+10.0.6`. SDK `10.0.202` is exactly the SDK shipped with runtime `10.0.6`, so these were consistent, just
+old. Both rows marked ✅ were resolved by the update recorded at the top of this document; the package
+pins deliberately were not.)
 
 ---
 
@@ -114,11 +150,14 @@ change whatsoever**, because roll-forward picks it up automatically.
 
 ### The vulnerability that is actually live
 
-| Advisory | Package | Affected | Patched in | Runtime here (10.0.6) |
-|---|---|---|---|---|
-| **GHSA-9mv3-2cwr-p262** / **CVE-2026-40372** — CVSS **9.1** | `Microsoft.AspNetCore.DataProtection` | `>= 10.0.0, <= 10.0.6` | **`10.0.7`** | ❌ **affected** |
-| GHSA-37gx-xxp4-5rgx / CVE-2026-33116 | `System.Security.Cryptography.Xml` | `>= 10.0.0, <= 10.0.5` | `10.0.6` | ✅ patched |
-| GHSA-w3x6-4m5h-cxqf / CVE-2026-26171 | `System.Security.Cryptography.Xml` | `>= 10.0.0, <= 10.0.5` | `10.0.6` | ✅ patched |
+| Advisory | Package | Affected | Patched in | Was (10.0.6) | Now (10.0.11) |
+|---|---|---|---|---|---|
+| **GHSA-9mv3-2cwr-p262** / **CVE-2026-40372** — CVSS **9.1** | `Microsoft.AspNetCore.DataProtection` | `>= 10.0.0, <= 10.0.6` | **`10.0.7`** | ❌ **affected** | ✅ **resolved** |
+| GHSA-37gx-xxp4-5rgx / CVE-2026-33116 | `System.Security.Cryptography.Xml` | `>= 10.0.0, <= 10.0.5` | `10.0.6` | ✅ patched | ✅ patched |
+| GHSA-w3x6-4m5h-cxqf / CVE-2026-26171 | `System.Security.Cryptography.Xml` | `>= 10.0.0, <= 10.0.5` | `10.0.6` | ✅ patched | ✅ patched |
+
+*(The "Now" column reflects the 2026-08-23 runtime update recorded at the top of this document. The
+10.0.11 release additionally carries fixes for ten further CVEs beyond the three listed here.)*
 
 **This corrects my Phase 0 report.** That report said the flagged assemblies "resolve from the shared
 framework at runtime" and were therefore "restore-audit noise, not a deployed vulnerability." The first
@@ -135,16 +174,22 @@ Read the advisory's own summary, because it is unusually on-the-nose for this pr
 Forged authentication cookies is the whole threat model of Phases 1–3. (CWE-347, improper verification
 of a cryptographic signature — the advisory compares it to the MS10-070 padding-oracle class.)
 
-**Actual exposure today: none.** Phase 0 added key *persistence* but no protector consumer, nothing has
-ever been protected or unprotected, no cookie has ever been issued, and the app has never been publicly
-reachable. The exposure would begin at Phase 1, on a runtime that is still 10.0.6.
+**Actual exposure at the time of writing: none.** Phase 0 added key *persistence* but no protector
+consumer, nothing had ever been protected or unprotected, no cookie had ever been issued, and the app
+had never been publicly reachable. The exposure would have begun at Phase 1, on a runtime that was then
+still 10.0.6.
 
-**One free action while it is still free.** The advisory notes that payloads forged during the
-vulnerable window stay valid after upgrading *unless the key ring is rotated*. The single row now in
-`data_protection_keys` was generated by an affected runtime. Nothing was ever signed with it, so
-rotating is a `DELETE FROM data_protection_keys;` and a restart — trivial now, materially less trivial
-once there is a live session to invalidate. Do it as part of the runtime update rather than spending
-time reasoning about whether it's strictly necessary.
+**One free action while it is still free — ✅ done 2026-08-23.** The advisory notes that payloads forged
+during the vulnerable window stay valid after upgrading *unless the key ring is rotated*. The single row
+in `data_protection_keys` had been generated by an affected runtime. Nothing was ever signed with it, so
+rotating was a `DELETE FROM data_protection_keys;` and a restart — trivial then, materially less trivial
+once there is a live session to invalidate.
+
+**Executed in this order, which is the part that matters:** stop the app → delete the row → start on
+10.0.11 → the key ring is regenerated eagerly at startup on the patched runtime. Rotating *before* the
+runtime update would have produced a replacement key generated by the vulnerable runtime and
+accomplished nothing. Old key `key-47a42b7a-…` (id 1) is gone; the current key is `key-f8cd78c5-…`
+(id 2), one row.
 
 ---
 
@@ -202,15 +247,18 @@ silent.
 **Split it. The two halves have genuinely different urgency, and treating them as one item gets the
 important one wrong.**
 
-**a) Update the .NET SDK/runtime — do this before Phase 1, not later.** This is the half that matters
-and it is not really a "version bump" decision at all; it is patching a CVSS 9.1 cookie-forging
-vulnerability in the exact component Phase 1 is about to start issuing session cookies with. It needs no
-`.csproj` change, no package change, and no code change — install a current SDK (10.0.400, giving
-runtime 10.0.11) and roll-forward does the rest. Do the free key-ring rotation at the same time.
-**Carry the same requirement into the infrastructure pass:** the Phase 3 Dockerfile must pin a base
-image of `10.0.7` or newer — ideally the current patch — or production re-inherits exactly this problem
-regardless of what the dev machine has. A base image tag of `10.0` floats to the latest patch, which is
-the behaviour you want here; a tag pinned to an old specific patch is the trap.
+**a) Update the .NET SDK/runtime — do this before Phase 1, not later. ✅ DONE 2026-08-23.** This is the
+half that matters and it is not really a "version bump" decision at all; it is patching a CVSS 9.1
+cookie-forging vulnerability in the exact component Phase 1 is about to start issuing session cookies
+with. It needs no `.csproj` change, no package change, and no code change — install a current SDK
+(10.0.400, giving runtime 10.0.11) and roll-forward does the rest. Do the free key-ring rotation at the
+same time. *(Carried out on the development machine via `winget upgrade --id Microsoft.DotNet.SDK.10 -e`
+from an elevated shell, with the key ring rotated afterwards and the full verification bar re-run green
+— see the box at the top of this document.)*
+**Still outstanding, and it does not follow automatically from the above:** the Phase 3 Dockerfile must
+pin a base image of `10.0.7` or newer — ideally the current patch — or **production re-inherits exactly
+this problem regardless of what the dev machine has.** A base image tag of `10.0` floats to the latest
+patch, which is the behaviour you want here; a tag pinned to an old specific patch is the trap.
 
 **b) Bump the four `10.0.0` package pins to `10.0.11` — bundle into the infrastructure pass, don't do
 it now.** It is genuinely low-risk and it silences the audit, but it is cosmetic with respect to
