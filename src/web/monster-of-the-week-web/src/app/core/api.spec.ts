@@ -24,10 +24,20 @@ describe('ApiService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should prefix api base url for GET calls', () => {
+  // apiBaseUrl is '' (same-origin: dev proxy in development, the API serving the app in
+  // production), so toUrl() leaves an already-rooted path exactly as given.
+  it('builds a same-origin relative url for GET calls', () => {
     service.get('/health/live').subscribe();
 
-    const request = httpTestingController.expectOne('http://localhost:5225/health/live');
+    const request = httpTestingController.expectOne('/health/live');
+    expect(request.request.method).toBe('GET');
+    request.flush('ok');
+  });
+
+  it('roots a path that does not start with a slash', () => {
+    service.get('health/live').subscribe();
+
+    const request = httpTestingController.expectOne('/health/live');
     expect(request.request.method).toBe('GET');
     request.flush('ok');
   });

@@ -1097,6 +1097,36 @@ Three of the four blocking findings were the same shape as my last review of the
 
 ---
 
+## 2026-08-23 — Simple Auth Phase 2 implementation (Angular login + route guards)
+
+### Task
+Implemented Phase 2 of `docs/simple-authentication-update/phases.md` steps 1–12 + 10b, against a live Phase 0/1 backend (Bowser). All four of my own review findings had to be honoured in code. 42 spec files / 321 tests green, production build clean (same 2 pre-existing budget warnings), 34/34 browser checks against the real API.
+
+### Files
+- New: `core/auth.ts`, `core/auth-guards.ts`, `core/auth-error-interceptor.ts`, `core/credentials-interceptor.ts`, `core/self-handled-request.ts`, `layout/auth-layout/{auth-layout.ts,.html}`, `features/auth/auth.routes.ts`, `features/auth/pages/login/{login.ts,.html}`, `proxy.conf.json`, + 4 spec files
+- Modified: `app.config.ts`, `app.routes.ts`, `app.{ts,html,spec.ts}`, `core/{models,http-error-interceptor,api.spec}.ts`, `layout/page-layout/{page-layout.ts,.html,.spec.ts}`, `environments/environment.ts`, `angular.json`
+
+### Key technical facts worth reusing
+
+- **`withInterceptors([A,B,C])` is REQUEST order; errors come back C→B→A, so the LAST entry is the FIRST to see an error.** Verified empirically by negative control: flipping to `[credentials, authError, httpError]` makes exactly 2 assertions fail with 1 toast on a single 401 and 3 on a burst. Anything that *swallows* an error must be registered last. The regression test that catches it is "a 401 produces zero `NotificationService` entries" — nothing about the wrong order fails to compile.
+- **`provideAppInitializer` only blocks bootstrap if the callback RETURNS a Promise/Observable.** `ThemeService.initialize()` returns `void`, so copying the adjacent line silently doesn't block. Confirmed the correct version end-to-end via a 15 ms `setInterval` polling for `#login-email` across a reload — zero frames of login-page flash.
+- **Angular 22 `CanMatchFn` takes THREE args** `(route, segments, currentSnapshot)`. A guard may *declare* fewer (legal TS), but spec call sites must pass all three — `guard({} as Route, segments, {} as never)`.
+- **`ActivatedRouteSnapshot.queryParamMap` is readonly** — can't assign in a spec. Provide a plain mutable stub object as `ActivatedRoute` and swap `snapshot.queryParamMap` through your own reference.
+- **Route backtracking with two sibling `''` shells works as designed**: logged-out `/dashboard` → shell 1 `canMatch` false → shell 2 matches `''` but has no `dashboard` child → router backtracks → `**` → `''` → shell 2's empty-path child → `/login`. Verified live for `/`, `/dashboard`, unknown URL, deep link, and logged-in `/login` → `/dashboard`.
+- **A `CanMatchFn` returning `false` cannot attach query params** (that needs a `UrlTree`, which loops here). Stashing the attempted URL on the service before returning `false`, and having the login component prefer `?returnUrl` then the stash then `/dashboard`, is ~3 lines and works — verified: logged-out `/monsters` → login → back to `/monsters`.
+
+### Playwright verification gotchas (cost me three re-runs)
+- **`waitForLoadState('networkidle')` is NOT sufficient after a client-side route change.** The document load state is already complete, so it resolves *before* the lazy chunk is even fetched, let alone its `ngOnInit` XHR. Clearing cookies at that point makes the in-flight request 401 and fires the mid-session bounce, so a "click Sign out on an expired session" test instead hits the expiry path and the button detaches. Fix: `page.waitForResponse(r => r.url().includes('/api/mysteries'))`.
+- **`waitForURL('**/login')` does not match `/login?returnUrl=...`.** Use a predicate `(url) => url.pathname === '/login'`.
+- **`page.goBack({waitUntil:'networkidle'})` resolves before Angular's popstate handler runs** (same-document nav = no network). Use `goBack()` then `waitForURL`.
+- **Never assert "no lazy chunk loaded" by matching `chunk-*.js` filenames** — `ng serve` names framework chunks that way too. Fetch each script's body and grep for a component class name, and *exclude `main.js`*, which contains the name as part of the `import().then(m => m.X)` route-table text. Always pair with a control asserting the probe DOES find the chunk after login.
+
+### Judgment calls (both flagged to the coordinator)
+1. `authErrorInterceptor` **swallows every 401 but navigates only on the first** (guarded on `isAuthenticated()`). `phases.md` step 5 reads as though the swallow sits inside the guard, but `architecture.md` §3.3 also says "letting the rest fall through" — falling through to `httpErrorInterceptor` would toast, contradicting the no-toast requirement. Swallow-all + navigate-once is the only reading that satisfies both.
+2. Auth shell children are behind `loadChildren` in `auth.routes.ts` with the empty-path redirect **in the same file**, rather than inline in `app.routes.ts`. Step 10 permitted either but demanded they not be split; keeping them together is what the finding was about.
+
+---
+
 ## 2026-08-23 — Favicon + Unified Sidebar Logo Mark
 
 ### Task

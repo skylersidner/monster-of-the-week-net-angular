@@ -1,0 +1,58 @@
+<h1 class="text-primary text-xl font-semibold m-0">Sign in</h1>
+<p class="text-secondary text-[0.9rem] mt-1 mb-5">Monster of the Week</p>
+
+<!--
+  A real <form> with a real type="submit" button, plus name/id and autocomplete on both controls, so
+  browsers and password managers recognise this as a login form. That is not polish: the plaintext
+  credential trade-off rests on the password being unique to this app and randomly generated, which
+  means it lives in a password manager. architecture.md section 3.4 / section 6.
+-->
+<form class="grid gap-[0.6rem]" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+  <label class="grid font-medium gap-1" for="login-email">
+    Email
+    <input
+      class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full"
+      id="login-email"
+      name="email"
+      type="email"
+      autocomplete="email"
+      autocapitalize="none"
+      spellcheck="false"
+      formControlName="email"
+    />
+  </label>
+
+  <label class="grid font-medium gap-1" for="login-password">
+    Password
+    <input
+      class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus w-full"
+      id="login-password"
+      name="password"
+      type="password"
+      autocomplete="current-password"
+      formControlName="password"
+    />
+  </label>
+
+  @if (errorMessage(); as message) {
+    <p
+      class="bg-danger-subtle rounded-lg text-danger text-[0.87rem] m-0 px-3 py-[0.55rem]"
+      role="alert"
+    >
+      {{ message }}
+    </p>
+  }
+
+  <button
+    class="inline-flex items-center justify-center bg-accent border-0 rounded-lg text-on-accent cursor-pointer gap-[0.45rem] mt-2 px-3 py-[0.55rem] w-full hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-70"
+    type="submit"
+    [disabled]="isSubmitting()"
+  >
+    @if (isSubmitting()) {
+      <app-icon name="spinner" class="h-4 w-4 shrink-0" />
+      Signing in...
+    } @else {
+      Sign in
+    }
+  </button>
+</form>
