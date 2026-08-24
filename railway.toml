@@ -1,0 +1,22 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# EXACTLY "/health/live". Any near-miss — "/health", "/healthz" — has no endpoint and is therefore
+# answered by the SPA fallback with 200 text/html, so the probe would pass forever even with the API
+# completely broken. A healthcheck that returns HTML is misconfigured.
+# ("/healthz" is portfolio's path; copying it verbatim is the trap.)
+healthcheckPath = "/health/live"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+# Environment variables are set in Railway's dashboard, not here — no secrets in the repo:
+#   ASPNETCORE_ENVIRONMENT = Production
+#   ConnectionStrings__Postgres = Host=${{Postgres.PGHOST}};Port=${{Postgres.PGPORT}};
+#                                 Database=${{Postgres.PGDATABASE}};Username=${{Postgres.PGUSER}};
+#                                 Password=${{Postgres.PGPASSWORD}}
+#
+# Compose that string from the addon's individual variables. Do NOT use ${{Postgres.DATABASE_URL}}:
+# Railway exposes it as a postgresql:// URI and Npgsql cannot parse that form.

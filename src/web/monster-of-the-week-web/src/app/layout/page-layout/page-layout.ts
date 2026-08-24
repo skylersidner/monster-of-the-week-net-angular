@@ -1,11 +1,9 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { HealthService } from '../../core/health';
-import { NotificationService } from '../../core/notifications';
+import { AuthService } from '../../core/auth';
 import { DomainIconComponent } from '../../shared/domain-icon.component';
 import { HeaderSearchComponent } from '../../shared/header-search/header-search';
 import { IconComponent } from '../../shared/icons/icon.component';
-import { IconSpriteComponent } from '../../shared/icons/icon-sprite.component';
 
 interface NavItem {
   readonly label: string;
@@ -14,13 +12,20 @@ interface NavItem {
   readonly exactMatch?: boolean;
 }
 
+/**
+ * Chrome for the authenticated side of the app.
+ *
+ * The icon sprite, the notification toast host and the API-availability probe/modal used to live
+ * here; they moved to App (app.ts / app.html) when the auth shell was added, because all three are
+ * app-wide and the login page needs them too. See architecture.md section 3.5.
+ */
 @Component({
   selector: 'app-page-layout',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, DomainIconComponent, HeaderSearchComponent, IconSpriteComponent, IconComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, DomainIconComponent, HeaderSearchComponent, IconComponent],
   templateUrl: './page-layout.html',
   host: { class: 'block h-full' },
 })
-export class PageLayoutComponent implements OnInit {
+export class PageLayoutComponent {
   readonly navItems: readonly NavItem[] = [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard', exactMatch: true },
     { label: 'Mysteries', route: '/mysteries', icon: 'mysteries', exactMatch: false },
@@ -33,17 +38,9 @@ export class PageLayoutComponent implements OnInit {
 
   isShowingUserMenu = false;
   isShowingMobileMenu = false;
-  readonly isCheckingApiAvailability = signal(false);
-  readonly isApiUnavailable = signal(false);
 
-  constructor(
-    readonly notificationService: NotificationService,
-    private readonly healthService: HealthService
-  ) {}
-
-  ngOnInit(): void {
-    this.checkApiAvailability();
-  }
+  // Constructor injection, matching this file's existing style rather than mixing in inject().
+  constructor(private readonly authService: AuthService) {}
 
   toggleUserMenu(): void {
     this.isShowingUserMenu = !this.isShowingUserMenu;
@@ -61,17 +58,8 @@ export class PageLayoutComponent implements OnInit {
     this.isShowingMobileMenu = false;
   }
 
-  checkApiAvailability(): void {
-    this.isCheckingApiAvailability.set(true);
-    this.healthService.getLiveness().subscribe({
-      next: () => {
-        this.isCheckingApiAvailability.set(false);
-        this.isApiUnavailable.set(false);
-      },
-      error: () => {
-        this.isCheckingApiAvailability.set(false);
-        this.isApiUnavailable.set(true);
-      },
-    });
+  signOut(): void {
+    this.closeUserMenu();
+    this.authService.logout();
   }
 }

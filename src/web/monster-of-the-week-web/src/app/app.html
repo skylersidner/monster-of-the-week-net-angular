@@ -1,1 +1,56 @@
+<app-icon-sprite />
+
 <router-outlet />
+
+<aside class="fixed bottom-4 right-4 grid gap-2 w-[min(24rem,calc(100vw-2rem))]" aria-live="polite">
+  @for (notification of notificationService.notifications(); track notification.id) {
+    <div
+      class="flex items-center justify-between rounded-lg px-3 py-[0.65rem]"
+      [class.bg-toast-error]="notification.kind === 'error'"
+      [class.text-on-toast-error]="notification.kind === 'error'"
+      [class.bg-toast-success]="notification.kind !== 'error'"
+      [class.text-on-toast-success]="notification.kind !== 'error'"
+    >
+      <span>{{ notification.message }}</span>
+      <button
+        type="button"
+        class="bg-transparent border-0 text-inherit cursor-pointer text-[1.1rem]"
+        (click)="notificationService.dismiss(notification.id)"
+        aria-label="Dismiss notification"
+      >
+        ×
+      </button>
+    </div>
+  }
+</aside>
+
+@if (isApiUnavailable()) {
+  <div
+    class="api-modal fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="api-modal-title"
+  >
+    <section class="bg-surface-raised rounded-xl shadow-[0_16px_34px_rgba(15,23,42,0.28)] max-w-[28rem] w-full p-[1.2rem]">
+      <h2 id="api-modal-title" class="text-primary m-0">API unavailable</h2>
+      <p class="text-secondary mt-[0.65rem] mb-0">
+        The app cannot reach the API health endpoint right now. Restore API availability and try again.
+      </p>
+      <button
+        type="button"
+        (click)="checkApiAvailability()"
+        [disabled]="isCheckingApiAvailability()"
+        [style.opacity]="isCheckingApiAvailability() ? '.7' : '1'"
+        [style.cursor]="isCheckingApiAvailability() ? 'not-allowed' : 'pointer'"
+        class="inline-flex items-center bg-accent border-0 rounded-lg text-on-accent gap-[0.45rem] mt-4 px-[0.95rem] py-[0.55rem]"
+      >
+        @if (isCheckingApiAvailability()) {
+          <app-icon name="spinner" class="h-4 w-4 shrink-0" />
+          Checking...
+        } @else {
+          Try again
+        }
+      </button>
+    </section>
+  </div>
+}

@@ -1,6 +1,54 @@
 @MonsterOfTheWeek.Api_HostAddress = http://localhost:5225
 
-GET {{MonsterOfTheWeek.Api_HostAddress}}/weatherforecast/
+# Credentials are created BY HAND over a direct database connection only — never seeded from
+# application code, and never by a registration endpoint. Insert a row before using this file:
+#
+#   INSERT INTO app_users (id, email, password, created_at)
+#   VALUES (gen_random_uuid(), 'you@example.com', 'your-password', now());
+#
+@email = you@example.com
+@password = your-password
+
+### Anonymous. Should be 200 even with no session — proves the AllowAnonymous on the health check.
+GET {{MonsterOfTheWeek.Api_HostAddress}}/health/live
+
+### Gated. With no cookie this must be 401 — NOT a 302 to /Account/Login.
+GET {{MonsterOfTheWeek.Api_HostAddress}}/api/mysteries
 Accept: application/json
 
-###
+### Anonymous. Returns null when there is no session. Must never 401.
+GET {{MonsterOfTheWeek.Api_HostAddress}}/api/auth/me
+Accept: application/json
+
+### Wrong password. Must be 400 { "code": "invalid_credentials" } — NOT 401.
+POST {{MonsterOfTheWeek.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "definitely-not-the-password"
+}
+
+### Log in. 200 + Set-Cookie: motw.session=...; httponly; samesite=lax
+POST {{MonsterOfTheWeek.Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Same gated call again, now with the session cookie. Should be 200.
+GET {{MonsterOfTheWeek.Api_HostAddress}}/api/mysteries
+Accept: application/json
+
+### Now returns the signed-in user rather than null.
+GET {{MonsterOfTheWeek.Api_HostAddress}}/api/auth/me
+Accept: application/json
+
+### Authenticated by design — 401 if there is no session. Returns 204 and clears the cookie.
+POST {{MonsterOfTheWeek.Api_HostAddress}}/api/auth/logout
+
+### Back to 401 after logout.
+GET {{MonsterOfTheWeek.Api_HostAddress}}/api/mysteries
+Accept: application/json

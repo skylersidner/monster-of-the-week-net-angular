@@ -1,3 +1,19 @@
+/**
+ * The signed-in user, as returned by POST /api/auth/login and GET /api/auth/me.
+ *
+ * Email is the sole login identifier — there is no username concept at any layer
+ * (docs/simple-authentication-update/phases.md decision #4). No roles in this pass.
+ */
+export interface CurrentUser {
+  id: string;
+  email: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
 export interface TypeRefResponse {
   id: string;
   name: string;

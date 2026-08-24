@@ -1,0 +1,16 @@
+<div class="flex flex-col items-center justify-center min-h-full bg-surface-sunken p-4">
+  <!--
+    bg-accent/text-on-accent, NOT the sidebar's bg-white/20 text-white: that pair reads only
+    because it sits on the indigo sidebar surface, and would be effectively invisible here.
+  -->
+  <div
+    class="bg-accent rounded-full text-on-accent text-xs font-bold tracking-[0.04em] mb-5 px-[0.65rem] py-[0.45rem]"
+    aria-hidden="true"
+  >
+    MOTW
+  </div>
+
+  <section class="bg-surface-raised border border-default rounded-xl shadow-lg max-w-[24rem] w-full p-6">
+    <router-outlet />
+  </section>
+</div>

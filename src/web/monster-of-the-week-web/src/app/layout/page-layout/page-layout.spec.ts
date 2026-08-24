@@ -1,51 +1,51 @@
 import { Component } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { of, Subject, throwError } from 'rxjs';
+import { Router, provideRouter } from '@angular/router';
 
-import { HealthService } from '../../core/health';
-import { NotificationService } from '../../core/notifications';
+import { AuthService } from '../../core/auth';
 import { PageLayoutComponent } from './page-layout';
 
 /** Stand-in for the real settings page so the user-menu link has a route to resolve. */
 @Component({ template: '' })
 class StubSettingsPageComponent {}
 
+/**
+ * The notification-toast and API-availability tests that used to live here moved to app.spec.ts
+ * when those concerns were hoisted to App — see architecture.md section 3.5.
+ */
 describe('PageLayoutComponent', () => {
   let component: PageLayoutComponent;
   let fixture: ComponentFixture<PageLayoutComponent>;
-  let mockHealthService: { endpoint: string; getLiveness: () => any };
+  let httpTestingController: HttpTestingController;
+  let router: Router;
 
   beforeEach(async () => {
-    mockHealthService = {
-      endpoint: 'http://localhost:5225/health/live',
-      getLiveness: () => of('Healthy'),
-    };
-
     await TestBed.configureTestingModule({
       imports: [PageLayoutComponent],
       providers: [
         provideRouter([{ path: 'settings', component: StubSettingsPageComponent }]),
-        { provide: HealthService, useValue: mockHealthService },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     }).compileComponents();
+
+    httpTestingController = TestBed.inject(HttpTestingController);
+    router = TestBed.inject(Router);
+    vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
 
     fixture = TestBed.createComponent(PageLayoutComponent);
     component = fixture.componentInstance;
   });
 
+  afterEach(() => {
+    httpTestingController.verify();
+  });
+
   it('should create', () => {
     fixture.detectChanges();
     expect(component).toBeTruthy();
-  });
-
-  it('shows queued notifications', () => {
-    fixture.detectChanges();
-    const notificationService = TestBed.inject(NotificationService);
-    notificationService.success('Saved successfully');
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.textContent).toContain('Saved successfully');
   });
 
   it('renders dashboard nav entry', () => {
@@ -105,37 +105,44 @@ describe('PageLayoutComponent', () => {
     expect(element.querySelector('a[href="/settings"]')).toBeNull();
   });
 
-  it('shows API unavailable modal when initial health check fails', () => {
-    mockHealthService.getLiveness = () => throwError(() => new Error('API unavailable'));
+  it('signs out from the user menu, ending the session and returning to /login', () => {
+    const authService = TestBed.inject(AuthService);
+    authService.login('test@local.dev', 'pw').subscribe();
+    httpTestingController.expectOne('/api/auth/login').flush({ id: 'u1', email: 'test@local.dev' });
+
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    (element.querySelector('button[aria-label="Open user menu"]') as HTMLButtonElement).click();
     fixture.detectChanges();
 
-    const element = fixture.nativeElement as HTMLElement;
-    expect(element.textContent).toContain('API unavailable');
-    expect((element.querySelector('.api-modal button') as HTMLButtonElement).disabled).toBe(false);
+    const signOutButton = Array.from(element.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Sign out'
+    ) as HTMLButtonElement;
+    expect(signOutButton).toBeTruthy();
+
+    signOutButton.click();
+    httpTestingController
+      .expectOne('/api/auth/logout')
+      .flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+
+    expect(authService.user()).toBeNull();
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
+    expect(component.isShowingUserMenu).toBe(false);
   });
 
-  it('retries API health check and closes modal after success', () => {
-    const pendingRetry = new Subject<string>();
-    let attempts = 0;
-    mockHealthService.getLiveness = () => {
-      attempts += 1;
-      return attempts === 1 ? throwError(() => new Error('API unavailable')) : pendingRetry.asObservable();
-    };
-
+  // "Your profile" is dead today and stays dead in this pass — there is no profile page for it to
+  // point at. Asserted so it is not mistaken for an oversight.
+  it('leaves "Your profile" as a dead link', () => {
     fixture.detectChanges();
-
     const element = fixture.nativeElement as HTMLElement;
-    const retryButton = element.querySelector('.api-modal button') as HTMLButtonElement;
-    retryButton.click();
+    (element.querySelector('button[aria-label="Open user menu"]') as HTMLButtonElement).click();
     fixture.detectChanges();
 
-    expect(retryButton.disabled).toBe(true);
-    expect(element.querySelector('.api-modal svg')).toBeTruthy();
+    const profileLink = Array.from(element.querySelectorAll('a')).find((a) =>
+      a.textContent?.includes('Your profile')
+    ) as HTMLAnchorElement;
 
-    pendingRetry.next('Healthy');
-    pendingRetry.complete();
-    fixture.detectChanges();
-
-    expect(element.querySelector('.api-modal')).toBeNull();
+    expect(profileLink.getAttribute('href')).toBe('#');
   });
 });
