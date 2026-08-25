@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CreateTypeRefRequest, ReferenceTypeTable, TypeRefResponse } from '../../core/models';
 import { NotificationService } from '../../core/notifications';
 import { ReferenceDataService } from '../../core/reference-data';
+import { CustomSelectComponent } from '../../shared/custom-select.component';
 import { WeaponTagAdminComponent } from './components/weapon-tag-admin/weapon-tag-admin';
 
 interface ReferenceTypeOption {
@@ -13,7 +14,7 @@ interface ReferenceTypeOption {
 
 @Component({
   selector: 'app-data-admin-page',
-  imports: [ReactiveFormsModule, WeaponTagAdminComponent],
+  imports: [ReactiveFormsModule, CustomSelectComponent, WeaponTagAdminComponent],
   templateUrl: './data-admin.html',
   styleUrl: './data-admin.scss',
 })
@@ -28,6 +29,9 @@ export class DataAdminPageComponent implements OnInit {
     { table: ReferenceTypeTable.BystanderTypes, label: 'Bystander Types' },
     { table: ReferenceTypeTable.WeaponTags, label: 'Weapon Tags' },
   ];
+
+  readonly referenceTypeOptionValue = (option: ReferenceTypeOption): string => option.table;
+  readonly referenceTypeOptionLabel = (option: ReferenceTypeOption): string => option.label;
 
   readonly hasSubmitted = signal(false);
   readonly isSaving = signal(false);

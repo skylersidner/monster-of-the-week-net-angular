@@ -7,11 +7,13 @@
   <article class="bg-surface border border-default rounded-lg p-4 max-w-[20rem]">
     <label class="grid font-medium gap-[0.3rem]">
       Type Table
-      <select class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus font-[inherit]" [formControl]="form.controls.referenceTypeTable">
-        @for (option of referenceTypeOptions; track option.table) {
-          <option [value]="option.table">{{ option.label }}</option>
-        }
-      </select>
+      <app-custom-select
+        [formControl]="form.controls.referenceTypeTable"
+        [options]="referenceTypeOptions"
+        [optionValue]="referenceTypeOptionValue"
+        [optionLabel]="referenceTypeOptionLabel"
+        placeholder="Select a type table..."
+      ></app-custom-select>
     </label>
   </article>
 
