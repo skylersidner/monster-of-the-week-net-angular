@@ -1,11 +1,11 @@
 <article class="bg-surface border border-default rounded-lg p-4 max-w-[36rem]">
-  <form class="grid gap-[0.75rem]" [formGroup]="form" (ngSubmit)="saveWeaponTag()">
+  <form class="grid gap-[0.75rem]" [formGroup]="form" (ngSubmit)="saveRecord()">
     <label class="grid font-medium gap-[0.3rem]">
       Name
       <input type="text" class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus font-[inherit]" formControlName="name" />
     </label>
     @if (shouldShowNameValidationError()) {
-      <p class="text-danger text-[0.85rem] -mt-[0.35rem]">Name must be at least 3 characters.</p>
+      <p class="text-danger text-[0.85rem] -mt-[0.35rem]">Name must be at least {{ nameMinLength() }} characters.</p>
     }
 
     <label class="grid font-medium gap-[0.3rem]">
@@ -13,7 +13,7 @@
       <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] focus:border-accent focus:outline-none focus:ring-focus font-[inherit]" formControlName="description" rows="12"></textarea>
     </label>
     @if (shouldShowDescriptionValidationError()) {
-      <p class="text-danger text-[0.85rem] -mt-[0.35rem]">Description must be at least 10 characters.</p>
+      <p class="text-danger text-[0.85rem] -mt-[0.35rem]">Description must be at least {{ descriptionMinLength() }} characters.</p>
     }
 
     <button type="submit" class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer font-[inherit] px-[0.85rem] py-2 w-fit disabled:cursor-not-allowed disabled:opacity-70" [disabled]="!canSave()">
@@ -24,11 +24,11 @@
 
 <article class="bg-surface border border-default rounded-lg p-4 mt-4">
   <h2 class="m-0 mb-3">Current Records</h2>
-  @if (isLoadingWeaponTags()) {
+  @if (isLoadingRecords()) {
     <p class="text-muted m-0">Loading records...</p>
-  } @else if (weaponTagsLoadError()) {
-    <p class="text-danger m-0">{{ weaponTagsLoadError() }}</p>
-  } @else if (weaponTags().length === 0) {
+  } @else if (recordsLoadError()) {
+    <p class="text-danger m-0">{{ recordsLoadError() }}</p>
+  } @else if (records().length === 0) {
     <p class="text-muted m-0">No records found.</p>
   } @else {
     <table class="records-table border-collapse w-full">
@@ -39,7 +39,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (record of weaponTags(); track record.id) {
+        @for (record of records(); track record.id) {
           <tr>
             <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.name }}</td>
             <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.description }}</td>

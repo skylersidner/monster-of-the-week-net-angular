@@ -17,8 +17,8 @@
     </label>
   </article>
 
-  @if (isWeaponTagSelected()) {
-    <app-weapon-tag-admin />
+  @if (selectedNameDescriptionTable(); as nameDescriptionTable) {
+    <app-name-description-admin [table]="nameDescriptionTable" />
   } @else {
     <article class="bg-surface border border-default rounded-lg p-4 max-w-[36rem]">
       <form class="grid gap-[0.75rem]" [formGroup]="form" (ngSubmit)="saveReferenceType()">

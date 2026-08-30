@@ -4,11 +4,17 @@ import { shareReplay } from 'rxjs/operators';
 import { ApiService } from './api';
 import {
   AdventureTypeResponse,
+  CreateAdventureTypeRequest,
+  CreateMonsterArchetypeRequest,
+  CreateNameDescriptionRequest,
   CreateTypeRefRequest,
   CreateWeaponTagRequest,
   MonsterArchetypeResponse,
+  NameDescriptionRefResponse,
+  NameDescriptionTable,
   ReferenceTypeTable,
   TypeRefResponse,
+  TypeRefTable,
   WeaponTagRefResponse,
 } from './models';
 
@@ -75,7 +81,12 @@ export class ReferenceDataService {
     return this.weaponTags$;
   }
 
-  getTypesByTable(table: ReferenceTypeTable): Observable<TypeRefResponse[]> {
+  /**
+   * Routes to the list endpoint for a Name + Motivation table. The parameter is narrowed to
+   * `TypeRefTable` so the Name + Description tables are rejected at compile time rather than
+   * throwing at runtime, and so this switch stays provably exhaustive.
+   */
+  getTypesByTable(table: TypeRefTable): Observable<TypeRefResponse[]> {
     switch (table) {
       case ReferenceTypeTable.MonsterTypes:
         return this.getMonsterTypes();
@@ -85,12 +96,22 @@ export class ReferenceDataService {
         return this.getLocationTypes();
       case ReferenceTypeTable.BystanderTypes:
         return this.getBystanderTypes();
-      case ReferenceTypeTable.WeaponTags:
-        throw new Error('Weapon tags are not a type reference table.');
     }
   }
 
-  createType(table: ReferenceTypeTable, request: CreateTypeRefRequest): Observable<TypeRefResponse> {
+  /** Routes to the list endpoint for a Name + Description table. */
+  getNameDescriptionsByTable(table: NameDescriptionTable): Observable<NameDescriptionRefResponse[]> {
+    switch (table) {
+      case ReferenceTypeTable.WeaponTags:
+        return this.getWeaponTags();
+      case ReferenceTypeTable.AdventureTypes:
+        return this.getAdventureTypes();
+      case ReferenceTypeTable.MonsterArchetypes:
+        return this.getMonsterArchetypes();
+    }
+  }
+
+  createType(table: TypeRefTable, request: CreateTypeRefRequest): Observable<TypeRefResponse> {
     switch (table) {
       case ReferenceTypeTable.MonsterTypes:
         this.monsterTypes$ = undefined;
@@ -104,13 +125,39 @@ export class ReferenceDataService {
       case ReferenceTypeTable.BystanderTypes:
         this.bystanderTypes$ = undefined;
         return this.apiService.post<CreateTypeRefRequest, TypeRefResponse>('/api/bystander-types', request);
+    }
+  }
+
+  /** Routes to the create endpoint for a Name + Description table. */
+  createNameDescription(
+    table: NameDescriptionTable,
+    request: CreateNameDescriptionRequest
+  ): Observable<NameDescriptionRefResponse> {
+    switch (table) {
       case ReferenceTypeTable.WeaponTags:
-        throw new Error('Weapon tags use createWeaponTag.');
+        return this.createWeaponTag(request);
+      case ReferenceTypeTable.AdventureTypes:
+        return this.createAdventureType(request);
+      case ReferenceTypeTable.MonsterArchetypes:
+        return this.createMonsterArchetype(request);
     }
   }
 
   createWeaponTag(request: CreateWeaponTagRequest): Observable<WeaponTagRefResponse> {
     this.weaponTags$ = undefined;
     return this.apiService.post<CreateWeaponTagRequest, WeaponTagRefResponse>('/api/weapon-tags', request);
+  }
+
+  createAdventureType(request: CreateAdventureTypeRequest): Observable<AdventureTypeResponse> {
+    this.adventureTypes$ = undefined;
+    return this.apiService.post<CreateAdventureTypeRequest, AdventureTypeResponse>('/api/adventure-types', request);
+  }
+
+  createMonsterArchetype(request: CreateMonsterArchetypeRequest): Observable<MonsterArchetypeResponse> {
+    this.monsterArchetypes$ = undefined;
+    return this.apiService.post<CreateMonsterArchetypeRequest, MonsterArchetypeResponse>(
+      '/api/monster-archetypes',
+      request
+    );
   }
 }

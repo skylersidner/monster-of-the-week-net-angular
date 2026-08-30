@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 
-import { ReferenceTypeTable } from '../../core/models';
+import { NameDescriptionTable, ReferenceTypeTable } from '../../core/models';
 import { NotificationService } from '../../core/notifications';
 import { ReferenceDataService } from '../../core/reference-data';
 import { DataAdminPageComponent } from './data-admin';
@@ -13,12 +13,14 @@ describe('DataAdminPageComponent', () => {
   let selectedTable: ReferenceTypeTable | null = null;
   let selectedLoadTable: ReferenceTypeTable | null = null;
   let loadTypeCalls = 0;
+  let selectedNameDescriptionLoadTable: NameDescriptionTable | null = null;
 
   beforeEach(async () => {
     createTypeCalls = 0;
     selectedTable = null;
     selectedLoadTable = null;
     loadTypeCalls = 0;
+    selectedNameDescriptionLoadTable = null;
 
     await TestBed.configureTestingModule({
       imports: [DataAdminPageComponent],
@@ -31,13 +33,16 @@ describe('DataAdminPageComponent', () => {
               selectedTable = table;
               return of({ id: 'type-1', name: 'Crossroads', motivation: 'Tempts visitors toward danger.' });
             },
-            createWeaponTag: () => of({ id: 'tag-1', name: 'Area', description: 'Impacts everyone in an area.' }),
+            createNameDescription: () => of({ id: 'tag-1', name: 'Area', description: 'Impacts everyone in an area.' }),
             getTypesByTable: (table: ReferenceTypeTable) => {
               loadTypeCalls += 1;
               selectedLoadTable = table;
               return of([{ id: `${table}-1`, name: `${table} name`, motivation: `${table} motivation` }]);
             },
-            getWeaponTags: () => of([{ id: 'tag-1', name: 'Area', description: 'Impacts everyone in an area.' }]),
+            getNameDescriptionsByTable: (table: NameDescriptionTable) => {
+              selectedNameDescriptionLoadTable = table;
+              return of([{ id: `${table}-1`, name: `${table} name`, description: `${table} description` }]);
+            },
           },
         },
         {
@@ -105,12 +110,46 @@ describe('DataAdminPageComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('location-types motivation');
   });
 
-  it('shows weapon tag admin component when weapon tags are selected', () => {
-    component.form.controls.referenceTypeTable.setValue(ReferenceTypeTable.WeaponTags);
+  it('offers every reference table in the dropdown', () => {
+    expect(component.referenceTypeOptions.map((option) => option.table)).toEqual([
+      ReferenceTypeTable.MonsterTypes,
+      ReferenceTypeTable.MinionTypes,
+      ReferenceTypeTable.LocationTypes,
+      ReferenceTypeTable.BystanderTypes,
+      ReferenceTypeTable.AdventureTypes,
+      ReferenceTypeTable.MonsterArchetypes,
+      ReferenceTypeTable.WeaponTags,
+    ]);
+    expect(component.referenceTypeOptions.map((option) => option.label)).toContain('Adventure Types');
+    expect(component.referenceTypeOptions.map((option) => option.label)).toContain('Monster Archetypes');
+  });
+
+  const nameDescriptionTables: readonly NameDescriptionTable[] = [
+    ReferenceTypeTable.WeaponTags,
+    ReferenceTypeTable.AdventureTypes,
+    ReferenceTypeTable.MonsterArchetypes,
+  ];
+
+  for (const table of nameDescriptionTables) {
+    it(`delegates ${table} to the name + description admin component`, () => {
+      component.form.controls.referenceTypeTable.setValue(table);
+      fixture.detectChanges();
+
+      expect(component.selectedNameDescriptionTable()).toBe(table);
+      expect(selectedNameDescriptionLoadTable).toBe(table);
+
+      const text = fixture.nativeElement.textContent as string;
+      expect(text).toContain('Description');
+      expect(text).toContain(`${table} description`);
+      expect(text).not.toContain('Motivation');
+    });
+  }
+
+  it('keeps the motivation form for the name + motivation tables', () => {
+    component.form.controls.referenceTypeTable.setValue(ReferenceTypeTable.MinionTypes);
     fixture.detectChanges();
 
-    const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('Description');
-    expect(text).not.toContain('Motivation must be at least 10 characters.');
+    expect(component.selectedNameDescriptionTable()).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Motivation');
   });
 });
