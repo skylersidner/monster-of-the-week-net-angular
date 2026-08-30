@@ -151,6 +151,9 @@
                 @if (armor.description) {
                   <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem]">{{ armor.description }}</p>
                 }
+                @if (armor.isSpecial && armor.specialDescription) {
+                  <p class="text-muted text-[0.85rem] font-normal mt-[0.2rem]"><em class="italic">Special:</em> {{ armor.specialDescription }}</p>
+                }
               </div>
               <button
                 type="button"

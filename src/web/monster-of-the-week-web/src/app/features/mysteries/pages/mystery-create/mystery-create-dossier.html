@@ -109,11 +109,11 @@
         @for (armor of store.monsterPreview().armors; track $index) {
           <li>
             <span>{{ armor.name }} ({{ armor.harmSoak }} harm soak)</span>
-            @if (armor.isSpecial && armor.specialDescription) {
-              <div class="text-muted text-[0.8rem] leading-[1.4]">Special: {{ armor.specialDescription }}</div>
-            }
-            @if (!armor.isSpecial && armor.description) {
+            @if (armor.description) {
               <div class="text-muted text-[0.8rem] leading-[1.4]">{{ armor.description }}</div>
+            }
+            @if (armor.isSpecial && armor.specialDescription) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]"><em class="italic">Special:</em> {{ armor.specialDescription }}</div>
             }
           </li>
         }
@@ -178,11 +178,11 @@
         @for (armor of store.minionPreview().armors; track $index) {
           <li>
             <span>{{ armor.name }} ({{ armor.harmSoak }} harm soak)</span>
-            @if (armor.isSpecial && armor.specialDescription) {
-              <div class="text-muted text-[0.8rem] leading-[1.4]">Special: {{ armor.specialDescription }}</div>
-            }
-            @if (!armor.isSpecial && armor.description) {
+            @if (armor.description) {
               <div class="text-muted text-[0.8rem] leading-[1.4]">{{ armor.description }}</div>
+            }
+            @if (armor.isSpecial && armor.specialDescription) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]"><em class="italic">Special:</em> {{ armor.specialDescription }}</div>
             }
           </li>
         }
