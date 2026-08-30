@@ -140,4 +140,42 @@ describe('MysteryCreateComponent', () => {
     expect(element.querySelectorAll('.countdown-dossier-grid app-mystery-section-icon').length).toBe(2);
     expect(element.textContent).toContain('Midnight');
   });
+
+  it("shows both the normal and special armor descriptions in the phase panel and the dossier", () => {
+    component.store.currentPhase.set(1);
+    component.store.currentStep.set(0);
+    component.store.monsterForm.controls.name.setValue("The Grinner");
+    component.store.monsterArmors.set([
+      {
+        name: "Bone Plate",
+        description: "Fused ribs worn as a cuirass.",
+        harmSoak: 2,
+        isSpecial: true,
+        specialDescription: "Only silver gets through.",
+      },
+      {
+        name: "Thick Hide",
+        description: "Calloused and scarred.",
+        harmSoak: 1,
+        isSpecial: false,
+        specialDescription: "",
+      },
+    ]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const phasePanel = element.querySelector("section")!;
+    const dossier = element.querySelector("aside")!;
+
+    for (const panel of [phasePanel, dossier]) {
+      // A special armor must show its own description as well as the special note.
+      expect(panel.textContent).toContain("Fused ribs worn as a cuirass.");
+      expect(panel.textContent).toContain("Only silver gets through.");
+      // A non-special armor still shows its description and no special note.
+      expect(panel.textContent).toContain("Calloused and scarred.");
+    }
+
+    expect(phasePanel.querySelectorAll("em").length).toBe(1);
+    expect(dossier.querySelector("em")?.textContent).toBe("Special:");
+  });
 });

@@ -208,6 +208,38 @@ describe('MonsterDetailComponent', () => {
     expect(specialDescriptionLabel?.querySelector('span.text-danger')?.textContent?.trim()).toBe('*');
   });
 
+  it('shows the special description when an armor entry is special', () => {
+    component.monster.set({
+      ...loadedMonster,
+      armors: [
+        {
+          id: 'ar1',
+          name: 'Bark Hide',
+          description: 'Thick bark.',
+          harmSoak: 2,
+          isSpecial: true,
+          specialDescription: 'Only against fire.',
+        },
+        {
+          id: 'ar2',
+          name: 'Scale Mail',
+          description: 'Ordinary scales.',
+          harmSoak: 1,
+          isSpecial: false,
+          specialDescription: null,
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const armorArticle = Array.from(fixture.nativeElement.querySelectorAll('article')).find((article) =>
+      (article as HTMLElement).textContent?.includes('Armors')
+    ) as HTMLElement;
+
+    expect(armorArticle.textContent).toContain('Special: Only against fire.');
+    expect(armorArticle.textContent).not.toContain('Special: Ordinary scales.');
+  });
+
   it('does not delete attack when cancelled', () => {
     component.requestDeleteAttack('attack-1', 'Test Attack');
     expect(component.pendingDelete()).not.toBeNull();

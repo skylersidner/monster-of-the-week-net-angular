@@ -115,11 +115,11 @@
       <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
         <div class="flex flex-1 flex-col gap-[0.2rem]">
           <span>{{ armor.name }} (Soak {{ armor.harmSoak }})</span>
-          @if (armor.isSpecial && armor.specialDescription) {
-            <div class="text-muted text-[0.8rem] leading-[1.4]">Special: {{ armor.specialDescription }}</div>
-          }
-          @if (!armor.isSpecial && armor.description) {
+          @if (armor.description) {
             <div class="text-muted text-[0.8rem] leading-[1.4]">{{ armor.description }}</div>
+          }
+          @if (armor.isSpecial && armor.specialDescription) {
+            <div class="text-muted text-[0.8rem] leading-[1.4]"><em class="italic">Special:</em> {{ armor.specialDescription }}</div>
           }
         </div>
         <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterArmor($index)">×</button>
@@ -257,11 +257,11 @@
       <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
         <div class="flex flex-1 flex-col gap-[0.2rem]">
           <span>{{ armor.name }} (Soak {{ armor.harmSoak }})</span>
-          @if (armor.isSpecial && armor.specialDescription) {
-            <div class="text-muted text-[0.8rem] leading-[1.4]">Special: {{ armor.specialDescription }}</div>
-          }
-          @if (!armor.isSpecial && armor.description) {
+          @if (armor.description) {
             <div class="text-muted text-[0.8rem] leading-[1.4]">{{ armor.description }}</div>
+          }
+          @if (armor.isSpecial && armor.specialDescription) {
+            <div class="text-muted text-[0.8rem] leading-[1.4]"><em class="italic">Special:</em> {{ armor.specialDescription }}</div>
           }
         </div>
         <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMinionArmor($index)">×</button>
