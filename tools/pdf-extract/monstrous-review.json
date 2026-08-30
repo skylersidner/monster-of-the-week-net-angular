@@ -1,0 +1,95 @@
+{
+  "playbook": "The Monstrous",
+  "streamOrderCheck": "Spot-checked pdftotext -raw against pages 37 and 38 for the column-swap defect before extracting, per standard practice. Page 37: Monster Breed -> Curses -> Natural Attacks -> Moves, correct left-to-right order, no swap. Page 38: Gear -> Getting Started -> Introductions (column 1) -> History -> Monster Breed Suggestions (column 2) -> Leveling Up (column 3), correct order, no swap.",
+  "target1_monsterBreedIntro": {
+    "note": "Contains a genuine source typo, \"if you you were originally\" — preserved EXACTLY as printed per explicit instruction; already corrected on the catalogue side as a separate content-fidelity call, not re-litigated here.",
+    "text": "You're half-human, half-monster: decide if you were always this way or if you you were originally human and transformed somehow. Now decide if you were always fighting to be good, or if you were evil and changed sides. Define your monstrous breed by picking a curse, moves, and natural attacks. Create the monster you want to be: whatever you choose defines your breed in the game. Some classic monsters with suggestions for picks are listed on the back of this sheet. These are <i>only</i> suggestions: feel free to make a different version!"
+  },
+  "target2_curses": {
+    "note": "Pick-1 section. The exact source heading is \"Curses, pick one:\" (bold, structural) — no separate \"Pick one.\" sentence exists beyond this heading.",
+    "options": [
+      {
+        "title": "Feed",
+        "descriptionText": "You must subsist on living humans—it might take the form of blood, brains, or spiritual essence but it must be from people. You need to <b>act under pres- sure</b> to resist feeding whenever a perfect opportunity presents itself."
+      },
+      {
+        "title": "Vulnerability",
+        "descriptionText": "Pick a substance. You suffer +1 harm when you suffer harm from it. If you are bound or sur- rounded by it, you must <b>act under pressure</b> to use your powers."
+      },
+      {
+        "title": "Pure Drive",
+        "descriptionText": "One emotion rules you. Pick from: hunger, hate, anger, fear, jealousy, greed, joy, pride, envy, lust, or cruelty. Whenever you have a chance to indulge that emotion, you must do so immediately, or <b>act under pressure</b> to resist."
+      },
+      {
+        "title": "Dark Master",
+        "descriptionText": "You have an evil lord who doesn’t know you changed sides. They still give you orders, and they do not tolerate refusal. Or failure."
+      }
+    ]
+  },
+  "target3_naturalAttacks": {
+    "framing": "<i>Pick a Base and add an extra to it, or two Bases.</i>",
+    "bases": [
+      {
+        "title": null,
+        "descriptionText": "Base: teeth (3-harm intimate)"
+      },
+      {
+        "title": null,
+        "descriptionText": "Base: claws (2-harm hand)"
+      },
+      {
+        "title": null,
+        "descriptionText": "Base: magical force (1-harm magical close)"
+      },
+      {
+        "title": null,
+        "descriptionText": "Base: life-drain (1-harm intimate life-drain)"
+      }
+    ],
+    "extras": [
+      {
+        "title": null,
+        "descriptionText": "Extra: Add +1 harm to a base"
+      },
+      {
+        "title": null,
+        "descriptionText": "Extra: Add ignore-armour to a base"
+      },
+      {
+        "title": null,
+        "descriptionText": "Extra: Add an extra range to a base (add intimate, hand, or close)."
+      }
+    ]
+  },
+  "target4_monsterBreedSuggestions": [
+    {
+      "archetype": "Vampire",
+      "text": "<b>Vampire</b>: <i>Curse</i>: feed (blood or life-force). <i>Natural attacks</i>: Base: life-drain or Base: teeth; add +1 harm to base attack. <i>Moves</i>: immortal or unquenchable vitality; mental domination."
+    },
+    {
+      "archetype": "Werewolf",
+      "text": "<b>Werewolf</b>: <i>Curse</i>: vulnerability (silver). <i>Natural attacks</i>: Base: claws; Base: teeth. <i>Moves</i>: shapeshifter (wolf and/or wolfman); claws of the beast or unholy strength."
+    },
+    {
+      "archetype": "Ghost",
+      "text": "<b>Ghost</b>: <i>Curse</i>: vulnerability (rock salt). <i>Natural attacks</i>: Base: magical force; add hand range to magical force. <i>Moves</i>: incorporeal; immortal."
+    },
+    {
+      "archetype": "Faerie",
+      "text": "<b>Faerie</b>: <i>Curse</i>: pure drive (joy). <i>Natural attacks</i>: Base: magical force; add ignore-armour to magical force. <i>Moves</i>: flight; preternatural speed."
+    },
+    {
+      "archetype": "Demon",
+      "text": "<b>Demon</b>: <i>Curse</i>: pure drive (cruelty). <i>Natural attacks</i>: Base: claws; +1 harm to claws. <i>Moves</i>: dark negotiator; unquenchable vitality."
+    },
+    {
+      "archetype": "Orc",
+      "text": "<b>Orc</b>: <i>Curse</i>: dark master (the orc overlord). <i>Natural attacks</i>: Base: teeth; add ignore-armour to teeth. <i>Moves</i>: Unholy strength; dark negotiator."
+    },
+    {
+      "archetype": "Zombie",
+      "text": "<b>Zombie</b>: <i>Curse</i>: pure drive (hunger), feed (flesh or brains). <i>Natural attacks</i>: Base: teeth; +1 harm to teeth. <i>Moves</i>: immortal; unquenchable vitality."
+    }
+  ],
+  "formattingNote": "Target 1 (Monster Breed intro): 1 italic span (\"only\"). Target 2 (Curses): all 4 options have bold titles (3 of 4 needed a generic extract-moves.mjs fix for a leading \": \" left over from a colon-free bold title — see script header) and 1 bold cross-reference each (\"act under pressure\"/variant, base-move pattern); Dark Master has none beyond its title. Target 3 (Natural Attacks): framing sentence entirely italicized; all 4 Base and 3 Extra descriptions entirely plain, no bold/italic, no font-based title signal (matches Forged's Benefits precedent — these are flat descriptions, not font-derived title+description). Target 4 (page 38): all 7 archetype entries have a bold name and exactly 3 italic field sub-labels each (\"Curse\", \"Natural attacks\", \"Moves\") — confirmed programmatically for all 7, a consistent, new formatting pattern for this pipeline (italicized structural sub-labels within an otherwise plain summary line, distinct from every prior bold/italic usage pattern found so far)."
+}

@@ -1,0 +1,87 @@
+{
+  "playbook": "The Professional",
+  "section": "Agency",
+  "streamOrderCheck": "Confirmed via pdftotext -raw: no column-swap defect on this page (Getting Started -> ratings -> Agency -> Introductions -> History -> Leveling Up -> Improvements -> Advanced Improvements, correct order).",
+  "framing": "Decide who it is you work for. Are they a black-budget government department, a secret military unit, a clandestine police team, a private individual's crusade, a corporation, a scientific team, or what? Is the Agency's goal to: destroy monsters, study the supernatural, protect people, gain power, or something else? Pick two resource tags for the Agency, and two red tape tags:",
+  "resources": [
+    {
+      "title": "Well-armed",
+      "descriptionText": null
+    },
+    {
+      "title": "Well-financed",
+      "descriptionText": null
+    },
+    {
+      "title": "Rigorous training",
+      "descriptionText": null
+    },
+    {
+      "title": "Official pull",
+      "descriptionText": null
+    },
+    {
+      "title": "Cover identities",
+      "descriptionText": null
+    },
+    {
+      "title": "Offices all over",
+      "descriptionText": null
+    },
+    {
+      "title": "Good intel",
+      "descriptionText": null
+    },
+    {
+      "title": "Recognised authority",
+      "descriptionText": null
+    },
+    {
+      "title": "Weird tech gadgets",
+      "descriptionText": null
+    },
+    {
+      "title": "Support teams",
+      "descriptionText": null
+    }
+  ],
+  "redTape": [
+    {
+      "title": "Dubious motives",
+      "descriptionText": null
+    },
+    {
+      "title": "Bureaucratic",
+      "descriptionText": null
+    },
+    {
+      "title": "Secretive hierarchy",
+      "descriptionText": null
+    },
+    {
+      "title": "Cryptic missions",
+      "descriptionText": null
+    },
+    {
+      "title": "Hostile superiors",
+      "descriptionText": null
+    },
+    {
+      "title": "Inter-departmental rivalry",
+      "descriptionText": null
+    },
+    {
+      "title": "Budget cuts",
+      "descriptionText": null
+    },
+    {
+      "title": "Take no prisoners policy",
+      "descriptionText": null
+    },
+    {
+      "title": "Live capture policy",
+      "descriptionText": null
+    }
+  ],
+  "formattingNote": "2 bold/italic run(s) detected in this column (Y-bounded to exclude the \"Agency\" heading itself); 0 matched a tag label exactly (expected 0). Both detected bold runs are structural section headings (\"Resources\", \"Red Tape\") — their own \"(pick two):\" suffixes are a SEPARATE plain-styled run, same minor stylistic detail already seen on Initiate's Sect. Framing block is entirely plain (after correcting an initial false-positive <b>Agency</b> caused by an over-wide Y-bound pulling in the \"Agency\" section heading itself — a fifth instance of this pipeline's now-standard heading-bleeds-into-body false positive). Zero formatting on any of the 19 tags (10 Resources + 9 Red Tape). Zero italic anywhere in this section."
+}

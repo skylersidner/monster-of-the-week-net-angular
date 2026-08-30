@@ -1,0 +1,80 @@
+{
+  "playbook": "The Host",
+  "section": "Symbiosis",
+  "streamOrderCheck": "Confirmed via pdftotext -raw: no column-swap defect on this page. Symbiosis column content precedes Moves column content in stream order, matching the correct left-to-right visual order.",
+  "effectTextCandidateFinding": "NONE FOUND. Confirmed directly from the raw PDF item stream (not by re-reading Yoshi's own conclusion): the item immediately following \"Magical aura\" (the last Downside tag) is \"Moves\", in a completely different x-column (x=503 vs. Symbiosis's own x=275) — zero additional items exist in the Symbiosis column's x-range after the last Downside tag. There is no prose block, and no EffectText candidate, between the Downsides list and Moves.",
+  "framingSentence": "Choose the Benefits and Downside of your symbiosis.",
+  "benefits": [
+    {
+      "title": "Aligned motivations",
+      "descriptionText": null
+    },
+    {
+      "title": "Unaging",
+      "descriptionText": null
+    },
+    {
+      "title": "Can survive vacuum, pressure, and lack of air",
+      "descriptionText": null
+    },
+    {
+      "title": "Immune to radiation",
+      "descriptionText": null
+    },
+    {
+      "title": "Disease, drug, and poison resistance",
+      "descriptionText": null
+    },
+    {
+      "title": "Subtle physical improvements",
+      "descriptionText": null
+    },
+    {
+      "title": "Can't be possessed",
+      "descriptionText": null
+    },
+    {
+      "title": "Can climb walls",
+      "descriptionText": null
+    },
+    {
+      "title": "Efficient metabolism",
+      "descriptionText": null
+    },
+    {
+      "title": "Non-physical symbiote",
+      "descriptionText": null
+    }
+  ],
+  "downsides": [
+    {
+      "title": "Limited communication",
+      "descriptionText": null
+    },
+    {
+      "title": "Body timeshare",
+      "descriptionText": null
+    },
+    {
+      "title": "Biological needs",
+      "descriptionText": null
+    },
+    {
+      "title": "Personality conflicts",
+      "descriptionText": null
+    },
+    {
+      "title": "Obvious mutations",
+      "descriptionText": null
+    },
+    {
+      "title": "Distracting chatter",
+      "descriptionText": null
+    },
+    {
+      "title": "Magical aura",
+      "descriptionText": null
+    }
+  ],
+  "formattingNote": "3 bold/italic run(s) detected in this column; 0 matched a tag label exactly (expected 0). All 3 detected bold runs are structural section headings (\"Symbiosis\", \"Benefits (pick two):\", \"Downsides (pick one):\") — zero formatting on the framing sentence and zero formatting on any of the 17 tags (10 Benefits + 7 Downsides). Zero italic anywhere in this section."
+}

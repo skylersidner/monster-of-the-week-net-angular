@@ -1,0 +1,94 @@
+{
+  "playbook": "The Interface",
+  "section": "Integration",
+  "streamOrderCheck": "Confirmed via pdftotext -raw: no column-swap defect on this page (Integration precedes Moves in stream order, matching correct left-to-right visual order).",
+  "framing": "Pick Upgrades and Faults to describe how you interact with machines.",
+  "upgrades": [
+    {
+      "title": "Always connected",
+      "descriptionText": null
+    },
+    {
+      "title": "Specialised tools",
+      "descriptionText": null
+    },
+    {
+      "title": "Security specialist",
+      "descriptionText": null
+    },
+    {
+      "title": "Intelligence database",
+      "descriptionText": null
+    },
+    {
+      "title": "Aim-assist",
+      "descriptionText": null
+    },
+    {
+      "title": "Heads-up display",
+      "descriptionText": null
+    },
+    {
+      "title": "Everything's compatible",
+      "descriptionText": null
+    },
+    {
+      "title": "Speed typing",
+      "descriptionText": null
+    }
+  ],
+  "faults": [
+    {
+      "title": "Need my gear",
+      "descriptionText": null
+    },
+    {
+      "title": "Hackable brain",
+      "descriptionText": null
+    },
+    {
+      "title": "Specialised maintenance",
+      "descriptionText": null
+    },
+    {
+      "title": "Undisciplined",
+      "descriptionText": null
+    },
+    {
+      "title": "Overhyped rep",
+      "descriptionText": null
+    },
+    {
+      "title": "Overconfidence",
+      "descriptionText": null
+    },
+    {
+      "title": "Buggy implants",
+      "descriptionText": null
+    }
+  ],
+  "originTransition": "Then pick how you gained these abilities.",
+  "origin": [
+    {
+      "title": "We Can Rebuild Them",
+      "descriptionText": "You were rebuilt after a near- death, or actual death, experience. Who thought you were important enough to keep alive?"
+    },
+    {
+      "title": "Technopath",
+      "descriptionText": "You have a magical relationship with machines. How did you gain or discover your powers?"
+    },
+    {
+      "title": "Volunteer",
+      "descriptionText": "You volunteered to be upgraded. Who had the technology to do this to you?"
+    },
+    {
+      "title": "Skillz",
+      "descriptionText": "Sheer genius and hard work. What event made your reputation, and how does it cause you trouble?"
+    },
+    {
+      "title": "Artificial",
+      "descriptionText": "You were created this way. What was your original purpose? Have you transcended it?"
+    }
+  ],
+  "formattingNote": "2 bold/italic run(s) detected in the framing/tags range; 0 matched a tag label exactly (expected 0). The only bold text there is the 2 structural headings (\"Upgrades (pick two):\", \"Faults (pick two):\"). Framing sentence and the transition sentence (\"Then pick how you gained these abilities.\", specifically checked as requested) are both entirely plain. All 8 Upgrades tags and all 7 Faults tags are plain, confirmed programmatically. All 5 Origin options have bold titles (standard colon-delimited pattern) and fully plain descriptions — zero additional inline formatting within any of them. Zero italic anywhere in this section."
+}

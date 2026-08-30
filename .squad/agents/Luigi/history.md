@@ -1186,3 +1186,23 @@ Live Playwright check (headed Chromium, fresh/uncached context) against `ng serv
 
 ### Files
 Modified: `src/web/monster-of-the-week-web/src/index.html` (lines 8-9 only). Addendum appended to `.squad/decisions/inbox/luigi-favicon-logo-mark.md`.
+
+---
+
+## 2026-08-30 — Armor Special Description Display Gap (bug fix)
+
+### Task
+Skyler: checking "Special" + filling `specialDescription` on an armor entry didn't display anywhere on the read-back views. Audited every armor-rendering surface app-wide (`monster-create`, `minion-create`, both `-detail` pages, `mystery-create-dossier`, `mystery-create-monster-phase`, `mystery-detail`, both list pages) via grep for `armor|Armor|harmSoak|isSpecial|specialDescription`.
+
+### Findings
+- Only 2 surfaces were missing it: `monster-detail.html` and `minion-detail.html` (both the "already-persisted armor list" `@for` loop, not the add-form — the add-form always had the `isSpecial`/`specialDescription` fields). Every create/wizard surface Skyler + the orchestrator named was already correct.
+- `mystery-detail.html` (the saved-mystery summary page, distinct from the create wizard) renders monsters/minions as name-only links to the shared `monster-detail`/`minion-detail` routes — no armor rendering of its own, so no gap there once the detail pages are fixed.
+- List pages (`monsters-list.html`, `minions-list.html`) only show an `armorCount` number, never armor entries — not in scope.
+- Confirmed no mapper/transform layer drops the field on read: `monster-detail.ts`/`minion-detail.ts` call `monsterService.getById()`/`minionService.getById()` and `.set()` the raw `MonsterDetailResponse`/`MinionDetailResponse` straight onto the signal — pure template gap, not a data-loading bug, as the orchestrator suspected.
+- Fixed by adding the identical `@if (armor.isSpecial && armor.specialDescription) { <p>Special: {{ armor.specialDescription }}</p> }` block used by `monster-create.html`/`minion-create.html`, matching each file's local Tailwind convention exactly (`monster-detail.html`'s `description` `<p>` has no `mb-0`, so the new block doesn't either; `minion-detail.html`'s does, so the new block matches).
+
+### Verification
+`npm run build`: clean, same 2 pre-existing budget warnings (`custom-select.component.scss`, `mystery-create.scss`) as prior sessions. `npm test -- --watch=false`: 42 files / 323 tests green (up from the 38/278 baseline in an earlier entry — other branch work added files; no regressions from this change). Added one DOM-rendering test per detail spec (`shows the special description when an armor entry is special`) asserting `Special: <text>` appears for a special armor entry and is absent for a non-special one in the same list — neither spec had a rendering-level armor assertion before (only form-validation ones existed in `monster-detail.spec.ts`).
+
+### Files
+Modified: `features/monsters/pages/monster-detail/monster-detail.html`, `features/minions/pages/minion-detail/minion-detail.html`, `features/monsters/pages/monster-detail/monster-detail.spec.ts`, `features/minions/pages/minion-detail/minion-detail.spec.ts`.

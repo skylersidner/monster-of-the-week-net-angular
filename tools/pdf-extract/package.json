@@ -1,0 +1,10 @@
+{
+  "name": "hunter-playbooks-pdf-extract",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Standalone one-off tool: extracts bold/italic/list-preserving text from the Hunter Playbooks PDF into the <b>/<i>/<ul>/<li> HTML subset used by the app's DescriptionText fields. Not a dependency of the deployed app.",
+  "type": "module",
+  "dependencies": {
+    "pdfjs-dist": "^4.10.38"
+  }
+}
