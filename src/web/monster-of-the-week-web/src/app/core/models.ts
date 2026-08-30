@@ -30,12 +30,55 @@ export interface CreateWeaponTagRequest {
   description: string;
 }
 
+export interface CreateAdventureTypeRequest {
+  name: string;
+  description: string;
+}
+
+export interface CreateMonsterArchetypeRequest {
+  name: string;
+  description: string;
+}
+
 export enum ReferenceTypeTable {
   MonsterTypes = 'monster-types',
   MinionTypes = 'minion-types',
   LocationTypes = 'location-types',
   BystanderTypes = 'bystander-types',
+  AdventureTypes = 'adventure-types',
+  MonsterArchetypes = 'monster-archetypes',
   WeaponTags = 'weapon-tags',
+}
+
+/**
+ * The reference tables whose rows are Name + Description. All three are managed by the
+ * single `app-name-description-admin` component in Data Admin; the only per-table
+ * differences are wording and the Description minimum length (weapon tags require 10
+ * characters server-side, adventure types and monster archetypes require 5).
+ */
+export type NameDescriptionTable =
+  | ReferenceTypeTable.WeaponTags
+  | ReferenceTypeTable.AdventureTypes
+  | ReferenceTypeTable.MonsterArchetypes;
+
+/** The reference tables whose rows are Name + Motivation (`TypeRefResponse`). */
+export type TypeRefTable = Exclude<ReferenceTypeTable, NameDescriptionTable>;
+
+/**
+ * Read shape common to every `NameDescriptionTable`. `description` is nullable only
+ * because `WeaponTagRefResponse.description` is; adventure types and monster archetypes
+ * always carry a value.
+ */
+export interface NameDescriptionRefResponse {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+/** Write shape common to every `NameDescriptionTable`. */
+export interface CreateNameDescriptionRequest {
+  name: string;
+  description: string;
 }
 
 export interface WeaponTagRefResponse {

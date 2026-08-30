@@ -1,11 +1,17 @@
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { CreateTypeRefRequest, ReferenceTypeTable, TypeRefResponse } from '../../core/models';
+import {
+  CreateTypeRefRequest,
+  NameDescriptionTable,
+  ReferenceTypeTable,
+  TypeRefResponse,
+  TypeRefTable,
+} from '../../core/models';
 import { NotificationService } from '../../core/notifications';
 import { ReferenceDataService } from '../../core/reference-data';
 import { CustomSelectComponent } from '../../shared/custom-select.component';
-import { WeaponTagAdminComponent } from './components/weapon-tag-admin/weapon-tag-admin';
+import { NameDescriptionAdminComponent } from './components/name-description-admin/name-description-admin';
 
 interface ReferenceTypeOption {
   readonly table: ReferenceTypeTable;
@@ -14,7 +20,7 @@ interface ReferenceTypeOption {
 
 @Component({
   selector: 'app-data-admin-page',
-  imports: [ReactiveFormsModule, CustomSelectComponent, WeaponTagAdminComponent],
+  imports: [ReactiveFormsModule, CustomSelectComponent, NameDescriptionAdminComponent],
   templateUrl: './data-admin.html',
   styleUrl: './data-admin.scss',
 })
@@ -27,6 +33,8 @@ export class DataAdminPageComponent implements OnInit {
     { table: ReferenceTypeTable.MinionTypes, label: 'Minion Types' },
     { table: ReferenceTypeTable.LocationTypes, label: 'Location Types' },
     { table: ReferenceTypeTable.BystanderTypes, label: 'Bystander Types' },
+    { table: ReferenceTypeTable.AdventureTypes, label: 'Adventure Types' },
+    { table: ReferenceTypeTable.MonsterArchetypes, label: 'Monster Archetypes' },
     { table: ReferenceTypeTable.WeaponTags, label: 'Weapon Tags' },
   ];
 
@@ -112,8 +120,14 @@ export class DataAdminPageComponent implements OnInit {
     return this.hasSubmitted() && this.form.controls.motivation.invalid;
   }
 
-  isWeaponTagSelected(): boolean {
-    return this.form.controls.referenceTypeTable.value === ReferenceTypeTable.WeaponTags;
+  /**
+   * The selected table when it is one of the Name + Description tables, otherwise `null`.
+   * The template branches on this once and hands the table to `app-name-description-admin`,
+   * so a new table of that shape needs no new branch here.
+   */
+  selectedNameDescriptionTable(): NameDescriptionTable | null {
+    const table = this.form.controls.referenceTypeTable.value;
+    return this.isTypeRefTable(table) ? null : table;
   }
 
   private getReferenceTypeLabel(table: ReferenceTypeTable): string {
@@ -146,7 +160,26 @@ export class DataAdminPageComponent implements OnInit {
       });
   }
 
-  private isTypeRefTable(table: ReferenceTypeTable): table is Exclude<ReferenceTypeTable, ReferenceTypeTable.WeaponTags> {
-    return table !== ReferenceTypeTable.WeaponTags;
+  private isTypeRefTable(table: ReferenceTypeTable): table is TypeRefTable {
+    return !this.isNameDescriptionTable(table);
+  }
+
+  /**
+   * Exhaustive on purpose: with `noImplicitReturns`, adding a member to
+   * `ReferenceTypeTable` without classifying it here fails the build, so a new table can
+   * never silently fall through to the wrong form.
+   */
+  private isNameDescriptionTable(table: ReferenceTypeTable): table is NameDescriptionTable {
+    switch (table) {
+      case ReferenceTypeTable.WeaponTags:
+      case ReferenceTypeTable.AdventureTypes:
+      case ReferenceTypeTable.MonsterArchetypes:
+        return true;
+      case ReferenceTypeTable.MonsterTypes:
+      case ReferenceTypeTable.MinionTypes:
+      case ReferenceTypeTable.LocationTypes:
+      case ReferenceTypeTable.BystanderTypes:
+        return false;
+    }
   }
 }
