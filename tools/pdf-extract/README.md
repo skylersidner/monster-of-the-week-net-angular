@@ -51,6 +51,15 @@ Windows/macOS/Linux since it's pure JS.)
   and a symbol/bullet font on another. Never hardcode a font id -> style
   mapping; always resolve per page (both scripts already do this).
 
+- **`lib-move-body.mjs`** — not a script. The shared body/option state
+  machine (item loading, style classification, run merging into
+  `<b>`/`<i>`, nested `<ul>`/`<li>` detection, delimiter-derived option
+  splitting, inline option-run detection), factored out of
+  `extract-moves.mjs` so `sweep-inline-picks.mjs` runs the **same**
+  detector rather than a copy that could drift from it. Nothing in it was
+  rewritten during the extraction — all 38 committed review outputs are
+  byte-identical before and after the move.
+
 - **`extract-runs.mjs <pdfPath> <firstPage> <lastPage> [--json] [--minX N] [--maxX N] [--minY N] [--maxY N]`**
   — the real extractor. Produces contiguous bold/italic/bold-italic text
   runs in reading order, classified by pattern-matching the resolved
@@ -88,7 +97,7 @@ Windows/macOS/Linux since it's pure JS.)
   **Validates `<b>` only** — this playbook/section has no italic or
   bulleted-list content to exercise those tags against.
 
-- **`extract-moves.mjs <pdfPath> <page> --minX N --maxX N [--minY N] [--maxY N] [--json]`**
+- **`extract-moves.mjs <pdfPath> <page> --minX N --maxX N [--minY N] [--maxY N] [--options] [--topBulletX N] [--bulletTolerance N] [--json]`**
   — a second extraction primitive, needed for shapes `splice-formatting.mjs`
   can't handle: a "Moves"-style list column where entries have a bold
   title, inline bold/italic body emphasis, AND (for some entries) a
@@ -115,6 +124,33 @@ Windows/macOS/Linux since it's pure JS.)
   uses, applied to the whole column. Only fires when no top-level
   bullets are found; every prior invocation of this script targets a
   column that does have them, so this is purely additive.
+  **`--options`** (added for Phase 6's in-move picks): adds `required`
+  and `optionGroups` to each move. Off by default, so every pre-Phase-6
+  invocation's stdout is byte-identical to what it always was.
+  `optionGroups` covers both presentations — `"bulleted"` (a nested list
+  inside the move) and `"inline"` (a comma- or semicolon-separated run
+  introduced by a colon, no bullets at all; six of Phase 6's fourteen
+  in-scope moves are this shape and the extractor previously returned
+  nothing structural for them, *silently*). Every option carries
+  `titleProvenance` (`delimiter:colon`/`delimiter:paren`/`none`) plus
+  `titleStyle`/`titleFontCorroborated`. **When option structure is
+  detected and `--options` was NOT passed, a notice goes to stderr** —
+  stdout is untouched, so no existing caller changes, but the silent
+  failure mode can't recur.
+  **Three bullet markers are in play, not two** (found this pass): a
+  lowercase `b` glyph is an optional top-level move; a **capital `B`
+  glyph is a Required move** (previously unrecognised entirely, so
+  Required moves were silently absorbed into the preceding segment or
+  into `intro`); a literal `•` is a nested sub-bullet; and **the same
+  `b` glyph indented further right is ALSO a nested sub-bullet** (Host
+  p31's options at x=521.2 under a move bullet at x=503.2). Top level is
+  the leftmost glyph bullet in scope; **`--topBulletX`**/
+  **`--bulletTolerance`** (default 6pt) override that when a bound clips
+  a column so the leftmost bullet in scope isn't really top-level.
+  Checked and false, so worth stating: the marker form does **not**
+  distinguish a creation-time pick from an in-play menu — Spell-Slinger's
+  Tools and Techniques (creation-time) and Could've Been Worse (in-play)
+  both use `•` on the same page.
 
 - **`build-covenant-moves-review.mjs <pdfPath>`** — worked example over
   The Covenant's Moves section (page 9), chosen specifically to validate
@@ -359,6 +395,55 @@ Windows/macOS/Linux since it's pure JS.)
   19 tags (10 Resources + 9 Red Tape) entirely plain, confirmed
   programmatically (0 collisions). Zero italic anywhere in the section.
 
+- **`build-custom-moves-tooling-review.mjs <pdfPath>`** — the Phase 6
+  custom-moves **tooling** validation (not a playbook content pass).
+  Runs `extract-moves.mjs --options` over the six inline moves named in
+  `docs/hunter-playbooks/custom-moves-ideation.md` Section 5 (Crooked's
+  Artifact and Deal with the Devil, Changeling's Force of Nature,
+  Gumshoe's The Naked City, Professional's Mobility, Searcher's
+  Guardian) plus two bulleted in-move cases (Host's Defensive
+  Adaptation, Searcher's First Encounter), and **asserts each one's
+  option count against the census's own numbers** — it exits non-zero if
+  any count drifts. Writes `custom-moves-tooling-review.json`/`.html`.
+  The HTML shows per-option `Title`/`DescriptionText`/title
+  provenance/title style so the delimiter-derived-vs-font-corroborated
+  distinction is visible per row. **Two corrections to the ideation doc
+  came out of this pass**: (1) its "no font-derived `Title` boundary
+  anywhere in this content class" claim is not universal — Searcher's
+  First Encounter has genuinely bold option names (verified against the
+  raw item stream); (2) Professional's Mobility's *category* labels are
+  font-signalled in italic, which is what the inline detector keys on
+  for that move since it carries no pick verb before its colons. Also
+  surfaced, incidentally: The Monstrous's bespoke Curses option "Pure
+  Drive" (p37) contains its own creation-time inline pick-1-of-11, which
+  the Phase 6 census doesn't cover (it scopes to picks inside *Moves*).
+
+- **`sweep-inline-picks.mjs <pdfPath> [--all]`** — book-wide **detection**
+  sweep, run once per Skyler's call to re-check all of Phase 5 after the
+  inline path existed. Scans **all 58 pages in full** (columns detected
+  geometrically per page; not limited to the regions prior build scripts
+  happened to target), runs the shared detector over three presentations
+  — flat prose, inside a nested `<li>`, and bullet lines whose introducing
+  colon lives one level up — and writes
+  `phase5-inline-pick-sweep.json`/`.html`. **Detection and reporting only:
+  it reads nothing under `docs/hunter-playbooks/` and writes nothing
+  there.** Each hit carries playbook, page, column, section heading,
+  containing entry, literal instruction and source text, the parsed
+  option list and count, a **creation-time vs in-play** timing read
+  (roll-outcome/hold-spend framing means Q1 says prose), and a
+  high/medium/low **confidence** with its reasons. Hits are bucketed
+  bespoke (Phase 5) / Moves (Phase 6) / standard sheet section, and the
+  latter two buckets are kept in the report so the scope filter is
+  auditable. Result: 123 hits — 14 bespoke candidates (10 high
+  confidence), across The Crooked (Underworld ×4), The Chosen (Special
+  Weapon's Material), The Monstrous (Pure Drive), The Snoop (Crew jobs),
+  and The Visitor (Expatriation ×3). Recall was cross-checked against an
+  independent `pdftotext -raw` regex grep; two coverage gaps that check
+  exposed were fixed before shipping, not documented as limitations.
+  **"Look, pick one from each list:" is deliberately in the standard
+  bucket, not the candidate list** — it is a real inline list on all 28
+  playbooks but is sheet furniture, not bespoke-ruleset content.
+
 ## Recommended per-playbook workflow (see the doc for full reasoning)
 
 Two content shapes need two different scripts — pick based on what the
@@ -393,3 +478,16 @@ Covenant's):
    split as "pre- venting" across two lines) come through literally, same
    limitation `pdftotext -layout` already has — fix during review, don't
    try to solve it generically in the extractor.
+
+**For Phase 6 in-move option picks**, add `--options` to step 2 above.
+Two extra review steps that matter for this content class specifically:
+
+- Check the column's bullets for **two indent levels** before trusting
+  the segmentation — nested option bullets use the same glyph as
+  top-level move bullets.
+- Read every option's `titleProvenance`. `delimiter:paren` **always**
+  needs a human decision: on Gumshoe's The Naked City the parenthetical
+  is part of the name ("Criminals (organised)"), on Crooked's Artifact
+  it's the description ("Protective amulet (1-armour magic recharge)").
+  Same shape, opposite meaning — the extractor reports both rather than
+  guessing.

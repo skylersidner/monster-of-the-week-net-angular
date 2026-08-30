@@ -1420,6 +1420,324 @@ whole page for any italic font at all in this x-range — none).
 
 Script: `build-professional-agency-review.mjs`.
 
+## Nineteenth pass: Phase 6 custom-moves tooling — an inline-list path, two unpredicted gaps in the bulleted path, and a correction to the ideation doc
+
+Not a per-playbook content pass. This one extends the tooling itself, per
+the "Tooling prerequisites" in
+`docs/hunter-playbooks/custom-moves-ideation.md` Section 5, so Phase 6's
+14 in-move picks can be authored through the pipeline rather than
+hand-transcribed. Everything below is in `extract-moves.mjs`;
+`extract-runs.mjs` and `splice-formatting.mjs` are untouched.
+
+### The gap the ideation doc named: inline (comma/semicolon) option runs
+
+Six of the fourteen in-scope Phase 6 moves present their options as a
+comma- or semicolon-separated run introduced by a colon, with no bullets
+at all — Crooked's Artifact and Deal with the Devil (p11), Changeling's
+Force of Nature (p5), Gumshoe's The Naked City (p25), Professional's
+Mobility (p43), Searcher's Guardian (p45). `extract-moves.mjs` segments
+on bullet glyphs, so it returned nothing structural for any of them, and
+returned it *silently*.
+
+The new path runs over the move's **flat prose tokens**, deliberately
+excluding any nested `<ul>` content — Changeling's Force of Nature has
+both an inline creation-time pick *and* a `•` roll-result "Extras" list,
+and only the former is in Phase 6 scope (Q1 settled in-play menus as
+prose). Mechanically it finds a colon at parenthesis depth 0, splits the
+following run on `,` or `;` at depth 0, and terminates on one of:
+
+- **a `.` at depth 0** — Artifact ends at "…use magic move).", Deal with
+  the Devil before "Payment is due…", Force of Nature before "When you
+  unleash your power…", Mobility at "monster cage.", Guardian at
+  "…disguised as a person.";
+- **a dedent** — a later line starting more than 8pt left of the run's
+  own first line — but *only when the run itself begins a line*.
+  Gumshoe's The Naked City is what forced this: its 34 contact types sit
+  in their own indented block (x=315.5) that ends with **no punctuation
+  at all**, running straight into the next paragraph (x=302.0). The
+  "run begins a line" guard is what stops the same rule misfiring on
+  Professional's Mobility, whose `Good things:` label is a hanging
+  indent 8.3pt *right* of its own wrapped lines.
+
+A run only qualifies as an option list if it has at least 3 items **and**
+carries one of two cues: a pick verb in the introducing clause
+("Pick one:", "Choose its type:", "Their look is one of:",
+"Pick four contact types … the Keeper):"), or a **styled label**
+immediately before the colon. The second cue exists for Mobility alone,
+whose two categories are introduced by `Good things:` / `Bad things:`
+with no verb of their own — those labels are *italic* in the source, a
+detail that turned out to be load-bearing.
+
+All six extract with option counts matching the census exactly: 5, 5, 4
+(3 + open slot), 34, 14 + 8, 5.
+
+### Two real gaps in the BULLETED path — neither predicted by the ideation doc
+
+The doc says the bulleted cases already work and only the inline path is
+missing. Checked rather than assumed, and that is wrong on two counts.
+
+**(1) A capital `B` glyph marks a REQUIRED move, and was not recognised
+as a bullet at all.** The FateCoreGlyphs symbol font uses lowercase `b`
+for an optional move and capital `B` for a Required one — verified across
+every playbook front page (Changeling's Glamour, Gumshoe's Occult
+Confidential and The Naked City, Host's Defensive Adaptation, Searcher's
+First Encounter, Forged's Partner, Spell-Slinger's Tools and Techniques,
+the Professional's unnamed Agency move — all Required, all `B`). The
+extractor matched `str === "b"` only, so a Required move's whole body was
+silently absorbed into the preceding segment, or into `intro` when it
+came first. Demonstrated against the pre-change extractor on Host p31:
+it put all of Defensive Adaptation into `intro` **with the literal glyph
+still in the text** ("…You get this one: B Defensive Adaptation: Your
+symbiote protects you. Pick one:") and then emitted that move's six
+options as six separate, title-less top-level "moves". Both cases are
+now bullets, and the glyph's case is reported as `required` instead of
+being discarded.
+
+**(2) In-move option bullets are the SAME `b` glyph as a top-level move
+bullet, separated only by x-indent.** Host p31's Defensive Adaptation
+options sit at x=521.2 under a move bullet at x=503.2; the same shape
+appears on Searcher p45's First Encounter (284.0 / 302.0), Visitor p55's
+Something Strange (282.0 / 295.5) and Forged p23's Partner (281.0 /
+294.5). The extractor's nested-list detection only knew the literal `•`
+character, so these were mis-split as sibling top-level moves. Top level
+is now taken as the leftmost glyph bullet **in scope**, with anything
+further right than `--bulletTolerance` (default 6pt) treated as a nested
+option marker; `--topBulletX` pins it explicitly for the case where a
+bound clips a column so the leftmost bullet in scope isn't really a
+top-level one.
+
+**A negative result recorded because the obvious inference is false**:
+the marker form does **not** tell you whether a list is a creation-time
+pick or an in-play menu. Spell-Slinger's Tools and Techniques
+(creation-time, p49) uses `•`, and Could've Been Worse (in-play, same
+page) uses `•` too. Both marker forms are reported; the author still has
+to decide, exactly as the census does.
+
+### Title provenance — implemented as the default, and one doc correction
+
+Per the doc's second prerequisite, every in-move option's
+`Title`/`DescriptionText` split is delimiter-derived (colon or
+parenthesis), never font-derived, and each option carries an explicit
+`titleProvenance` (`delimiter:colon` / `delimiter:paren` / `none`). It's
+in the data rather than being an authoring convention someone has to
+remember per playbook.
+
+`delimiter:paren` **always** needs review, and this pass produced the
+counterexample pair that proves it rather than asserting it: Gumshoe's
+The Naked City has "Criminals (organised)", "Criminals (street)",
+"Police (local)", "Police (national)" — parenthetical is part of the
+*name*; Crooked's Artifact has "Protective amulet (1-armour magic
+recharge)" — same shape, and there the parenthetical *is* the
+description. The extractor reports the split with its provenance rather
+than guessing which meaning applies.
+
+**Correction to `custom-moves-ideation.md` Section 2.5(a) / Section 5
+item 2.** The doc states there is no font-derived `Title` boundary
+anywhere in this content class — "not an exception, it's the rule for
+this entire content class". That claim was verified on two cases
+(Crooked p11 inline, Host p31 bulleted) and generalised, and it does not
+hold: **The Searcher's First Encounter (p45), one of the fourteen
+in-scope moves, has genuinely BOLD option names** — "Cryptid Sighting"
+is `WarnockPro-Bold` on that page, checked against the raw item stream,
+not inferred from the extractor's own classification. Across the eight
+validated targets the style tally is 81 regular / 7 bold, and all 7 bold
+are First Encounter's. The rule is right as a *default* and wrong as a
+guarantee, so the tooling now **measures** it per option
+(`titleStyle`, `titleFontCorroborated`) instead of assuming it, while
+still deriving the boundary from the delimiter — which remains correct
+even where a font signal exists, because an option is often one single
+text item and a bold run alone can't say where the title ends.
+
+Second, smaller refinement: Professional's Mobility's two *category*
+labels ("Good things", "Bad things") **are** font-signalled, in italic.
+They're category headings, not option titles, so they don't contradict
+the doc's rule — but they're what the inline detector keys on for that
+move, so they're worth knowing about.
+
+### The silent-failure guard
+
+The dangerous part of the original gap was the silence, not the absence.
+All the new data (`required`, `optionGroups`) is behind an additive
+`--options` flag so every pre-Phase-6 invocation's stdout is byte-for-byte
+what it always was — but when option structure **is** detected and
+`--options` was not passed, the script now says so on **stderr**. stdout
+is untouched, so no existing caller's output can change, and "returns
+nothing, silently" can't recur even for a caller that forgets the flag.
+Running the existing suite immediately surfaced three such notices
+(pages 1, 9 and 37), which is how the incidental finding below turned up.
+
+### Incidental finding, flagged not acted on
+
+The new inline path fired on **page 37, The Monstrous's Curses option
+"Pure Drive"** — an already-authored Phase 5 *bespoke* option, not a
+Move: *"One emotion rules you. Pick from: hunger, hate, anger, fear,
+jealousy, greed, joy, pride, envy, lust, or cruelty."* That's a
+creation-time inline pick nested **inside a bespoke option**, which sits
+outside the Phase 6 census's scope (Section 2.1 covers picks inside
+Moves) and isn't recorded as a structured pick anywhere. Raised for
+Yoshi/Skyler; not acted on here.
+
+### Regression
+
+`extract-moves.mjs`'s existing behaviour is unchanged: the nested-bullet
+indent rule reduces exactly to the old behaviour when a column has only
+one bullet indent level (which is every pre-Phase-6 invocation), and all
+new fields are `--options`-gated. Verified, not argued: all 19 prior
+build scripts re-run and all 38 prior review outputs confirmed
+**byte-identical via md5, and byte-identical to their committed git
+blobs**.
+
+Script: `build-custom-moves-tooling-review.mjs` — validates all six
+inline moves plus two bulleted in-move cases against the census's own
+option counts and **fails loudly** if any count drifts.
+
+## Twentieth pass: sweeping all 28 playbooks' Phase 5 bespoke content for inline picks the old tooling could not see
+
+The "Pure Drive" find at the end of the nineteenth pass went to Skyler as
+a scope question, and Skyler took the broadest option: **sweep Phase 5
+with the new tooling.** The reasoning is sound — the inline blind spot
+was never Moves-specific. It applied to every piece of bespoke content
+authored during Phase 5, so any inline pick anywhere in the book was
+recorded as prose simply because the extractor couldn't see it.
+
+**This pass is detection and reporting only.** Nothing under
+`docs/hunter-playbooks/` was read from or written to by the sweep;
+`bespoke-ruleset-catalogue.md` is Yoshi's and is untouched. The
+deliverable is a findings list for Yoshi to adjudicate case by case.
+
+### Designing for coverage rather than for wherever prior scripts looked
+
+The stderr notices from the nineteenth pass (pages 1, 9, 37) were a
+signal, not a sweep — the existing build scripts only cover the regions
+each playbook's authoring happened to target. `sweep-inline-picks.mjs`
+scans **all 58 pages in full**:
+
+- **Columns are detected geometrically per page** from the line-start x
+  histogram. A first attempt used one gap threshold and merged The
+  Forged's page-23 columns 2 and 3 (column 2 has a two-sub-column tag
+  layout at x=412, leaving only ~120pt to column 3's x=532), which then
+  attributed a *Moves* hold-spend list to the "Burdens" heading. Caught by
+  checking a suspicious hit against the source, not by trusting the run.
+  Replaced with two stages: cluster line starts on a small gap, then open
+  a new column only when a cluster starts ≥180pt right of the current
+  column's origin. The real grid pitch is ~248pt (origins ~36 / ~284 /
+  ~532), so that separates columns while folding every within-column
+  indent back into its parent.
+- **The detector is the same code, not a second copy.** `extract-moves.
+  mjs`'s body/option state machine was factored into `lib-move-body.mjs`
+  and is imported by both. (The old "duplicated rather than shared, to
+  avoid risking a regression" note applied to a spike with one consumer;
+  with two consumers and a byte-identical regression suite, sharing is
+  now the safer option. Verified: all 38 committed review outputs remain
+  byte-identical after the move.)
+- **Three presentations are scanned, not one.** Flat prose in each region;
+  inside each `<li>` of a nested list; and — the shape that took a
+  cross-check to find — a colon-bearing instruction in the prose with the
+  option runs living in the bullet lines *below* it, each line a bare
+  comma series with no colon of its own.
+- **Attribution** uses the book's own convention: standalone bold lines in
+  a column are its section headings, and each hit is attributed to the
+  nearest heading above it. A column with no heading of its own inherits
+  from the preceding column — but from the heading governing that
+  column's last *bulleted* entry, not its bottom-most heading. The
+  Curse-eater's page 13 is why: column 2 runs Moves (top), Corruption,
+  then the Consumed Magic tracker (bottom), while column 3 continues the
+  *Moves* list, so the naive rule filed a Moves hit under "Consumed MagiC
+  (Power, Downside)" and mis-bucketed it as bespoke content.
+
+### Recall was cross-checked independently, not asserted
+
+A separate `pdftotext -raw` regex grep over the whole book (pick/choose
+verb + colon + a comma series) produced 98 pattern hits. Every one is
+accounted for by the sweep: found, or explained as bulleted content, a
+standard sheet section, or Moves scope. The sweep also finds real lists
+the grep misses — The Snoop's "Crew jobs: camera, sound, editing, …" has
+no pick verb adjacent to its colon (the instruction is two sentences
+earlier), so a text pattern never sees it. Two genuine coverage gaps in
+the sweep's *first* version were found this way and fixed rather than
+shipped: The Curse-eater's Ropes of Fate (inline run inside a `<li>`) and
+**The Visitor's Expatriation** (three bullet lines, each a 6–7 option
+comma run, introduced by a colon one level up).
+
+### Noise control
+
+The useful deliverable distinguishes likely-real picks from noise. Three
+mechanisms, all reported per hit so the filtering is auditable:
+
+- **Confidence** (high / medium / low) from whether a pick instruction
+  actually governs the run — checked against the surrounding sentence, not
+  just the clause before the colon — plus option shape (median length,
+  how sentence-like the fragments are).
+- **Timing.** A roll-outcome or hold-spend framing means the list is
+  chosen fresh each time in play, which Q1 settled as prose only. The
+  Crooked's Burglar ("On a 10+ pick three, on a 7-9 pick two: …") and
+  Fixer ("On a 7-9 … Pick one: you owe them; …") both parse like textbook
+  creation-time picks until you read the sentence around them. Flagged and
+  downgraded, not dropped.
+- **Scope.** Hits are bucketed bespoke / Moves / standard sheet section.
+  Standard blocks are recognised by their own instruction as well as by
+  heading, because on a back page the Look and Ratings blocks sit under
+  whatever bespoke heading precedes them in the same column — without
+  that, "Look, pick one from each list:" would be reported 28 times as a
+  "Sect" or "Your Special Weapon" candidate. The Moves and standard
+  buckets are kept in the report rather than discarded, so the filter
+  itself is checkable.
+
+### What it found
+
+**123 hits total: 14 Phase 5 bespoke-scope candidates (10 high
+confidence), 16 Moves-scope, 93 standard sheet sections.** Of the 14
+bespoke candidates, 12 read as creation-time and 2 as in-play.
+
+The high-confidence creation-time set — the actual worklist for Yoshi:
+
+| Playbook | Page | Section / containing entry | Source | Options |
+|---|---|---|---|---|
+| The Crooked | 12 | Underworld / option 1 | "Pick one: vampire, werewolf, troll, reptiloid." | 4 |
+| The Crooked | 12 | Underworld / option 2 | "Pick one: sorcerer, demon, faerie, psychic." | 4 |
+| The Crooked | 12 | Underworld / option 3 | "Pick one: immortal, god, outsider, witch." | 4 |
+| The Crooked | 12 | Underworld / option 4 | "…running into (choose one): a horde of goblins, a hunger of ghouls, a dream-eater, a salamander." | 4 |
+| The Chosen | 7 | Your Special Weapon / Material | "Finally, pick what material the business-end is made from: add "steel," "cold iron," "silver," "wood," "stone," "bone," "teeth," "obsidian," or anything else you want." | 9 |
+| The Monstrous | 37 | Curses / Pure Drive | "One emotion rules you. Pick from: hunger, hate, anger, fear, jealousy, greed, joy, pride, envy, lust, or cruelty." | 11 |
+| The Snoop | 48 | Crew | "Crew jobs: camera, sound, editing, dogsbody, researcher, driver, director, producer, bodyguard." | 9 |
+| The Visitor | 56 | Expatriation / line 1 | "Feudal, imperial, democratic, theocratic, mercantile, egalitarian, meritocratic," | 7 |
+| The Visitor | 56 | Expatriation / line 2 | "Lone homeworld, lone system, space habitats, interstellar, nomadic, scattered worlds," | 6 |
+| The Visitor | 56 | Expatriation / line 3 | "Caste system, wartorn, tyrannical, peaceful, rationalist, high-tech, low-tech," | 7 |
+
+Points worth flagging for adjudication:
+
+- **The Crooked is a Phase 4 pilot playbook** and has four of the ten,
+  all nested one level inside Underworld's own options — the same
+  "sequencing" consequence the Phase 6 census already raised about
+  Crooked, now with a second cause.
+- **The Chosen's Special Weapon** is a three-part ruleset (Form choose 1,
+  Business-end choose 3, Material choose 1) where the first two parts are
+  bulleted and only the third is inline. A partly-visible section is
+  easier to miss than a wholly-invisible one.
+- **The Visitor's Expatriation** is named in `custom-moves-ideation.md`
+  §3.1 as the `MinSelect < MaxSelect` precedent, so its *counts* are
+  modeled — this sweep is about whether its 20 culture-descriptor
+  options are stored as options or as prose.
+- **Two in-play hits (Crooked's Burglar and Fixer)** are real lists inside
+  real bespoke options, but Q1 settled that shape as prose. Included so
+  the call is Yoshi's, marked so it isn't mistaken for a creation-time
+  pick.
+- Two low-confidence hits (The Gumshoe's Code sentence, The Professional's
+  Agency framing question) are almost certainly prose with clause commas;
+  they are listed rather than silently dropped.
+- **"Look, pick one from each list:" is a real inline comma-list on all 28
+  playbooks** and is deliberately in the standard-sections bucket, not the
+  candidate list, because it is character-sheet furniture rather than
+  bespoke-ruleset content. Called out here so its absence from the
+  candidate list reads as a decision rather than a miss — if Look is *not*
+  already modeled elsewhere, that bucket is where to look.
+- The 16 Moves-scope hits include the six Phase 6 census moves plus one
+  further genuine in-play list (The Searcher's Ockham's Broadsword) and
+  several clause-comma false positives. Phase 6's scope, not this pass's.
+
+Script: `sweep-inline-picks.mjs`; output
+`phase5-inline-pick-sweep.json`/`.html`.
+
 ## Reviewable output for Skyler
 
 `tools/pdf-extract/crooked-background-review.html` — open directly in a
@@ -1544,6 +1862,31 @@ eighteenth pass's output: the Agency framing block (correctly plain
 after fixing the false-positive `<b>Agency</b>`), all 10 Resources tags,
 and all 9 Red Tape tags.
 
+`tools/pdf-extract/custom-moves-tooling-review.html`/`.json` — the
+nineteenth pass's output, and the only one so far that reviews *tooling*
+rather than a playbook's content. One card per validated target (the six
+inline moves plus Host's Defensive Adaptation and Searcher's First
+Encounter), each showing the move's own `descriptionHtml` and then a
+per-option table of `Title` / `DescriptionText` / **title provenance** /
+**title style in the source** — so the delimiter-derived-vs-font-
+corroborated distinction is visible per row rather than stated once in
+prose. Census-expected option counts are asserted, not eyeballed. Four
+callout boxes at the top carry the pass's findings: the provenance rule,
+the two corrections to `custom-moves-ideation.md`, the paren-split
+caveat with its Naked-City-vs-Artifact counterexample pair, and the two
+bulleted-path gaps.
+
+`tools/pdf-extract/phase5-inline-pick-sweep.html`/`.json` — the twentieth
+pass's output, and the file to point Yoshi at. One card per Phase 5
+bespoke-scope candidate, ordered high → low confidence, each giving the
+playbook, page, column, section heading, containing entry, the literal
+instruction and source text, the parsed option list and count, the
+creation-time-vs-in-play timing read, and the reasons behind the
+confidence rating — everything needed to adjudicate a hit without going
+back to the PDF, and enough context to go back to the PDF if wanted. The
+Moves-scope and standard-sheet-section buckets follow as compact tables
+so the sweep's own scope filter is auditable rather than taken on trust.
+
 ## Recommended workflow for Phase 4/6/7 authoring (going forward, per playbook)
 
 **For flat description text with only inline emphasis** (Crooked's
@@ -1579,6 +1922,24 @@ lists)**, per the second validation pass above:
    correct. The real spacing bug caught and fixed during this pass (see
    above) was found this way, not by trusting the first run.
 
+**For Phase 6 in-move option picks**, add `--options` (nineteenth pass):
+
+1. Same `dump-page.mjs` step to find the column's x-range, and check
+   whether the column's bullets sit at **two** indent levels — nested
+   option bullets use the same glyph as top-level move bullets and are
+   distinguished only by indent.
+2. `node tools/pdf-extract/extract-moves.mjs <pdf> <page> --minX N --maxX N --options --json`
+   — each move additionally gets `required` (from the `b`/`B` glyph) and
+   `optionGroups`, covering both the bulleted and the inline
+   (comma/semicolon) presentations.
+3. Review every option's `titleProvenance`. `delimiter:colon` is
+   usually safe; **`delimiter:paren` always needs a human decision** (a
+   parenthetical is sometimes part of the name and sometimes the
+   description — see the nineteenth pass). Check `titleStyle` too: most
+   in-move option names are regular weight, but not all of them are.
+4. If you forget `--options`, the script tells you on stderr that option
+   structure exists and was not emitted. Don't ignore that line.
+
 Full usage details for every script: `tools/pdf-extract/README.md`.
 
 ## Flagged, not acted on in this pass
@@ -1600,8 +1961,13 @@ running the already-built tool.
 - `tools/pdf-extract/` — the whole POC: `package.json` (only
   `pdfjs-dist`, isolated from `src/web`'s dependencies), `dump-page.mjs`,
   `list-fonts.mjs`, `extract-runs.mjs` (now with optional
-  `--minY`/`--maxY`), `splice-formatting.mjs`, `extract-moves.mjs` (same
-  optional `--minY`/`--maxY`), `build-crooked-review.mjs`,
+  `--minY`/`--maxY`), `splice-formatting.mjs`, `lib-move-body.mjs` (the
+  shared body/option state machine, factored out in the twentieth pass),
+  `extract-moves.mjs` (same
+  optional `--minY`/`--maxY`, plus `--options`/`--topBulletX`/
+  `--bulletTolerance` since the nineteenth pass),
+  `sweep-inline-picks.mjs`,
+  `build-crooked-review.mjs`,
   `build-covenant-moves-review.mjs`, `build-divine-mission-review.mjs`,
   `build-chosen-fate-review.mjs`,
   `build-action-scientist-area-of-study-review.mjs`,
@@ -1613,8 +1979,9 @@ running the already-built tool.
   `build-host-symbiosis-review.mjs`, `build-initiate-sect-review.mjs`,
   `build-interface-integration-review.mjs`, `build-monstrous-review.mjs`,
   `build-pararomantic-review.mjs`, `build-professional-agency-review.mjs`,
+  `build-custom-moves-tooling-review.mjs`,
   `README.md`, plus the
-  thirty-eight review-output files (`crooked-background-review.json`/`.html`,
+  forty-two review-output files (`crooked-background-review.json`/`.html`,
   `covenant-moves-review.json`/`.html`,
   `divine-mission-review.json`/`.html`,
   `chosen-fate-review.json`/`.html`,
@@ -1632,5 +1999,7 @@ running the already-built tool.
   `interface-integration-review.json`/`.html`,
   `monstrous-review.json`/`.html`,
   `pararomantic-review.json`/`.html`,
-  `professional-agency-review.json`/`.html`).
+  `professional-agency-review.json`/`.html`,
+  `custom-moves-tooling-review.json`/`.html`,
+  `phase5-inline-pick-sweep.json`/`.html`).
 - This file.

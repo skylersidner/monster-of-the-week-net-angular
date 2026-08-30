@@ -10,6 +10,8 @@
 
 **Net schema delta for all of Phase 6: one nullable FK** — `BespokeSection.PlaybookMoveId`. Zero changes to `BespokeOption`, zero new tables, zero instance-side changes.
 
+**Amended 2026-08-30 after Bowser's tooling pass** — both tooling prerequisites are now built, and **two factual claims in this doc were wrong and have been corrected**: Section 2.5(a)'s font-signal claim was overgeneralized from two samples (The Searcher's First Encounter is a real exception with bold option names), and §5 wrongly assumed the bulleted extraction path already worked for in-move content (it had two silent bugs, one affecting all 7 Required moves). Both corrections are marked in place. The adjacent scope gap this doc raised — creation-time picks nested inside *bespoke options* rather than Moves — was subsequently swept across all 28 playbooks with Skyler's sanction and **closed**: one genuine gap found (The Monstrous's Pure Drive), now corrected in `bespoke-ruleset-catalogue.md`. See the end of §5.
+
 **Filename note**: topic-named (`custom-moves-ideation.md`), not phase-numbered, deliberately — `phase5-bespoke-ideation.md` bakes in a number, and phases were just renumbered on 2026-08-29 (old 6–9 → 7–10). Keeping new filenames topic-named avoids the same fragility recurring. Its role is exactly parallel to the Phase 5 ideation doc.
 
 **Filename note**: topic-named (`custom-moves-ideation.md`), not phase-numbered, deliberately — `phase5-bespoke-ideation.md` bakes in a number, and phases were just renumbered on 2026-08-29 (old 6–9 → 7–10). Keeping new filenames topic-named avoids the same fragility recurring. Its role is exactly parallel to the Phase 5 ideation doc.
@@ -105,11 +107,30 @@ Also recurring here: **illustrative examples that must not be mistaken for optio
 
 ### 2.5 Two systematic extraction findings, verified via the pipeline
 
-**(a) In-move option lists never carry a font-derived title signal.** Verified on both an inline case (Crooked page 11) and a bulleted case (Host page 31): the Move's *own name* is bold (`WarnockPro-Bold`), and **every option name inside the move is regular weight** — "Protective amulet", "Lucky charm", "Silk threads", "Acid spray" are all `WarnockPro-Regular`. The playbook's typography spends its bold on the Move name and has nothing left to mark option titles with.
+**(a) In-move option names are *usually* regular weight — a strong default, but not a guarantee.** *(Corrected 2026-08-30 after Bowser's verification pass; the original version of this note overgeneralized from two samples and would have caused real authoring errors — see the correction note below.)*
 
-Direct consequence for authoring: **every `Title`/`DescriptionText` split for an in-move option will be delimiter-derived (colon or parenthesis), never font-confirmed** — the lower-confidence provenance already flagged for Forged's Benefits and Pararomantic's Guide's Gift, but here it's not an exception, it's the rule for this entire content class. Worth stating as a standing expectation before authoring starts rather than rediscovering it per-playbook.
+Across the seven in-scope moves whose option-name styling has now been checked directly against the raw item stream, three distinct levels turn out to be styled independently:
 
-**(b) Presentation is not a reliable structural signal inside Moves.** The same pick structure appears bulleted (Host, Visitor, Forged, Searcher), comma-separated inline (Crooked, Changeling, Searcher's Guardian, Gumshoe), and semicolon-separated inline (Professional). Any extraction tooling keyed on bullet glyphs — which is what `extract-moves.mjs` currently keys on — will silently miss the inline cases entirely. This is a real, concrete tooling gap for whoever runs Phase 6's extraction, not just an authoring note.
+| Move | Move name | Category-divider label | Option names |
+|---|---|---|---|
+| Crooked / Artifact | bold | — | regular |
+| Crooked / Deal with the Devil | bold | — | regular |
+| Host / Defensive Adaptation | bold | — | regular |
+| Visitor / Something Strange | bold | — | regular |
+| Forged / Partner | bold | **bold** ("Bonds (pick two):") | regular |
+| Professional / Mobility | bold | *italic* ("Good things") | regular |
+| **Searcher / First Encounter** | bold | — | **bold** — all 7 |
+
+**The Searcher's First Encounter is a genuine exception**: its option names ("Cryptid Sighting", "Zone of Strangeness", …) are `WarnockPro-Bold`, verified directly. Bowser's independent tally across eight validated targets was 81 regular / 7 bold, the 7 being exactly these.
+
+**Two consequences for authoring, both differing from what this doc originally said:**
+- **Do not record "not font-derived" as a blanket default.** The extraction tooling now *measures* this per option (`titleStyle`, `titleFontCorroborated`), so authoring should read the measured value rather than apply a rule. Recording the blanket default would have wrongly downgraded the provenance of the one playbook where the source genuinely corroborates the title.
+- **Deriving the boundary from the delimiter stays correct regardless**, including where a font signal exists — an option is often a single text item, and a bold run alone can't say where the title ends. Font signal *corroborates* a delimiter-derived split; it doesn't replace it.
+- **The category-divider level has its own styling, independent of both the Move name and the option names** (bold on Forged, italic on Professional). Worth knowing before treating any single observed weight as "the" in-move convention.
+
+**Correction note, kept deliberately**: the original claim here — "not an exception, it's the rule for this entire content class" — was generalized from exactly two samples (Crooked p11 inline, Host p31 bulleted). Both samples were correct; the generalization wasn't. Recording this because the failure mode is worth remembering, not just the corrected fact: a two-sample check is enough to establish a *default* and never enough to establish a *rule*, and the doc stated it as the latter.
+
+**(b) Presentation is not a reliable structural signal inside Moves.** The same pick structure appears bulleted (Host, Visitor, Forged, Searcher), comma-separated inline (Crooked, Changeling, Searcher's Guardian, Gumshoe), and semicolon-separated inline (Professional). Also confirmed as a checked negative: **the marker form does not distinguish a creation-time pick from an in-play menu** — Spell-Slinger's Tools and Techniques (creation-time) and Could've Been Worse (in-play) use the same `•` on the same page. Structure must be read from the wording, never inferred from the glyph.
 
 ### 2.6 The seed-vs-census warning was correct, concretely
 
@@ -222,10 +243,32 @@ Mirroring how Phase 5 actually ran, rather than proposing something new:
 4. Open a `custom-move-catalogue.md`, mirroring `bespoke-ruleset-catalogue.md`'s conventions exactly (one `##` per playbook, one `###` per Move with internal structure, progress tracker, "confirmed none" recorded as a real result). **The 14 rows in 2.1 are its complete worklist** — the census is done, so unlike Phase 5 this catalogue starts with its scope already known rather than discovering it playbook by playbook.
 5. One-playbook-at-a-time authoring, same rigor: verify against the source PDF, run the formatting pipeline, escalate rather than guess.
 
-### Tooling prerequisites (both from Section 2.5, both verified against the PDF)
+### Tooling prerequisites — **BUILT 2026-08-30 by Bowser** (`.squad/decisions/inbox/bowser-hunter-playbooks-phase6-inmove-option-extraction.md`)
 
-1. **`extract-moves.mjs` needs an inline-list path.** It currently segments on bullet glyphs. **6 of the 14 in-scope moves present their options as inline comma- or semicolon-separated runs with no bullets at all** — Crooked's Artifact and Deal with the Devil, Changeling's Force of Nature, Gumshoe's The Naked City, Professional's Mobility, Searcher's Guardian. The extractor will silently return nothing structural for these (not error — silently), so this must be built before authoring, or those six get hand-transcribed with no pipeline verification.
-2. **Expect no font-derived `Title` boundary anywhere in this content class.** Verified on both an inline case (Crooked p11) and a bulleted case (Host p31): the Move's own name is bold, and every option name inside it is regular weight. So every `Title`/`DescriptionText` split here is delimiter-derived (colon or parenthesis) — the lower-confidence provenance already flagged as an *exception* for Forged's Benefits and Pararomantic's Guide's Gift is the *rule* for Phase 6. Authoring should record it as such by default rather than re-flagging it per playbook.
+Both prerequisites this doc named are now implemented in `extract-moves.mjs`, behind an additive `--options` flag (all 19 prior build scripts' outputs verified byte-identical). **In building them, Bowser found this doc's own description of the starting state was wrong on one count** — corrected below.
+
+1. **Inline comma/semicolon option path — built.** As stated: 6 of the 14 in-scope moves present options as inline runs with no bullets (Crooked ×2, Changeling's Force of Nature, Gumshoe's The Naked City, Professional's Mobility, Searcher's Guardian), and the extractor previously returned nothing structural for them. Now handled; and when option structure is detected without `--options`, the script says so on **stderr** rather than staying silent — the defect this doc named was the silence, not the absence.
+2. **The bulleted path was also broken — this doc wrongly assumed it already worked.** *(Correction, 2026-08-30.)* Two independent real bugs, both silent and both producing plausible-looking output:
+   - A **capital `B` FateCoreGlyphs glyph marks a Required move** and wasn't recognized as a bullet at all, so every Required move's entire body was silently absorbed into the preceding segment (or into `intro` when it came first). Demonstrated against the pre-change extractor on Host p31. **7 of the 14 in-scope moves are Required**, so this was load-bearing, not marginal.
+   - **In-move option bullets use the same `b` glyph as top-level move bullets**, separated only by x-indent (Host p31: 521.2 vs 503.2; same on Searcher p45, Visitor p55, Forged p23) — so option rows were being emitted as title-less top-level "moves."
+3. **Title provenance is now measured, not assumed.** Every extracted option carries `titleStyle` and `titleFontCorroborated` (per 2.5(a) above), plus `titleProvenance` — `delimiter:colon`, `delimiter:paren`, or `none`.
+
+### Standing authoring note: `delimiter:paren` always needs a human decision
+
+**Never auto-accept a parenthesis-derived title split.** The counterexample pair is real and sits inside this same content class, not hypothetical:
+
+- **Gumshoe / The Naked City** — "Criminals **(organised)**" and "Criminals **(street)**": the parenthetical is part of the *name*, disambiguating two sibling options. Splitting it out would produce two options both titled "Criminals."
+- **Crooked / Artifact** — "Protective amulet **(1-armour magic recharge)**": the parenthetical *is* the description. Not splitting it would bury the entire mechanical effect inside the title.
+
+Identical shape, opposite meaning. Colon-derived splits are safe to accept by default; parenthesis-derived ones require reading the actual content every time.
+
+### Adjacent scope gap — raised, swept, and closed (2026-08-30)
+
+Bowser's new inline path also fired on **The Monstrous's "Pure Drive"** (p37) — an *already-authored Phase 5 bespoke option* containing its own creation-time inline pick ("One emotion rules you. **Pick from:** hunger, hate, anger, …"). That's a pick nested inside a **bespoke option**, not inside a Move, so it falls outside this phase's scope as defined in 2.1.
+
+**Resolved: Skyler sanctioned reopening the completed Phase 5 catalogue and sweeping all 28 playbooks' bespoke content with the new tooling.** Result: 123 raw hits → 14 in Phase 5 scope → **exactly one genuine gap, Pure Drive itself**, now remodeled as nested options in `bespoke-ruleset-catalogue.md`. Everything else was already modeled, a deliberate stakeholder decision, out of bespoke scope, or correctly prose — full adjudication table in that file's status block.
+
+**What this means for this doc's own completeness claim**: Section 2.1 is complete for what it scopes — creation-time picks inside **Moves**. The parallel question for picks inside **bespoke options** has now been answered independently by that sweep, so the gap this note originally flagged is closed rather than outstanding. Neither scope makes a claim about the other; both have now been swept with the same tooling.
 
 **Sequencing note worth acting on before Phase 4 starts**: The Crooked is both a Phase 4 pilot playbook *and* now known to carry two creation-time in-move picks (Artifact, Deal with the Devil). If Phase 4 authors Crooked before Phase 6's schema ships, that content has to be either deferred or re-authored afterward. This was invisible until this census — it's the single most actionable consequence of having run it.
 
