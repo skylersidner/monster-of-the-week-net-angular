@@ -1,6 +1,16 @@
-# Hunter Playbooks — Phase 6 Custom Moves: Census and Modeling Proposal (Ideation, Not Locked)
+# Hunter Playbooks — Phase 6 Custom Moves: Census and Settled Modeling Approach
 
-**Status: first pass, 2026-08-30. This is a working-through for Skyler to react to, not a spec to rubber-stamp** — same posture `phase5-bespoke-ideation.md` opened with. The census below is real and verified; the modeling proposal in Section 3 is a recommendation with one genuinely open scope question (Section 4, Q1) that materially changes how much of it applies.
+**Status: SETTLED, 2026-08-30 — all four open questions answered by Skyler the same day this census was produced.** The census (Section 2) is the verified inventory; the modeling approach (Section 3) is now decided, not a proposal. **The implementation-ready schema lives in `architecture.md` Section 6.8** — this file holds the census, the reasoning, and the decision history, the same division of labour `phase5-bespoke-ideation.md` has with `architecture.md` Section 6.
+
+**All four questions resolved 2026-08-30** (full detail in Section 4):
+- **Q1 — in-play menus → prose only.** Phase 6 stays at the **14 creation-time in-move picks**; the ~35 in-play menus are formatted prose in `PlaybookMove.DescriptionText`, nothing stored per Hunter.
+- **Q2 — computed option sets → prose only.** All 5 stay prose; no reference mechanism.
+- **Q3 — bounded-repeatable free text → model them.** Both cases use `FreeTextLabel` + `MinInstances`/`MaxInstances`; no new schema.
+- **Q4 — the inverted pick → ordinary pick, reworded** to "Pick 3 of the 4" (`MinSelect=MaxSelect=3`), an explicitly Skyler-directed, non-source-literal rewrite.
+
+**Net schema delta for all of Phase 6: one nullable FK** — `BespokeSection.PlaybookMoveId`. Zero changes to `BespokeOption`, zero new tables, zero instance-side changes.
+
+**Filename note**: topic-named (`custom-moves-ideation.md`), not phase-numbered, deliberately — `phase5-bespoke-ideation.md` bakes in a number, and phases were just renumbered on 2026-08-29 (old 6–9 → 7–10). Keeping new filenames topic-named avoids the same fragility recurring. Its role is exactly parallel to the Phase 5 ideation doc.
 
 **Filename note**: topic-named (`custom-moves-ideation.md`), not phase-numbered, deliberately — `phase5-bespoke-ideation.md` bakes in a number, and phases were just renumbered on 2026-08-29 (old 6–9 → 7–10). Keeping new filenames topic-named avoids the same fragility recurring. Its role is exactly parallel to the Phase 5 ideation doc.
 
@@ -35,28 +45,30 @@ These are permanent, character-creation-time selections embedded inside an indiv
 | Professional | Mobility | optional | **2 categories**: Good 2 of 14, Bad 1 of 8 | inline, **semicolon**-separated |
 | Searcher | First Encounter | Required | 1 of 7 | bulleted, `Name: description`; "take the associated move" |
 | Searcher | **Guardian** | optional | 1 of 5 | inline: "Their look is one of: …" |
-| Spell-Slinger | Tools and Techniques | Required | **inverted — "Cross off one; you'll need the rest"** | bulleted, `Name: description` |
+| Spell-Slinger | Tools and Techniques | Required | **3 of 4** *(source says "Cross off one"; reworded by Skyler — see Q4)* | bulleted, `Name: description` |
 | Spell-Slinger | **Practitioner** | optional | **2 from an externally-defined list** | "Choose two effects available to you under `use magic`" — the option set lives on a *basic move*, not printed here |
 | Visitor | Something Strange | optional | 1 of 5 | bulleted, incl. "Something else (with the group's agreement):" |
 
 **Bolded rows are new findings this census surfaced** — not previously flagged anywhere in `bespoke-ruleset-catalogue.md`.
 
 Notable structural facts:
-- **Both category-pair cases (Forged's Partner, Professional's Mobility) are structurally identical to a bespoke Section with two mandatory nested categories**, each carrying its own independent pick count. This is the single strongest signal for the modeling recommendation in Section 3.
+- **Both category-pair cases (Forged's Partner, Professional's Mobility) are structurally identical to a bespoke Section with two mandatory nested categories**, each carrying its own independent pick count. This is the single strongest piece of evidence behind the settled approach in Section 3 — it's what ruled out attaching at the `BespokeOption` level.
 - **Ranges occur** (Crooked's "one or two things") — same `MinSelect < MaxSelect` shape The Visitor's Expatriation established for bespoke Sections.
 - **Presentation varies independently of structure**: bulleted lists, comma-separated inline runs, and semicolon-separated inline runs all encode the same underlying pick. Presentation should not drive modeling.
 - **Three distinct "open slot" conventions**, all meaning the same thing: a real `Something else: ______` option row (Forged), a labeled option with no printed blank (Visitor), and an escape hatch stated only in the instruction prose (Gumshoe). The first two map to `{{blank}}` cleanly; the third has no option row to attach a token to (see Q3).
 
-### 2.2 In-play menus — a much larger population, and the reason Q1 exists
+### 2.2 In-play menus — examined and ruled out of scope (Q1: prose only)
 
-These look structurally similar to 2.1 but are **not** character-creation picks: the player (or sometimes the Keeper) chooses fresh from the list *every time the move triggers during play*. Read across all 28, they fall into four sub-shapes:
+**Resolved 2026-08-30: these stay as formatted prose in `PlaybookMove.DescriptionText`, using the existing `<ul>/<li>` HTML subset. Nothing here is modeled or stored per Hunter.** The inventory below is retained as the record of what was examined and ruled out — the same way `bespoke-ruleset-catalogue.md` records "confirmed none" as a real, checked result rather than an omission. It is **not** a deferred-work backlog and shouldn't be read as one; if a live-play feature is ever designed, this is a useful starting survey, but no commitment exists.
+
+These look structurally similar to 2.1 but are **not** character-creation picks: the player (or sometimes the Keeper) chooses fresh from the list *every time the move triggers during play*. That's the distinction that decided the scope question — 2.1 produces a permanent answer that belongs on a character sheet; these produce a different answer every time the move is used, so there's nothing per-Hunter to store. Read across all 28, they fall into four sub-shapes:
 
 - **Roll-result-gated pick count** — the count itself varies by outcome ("On a 10+ pick three, on a 7-9 pick one"). Found on Action Scientist (Doors of Perception), Celebrity (Fakelore), Changeling (Force of Nature's "Extras"), Gumshoe (Jessica Jones Entry — three tiers including a *miss* tier that still grants a pick; Hacker with a Dragon Tattoo), Interface (Technomancer, Virus Whisperer). **This is a shape the bespoke model has no equivalent for at all** — `MinSelect`/`MaxSelect` are static.
 - **Roll-outcome-embedded single pick** — "On a 7-9, choose one: X, Y, Z", usually inline. Found on Curse-Eater (Ropes of Fate), Expert (It Wasn't As Bad As It Looked), Flake (Often Overlooked), Mundane (Trust Me — **chosen by the Keeper, not the player**), Pararomantic (Spirit Touched), Professional (Medic), Spell-Slinger (Could've Been Worse), Spooktacular (Put On A Show), Wronged (DIY Surgery).
 - **Hold-spend menus** — "hold N … spend your hold to:" + a list. Found on Flake (Connect the Dots), Gumshoe ("Just one more thing"), Hex (Cast the Bones), Initiate (Fortunes), Mundane (What Could Go Wrong?), Pararomantic (Bonding Time, Monster Empathy), Spooky (Tune In, Jinx).
 - **Additive question/effect lists** — a permanent *expansion* of a base move's own option pool ("you may ask these as well as the usual questions"). Found on Changeling (Faerie Gossip — **two of its three questions contain `{{blank}}`**), Curse-Eater (Curse Whispers, Reach), Envoy (Too Much Has Been Lost), Host (Open Your Mind), Interface (Expert Troll), Spell-Slinger (Forensic Divination), Spooktacular (The Game Is Fixed), Spooky (Hex), Visitor (Taste of Home — **chosen by the other hunter**).
 
-Roughly 35 moves carry one of these. **This population is 2–3× the size of the creation-time population**, which is why "are these in scope" is the question that most changes this phase's size.
+Roughly 35 moves carry one of these — **2–3× the size of the creation-time population**, which is why this was the question that most affected the phase's size. With Q1 resolved as prose, Phase 6's actual worklist is the 14 rows in 2.1, not ~50.
 
 Also worth noting explicitly, since it's the thing most likely to cause a miscategorization later: **ordinary PbtA roll-outcome branching (10+/7-9/miss consequence text with no choice) is a third, much larger category that is neither of the above** and needs no modeling beyond the existing `<ul>/<li>` HTML subset. The Wronged's DIY Surgery was the case that first forced this distinction to be stated (`bespoke-ruleset-catalogue.md` `## The Wronged`); the census confirms the majority of bulleted lists inside Moves are exactly this.
 
@@ -103,15 +115,17 @@ Direct consequence for authoring: **every `Title`/`DescriptionText` split for an
 
 `phases.md` Phase 6 flagged that the existing trap list was found opportunistically and that Chosen/Crooked/Divine had never been checked. Confirmed: **The Crooked has two creation-time in-move picks (Artifact, Deal with the Devil), neither previously flagged anywhere** — and Crooked is one of the three pilot playbooks Phase 4 authors first. Three further new instances turned up on already-walked playbooks (Changeling's Force of Nature, Searcher's Guardian, Spell-Slinger's Practitioner), plus Monstrous's Something Borrowed and Pararomantic's Supernatural Guide binary. That's **7 of 14 creation-time instances new to this census** — the prior list was exactly half complete. (Chosen and Divine are genuinely clean, checked directly.)
 
-## 3. Recommended model
+## 3. The settled model
+
+**Now in `architecture.md` Section 6.8 as the implementation-ready spec.** This section holds the reasoning; that one holds the definition.
 
 ### 3.1 The architecture fork, re-derived — and my own earlier framing of it was wrong
 
-`phases.md` Phase 6 names the expected fork as: reuse `BespokeOption` directly via a nullable `PlaybookMoveId` FK (**A**), or build a parallel `PlaybookMoveOption` table (**B**). Having now read the real content, **both are the wrong attachment point**, and I want to say that plainly rather than pick the better of two options I framed before doing the census.
+`phases.md` Phase 6 named the expected fork as: reuse `BespokeOption` directly via a nullable `PlaybookMoveId` FK (**A**), or build a parallel `PlaybookMoveOption` table (**B**). Having read the real content, **both are the wrong attachment point** — worth saying plainly rather than picking the better of two options I framed before doing the census.
 
 The deciding evidence is Forged's Partner and Professional's Mobility: each is **two named categories under one Move, each category with its own independent pick count**. Under option A, those categories would have to be top-level `BespokeOption` rows with `PlaybookMoveId` set — but then "how many of my direct categories are mandatory" has nowhere to live, because that field is `BespokeSection.MinSelect`, one level up. Option A would need a new field invented immediately to express something the existing schema already expresses perfectly well one level higher.
 
-**Recommendation — option C: a nullable `BespokeSection.PlaybookMoveId`.**
+**Adopted — option C: a nullable `BespokeSection.PlaybookMoveId`.**
 
 ```
 BespokeSection
@@ -134,52 +148,91 @@ That is the **entire schema delta** — one nullable FK, one table, zero changes
 
 `PlaybookId` deliberately stays on the row even when `PlaybookMoveId` is set (it's derivable through the Move, but keeping it makes "give me everything for this playbook" a single flat query and matches how `HunterBespokeSectionInstance.SectionId` is already stored directly rather than derived transitively).
 
-### 3.2 What still has no home (dependent on Q1/Q2/Q3)
+### 3.2 Final disposition of every census category
 
-Under the recommendation above, **2.1 is fully modeled and 2.0 needs nothing.** Genuinely unresolved:
-- **2.2 in-play menus** — no home; roll-result-gated counts in particular have no equivalent concept in the schema at all. Q1.
-- **2.4 computed option sets** — no home; the option list isn't literal rows. Q2.
-- **2.3 bounded-repeatable free text** (2 instances) — partial home; needs `FreeTextLabel` + `MinInstances`/`MaxInstances` combined, which is a valid-but-never-exercised combination. Q3.
+| Census section | Disposition | Mechanism |
+|---|---|---|
+| **2.0** grant shape | Already modeled, unchanged | `Playbook.MoveGrantCount` + `PlaybookMove.Required` (Phase 2) |
+| **2.1** creation-time picks (14) | **Modeled — the whole of Phase 6's worklist** | `BespokeSection` with `PlaybookMoveId` set + its `BespokeOption` tree |
+| **2.2** in-play menus (~35) | **Prose only** (Q1) | `PlaybookMove.DescriptionText` + `<ul>/<li>` |
+| **2.3** free-text authoring (10) | 8 prose; **2 modeled** (Q3) | Prose, except Searcher's Network + Spell-Slinger's Arcane Reputation → `FreeTextLabel` + `MinInstances`/`MaxInstances` |
+| **2.4** computed option sets (5) | **Prose only** (Q2) | `PlaybookMove.DescriptionText` |
+| ordinary roll-outcome branching | Prose (never in scope) | `PlaybookMove.DescriptionText` + `<ul>/<li>` |
+
+**Nothing in the census is left without a disposition.** The two modeled categories (2.1 and the two 2.3 cases) share the same single mechanism; everything else is prose.
+
+**The two Q3 cases, concretely**: a `BespokeSection` with `PlaybookMoveId` set, `FreeTextLabel` populated, zero `BespokeOption` rows, and `MinInstances`/`MaxInstances` bounding the repeat count — Searcher's Network `0`/`5`, Spell-Slinger's Arcane Reputation `3`/`3`. Instance side uses `HunterBespokeSectionInstance` (one row per entry) plus `HunterBespokeSelection` with `BespokeOptionId` null and the value in `FreeformText` — the already-documented single exception to that FK being required. **This stacks two independently-flagged-as-untested mechanisms** (`FreeTextLabel`'s null-FK instance path, and `MinInstances`/`MaxInstances` on a zero-option Section); worth a deliberate look when these two are actually authored, not because either is wrong but because nothing has exercised them together.
 
 ## 4. Questions for Skyler
 
-**Q1 — the big one: are in-play menus in scope for modeling, or do they stay prose?** (Section 2.2, ~35 moves.)
+**Status, 2026-08-30: all four resolved.** Skyler answered Q2 and Q4 first, then asked for concrete worked examples of Q1 and Q3 before answering those — a useful correction on my part, noted at the end of this section.
+
+**Q1 — are in-play menus in scope for modeling, or do they stay prose?** (Section 2.2, ~35 moves.) — **RESOLVED: prose only**, per Skyler, matching the recommendation below. Phase 6's worklist is the 14 creation-time picks in 2.1. The 2.2 inventory stays in this doc as the record of what was examined and ruled out — explicitly *not* a deferred-work backlog.
+
+**Worked example that unblocked the answer** (The Visitor has one of each in adjacent moves, which made the distinction visible without needing either category name):
+- *Creation-time, in scope* — **Something Strange**: "You have an odd adaptation natural to you. **Pick one:**" + 5 options. Chosen once at character creation; it's part of who the Hunter is from then on.
+- *In-play, out of scope* — **Taste of Home**: "…**The other hunter picks one:**" + 3 options. Nobody picks at creation; a (different) player chooses fresh every time the move comes up. Use it three times in a session, get three different answers. There is no "my answer" to store.
 
 These are lists a player chooses from *repeatedly during play*, not at character creation — "spend your hold to ask one of these questions," "on a 10+ pick three effects." Two paths:
 
 - **(a) Leave them as prose** inside `PlaybookMove.DescriptionText`, using the existing `<ul>/<li>` HTML subset. They render as a readable list on the Hunter sheet; nothing is tracked. **Zero new schema.** This is what Phase 5 effectively assumed by excluding all Move content.
 - **(b) Model them as real option rows**, so the app could render them as interactive controls and potentially track selections/hold-spends during play.
 
-**My recommendation is (a), leaving in-play menus as prose, for this phase.** Reasoning: the app's current scope (per `architecture.md` Section 8 and Phase 10) is Hunter *creation and editing* — a character sheet, not a live play-session tracker. Nothing else in the design tracks in-play state (holds aren't modeled, roll outcomes aren't modeled, `forward`/`ongoing` bonuses aren't modeled). Modeling in-play menus as options would be the first piece of live-play machinery in the schema, and it would need the roll-result-gated-count concept built to be useful — a real new mechanism serving content the app can't otherwise act on yet. **But this is a product-intent call, not an architecture one**, which is why it's the first question rather than something resolved by precedent: if the eventual vision includes a play-session view where a Hunter marks holds and picks effects live, the answer flips and this phase roughly triples in size.
+**Recommendation (a), adopted.** Reasoning: the app's current scope (per `architecture.md` Section 8 and Phase 10) is Hunter *creation and editing* — a character sheet, not a live play-session tracker. Nothing else in the design tracks in-play state (holds aren't modeled, roll outcomes aren't modeled, `forward`/`ongoing` bonuses aren't modeled). Modeling in-play menus as options would be the first piece of live-play machinery in the schema, and it would need the roll-result-gated-count concept built to be useful — a real new mechanism serving content the app can't otherwise act on yet. **But this is a product-intent call, not an architecture one**, which is why it's the first question rather than something resolved by precedent: if the eventual vision includes a play-session view where a Hunter marks holds and picks effects live, the answer flips and this phase roughly triples in size.
 
-**Q2 — how should "computed option set" moves be handled?** (Section 2.4, 5 moves.)
+**Q2 — how should "computed option set" moves be handled?** (Section 2.4, 5 moves.) — **RESOLVED 2026-08-30: prose only**, per Skyler ("Prose only"), matching the recommendation below. All five stay in `PlaybookMove.DescriptionText` with no option rows and no reference mechanism. No further discussion needed.
 
 Cases like Monstrous's "Take a move from a hunter playbook that is not currently in play" and Spell-Slinger's "Choose two effects available to you under `use magic`" have option sets defined by *reference* to other data (another playbook's moves; a basic move's effect list), not by literal rows. Two of the five are creation-time and permanent, so unlike Q1 they can't be dismissed as play-state.
 
-**My recommendation: leave all five as prose for now, and revisit only if the Hunter UI actually needs to offer the choice interactively.** A real `PlaybookMove`→`PlaybookMove` reference mechanism is buildable (the FK exists, "not currently in play" is a runtime/campaign-scoped condition the schema has no concept of), but "not currently in play" specifically depends on campaign/session state this design has never modeled — so a faithful implementation isn't actually possible today regardless. Flagging rather than resolving because two of these are permanent creation-time picks and a future Hunter form might reasonably want them selectable.
+*Original recommendation, adopted*: leave all five as prose for now, and revisit only if the Hunter UI actually needs to offer the choice interactively. A real `PlaybookMove`→`PlaybookMove` reference mechanism is buildable (the FK exists), but "not currently in play" specifically depends on campaign/session state this design has never modeled — so a faithful implementation isn't actually possible today regardless.
 
-**Q3 — bounded-repeatable free text: extend the existing fields, or leave as prose?** (Section 2.3, 2 instances: Searcher's Network "detail up to five members"; Spell-Slinger's Arcane Reputation "pick three organizations".)
+**Q3 — bounded-repeatable free text: extend the existing fields, or leave as prose?** (Section 2.3, 2 instances.) — **RESOLVED: model them**, per Skyler, matching the recommendation below. Mechanism and the untested-combination caveat are in Section 3.2.
 
-Neither fits cleanly: `FreeTextLabel` captures exactly one value; `BespokeJournal` is unbounded and multi-field. The natural fit is a `FreeTextLabel` Section with `MinInstances`/`MaxInstances` set (Network: 0–5; Arcane Reputation: 3–3) — **a combination the schema permits but no case has ever exercised**, and whose instance-side path is the one already-flagged exception where `HunterBespokeSelection.BespokeOptionId` is null. **My recommendation: adopt it, since it needs no new fields** — but flagging it because it stacks two independently-flagged-as-untested mechanisms on top of each other, and because "leave these two as prose" is a perfectly reasonable cheaper answer.
+**The two cases, verbatim** (both ask the player to *invent* several separate pieces of content, with a specific count and no list to choose from):
+- **The Searcher / Network**: "You may gain an ally group of others who had experiences similar to your first encounter—perhaps they're a support group or hobbyist club. **Detail up to five members** with useful skills related to what happened to them."
+- **The Spell-Slinger / Arcane Reputation**: "**Pick three big organizations or groups** in the supernatural community, which can include some of the more sociable types of monsters."
 
-**Q4 — the inverted pick (small, low-stakes).** Spell-Slinger's Tools and Techniques says "**Cross off one**; you'll need the rest" — you select one of four to *lose*, keeping three. Modeled as an ordinary `MinSelect=1, MaxSelect=1` Section, the stored selection means the opposite of every other selection in the schema.
+Neither fits an existing shape: `FreeTextLabel` alone captures exactly *one* value (Gumshoe's Code); `BespokeJournal` is *unbounded* and multi-field (Curse-Eater's Consumed Magic, Power + Downside, added all campaign long). These sit in the gap — a fixed small number of simple free-text entries, set once at creation.
 
-**My recommendation: model it as an ordinary pick-1 and state the inversion in the Section's `Description`, accepting that the semantics live in prose** — exactly the resolution Skyler already chose for Monstrous's Natural Attacks either/or rule ("leave unenforced, stated in prose only, no new schema"). Raising it only because it's a one-line confirmation and it's the single case in this census where a stored value's *meaning* is inverted rather than just its constraint being unenforced.
+**The asymmetry with Q1 that decided this one, surfaced only while writing the plain-language examples**: for Q1, "leave as prose" loses nothing storable — an in-play menu is reference text, and there's no per-Hunter answer to record. For Q3 the opposite is true: the player authors permanent character content at creation, so "leave as prose" means **the answer has nowhere on the Hunter sheet to live** (it would fall into the catch-all `Hunter.Background` box, or nowhere). Same nominal cheap answer, materially different cost — which wasn't visible when I first raised Q1 and Q3 side by side as though they were parallel trade-offs.
 
-## 5. Suggested next steps once Q1–Q4 are answered
+**Q4 — the inverted pick.** — **RESOLVED 2026-08-30, with a modification that supersedes my recommendation.**
+
+The source (Spell-Slinger's Required Move, Tools and Techniques) reads: "To use your combat magic effectively, you rely on a collection of tools and techniques. **Cross off one; you'll need the rest.**" followed by exactly 4 bulleted items — Consumables, Foci, Gestures, Incantations. I'd recommended modeling it as a pick-1 with the inversion explained in prose (the Natural Attacks precedent).
+
+**Skyler's decision instead** (exact words): *"Let's do an ordinary pick-1, and alter the text to instead say, 'Pick 3 of the 4.'"* — i.e. flip the instruction to positive framing rather than preserving the source's inverted wording. **Adopted.**
+
+**Equivalence verified against the source before applying**: the list has exactly 4 items; crossing off 1 leaves 3, so "pick 3 of the 4" produces an identical outcome. Since the framing flips, the stored values flip with it — this becomes **`MinSelect=3, MaxSelect=3`**, not a pick-1, and the three selected rows are the ones the Hunter *keeps* (consistent with every other selection in the schema) rather than the one they lose.
+
+**Supporting find that makes this more than merely equivalent**: the same playbook's own optional move **Advanced Arcane Training** already reads "If you have two of **your three** Tools and Techniques at the ready, you may ignore the third one." The source itself already treats the result as three kept items — so the positive framing is *more* internally consistent with the playbook's own language than the printed instruction it replaces. That's a genuine argument for the rewrite, not just an acceptable substitution.
+
+**Recorded as a Skyler-directed rewording, explicitly not source-literal** — the same convention already used for Skyler-assigned Move names ("One of Us," "Agency politics") and for normalized inconsistent wording (Underworld's "(choose one)"). Whoever authors this content must know the stored `Description` intentionally differs from the printed page.
+
+**One out-of-scope consequence, flagged not resolved**: Spell-Slinger's Advanced Improvements include "You may cross off another option from your Tools and Techniques" — under positive framing that's "reduce your kept count from 3 to 2." A level-up concern, out of scope here exactly like every other level-up reference in this project, but it will need the same mental translation whenever leveling is designed.
+
+**Process note worth keeping, since it recurred**: two of these four questions came back not as answers but as "I have no idea what this refers to" / "I'm not sure what this refers to" — both the ones where I'd named a category I coined during analysis ("in-play menu," "bounded-repeatable free text") and described it by its properties without quoting the actual playbook text it was abstracted from. Skyler knows the playbooks intimately; the abstraction was the barrier, not the content. Both were answered immediately once a verbatim same-playbook example was supplied. **For any future question about an analyst-coined category: lead with the real quoted source text, let the category name come second or not at all.** (This is the second round in a row this exact failure occurred — the first was the Expatriation derived-vs-stored explanation.)
+
+## 5. Next steps
 
 Mirroring how Phase 5 actually ran, rather than proposing something new:
 
-1. Skyler answers Q1 (and ideally Q2–Q4, though Q1 is the only true blocker — it determines whether the phase is ~14 moves or ~50).
-2. `architecture.md` gains the `BespokeSection.PlaybookMoveId` addition as a new subsection alongside Section 6 (Section 6.7 currently declares Move-internal content explicitly out of scope and points here — that note becomes the pointer to the real model).
-3. A `custom-move-catalogue.md` is opened, mirroring `bespoke-ruleset-catalogue.md`'s conventions exactly (one `##` per playbook, one `###` per Move with internal structure, progress tracker, "confirmed none" recorded as a real result). **The 14 rows in 2.1 are its starting worklist** — but per 2.5(b), the extraction tooling needs an inline-list path before authoring the comma/semicolon-separated cases, which is a real prerequisite task, not a detail.
-4. One-playbook-at-a-time authoring, same rigor: verify against the source PDF, run the formatting pipeline, escalate rather than guess.
+1. ~~Skyler answers Q1–Q4~~ — **done, 2026-08-30.**
+2. ~~`architecture.md` gains the `BespokeSection.PlaybookMoveId` addition~~ — **done: Section 6.8.** Section 6.7 (which declared Move-internal content out of scope) now points there.
+3. **Extend the extraction tooling first — a real prerequisite, not a detail.** See "Tooling prerequisites" directly below. Authoring the inline comma/semicolon cases before this is done means hand-transcribing them and losing the pipeline's verification.
+4. Open a `custom-move-catalogue.md`, mirroring `bespoke-ruleset-catalogue.md`'s conventions exactly (one `##` per playbook, one `###` per Move with internal structure, progress tracker, "confirmed none" recorded as a real result). **The 14 rows in 2.1 are its complete worklist** — the census is done, so unlike Phase 5 this catalogue starts with its scope already known rather than discovering it playbook by playbook.
+5. One-playbook-at-a-time authoring, same rigor: verify against the source PDF, run the formatting pipeline, escalate rather than guess.
 
-**One sequencing note worth acting on early**: The Crooked is both a Phase 4 pilot playbook *and* now known to carry two creation-time in-move picks. If Phase 4 authors Crooked before this phase resolves, its Artifact and Deal with the Devil content will have to be either deferred or re-authored afterward. Worth knowing before Phase 4 starts, since it was invisible until this census.
+### Tooling prerequisites (both from Section 2.5, both verified against the PDF)
+
+1. **`extract-moves.mjs` needs an inline-list path.** It currently segments on bullet glyphs. **6 of the 14 in-scope moves present their options as inline comma- or semicolon-separated runs with no bullets at all** — Crooked's Artifact and Deal with the Devil, Changeling's Force of Nature, Gumshoe's The Naked City, Professional's Mobility, Searcher's Guardian. The extractor will silently return nothing structural for these (not error — silently), so this must be built before authoring, or those six get hand-transcribed with no pipeline verification.
+2. **Expect no font-derived `Title` boundary anywhere in this content class.** Verified on both an inline case (Crooked p11) and a bulleted case (Host p31): the Move's own name is bold, and every option name inside it is regular weight. So every `Title`/`DescriptionText` split here is delimiter-derived (colon or parenthesis) — the lower-confidence provenance already flagged as an *exception* for Forged's Benefits and Pararomantic's Guide's Gift is the *rule* for Phase 6. Authoring should record it as such by default rather than re-flagging it per playbook.
+
+**Sequencing note worth acting on before Phase 4 starts**: The Crooked is both a Phase 4 pilot playbook *and* now known to carry two creation-time in-move picks (Artifact, Deal with the Devil). If Phase 4 authors Crooked before Phase 6's schema ships, that content has to be either deferred or re-authored afterward. This was invisible until this census — it's the single most actionable consequence of having run it.
 
 ## Cross-references
 
-- **`architecture.md` Section 6** — the authoritative bespoke-ruleset schema this proposal reuses wholesale; Section 6.7 is the current out-of-scope declaration for Move-internal content that this doc is intended to supersede.
-- **`phases.md` Phase 6** — the phase this supports; its scope boundary, two-pattern framing, and seed-not-census warning are all confirmed by this census (with the pattern count revised upward — see Section 2).
-- **`bespoke-ruleset-catalogue.md`** — where the pre-existing (half-complete) trap flags live, in place per playbook.
-- **`pdf-extraction-pipeline.md`** / `tools/pdf-extract/` — the extraction mechanism; note the inline-list gap in 2.5(b) before this phase's authoring pass.
+- **`architecture.md` Section 6.8** — the implementation-ready spec for `BespokeSection.PlaybookMoveId`; Section 6.7 is the scope-boundary note that now points to it. Sections 6.1–6.6 are the bespoke-ruleset schema this reuses wholesale.
+- **`phases.md` Phase 6** — the phase this supports; its scope boundary and seed-not-census warning are both confirmed by this census (its two-pattern framing is revised — see Section 2).
+- **`bespoke-ruleset-catalogue.md`** — where the pre-existing (half-complete) trap flags live, in place per playbook. Section 2.1 here supersedes that set as the authoritative inventory.
+- **`pdf-extraction-pipeline.md`** / `tools/pdf-extract/` — the extraction mechanism; the inline-list gap above is a prerequisite against it.
+- **`.squad/decisions/inbox/yoshi-hunter-playbooks-phase6-custom-moves-model.md`** — the decision record for this phase's settled approach.
