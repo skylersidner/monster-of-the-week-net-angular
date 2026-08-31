@@ -730,7 +730,11 @@ export interface UpsertPlaybookExtraTrackRequest {
 }
 
 // ---------------------------------------------------------------------------------------
-// Hunters (Phase 9). List shape only — the detail/upsert contract lands in Phase 10.
+// Hunters (Phases 9 and 10).
+//
+// The two pick collections are bare id arrays, not expanded rows: the form loads the full
+// PlaybookDetailResponse anyway to render every available option, so expanding the selected
+// ones would duplicate data the client already holds. See HunterContracts.cs.
 // ---------------------------------------------------------------------------------------
 
 export interface HunterListItemResponse {
@@ -739,4 +743,58 @@ export interface HunterListItemResponse {
   playbookId: string;
   playbookName: string;
   createdAt: string;
+}
+
+/**
+ * One answered Look line. Exactly one of `lookOptionId` / `freeformText` is populated; an
+ * unanswered line has no entry at all rather than an entry with both null.
+ */
+export interface HunterLookSelectionModel {
+  lookCategoryId: string;
+  lookOptionId: string | null;
+  freeformText: string | null;
+}
+
+export interface HunterExtraTrackValueModel {
+  extraTrackId: string;
+  currentValue: number;
+}
+
+export interface HunterDetailResponse {
+  id: string;
+  name: string;
+  pronouns: string | null;
+  playbookId: string;
+  playbookName: string;
+  playbookStatArrayOptionId: string | null;
+  luck: number;
+  harm: number;
+  experience: number;
+  background: string | null;
+  playbookMoveIds: string[];
+  playbookGearOptionIds: string[];
+  looks: HunterLookSelectionModel[];
+  extraTracks: HunterExtraTrackValueModel[];
+  /**
+   * What this hunter still owes its playbook, in sheet order — empty means ready to play.
+   * Server-derived on every read and never stored (a hunter is live-linked to its playbook, so
+   * a stored flag would go stale silently). Partial hunters save fine; this is what says so.
+   */
+  outstanding: string[];
+  createdAt: string;
+}
+
+export interface UpsertHunterRequest {
+  name: string;
+  pronouns: string | null;
+  playbookId: string;
+  playbookStatArrayOptionId: string | null;
+  luck: number;
+  harm: number;
+  experience: number;
+  background: string | null;
+  playbookMoveIds: string[];
+  playbookGearOptionIds: string[];
+  looks: HunterLookSelectionModel[];
+  extraTracks: HunterExtraTrackValueModel[];
 }

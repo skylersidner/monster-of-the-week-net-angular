@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MonsterOfTheWeek.Api.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MonsterOfTheWeek.Api.Data.Migrations
 {
     [DbContext(typeof(MotwDbContext))]
-    partial class MotwDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831192744_AddHunterSheetAndPicks")]
+    partial class AddHunterSheetAndPicks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -495,28 +498,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.ToTable("hunters", (string)null);
                 });
 
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterExtraTrackValue", b =>
-                {
-                    b.Property<Guid>("HunterId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("hunter_id");
-
-                    b.Property<Guid>("ExtraTrackId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("extra_track_id");
-
-                    b.Property<int>("CurrentValue")
-                        .HasColumnType("integer")
-                        .HasColumnName("current_value");
-
-                    b.HasKey("HunterId", "ExtraTrackId");
-
-                    b.HasIndex("ExtraTrackId")
-                        .HasDatabaseName("idx_hunter_extra_track_values_track_id");
-
-                    b.ToTable("hunter_extra_track_values", (string)null);
-                });
-
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterGearSelection", b =>
                 {
                     b.Property<Guid>("HunterId")
@@ -533,35 +514,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .HasDatabaseName("idx_hunter_gear_selections_option_id");
 
                     b.ToTable("hunter_gear_selections", (string)null);
-                });
-
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterLookSelection", b =>
-                {
-                    b.Property<Guid>("HunterId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("hunter_id");
-
-                    b.Property<Guid>("LookCategoryId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("look_category_id");
-
-                    b.Property<string>("FreeformText")
-                        .HasColumnType("text")
-                        .HasColumnName("freeform_text");
-
-                    b.Property<Guid?>("LookOptionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("look_option_id");
-
-                    b.HasKey("HunterId", "LookCategoryId");
-
-                    b.HasIndex("LookCategoryId")
-                        .HasDatabaseName("idx_hunter_look_selections_category_id");
-
-                    b.HasIndex("LookOptionId")
-                        .HasDatabaseName("idx_hunter_look_selections_option_id");
-
-                    b.ToTable("hunter_look_selections", (string)null);
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterMove", b =>
@@ -1792,25 +1744,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("PlaybookStatArrayOption");
                 });
 
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterExtraTrackValue", b =>
-                {
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookExtraTrack", "ExtraTrack")
-                        .WithMany()
-                        .HasForeignKey("ExtraTrackId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
-                        .WithMany("ExtraTrackValues")
-                        .HasForeignKey("HunterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ExtraTrack");
-
-                    b.Navigation("Hunter");
-                });
-
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterGearSelection", b =>
                 {
                     b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
@@ -1828,32 +1761,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("Hunter");
 
                     b.Navigation("PlaybookGearOption");
-                });
-
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterLookSelection", b =>
-                {
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
-                        .WithMany("LookSelections")
-                        .HasForeignKey("HunterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookCategory", "LookCategory")
-                        .WithMany()
-                        .HasForeignKey("LookCategoryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookOption", "LookOption")
-                        .WithMany()
-                        .HasForeignKey("LookOptionId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Hunter");
-
-                    b.Navigation("LookCategory");
-
-                    b.Navigation("LookOption");
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterMove", b =>
@@ -2284,11 +2191,7 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Hunter", b =>
                 {
-                    b.Navigation("ExtraTrackValues");
-
                     b.Navigation("GearSelections");
-
-                    b.Navigation("LookSelections");
 
                     b.Navigation("Moves");
                 });

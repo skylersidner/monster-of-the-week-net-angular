@@ -1,0 +1,59 @@
+<section class="text-primary">
+  <a routerLink="/hunters" class="inline-block mb-3">← Back to hunters</a>
+
+  @if (isLoading()) {
+    <p>Loading hunter...</p>
+  } @else if (errorMessage()) {
+    <p class="text-danger">{{ errorMessage() }}</p>
+  } @else if (hunter(); as current) {
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div class="flex flex-wrap items-baseline gap-2">
+        <h2>{{ current.name }}</h2>
+        <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-playbook text-on-badge-playbook">{{ current.playbookName }}</span>
+        @if (current.outstanding.length === 0) {
+          <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-success text-on-success">Ready to play</span>
+        }
+      </div>
+      <button
+        type="button"
+        class="bg-transparent border border-default rounded-lg text-danger cursor-pointer font-[inherit] px-3 py-[0.45rem]"
+        (click)="requestDelete()"
+      >
+        Delete hunter
+      </button>
+    </div>
+
+    <!--
+      The server's own answer to "what does this hunter still owe its playbook", refreshed on
+      every save because the response carries it. Derived, never stored — a hunter is
+      live-linked to its playbook, so this can change without the hunter being touched
+      (architecture.md Section 9). Deliberately informational: nothing here blocks anything.
+    -->
+    @if (current.outstanding.length > 0) {
+      <div class="bg-surface border border-default rounded-lg grid gap-2 mb-4 p-3">
+        <span class="font-semibold">Still to finish</span>
+        <ul class="grid gap-1 list-disc pl-5 text-[0.85rem] text-muted">
+          @for (item of current.outstanding; track item) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+      </div>
+    }
+
+    <app-hunter-form
+      [playbooks]="playbooks()"
+      [hunter]="current"
+      [isSaving]="isSaving()"
+      submitLabel="Save changes"
+      (save)="onSave($event)"
+    />
+  }
+</section>
+
+<app-confirm-delete-modal
+  [visible]="isConfirmingDelete()"
+  [itemName]="hunter()?.name ?? ''"
+  message="This cannot be undone."
+  (confirmed)="confirmDelete()"
+  (cancelled)="cancelDelete()"
+/>

@@ -69,6 +69,12 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             return ServiceResult<PlaybookDetailResponse>.Validation($"A playbook named \"{name}\" already exists.");
         }
 
+        var inUseError = await CheckRemovedChildrenAreUnusedAsync(playbook, request, cancellationToken);
+        if (inUseError is not null)
+        {
+            return ServiceResult<PlaybookDetailResponse>.Conflict(inUseError);
+        }
+
         playbook.Name = name;
         ApplyScalars(playbook, request);
         ApplyChildren(playbook, request);
@@ -107,6 +113,100 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
         }
 
         return ServiceResult<bool>.Success(await repository.DeleteAsync(id, cancellationToken) > 0);
+    }
+
+    /// <summary>
+    /// Refuses an edit that would remove a child row some Hunter is still pointing at.
+    ///
+    /// <para>
+    /// This is the per-child half of architecture.md Section 3's deferred check, and Phase 10 is
+    /// where it becomes implementable: <c>HunterMove</c> and <c>HunterGearSelection</c> did not
+    /// exist before. Without it the Id-based diff silently deletes template rows out from under
+    /// live hunters — the exact failure the diff was chosen to avoid in the first place.
+    /// </para>
+    ///
+    /// <para>
+    /// Runs <em>before</em> any mutation, so a rejected edit leaves the tracked graph untouched.
+    /// Every kind a Hunter can currently point at is checked — rating arrays, moves, gear
+    /// options, look lines, look options, extra tracks. Improvements, bespoke rows and journals
+    /// stay freely removable because they still have no instance-side table; this method is the
+    /// place to extend when they get one.
+    /// </para>
+    /// </summary>
+    private async Task<string?> CheckRemovedChildrenAreUnusedAsync(
+        Playbook stored,
+        UpsertPlaybookRequest request,
+        CancellationToken cancellationToken)
+    {
+        var keptStatArrays = (request.StatArrayOptions ?? []).Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToHashSet();
+        var keptMoves = (request.Moves ?? []).Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToHashSet();
+        // Options of a category dropped from the request are removed along with it, so the kept
+        // set is flattened across the request's categories rather than matched category by category.
+        var keptGear = (request.GearCategories ?? [])
+            .SelectMany(c => c.Options ?? [])
+            .Where(o => o.Id.HasValue)
+            .Select(o => o.Id!.Value)
+            .ToHashSet();
+
+        // Label each candidate now, while the stored graph is in hand — the repository comes back
+        // with bare ids, and a "3 rows are in use" error the user cannot act on is barely better
+        // than no error at all.
+        var labels = new Dictionary<Guid, string>();
+        foreach (var option in stored.StatArrayOptions.Where(x => !keptStatArrays.Contains(x.Id)))
+        {
+            labels[option.Id] = $"rating array #{option.SortOrder + 1}";
+        }
+
+        foreach (var move in stored.Moves.Where(x => !keptMoves.Contains(x.Id)))
+        {
+            labels[move.Id] = $"move \"{move.Name}\"";
+        }
+
+        foreach (var option in stored.GearCategories.SelectMany(c => c.Options).Where(x => !keptGear.Contains(x.Id)))
+        {
+            labels[option.Id] = $"gear \"{option.Name}\"";
+        }
+
+        // Look *categories* are referenceable too, not just their options: a hunter who wrote
+        // their own text for a line points at the line itself with no option id at all, so
+        // removing the line would orphan that answer.
+        var keptLookCategories = (request.LookCategories ?? []).Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToHashSet();
+        var keptLookOptions = (request.LookCategories ?? [])
+            .SelectMany(c => c.Options ?? [])
+            .Where(o => o.Id.HasValue)
+            .Select(o => o.Id!.Value)
+            .ToHashSet();
+
+        foreach (var category in stored.LookCategories.Where(x => !keptLookCategories.Contains(x.Id)))
+        {
+            labels[category.Id] = $"look line #{category.SortOrder + 1}";
+        }
+
+        foreach (var option in stored.LookCategories.SelectMany(c => c.Options).Where(x => !keptLookOptions.Contains(x.Id)))
+        {
+            labels[option.Id] = $"look \"{option.Text}\"";
+        }
+
+        var keptTracks = (request.ExtraTracks ?? []).Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToHashSet();
+        foreach (var track in stored.ExtraTracks.Where(x => !keptTracks.Contains(x.Id)))
+        {
+            labels[track.Id] = $"track \"{track.Name}\"";
+        }
+
+        if (labels.Count == 0)
+        {
+            return null;
+        }
+
+        var inUse = await repository.GetHunterReferencedChildIdsAsync(labels.Keys, cancellationToken);
+        if (inUse.Count == 0)
+        {
+            return null;
+        }
+
+        var named = inUse.Select(id => labels[id]).OrderBy(x => x, StringComparer.Ordinal).ToList();
+        return $"Cannot remove {(named.Count == 1 ? "an entry that a hunter is" : "entries that hunters are")} "
+            + $"using: {string.Join(", ", named)}. Update those hunters first.";
     }
 
     // -----------------------------------------------------------------------------------

@@ -32,6 +32,20 @@ public interface IPlaybookRepository
     /// </summary>
     Task<int> CountHuntersAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Of the given child-row ids, which ones at least one Hunter still points at — across
+    /// rating arrays, picked moves, and picked gear options.
+    ///
+    /// <para>
+    /// Takes a candidate set rather than answering per row so the whole check is one round trip
+    /// no matter how many rows an edit removes, and returns ids rather than a count so the
+    /// service can name the offending rows in its error instead of just tallying them.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetHunterReferencedChildIdsAsync(
+        IReadOnlyCollection<Guid> candidateIds,
+        CancellationToken cancellationToken);
+
     Task AddAsync(Playbook playbook, CancellationToken cancellationToken);
     Task<int> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);

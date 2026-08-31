@@ -433,7 +433,74 @@ Backend: `Hunter` entity in a new `HunterEntities.cs`, the `AddHunter` migration
 
 **Confirmed 2026-08-25**: Hunters will eventually be many-to-many with Mysteries, but not this pass, and it isn't a concern for this phase's schema either — the future bridge table is a pure addition with nothing in this phase's `Hunter` shape that it would need to change (`architecture.md` Section 3).
 
-## Phase 10 — Hunter create/edit UI (fully specified, with recommendation)
+## Phase 10 — Hunter create/edit UI (fully specified, with recommendation; **implemented 2026-08-31**)
+
+**Delivered**: `AddHunterSheetAndPicks` migration (Hunter gains `Pronouns`/`PlaybookStatArrayOptionId`/`Luck`/`Harm`/`Experience`/`Background`; new `hunter_moves` and `hunter_gear_selections` composite-key bridges), `HunterContracts` / repository / service / `GET`+`POST`+`PUT`+`DELETE /api/hunters`; frontend `HunterFormComponent`, `HunterCreateComponent`, `HunterDetailComponent`, the `new` and `:hunterId` routes, and the delete control the list page deliberately went without in Phase 9.
+
+**`DELETE /api/hunters/{id}` is here even though this phase listed only GET/POST/PUT.** Without it, Phase 9's playbook-delete `409` tells the user to "delete or reassign" hunters they would have no way to delete — a dead end this phase would otherwise create for itself.
+
+**Scope held as Skyler confirmed**: standard fields plus one freeform box. `Hunter.Background` is that box. The bespoke-ruleset instance tables (`architecture.md` 6.4), `HunterExtraTrackValue`, and structured Looks/History capture are **not** built. Worth re-deciding now rather than assuming: the note below was written 2026-08-25 when Phase 5 was only a design, and said the form "gets revisited once Phase 5's bespoke-ruleset solution exists" — it now does, and all 28 playbooks' bespoke data is authored. **That revisit is a follow-on pass, not something folded in here**, and it is the obvious next piece of work.
+
+**Server-side rules the form cannot be the only guard for**, all validated against the *selected playbook* rather than the payload: picks must belong to the playbook; advanced moves are refused outright (never available at creation); non-required picks may not exceed `MoveGrantCount`; gear picks may not exceed a category’s `PickCount` (**added 2026-08-31** — this one had been left to the Angular form alone, which is not enforcement); track values may not exceed the playbook's own box counts. `MoveGrantCount == 0` is treated as "no ceiling stated" rather than "no picks allowed", per `architecture.md` Section 3's warning about that value's ambiguity — otherwise an admin-created playbook with an unauthored Moves section could never have a hunter built from it.
+
+**Two judgement calls worth knowing**: `PlaybookStatArrayOptionId` is **nullable** (a Path-B playbook whose rating arrays are not authored yet would otherwise be impossible to build a hunter from; the form requires a choice whenever the playbook offers one), and the playbook control is **locked in edit mode** (changing it would silently discard every pick).
+
+**Also closed this phase**: the per-child-row half of the deletion guard — `PUT /api/playbooks/{id}` now returns `409` naming a move/gear/rating row a hunter is using rather than letting the Id-based diff delete it. That was the last "deferred to Phase 9/10" item in `architecture.md` Section 3.
+
+**Verified by driving the real app**, plus 8 new `HunterServiceTests`: created a hunter through the form, confirmed the gated sections, the "n of N picked" counter locking further picks, per-category gear limits, the create → detail round-trip (name, pronouns, background, rating, moves, locked playbook), the child-removal `409`, and delete from the list. **Both new guards were negative-tested** — and one of them found a real bug (the EF fixup trap in `architecture.md` Section 8) rather than merely confirming what was already working. 187 API tests and 337 Angular tests pass. Test rows removed; a re-export of the seed came back **byte-identical** to the committed file, so the playbook `PUT` exercised during testing churned no child ids.
+
+### Follow-on 10a — structured Looks and Extra Tracks (**implemented 2026-08-31**)
+
+Skyler split the deferred structured-capture work: do Looks and Extra Tracks now, plan the bespoke rulesets before implementing. This is the first half.
+
+**Two new composite-keyed tables** (`AddHunterLooksAndExtraTracks`): `hunter_look_selections` (hunter + look category → either an option FK or freeform text) and `hunter_extra_track_values` (hunter + track → current value). Both are keyed so that "one answer per line" and "one value per track" are structurally impossible to violate rather than rules someone has to remember.
+
+**`HunterExtraTrackValue` deviates from `architecture.md` 6.4's sketch**, which shows a surrogate `Id`. There is exactly one value per (hunter, track), so the composite key says that directly; a surrogate would need an extra unique index to say the same thing, and would introduce a third convention into a file that already has two composite bridges.
+
+**Design checked against the data, not assumed**: all 77 look categories across the 28 playbooks allow freeform, options run 3–12 per line, and exactly 7 categories carry a `GroupLabel` (The Forged's "Human look"/"Weapon look" split). The form groups by *consecutive run* of matching label rather than by distinct label, so the sheet's own line ordering survives instead of being reordered to gather labels together.
+
+**One answer per look line**, matching how the sheet works — a row of alternatives with one circled. If multiple picks per line ever turn out to be wanted, the composite key is the single thing to change; that is noted on the entity.
+
+**"Exactly one of option / freeform"** is enforced in the service, because no database constraint here expresses it. Both failure directions are tested.
+
+**The playbook-edit guard grew two cases**, and one is genuinely easy to miss: a freeform answer references only the *look category*, with no option id at all, so a guard watching only look options would let a line be deleted out from under everyone who wrote their own text for it. Extra tracks were added to the guard too.
+
+**Verified by driving the app**: The Forged's grouped look lines render as two labelled groups (3 and 4 lines); the Curse-Eater's Corruption track renders with its description and clamps to 7; clicking an option clears that line's custom text; a hunter with one freeform answer, one picked option and a track value at 4 round-trips through save → reload; and dropping the track from the playbook returns `409` naming it. 192 API tests (5 new) and 337 Angular tests pass. **The new guard was negative-tested** by removing only the look-category half — the one test that should fail did, and the neighbouring guard tests still passed.
+
+**Still deferred, and now the only thing left in `Hunter.Background`**: bespoke rulesets (including move-internal ones) and History. Plan first, per Skyler.
+
+### Follow-on 10b — bespoke rulesets on the Hunter sheet (**planned 2026-08-31, not started**)
+
+Skyler asked for a plan before implementation. This is it. Two questions were put to him and both are answered below; one open item remains, flagged at the end.
+
+**Scope: everything bespoke, in one pass** (Skyler's call). That includes move-internal sections, repeatable sections, and the journal — the alternatives (deferring repeatables, or the journal) were offered and declined.
+
+**Move-internal sections are in scope and cost almost nothing extra.** Phase 6 modeled a Move's own pick-structure as `BespokeSection.PlaybookMoveId` — the *same four tables*, owned by a move rather than the playbook (`architecture.md` 6.8). 13 of the 49 sections are move-internal. The instance side is indifferent to who owns a section, so including them is a rendering decision (inline under their move, where the rules text already is), not a parallel mechanism. Excluding them would have been more work, not less.
+
+**What the data contains**, measured rather than estimated:
+
+| | Count |
+|---|---|
+| Sections | 49 — 13 move-internal, 10 zero-option fixed grants, 3 free-text, 3 repeatable |
+| Sections with a pick count | 39 — **all 39 have `MinSelect > 0`** |
+| Options | 529 — 207 top-level, 322 nested, 46 carrying their own `MinSelect > 0` |
+| Max option-tree depth | 3 (23 options that deep) |
+| Numeric leaves | 1 |
+| Journals | 1 |
+
+**Schema**: the four instance-side tables exactly as `architecture.md` 6.4 specifies — `HunterBespokeSelection`, `HunterBespokeSectionInstance`, `HunterJournalEntry`, `HunterJournalEntryFieldValue`. Unlike Looks and Extra Tracks these genuinely need surrogate keys (a repeatable section has many instances; a journal has many entries), so 6.4's shape stands as written. The 10 zero-option sections need **no instance rows at all** — the hunter has that ability unconditionally by virtue of the playbook, the same way a `Required` move needs no per-hunter record.
+
+**~~Validation: minimums *and* maximums, enforced recursively~~ — superseded 2026-08-31, see the completeness section below.** The original reasoning is worth keeping, because it is the reasoning that was weighed: every pick-bearing section has a real minimum, so under strict enforcement a hunter could not be saved until each one was fully answered — a Crooked has five such sections — buying a guarantee that no stored hunter ever violates its playbook’s rules, at the cost of no partial progress and no resumable work.
+
+**Revised 2026-08-31 — the maximums stay, the minimums move.** Skyler delegated the direction outright and it was reversed: maximums are refused on save, minimums are derived and reported. What this changes for 10b is only *where each rule goes*, not what it has to know — a section’s `MaxSelect`/`MaxInstances` becomes another case in `HunterService.Validate`, and its `MinSelect` becomes another line in `HunterCompleteness.Evaluate`, which exists and is tested. Nothing about the four instance-side tables, the recursive renderer, or the playbook-edit guard changes. Full reasoning in `architecture.md` Section 9.
+
+**The open item this originally created is closed, and it did not close the way this entry recommended.** The inconsistency was real: lenient move picks beside strict bespoke sections. The resolution brought everything into line with the *lenient* side rather than the strict one — move picks stayed a ceiling, and gear `PickCount`, which was enforced nowhere on the server, became one too.
+
+**UI**: a recursive component rendering an option tree to depth 3, with independent pick limits at each level. "Is this category engaged" stays **derived from leaf picks and never stored** (6.4's existing decision) — there is no flag to keep in sync and therefore no way to reach a category marked engaged with nothing under it. Free-text sections, the single numeric leaf, repeatable-instance add/remove, and journal-entry add/remove are each their own small renderer selected by the same shape-derivation rule the admin form already uses (no discriminator column).
+
+**The playbook-edit guard extends here too**, the same way it just did for looks: a `BespokeOption` a hunter selected must not be removable, and — the analogous easy-to-miss case — a **section** referenced by a free-text answer or a section instance must not be removable either, since those carry no option id.
+
+**Known risk, from `architecture.md` 6.9**: the bounded-repeatable free-text combination (`FreeTextLabel` + `MinInstances`/`MaxInstances`, zero options — the Searcher's Network and the Spell-Slinger's Arcane Reputation) is valid in the model but *has never been exercised*. It is the least-proven part of the design and deserves deliberate verification first, not last.
 
 **Recommendation: single-page reactive form, following the `MonsterFormComponent`/`MonsterCreateComponent` precedent — not a multi-step wizard.** Full reasoning in `architecture.md` Section 8. Summary of the deciding argument: the Mystery wizard's complexity exists to sequence *ordered child-entity creation* (a Monster needs an `Id` before its Attacks can be attached); Hunter has no equivalent — everything is data about the Hunter itself, submittable in one request, the same way Monster's own core fields already are. The one real complication (nothing renders until a Playbook is picked, since every pick-list is Playbook-scoped) is solved with a reactively-gated single page — the same pattern `data-admin.ts`'s table-selector and `monster-create.ts`'s `isSpecial`-conditional validator already use — not a second navigation step, which the standalone-creation initiative's own resolved decisions already rejected for this exact shape of problem.
 
@@ -444,6 +511,25 @@ Backend: `Hunter` entity in a new `HunterEntities.cs`, the `AddHunter` migration
 **Resolved 2026-08-25**: what happens to an already-created Hunter's sheet when its Playbook is later edited — Hunters stay live-linked (FK-based) to the Playbook's own rows, not snapshotted. If a template changes, existing Hunters built from it change too; that's the intended behavior, not a bug to design around. This was previously an open question; it's now settled in the schema itself (`architecture.md` Section 3).
 
 **Still not resolved in this pass, per Skyler's confirmation**: the full field-by-field shape of "Looks"/history/background capture on the Hunter form is genuinely deferred, as anticipated — Skyler confirmed the first pass of this form implements only the Phase 2 standard fields plus a placeholder freeform text box, not real bespoke-ruleset support, and that the form gets revisited once Phase 5's bespoke-ruleset solution exists.
+
+## Hunter completeness — a decision spanning Phase 10 and 10b, not a numbered phase (decided and **implemented 2026-08-31**)
+
+**Skyler's call, delegated in full**: asked earlier how strictly the server should enforce a bespoke section's pick counts, he chose the strict option, then handed the whole question over — "have Yoshi make a decision to lean in one direction or the other and implement." The earlier selection was explicitly not binding. It was **reversed**.
+
+**Decided: a hunter is savable and resumable at any stage.** A rule is refused on save only when the stored row would assert something *false* about its playbook — a pick that isn't the playbook's, a duplicate, an advanced move, more picks than a stated ceiling allows, a value past a track's last box. A rule that only says the hunter is *unfinished* — no rating array, too few move picks, a gear category short of its count, unanswered look lines — is computed on read and reported on `HunterDetailResponse.Outstanding`, never enforced. Empty list means ready to play.
+
+**The deciding argument, stated once here and in full in `architecture.md` Section 9**: hunters are live-linked to playbooks, so "every stored hunter satisfies its playbook's minimums" is not an invariant the database can hold — a playbook edit falsifies it for every hunter built from that playbook without touching any of them. Strict enforcement buys a guarantee true only at the instant of the last write, and costs a lockout with no migration path: after such an edit the hunter cannot be saved at all, so its owner cannot fix a typo in its *name* without first finishing rules work. Since completeness has to be recomputed on read to be correct at all, blocking the write adds only the lockout. **Accepted in exchange**: the database will hold hunters that are not legal characters, and every future reader has to cope with that.
+
+**Two shipped inconsistencies closed, in opposite directions.** Gear `PickCount` was enforced only by the Angular form disabling checkboxes — it is now a real server-side ceiling. The rating array was required by the form while the API allowed null — the form now reports it as a shortfall instead, matching the nullable column Phase 10 chose deliberately for Path-B playbooks.
+
+**Deliberately excluded from completeness**: extra tracks and Luck/Harm/Experience. A missing value is indistinguishable from `0`, and `0` is a real starting position, so no answer is being withheld. Their ceilings are still enforced.
+
+**Also deliberately excluded**: `Outstanding` on the hunter *list* row. Computing it per row needs the full template graph for every distinct playbook in the list, to answer a question the user acts on only after opening the hunter.
+
+**What 10b inherits**: one evaluator to extend rather than a rule to invent. Its 39 `MinSelect > 0` sections become lines in `HunterCompleteness.Evaluate`; its `MaxSelect`/`MaxInstances` become cases in `HunterService.Validate`. No schema change either way.
+
+**Verified by driving the real app**, not just by compiling: a Crooked hunter saved with nothing but a name and a playbook; its detail page listed all four outstanding items in sheet order; filling every section in flipped it to a "Ready to play" badge; a hand-made `PUT` over-picking gear came back `400` naming the category; and — the case the whole decision turns on — growing the playbook's `MoveGrantCount` from 2 to 3 made the untouched hunter report "Moves: 2 of 3 picked." while an unrelated rename still saved. Both themes checked. 197 API tests (5 new) and 344 Angular tests (7 new, in the hunters feature's first spec file) pass. **All three new guards were negative-tested**, each failing exactly its own test and no neighbours; a fourth sabotage — putting `Validators.required` back on the rating control — failed exactly the three specs that assert the decision. The dev database is back to 28 playbooks and 0 hunters, and a seed re-export came back byte-identical to the committed file.
+
 
 ## Testing — a deliberate cross-cutting step, not a numbered phase (decided 2026-08-30)
 

@@ -55,6 +55,10 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<PlaybookExtraTrack> PlaybookExtraTracks => Set<PlaybookExtraTrack>();
 
     public DbSet<Hunter> Hunters => Set<Hunter>();
+    public DbSet<HunterMove> HunterMoves => Set<HunterMove>();
+    public DbSet<HunterGearSelection> HunterGearSelections => Set<HunterGearSelection>();
+    public DbSet<HunterLookSelection> HunterLookSelections => Set<HunterLookSelection>();
+    public DbSet<HunterExtraTrackValue> HunterExtraTrackValues => Set<HunterExtraTrackValue>();
 
     // Named AppUsers, not Users: IdentityUserContext<TUser, ...> already declares a
     // DbSet<TUser> Users, so Users here would collide if this context ever derives from it.
@@ -768,6 +772,12 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Pronouns).HasColumnName("pronouns").HasMaxLength(255);
+            entity.Property(e => e.PlaybookStatArrayOptionId).HasColumnName("playbook_stat_array_option_id");
+            entity.Property(e => e.Luck).HasColumnName("luck");
+            entity.Property(e => e.Harm).HasColumnName("harm");
+            entity.Property(e => e.Experience).HasColumnName("experience");
+            entity.Property(e => e.Background).HasColumnName("background");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
@@ -777,7 +787,72 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             // needs the count reads Hunters directly.
             entity.HasOne(e => e.Playbook).WithMany().HasForeignKey(e => e.PlaybookId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.PlaybookStatArrayOption).WithMany().HasForeignKey(e => e.PlaybookStatArrayOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_hunters_playbook_id");
+            entity.HasIndex(e => e.PlaybookStatArrayOptionId).HasDatabaseName("idx_hunters_stat_array_option_id");
+        });
+
+        modelBuilder.Entity<HunterMove>(entity =>
+        {
+            entity.ToTable("hunter_moves");
+            entity.HasKey(e => new { e.HunterId, e.PlaybookMoveId });
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.PlaybookMoveId).HasColumnName("playbook_move_id");
+            // Cascade from the Hunter (deleting a hunter takes its own picks with it), Restrict
+            // from the template side (removing a move a hunter uses is refused, not silent).
+            entity.HasOne(e => e.Hunter).WithMany(e => e.Moves).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.PlaybookMove).WithMany().HasForeignKey(e => e.PlaybookMoveId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.PlaybookMoveId).HasDatabaseName("idx_hunter_moves_playbook_move_id");
+        });
+
+        modelBuilder.Entity<HunterGearSelection>(entity =>
+        {
+            entity.ToTable("hunter_gear_selections");
+            entity.HasKey(e => new { e.HunterId, e.PlaybookGearOptionId });
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.PlaybookGearOptionId).HasColumnName("playbook_gear_option_id");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.GearSelections).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.PlaybookGearOption).WithMany().HasForeignKey(e => e.PlaybookGearOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.PlaybookGearOptionId).HasDatabaseName("idx_hunter_gear_selections_option_id");
+        });
+
+        modelBuilder.Entity<HunterLookSelection>(entity =>
+        {
+            entity.ToTable("hunter_look_selections");
+            entity.HasKey(e => new { e.HunterId, e.LookCategoryId });
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.LookCategoryId).HasColumnName("look_category_id");
+            entity.Property(e => e.LookOptionId).HasColumnName("look_option_id");
+            entity.Property(e => e.FreeformText).HasColumnName("freeform_text");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.LookSelections).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // Restrict on both template-side FKs, as with every other hunter pick: an edit that
+            // would remove a line or an option someone is using is refused, never silently applied.
+            entity.HasOne(e => e.LookCategory).WithMany().HasForeignKey(e => e.LookCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.LookOption).WithMany().HasForeignKey(e => e.LookOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.LookCategoryId).HasDatabaseName("idx_hunter_look_selections_category_id");
+            entity.HasIndex(e => e.LookOptionId).HasDatabaseName("idx_hunter_look_selections_option_id");
+        });
+
+        modelBuilder.Entity<HunterExtraTrackValue>(entity =>
+        {
+            entity.ToTable("hunter_extra_track_values");
+            entity.HasKey(e => new { e.HunterId, e.ExtraTrackId });
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.ExtraTrackId).HasColumnName("extra_track_id");
+            entity.Property(e => e.CurrentValue).HasColumnName("current_value");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.ExtraTrackValues).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ExtraTrack).WithMany().HasForeignKey(e => e.ExtraTrackId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.ExtraTrackId).HasDatabaseName("idx_hunter_extra_track_values_track_id");
         });
     }
 

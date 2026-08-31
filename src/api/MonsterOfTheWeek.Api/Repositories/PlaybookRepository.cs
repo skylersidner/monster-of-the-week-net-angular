@@ -45,6 +45,52 @@ public sealed class PlaybookRepository(MotwDbContext dbContext) : IPlaybookRepos
     public Task<int> CountHuntersAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Hunters.CountAsync(x => x.PlaybookId == id, cancellationToken);
 
+    public async Task<IReadOnlyList<Guid>> GetHunterReferencedChildIdsAsync(
+        IReadOnlyCollection<Guid> candidateIds,
+        CancellationToken cancellationToken)
+    {
+        if (candidateIds.Count == 0)
+        {
+            return [];
+        }
+
+        var statArrays = dbContext.Hunters
+            .Where(h => h.PlaybookStatArrayOptionId != null && candidateIds.Contains(h.PlaybookStatArrayOptionId!.Value))
+            .Select(h => h.PlaybookStatArrayOptionId!.Value);
+
+        var moves = dbContext.HunterMoves
+            .Where(m => candidateIds.Contains(m.PlaybookMoveId))
+            .Select(m => m.PlaybookMoveId);
+
+        var gear = dbContext.HunterGearSelections
+            .Where(g => candidateIds.Contains(g.PlaybookGearOptionId))
+            .Select(g => g.PlaybookGearOptionId);
+
+        // Two queries for looks, not one: a freeform answer references only the category, and a
+        // picked answer references both. Missing the category case would let a look line be
+        // deleted out from under everyone who wrote their own text for it.
+        var lookCategories = dbContext.HunterLookSelections
+            .Where(l => candidateIds.Contains(l.LookCategoryId))
+            .Select(l => l.LookCategoryId);
+
+        var lookOptions = dbContext.HunterLookSelections
+            .Where(l => l.LookOptionId != null && candidateIds.Contains(l.LookOptionId!.Value))
+            .Select(l => l.LookOptionId!.Value);
+
+        var tracks = dbContext.HunterExtraTrackValues
+            .Where(t => candidateIds.Contains(t.ExtraTrackId))
+            .Select(t => t.ExtraTrackId);
+
+        return await statArrays
+            .Union(moves)
+            .Union(gear)
+            .Union(lookCategories)
+            .Union(lookOptions)
+            .Union(tracks)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<int> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Playbooks
             .Where(x => x.Id == id)

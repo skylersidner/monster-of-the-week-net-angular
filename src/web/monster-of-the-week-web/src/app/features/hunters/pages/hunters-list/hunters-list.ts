@@ -4,16 +4,13 @@ import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HunterService } from '../../../../core/hunter';
 import { HunterListItemResponse } from '../../../../core/models';
+import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import { IconComponent } from '../../../../shared/icons/icon.component';
 
-/**
- * Follows `MonstersListComponent`'s shape, minus the delete path: `HunterService` has no
- * `delete()` this phase because `DELETE /api/hunters/{id}` does not exist yet (Phase 10). A
- * delete button here would be a dead control that fails on click, which is worse than the
- * deliberately dead *links* Phase 9 specifies — those at least fall through to the dashboard.
- */
+/** Follows `MonstersListComponent`'s shape, minus the sub-resource lookup its delete needs. */
 @Component({
   selector: 'app-hunters-list',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
   templateUrl: './hunters-list.html',
 })
 export class HuntersListComponent implements OnInit {
@@ -22,6 +19,7 @@ export class HuntersListComponent implements OnInit {
   readonly hunters = signal<HunterListItemResponse[]>([]);
   readonly isLoading = signal(true);
   readonly errorMessage = signal<string | null>(null);
+  readonly pendingDelete = signal<HunterListItemResponse | null>(null);
 
   constructor(private readonly hunterService: HunterService) {}
 
@@ -39,6 +37,27 @@ export class HuntersListComponent implements OnInit {
           this.errorMessage.set('Unable to load hunters.');
           this.isLoading.set(false);
         },
+      });
+  }
+
+  requestDelete(hunter: HunterListItemResponse): void {
+    this.pendingDelete.set(hunter);
+  }
+
+  onDeleteCancelled(): void {
+    this.pendingDelete.set(null);
+  }
+
+  onDeleteConfirmed(): void {
+    const target = this.pendingDelete();
+    if (!target) return;
+    this.pendingDelete.set(null);
+    this.hunterService
+      .delete(target.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.hunters.update((hunters) => hunters.filter((h) => h.id !== target.id)),
+        error: () => this.errorMessage.set('Unable to delete hunter.'),
       });
   }
 }

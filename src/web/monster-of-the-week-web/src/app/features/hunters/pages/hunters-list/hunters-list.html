@@ -21,8 +21,26 @@
             </div>
             <small>Created: {{ hunter.createdAt | date: 'mediumDate' }}</small>
           </div>
+          <div class="flex items-center shrink-0 gap-1">
+            <button
+              type="button"
+              class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] transition-colors"
+              title="Delete hunter"
+              (click)="requestDelete(hunter)"
+            >
+              <app-icon name="trash" class="h-5 w-5" />
+            </button>
+          </div>
         </li>
       }
     </ul>
   }
 </section>
+
+<app-confirm-delete-modal
+  [visible]="!!pendingDelete()"
+  [itemName]="pendingDelete()?.name ?? ''"
+  message="This cannot be undone."
+  (confirmed)="onDeleteConfirmed()"
+  (cancelled)="onDeleteCancelled()"
+/>

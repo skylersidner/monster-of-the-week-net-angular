@@ -1,0 +1,298 @@
+<form class="grid gap-5 my-4" [formGroup]="hunterForm" (ngSubmit)="onSubmit()">
+  <section class="grid gap-[0.6rem]">
+    <h3>Playbook</h3>
+    <label class="grid font-medium gap-1 max-w-md">
+      <span>Playbook <span class="text-danger">*</span></span>
+      <app-custom-select
+        formControlName="playbookId"
+        [options]="playbooks"
+        [searchable]="true"
+        placeholder="Choose a playbook..."
+      ></app-custom-select>
+      @if (hunter) {
+        <small class="text-muted">A hunter's playbook can't be changed — its moves, gear and ratings all belong to it.</small>
+      }
+    </label>
+  </section>
+
+  @if (isLoadingPlaybook()) {
+    <p>Loading playbook...</p>
+  } @else if (playbookError()) {
+    <p class="text-danger">{{ playbookError() }}</p>
+  }
+
+  @if (playbook(); as book) {
+    <section class="grid gap-[0.6rem]">
+      <h3>Details</h3>
+      <div class="grid gap-[0.6rem] grid-cols-[2fr_1fr] max-md:grid-cols-1">
+        <label class="grid font-medium gap-1">
+          <span>Name <span class="text-danger">*</span></span>
+          <input type="text" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="name" maxlength="255" />
+          @if (hunterForm.controls.name.touched && hunterForm.controls.name.invalid) {
+            <small class="text-danger">A name is required.</small>
+          }
+        </label>
+        <label class="grid font-medium gap-1">
+          Pronouns
+          <input type="text" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="pronouns" maxlength="255" />
+        </label>
+      </div>
+    </section>
+
+    <section class="grid gap-[0.6rem]">
+      <h3>Ratings</h3>
+      @if (book.statArrayOptions.length === 0) {
+        <p class="text-muted">This playbook has no rating arrays yet.</p>
+      } @else {
+        <div class="grid gap-2">
+          @for (option of book.statArrayOptions; track option.id) {
+            <label class="flex items-center gap-3 bg-surface border border-default rounded-lg cursor-pointer p-3">
+              <input type="radio" formControlName="playbookStatArrayOptionId" [value]="option.id" />
+              <span class="flex flex-wrap gap-4 font-medium">
+                <span>Charm {{ formatStat(option.charm) }}</span>
+                <span>Cool {{ formatStat(option.cool) }}</span>
+                <span>Sharp {{ formatStat(option.sharp) }}</span>
+                <span>Tough {{ formatStat(option.tough) }}</span>
+                <span>Weird {{ formatStat(option.weird) }}</span>
+              </span>
+            </label>
+          }
+        </div>
+        @if (isRatingUnchosen()) {
+          <small class="text-muted">Not chosen yet — you can pick this later.</small>
+        }
+      }
+    </section>
+
+    <section class="grid gap-[0.6rem]">
+      <div class="flex flex-wrap items-baseline gap-3">
+        <h3>Moves</h3>
+        @if (moveGrantCount() > 0) {
+          <span
+            class="text-[0.8rem] font-semibold"
+            [class.text-danger]="pickedMoveCount() > moveGrantCount()"
+            [class.text-muted]="isMovePickShort()"
+          >
+            {{ pickedMoveCount() }} of {{ moveGrantCount() }} picked
+          </span>
+        }
+      </div>
+
+      @if (requiredMoves().length > 0) {
+        <div class="grid gap-2">
+          @for (move of requiredMoves(); track move.id) {
+            <label class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3 opacity-80">
+              <input type="checkbox" checked disabled class="mt-1" />
+              <span>
+                <span class="font-semibold">{{ move.name }}</span>
+                <span class="rounded-full text-[0.7rem] font-semibold ml-2 px-[0.5rem] py-[0.1rem] bg-badge-playbook text-on-badge-playbook">Always granted</span>
+                @if (move.descriptionText) {
+                  <span class="block text-[0.85rem] mt-1" [innerHTML]="move.descriptionText"></span>
+                }
+              </span>
+            </label>
+          }
+        </div>
+      }
+
+      @if (pickableMoves().length === 0) {
+        <p class="text-muted">This playbook has no moves to pick from yet.</p>
+      } @else {
+        <div class="grid gap-2">
+          @for (move of pickableMoves(); track move.id) {
+            <label
+              class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3"
+              [class.cursor-pointer]="!isMoveLimitReached() || isMoveSelected(move.id)"
+              [class.opacity-60]="isMoveLimitReached() && !isMoveSelected(move.id)"
+            >
+              <input
+                type="checkbox"
+                class="mt-1"
+                [checked]="isMoveSelected(move.id)"
+                [disabled]="isMoveLimitReached() && !isMoveSelected(move.id)"
+                (change)="toggleMove(move.id)"
+              />
+              <span>
+                <span class="font-semibold">{{ move.name }}</span>
+                @if (move.descriptionText) {
+                  <span class="block text-[0.85rem] mt-1" [innerHTML]="move.descriptionText"></span>
+                }
+              </span>
+            </label>
+          }
+        </div>
+      }
+    </section>
+
+    @if (book.gearCategories.length > 0) {
+      <section class="grid gap-[0.6rem]">
+        <h3>Gear</h3>
+        @for (category of book.gearCategories; track category.id) {
+          <div class="grid gap-2">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="font-semibold">{{ category.label }}</span>
+              <small class="text-muted">{{ gearCategoryHint(category) }}</small>
+              @if (category.pickCount !== null) {
+                <!-- Progress only. Falling short is unfinished, not invalid, and never blocks a save. -->
+                <small class="text-[0.8rem] font-semibold" [class.text-muted]="isGearPickShort(category)">
+                  {{ pickedInCategory(category) }} of {{ category.pickCount }} picked
+                </small>
+              }
+            </div>
+            @for (option of category.options; track option.id) {
+              <label
+                class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3"
+                [class.opacity-60]="isGearLimitReached(category) && !isGearSelected(option.id)"
+              >
+                <input
+                  type="checkbox"
+                  class="mt-1"
+                  [checked]="isGearSelected(option.id)"
+                  [disabled]="isGearLimitReached(category) && !isGearSelected(option.id)"
+                  (change)="toggleGear(option.id)"
+                />
+                <span>
+                  <span class="font-medium">{{ option.name }}</span>
+                  @if (option.mechanicalText) {
+                    <span class="block text-[0.85rem] text-muted mt-1">{{ option.mechanicalText }}</span>
+                  }
+                </span>
+              </label>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    @if (book.lookCategories.length > 0) {
+      <section class="grid gap-[0.6rem]">
+        <div class="flex flex-wrap items-baseline gap-3">
+          <h3>Look</h3>
+          @if (unansweredLookCount() > 0) {
+            <span class="text-[0.8rem] font-semibold text-muted">
+              {{ unansweredLookCount() }} of {{ book.lookCategories.length }} unanswered
+            </span>
+          }
+        </div>
+        <!--
+          One answer per line, matching the sheet, where each Look category is a row of
+          alternatives with one circled. Every category allows freeform (verified across all 28
+          playbooks), so each line also offers a write-your-own field.
+        -->
+        @for (group of lookGroups(); track $index) {
+          <div class="grid gap-3">
+            @if (group.label) {
+              <span class="font-semibold">{{ group.label }}</span>
+            }
+            @for (category of group.categories; track category.id) {
+              <div class="flex flex-wrap items-center gap-2">
+                @for (option of category.options; track option.id) {
+                  <button
+                    type="button"
+                    class="rounded-full border cursor-pointer text-[0.85rem] px-3 py-1 transition-colors"
+                    [class.bg-accent]="lookOptionFor(category.id) === option.id"
+                    [class.text-on-accent]="lookOptionFor(category.id) === option.id"
+                    [class.border-accent]="lookOptionFor(category.id) === option.id"
+                    [class.bg-surface]="lookOptionFor(category.id) !== option.id"
+                    [class.border-default]="lookOptionFor(category.id) !== option.id"
+                    (click)="setLookOption(category.id, option.id)"
+                  >
+                    {{ option.text }}
+                  </button>
+                }
+                @if (category.allowsFreeform) {
+                  <input
+                    type="text"
+                    class="border border-strong rounded-lg text-[0.85rem] px-3 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+                    placeholder="or your own..."
+                    [value]="lookFreeformFor(category.id)"
+                    (input)="setLookFreeform(category.id, $any($event.target).value)"
+                  />
+                }
+              </div>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    @if (book.extraTracks.length > 0) {
+      <section class="grid gap-[0.6rem]">
+        <h3>{{ book.name }} tracks</h3>
+        @for (track of book.extraTracks; track track.id) {
+          <div class="bg-surface border border-default rounded-lg grid gap-2 p-3">
+            <div class="flex flex-wrap items-baseline gap-3">
+              <span class="font-semibold">{{ track.name }}</span>
+              <label class="flex items-center gap-2 text-[0.85rem]">
+                @if (track.startLabel) {
+                  <span class="text-muted">{{ track.startLabel }}</span>
+                }
+                <input
+                  type="number"
+                  class="border border-strong rounded-lg w-20 px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+                  min="0"
+                  [max]="track.boxCount"
+                  [value]="trackValueFor(track.id)"
+                  (input)="setTrackValue(track.id, $any($event.target).value, track.boxCount)"
+                />
+                <span class="text-muted">of {{ track.boxCount }} · {{ track.endLabel }}</span>
+              </label>
+            </div>
+            @if (track.description) {
+              <span class="text-[0.85rem]" [innerHTML]="track.description"></span>
+            }
+            @if (track.effectText) {
+              <span class="text-[0.85rem] text-muted" [innerHTML]="track.effectText"></span>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    <section class="grid gap-[0.6rem]">
+      <h3>Tracks</h3>
+      <div class="grid gap-[0.6rem] grid-cols-3 max-md:grid-cols-1">
+        <label class="grid font-medium gap-1">
+          <span>Luck <small class="text-muted">of {{ book.luckBoxCount }}</small></span>
+          <input type="number" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="luck" min="0" [max]="book.luckBoxCount" />
+        </label>
+        <label class="grid font-medium gap-1">
+          <span>Harm <small class="text-muted">of {{ book.harmBoxCount }}, unstable at {{ book.harmUnstableThreshold }}</small></span>
+          <input type="number" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="harm" min="0" [max]="book.harmBoxCount" />
+        </label>
+        <label class="grid font-medium gap-1">
+          <span>Experience <small class="text-muted">of {{ book.experienceBoxCount }}</small></span>
+          <input type="number" class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="experience" min="0" [max]="book.experienceBoxCount" />
+        </label>
+      </div>
+    </section>
+
+    <section class="grid gap-[0.6rem]">
+      <h3>Background</h3>
+      <!--
+        Now the placeholder for history and bespoke-ruleset answers only — Looks got its own
+        structured section above. Everything still collapsing into this box is what the bespoke
+        pass will replace.
+      -->
+      <label class="grid font-medium gap-1">
+        <span class="font-normal text-muted text-[0.85rem]">History, and anything else this playbook asks for — a structured version of this section comes later.</span>
+        <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="background" rows="8"></textarea>
+      </label>
+      @if (book.historyPromptsText) {
+        <details class="bg-surface border border-default rounded-lg p-3">
+          <summary class="cursor-pointer font-medium">History prompts for {{ book.name }}</summary>
+          <div class="text-[0.85rem] mt-2" [innerHTML]="book.historyPromptsText"></div>
+        </details>
+      }
+    </section>
+
+    <div class="grid gap-2">
+      <button type="submit" class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer font-[inherit] px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" [disabled]="isSaving">{{ submitLabel }}</button>
+      <!--
+        Stated rather than left to be discovered: only a name and a playbook are required to
+        save. Everything else can be finished later (architecture.md Section 9).
+      -->
+      <small class="text-muted">Save whenever you like — a half-finished hunter keeps its progress and tells you what's left.</small>
+    </div>
+  }
+</form>

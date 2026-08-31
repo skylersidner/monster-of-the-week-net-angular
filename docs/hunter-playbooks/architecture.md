@@ -188,7 +188,11 @@ Every child table follows the existing `MonsterAttack`/`MonsterPower`-style shap
 
 Two knock-on changes: `ServiceErrorType` gained a `Conflict` member (every other controller's error switch falls to its own default for it, which is correct — none of them produce it), and `IPlaybookService.DeleteAsync` returns `ServiceResult<bool>` rather than `bool`, because the bare bool could not distinguish "no such playbook" from "in use".
 
-**What is still deferred is the per-child-row case** — rejecting removal of an individual move/gear option/bespoke option a Hunter references. Those bridge tables do not exist until Phase 10, so there is still nothing to count, and the sharp edge in the paragraph above stands unchanged until then.
+**Fully resolved 2026-08-31 (Phase 10) — the per-child case now works too.** `PUT /api/playbooks/{id}` computes which child rows its Id-based diff would delete and refuses with `409` if any Hunter still points at one, naming it: *Cannot remove an entry that a hunter is using: move "Destiny's Plaything". Update those hunters first.* Three kinds are checked, because they are the only ones anything can reference — `PlaybookStatArrayOption`, `PlaybookMove`, `PlaybookGearOption` — and all three FKs from the Hunter side are `Restrict`. Looks, improvements, bespoke rows and journals stay freely removable; they have no instance-side table yet.
+
+The check runs before any mutation, so a rejected edit leaves the tracked graph untouched (asserted). It is one query regardless of how many rows an edit removes, and it returns ids rather than a count specifically so the message can name the row — *"3 entries are in use"* would be an error the user cannot act on.
+
+**The sharp edge described above is now closed**, and with it the last of the "deferred to Phase 9/10" items in this section.
 
 `Hunter` (Phase 9/10, sketched here for completeness, not fully speced — see `phases.md` Phase 10):
 
@@ -451,7 +455,25 @@ Current sidebar (`layout/page-layout/page-layout.ts` `NavItem[]` + `page-layout.
 
 List page follows the `MonstersListComponent` shape exactly (flat `GET /api/hunters`-backed list, no mystery-scoping needed since Hunters aren't mystery-owned the way Monsters optionally are) — this phase's own scope is explicitly "dead links to create/edit," so the route/component exist and render a list, but Create/Edit routes aren't wired until Phase 10 lands.
 
-## 8. Hunter create/edit — flow vs. form (Phase 10)
+## 8. Hunter create/edit — flow vs. form (Phase 10, **implemented 2026-08-31**)
+
+**Built as recommended below**: one reactively-gated page, no wizard. `HunterFormComponent` + `HunterCreateComponent`/`HunterDetailComponent`, with `HunterService` gaining `getById`/`create`/`update`/`delete`. The predicted shape held up — nothing about the gating needed a second navigation step.
+
+**Three things the recommendation did not anticipate:**
+
+1. **The form loads the playbook; the pages do not pass it in.** This section already specified that, but it is worth flagging as a real departure from `MonsterFormComponent`, which is purely presentational and receives its options as `@Input`s. The reason it is right here: the option lists must be re-fetched on every `playbookId` change, and putting that subscription in the pages would duplicate it identically in both of them.
+
+2. **The playbook control is locked in edit mode.** Changing a hunter's playbook invalidates every move, gear and rating pick it has, and silently discarding those behind a dropdown is not acceptable. The API still accepts a changed `PlaybookId` from a deliberate client with a consistent payload — the lock is a UI decision, not a contract one. (Consequence worth knowing: the submit path reads `getRawValue()`, since a disabled control is omitted from `.value` entirely.)
+
+3. **Required moves are added server-side whether or not the client sends them.** A playbook that grants a move outright grants it to every hunter built from it, so leaving that to the caller would let a hunter exist without a move the rules say it always has. The form renders those checked-and-disabled and excludes them from the `MoveGrantCount` tally.
+
+**One genuine EF trap, caught by a test and worth reading before touching this code.** Removing a `HunterMove` from `Hunter.Moves` marks it `Deleted` — but only until the next `DetectChanges` re-runs navigation fixup, and assigning *any* FK on the Hunter (which `UpdateAsync` does, since the playbook is allowed to change) triggers exactly that. Fixup sees a tracked `HunterMove` whose `HunterId` still points at the hunter, puts it back into the collection, and the pending orphan-delete evaporates with no error anywhere. The naive version works right up until an unrelated line assigns an FK. The fix is an explicit `RemoveRange` through the repository, which fixup does not undo. This is the same class of trap as the `ValueGeneratedNever()` one in Section 3 and will recur in any future bridge table edited this way.
+
+**Follow-on 10a, 2026-08-31 — Looks and Extra Tracks are now structured.** `HunterLookSelection (HunterId, LookCategoryId, LookOptionId?, FreeformText?)` and `HunterExtraTrackValue (HunterId, ExtraTrackId, CurrentValue)`, both composite-keyed. The latter deviates from 6.4's sketch, which shows a surrogate `Id`: there is exactly one value per (hunter, track), and the composite key states that directly instead of needing a unique index alongside a surrogate.
+
+Two things worth carrying forward from that work. **A freeform look answer references the category, not an option** — so the playbook-edit guard has to watch look *categories* as well as look options, or a line can be deleted out from under everyone who wrote their own text for it. And **"exactly one of option / freeform" has no database expression**, so it lives in the service with both failure directions tested.
+
+**Still not built, deliberately**: the bespoke-ruleset instance tables from 6.4 and structured History capture. `Hunter.Background` is now the placeholder for exactly those two things and nothing else — which makes it a fair measure of what the bespoke pass has left to absorb.
 
 **Recommendation: a single-page reactive form, following the `MonsterFormComponent`/`MonsterCreateComponent` precedent — not a multi-step wizard.**
 
@@ -462,3 +484,56 @@ List page follows the `MonstersListComponent` shape exactly (flat `GET /api/hunt
 **Trade-off being accepted**: a Hunter create page will have more visible form surface at once than Monster's (rating-array picker, a longer move checklist, a gear picker, look-category pickers, all live once a Playbook is chosen) — a wizard would spread that over several smaller screens. This is accepted deliberately: Monster's own create page already carries 4 kinds of sub-resource drafts (attacks/powers/armor/weaknesses) on one page via local `signal<T[]>` draft arrays + a single batched submit (`monster-create.ts`), and that precedent already proves this codebase's established pattern scales to "one page, several distinct pickable sections, one submit" without needing a wizard. Hunter's sections (mostly single/multi-select from a fixed, Playbook-scoped list, not free-form add/remove-many like Monster's attacks) are structurally simpler than what Monster already does on one page, not more complex — reinforcing that a wizard would be solving a problem Hunter doesn't have.
 
 Concretely: `HunterFormComponent` (shared, presentational, mirrors `MonsterFormComponent`'s `@Input() hunter: HunterDetailResponse | null` / `@Output() save` contract for create/edit sharing) owns the reactive form; a `playbookId`-driven `computed()`/`valueChanges` subscription swaps in the selected Playbook's move/gear/rating/look options (loaded via a new `PlaybookService`, mirroring `ReferenceDataService`'s existing shape); `HunterCreateComponent`/`HunterDetailComponent` own the actual `HunterService.create()`/`.update()` calls, matching the create/edit split every other domain already uses. Create and Update genuinely share almost everything here, same as Skyler expects — the only per-mode difference is which service method fires and whether the form starts populated.
+
+## 9. Correctness vs. completeness — partial hunters are savable (decided and **implemented 2026-08-31**)
+
+**The question**: should creating or editing a Hunter require a complete, rules-valid character sheet, or should partial progress be savable and resumable? Skyler had earlier picked the strict reading for bespoke sections ("a hunter can't be saved until every section is fully and correctly answered"), then delegated the direction outright — confirm or reverse — because Phase 10 had shipped two inconsistencies with it: move picks treat `MoveGrantCount` as a ceiling only, and gear `PickCount` was not enforced server-side at all.
+
+**Decided: partial saves. A hunter is savable at any stage; what it still owes its playbook is derived on read and reported, never enforced.** The earlier strict selection is reversed, deliberately.
+
+### The split this creates
+
+Two tiers, and the line between them is *what the stored row asserts*:
+
+| | Refused (`400`) | Reported |
+|---|---|---|
+| **Rule** | The row would assert something **false** about the playbook | The row is merely **unfinished** |
+| **Examples** | a pick that isn't this playbook's; a duplicate; an advanced move; more picks than `MoveGrantCount`/`PickCount` allows; a track value past its last box; a look line with both an option and custom text, or neither | no rating array chosen; fewer move picks than `MoveGrantCount`; a gear category short of its `PickCount`; unanswered look lines |
+| **Lives in** | `HunterService.Validate` | `HunterCompleteness.Evaluate` |
+| **Can it lock a hunter out of being saved?** | No — every violation is fixable by *removing* something | Never — it does not block |
+
+`HunterDetailResponse.Outstanding` carries the second tier: an ordered, human-readable list, empty when the hunter is ready to play. It is returned by `GET /api/hunters/{id}`, `POST` and `PUT`.
+
+### Why, in one argument
+
+**Because Hunters are live-linked to Playbooks (Section 3), "every stored hunter satisfies its playbook's minimums" is not an invariant the database can hold.** A playbook edit can falsify it for every hunter built from that playbook without any of them being touched. Strict save-time enforcement therefore buys a guarantee that is true only at the instant of the last write — while costing a hard lockout: after such an edit the hunter cannot be saved at all, so its owner cannot fix a typo in its *name* without first finishing rules work they may not be ready to do, and there is no migration path for the hunters already in that state. Since the completeness answer has to be recomputed at read time to be correct at all, blocking the write adds nothing except the lockout.
+
+Three supporting facts, all measured rather than assumed:
+
+- **Nothing consumes completeness yet.** There is no play view, no dice roller, no rendered sheet. The guarantee would protect no reader today, while its cost — lost work — lands on the user immediately.
+- **The wall is real, not hypothetical.** The Crooked needs 1 rating array + 2 move picks + 3 gear picks + 2 look lines + 5 bespoke sections answered before anything at all could be persisted. Across the 28, `MoveGrantCount` runs 2–4, non-optional gear picks 0–7, look lines 2–7, and 39 of the 49 bespoke sections carry `MinSelect > 0`.
+- **Authored data is not uniformly trustworthy.** Section 3 already documents that `MoveGrantCount == 0` is indistinguishable from an unauthored Moves section, which is exactly the state an admin-created (Path B) playbook sits in. Strict minimums make such a playbook impossible to build a hunter from.
+
+**The argument against, accepted rather than dismissed**: the database will hold hunters that are not legal characters, so every future consumer — a play view, a printed sheet, anything that reads a rating array — must handle a hunter with no rating array and no moves rather than trusting the row. That is a permanent tax on every downstream reader, and it is the price of this decision. It is mitigated only by the fact that the live link imposes almost the same tax anyway.
+
+### Why an explicit completeness concept, rather than simply being permissive
+
+Three reasons, in order of weight:
+
+1. **The minimums are authored data with nowhere else to go.** All 39 pick-bearing bespoke sections carry `MinSelect > 0`; someone read them off the sheets on purpose. Pure permissiveness drops that on the floor and leaves the rules unrepresented anywhere in the software.
+2. **Follow-on 10b needs a home for 39 more of these.** Defining the mechanism now makes 10b an extension of one evaluator rather than a fresh invention under time pressure — the failure mode being a second, subtly different notion of "done".
+3. **It is the only shape that can be correct.** A stored flag or column would be silently falsified by a playbook edit. Section 6.4 already reached this conclusion for bespoke category engagement ("always a derived fact, never a separately stored one"); this reuses that precedent rather than contradicting it.
+
+### Deliberate boundaries
+
+- **Extra tracks contribute nothing to completeness.** `PlaybookExtraTrack` has a `BoxCount` but no starting value, so a missing `HunterExtraTrackValue` is indistinguishable from one holding `0` — and `0` is an ordinary starting position (the Curse-Eater's Corruption starts empty). There is no answer being withheld. `Luck`/`Harm`/`Experience` have the same property. Their *ceilings* are still enforced, in the first tier.
+- **A gear category with a null `PickCount` owes nothing**, because null means every option is granted outright rather than picked (`PlaybookGearCategory.PickCount`) — there is no choice to leave unmade. Neither does an `IsOptional` category.
+- **`Outstanding` is not on `HunterListItemResponse`.** Computing it per row would need the full template graph for every distinct playbook in the list, to answer a question the user acts on only after opening the hunter. If a "which of my hunters are unfinished" view is wanted later, that is a deliberate addition with a known cost, not an oversight.
+- **`GetByIdAsync` makes two round trips**, reusing `GetPlaybookForValidationAsync` rather than widening the hunter query's includes. That keeps completeness and validation reading the *same* graph, which is what stops them drifting apart.
+
+### What this changed in shipped Phase 10 behaviour
+
+- **Gear `PickCount` is now enforced server-side as a ceiling.** It previously existed only as the Angular form disabling further checkboxes, which is not enforcement. This is a genuine gap closed, and it is in the first tier because owning more gear than the sheet allows is a false statement, not an unfinished one.
+- **The rating array is no longer required by the form.** The API always allowed null (Phase 10's own judgement call, for Path B playbooks); the form contradicted it. It is now a reported shortfall, which is the consistent reading.
+- **Move picks are unchanged** — the ceiling stays, the minimum was never enforced and now has somewhere to be reported.
+- **Follow-on 10b's "minimums *and* maximums, enforced recursively" is superseded**: its maximums land in the first tier and its 39 minimums in the second. Nothing about the four instance-side tables changes.
