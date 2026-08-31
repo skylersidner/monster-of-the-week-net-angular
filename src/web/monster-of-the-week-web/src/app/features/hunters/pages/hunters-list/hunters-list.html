@@ -1,0 +1,28 @@
+<section class="text-primary">
+  <div class="flex items-center justify-between mb-5">
+    <h2>Hunters</h2>
+    <a routerLink="/hunters/new" class="bg-accent hover:bg-accent-hover rounded-lg text-on-accent text-[0.9rem] font-semibold py-[0.55rem] px-5 no-underline transition-colors whitespace-nowrap">+ Add Hunter</a>
+  </div>
+
+  @if (isLoading()) {
+    <p>Loading hunters...</p>
+  } @else if (errorMessage()) {
+    <p class="text-danger">{{ errorMessage() }}</p>
+  } @else if (hunters().length === 0) {
+    <p>No hunters yet.</p>
+  } @else {
+    <ul class="grid gap-4 list-none p-0">
+      @for (hunter of hunters(); track hunter.id) {
+        <li class="flex items-center bg-surface border border-default rounded-lg gap-4 justify-between p-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-baseline gap-2 mb-1">
+              <a class="font-semibold" [routerLink]="['/hunters', hunter.id]">{{ hunter.name }}</a>
+              <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-playbook text-on-badge-playbook">{{ hunter.playbookName }}</span>
+            </div>
+            <small>Created: {{ hunter.createdAt | date: 'mediumDate' }}</small>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>

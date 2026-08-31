@@ -728,3 +728,15 @@ export interface UpsertPlaybookExtraTrackRequest {
   endLabel: string;
   sortOrder: number;
 }
+
+// ---------------------------------------------------------------------------------------
+// Hunters (Phase 9). List shape only — the detail/upsert contract lands in Phase 10.
+// ---------------------------------------------------------------------------------------
+
+export interface HunterListItemResponse {
+  id: string;
+  name: string;
+  playbookId: string;
+  playbookName: string;
+  createdAt: string;
+}

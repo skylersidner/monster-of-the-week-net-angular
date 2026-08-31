@@ -78,8 +78,36 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
         return ServiceResult<PlaybookDetailResponse>.Success(ToDetailResponse(playbook));
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
-        await repository.DeleteAsync(id, cancellationToken) > 0;
+    /// <summary>
+    /// Refuses to delete a Playbook any Hunter is built from.
+    ///
+    /// <para>
+    /// architecture.md Section 3 deferred this check to "Phase 9/10, not dropped", and Phase 9
+    /// is where it becomes reachable: <c>Hunter</c> is the first row that can reference a
+    /// Playbook. The FK is <c>Restrict</c>, so without this guard the delete would surface as an
+    /// unhandled constraint violation — a 500 with no usable message — instead of a 409 naming
+    /// how many Hunters are in the way.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Scope limit worth knowing:</b> this is the whole-Playbook case only. Rejecting the
+    /// removal of an individual *child row* a Hunter references (a move, a gear option, a
+    /// bespoke option) is still deferred — those bridges do not exist until Phase 10, so there
+    /// is nothing yet to count. The residual sharp edge documented in Section 3 stands until then.
+    /// </para>
+    /// </summary>
+    public async Task<ServiceResult<bool>> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var hunterCount = await repository.CountHuntersAsync(id, cancellationToken);
+        if (hunterCount > 0)
+        {
+            var plural = hunterCount == 1 ? "hunter is" : "hunters are";
+            return ServiceResult<bool>.Conflict(
+                $"{hunterCount} {plural} built from this playbook. Delete or reassign them first.");
+        }
+
+        return ServiceResult<bool>.Success(await repository.DeleteAsync(id, cancellationToken) > 0);
+    }
 
     // -----------------------------------------------------------------------------------
     // Validation

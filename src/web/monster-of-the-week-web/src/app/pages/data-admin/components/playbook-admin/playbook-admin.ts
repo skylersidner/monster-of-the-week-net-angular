@@ -115,7 +115,11 @@ export class PlaybookAdminComponent implements OnInit {
           this.loadRecords();
           this.notificationService.success(`Playbook "${record.name}" deleted.`);
         },
-        error: () => this.notificationService.error(`Unable to delete "${record.name}".`),
+        // Surfaces the server's own message the way the save path already does, because as of
+        // Phase 9 the delete can fail for a reason the user can act on: a 409 naming how many
+        // Hunters are built from this playbook. A generic failure string would hide that.
+        error: (error: { error?: { message?: string } }) =>
+          this.notificationService.error(error?.error?.message ?? `Unable to delete "${record.name}".`),
       });
   }
 

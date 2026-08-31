@@ -184,6 +184,12 @@ Every child table follows the existing `MonsterAttack`/`MonsterPower`-style shap
 
 **Deferred to Phase 9/10, not dropped**: rejecting (`409`) the deletion of a child row a Hunter still references, rather than letting the FK cascade it away. Under an Id-based diff this is a strict addition — a usage-count query per removed child plus an error path in the admin form — and no `Hunter` row can exist until Phase 9 creates the table, so it is unimplementable and untestable before then. `DELETE /api/playbooks/{id}` inherits the same question at the same time. Until then, the residual sharp edge is real and accepted: removing a child row from a playbook silently removes any Hunter selections pointing at it.
 
+**Half-resolved 2026-08-31 (Phase 9) — the whole-Playbook case is done; the per-child case is still Phase 10.** `DELETE /api/playbooks/{id}` now refuses with `409` and a message naming how many Hunters are built from the playbook. This was brought forward from "Phase 9/10" because Phase 9 is what makes it reachable: `Hunter` is the first row that can reference a Playbook, and the EF default for its required FK would have been `Cascade` — deleting a Playbook would have silently destroyed every Hunter built from it, an entire top-level user record rather than one pick. The FK is `Restrict` instead, and the service guard exists so that shows up as an actionable 409 rather than an unhandled constraint violation. Three outcomes were verified as genuinely distinct, since a guard that swallows one into another is the easy mistake here: `204` unreferenced, `409` in use, `404` missing.
+
+Two knock-on changes: `ServiceErrorType` gained a `Conflict` member (every other controller's error switch falls to its own default for it, which is correct — none of them produce it), and `IPlaybookService.DeleteAsync` returns `ServiceResult<bool>` rather than `bool`, because the bare bool could not distinguish "no such playbook" from "in use".
+
+**What is still deferred is the per-child-row case** — rejecting removal of an individual move/gear option/bespoke option a Hunter references. Those bridge tables do not exist until Phase 10, so there is still nothing to count, and the sharp edge in the paragraph above stands unchanged until then.
+
 `Hunter` (Phase 9/10, sketched here for completeness, not fully speced — see `phases.md` Phase 10):
 
 ```
@@ -430,7 +436,16 @@ BespokeSection
 - **`phase5-bespoke-ideation.md`** — the full reasoning history: candidate approaches considered (a generic EAV model, per-shape tables) and why this shape won, every alternative considered and declined for each field above, and the chronological order each piece was discovered in. Consult only if the *why* behind a field matters, not to re-derive the *what* — that's fully captured here.
 - **`custom-moves-ideation.md`** — the same division of labour for 6.8: the full 28-playbook Moves census (including the ~35 in-play menus examined and ruled out of scope), the per-move inventory Phase 6 authors from, and the reasoning behind the Section-level attachment point. Consult it for *which moves* and *why*; 6.8 above is the *what*.
 
-## 7. Hunter list UI (Phase 9)
+## 7. Hunter list UI (Phase 9, **implemented 2026-08-31**)
+
+**What shipped, and the two places it differs from the sketch below.** Everything described here was built as specified: the `NavItem` entry, the `icon-nav-hunters` symbol, the `NavIconKey` addition, and a `HuntersListComponent` on the `MonstersListComponent` shape. Two deviations, both deliberate:
+
+- **No delete control on the list row.** `MonstersListComponent` has one; `HuntersListComponent` does not, because `DELETE /api/hunters/{id}` is Phase 10 and a button that fails on click is worse than the dead *links* this phase intends — those at least fall through the wildcard to the dashboard, which was verified rather than assumed.
+- **One new theme token pair**, `--color-badge-playbook` / `--color-on-badge-playbook` (indigo, light + dark), so the row's Playbook badge is not borrowing `badge-archetype`, whose comment names it as Monster's. Same construction as every badge token beside it.
+
+`Hunter` shipped as the minimal list shape (`Id`, `PlaybookId`, `Name`, `CreatedAt`, `UpdatedAt`) in its own `HunterEntities.cs` — not appended to `PlaybookEntities.cs`, which holds template data, and not to `DomainEntities.cs`, already the largest entity file. Phase 10's six instance-side tables belong in that new file. `ITimestamped` was included: Hunter is user content, matching `Mystery`/`Monster`/`Bystander` rather than the untimestamped reference tables. The Playbook FK carries no inverse navigation on `Playbook` (`WithMany()` with no property) — template data has no business holding a collection of the instances built from it.
+
+**Verified by driving the real app**, not by compiling: nav entry and icon symbol resolve, the list renders seeded rows with their playbook names in both themes, both dead links land on the dashboard without a crash, the empty state reads "No hunters yet.", and the delete-conflict path below returns all three of its outcomes correctly. Test rows were removed afterwards; the dev database is back to 28 playbooks and 0 hunters.
 
 Current sidebar (`layout/page-layout/page-layout.ts` `NavItem[]` + `page-layout.html`) is a flat array rendered as either a real `routerLink` or a disabled "Soon" badge — no restructuring needed, just one more `NavItem` entry (`{ label: 'Hunters', route: '/hunters', icon: 'hunters', exactMatch: false }`) once a route exists, matching exactly how Mysteries/Monsters/Minions/Locations/Bystanders are already registered. Icon needs one new symbol in `shared/icons/icon-sprite.component.ts` (`icon-nav-hunters`) plus the `hunters` key added to `DomainIconComponent`'s `NavIconKey` union — both are the same two-file edit every existing domain icon already required.
 

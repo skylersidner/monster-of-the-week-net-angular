@@ -48,8 +48,16 @@ public sealed class PlaybooksController(IPlaybookService playbookService) : Cont
         ToActionResult(await playbookService.UpdateAsync(id, request, cancellationToken));
 
     [HttpDelete("api/playbooks/{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        await playbookService.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await playbookService.DeleteAsync(id, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return ToErrorResult(result.Error!);
+        }
+
+        return result.Value ? NoContent() : NotFound();
+    }
 
     private ActionResult<T> ToActionResult<T>(ServiceResult<T> result) =>
         result.IsSuccess ? Ok(result.Value) : ToErrorResult(result.Error!);
@@ -59,6 +67,7 @@ public sealed class PlaybooksController(IPlaybookService playbookService) : Cont
         {
             ServiceErrorType.NotFound => NotFound(),
             ServiceErrorType.Validation => BadRequest(new { message = error.Message }),
+            ServiceErrorType.Conflict => Conflict(new { message = error.Message }),
             _ => BadRequest()
         };
 }

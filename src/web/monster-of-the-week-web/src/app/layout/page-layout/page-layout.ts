@@ -8,7 +8,15 @@ import { IconComponent } from '../../shared/icons/icon.component';
 interface NavItem {
   readonly label: string;
   readonly route: string | null;
-  readonly icon: 'dashboard' | 'data-admin' | 'mysteries' | 'monsters' | 'minions' | 'locations' | 'bystanders';
+  readonly icon:
+    | 'dashboard'
+    | 'data-admin'
+    | 'mysteries'
+    | 'monsters'
+    | 'minions'
+    | 'locations'
+    | 'bystanders'
+    | 'hunters';
   readonly exactMatch?: boolean;
 }
 
@@ -29,6 +37,10 @@ export class PageLayoutComponent {
   readonly navItems: readonly NavItem[] = [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard', exactMatch: true },
     { label: 'Mysteries', route: '/mysteries', icon: 'mysteries', exactMatch: false },
+    // Placed directly after Mysteries rather than appended to the end of the entity group:
+    // Hunters are the player characters, so the two things a session actually starts from sit
+    // together. Purely a presentation call — reordering this array is the whole change.
+    { label: 'Hunters', route: '/hunters', icon: 'hunters', exactMatch: false },
     { label: 'Monsters', route: '/monsters', icon: 'monsters', exactMatch: false },
     { label: 'Minions', route: '/minions', icon: 'minions', exactMatch: false },
     { label: 'Locations', route: '/locations', icon: 'locations', exactMatch: false },

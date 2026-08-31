@@ -49,6 +49,8 @@ builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPlaybookRepository, PlaybookRepository>();
 builder.Services.AddScoped<IPlaybookService, PlaybookService>();
+builder.Services.AddScoped<IHunterRepository, HunterRepository>();
+builder.Services.AddScoped<IHunterService, HunterService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

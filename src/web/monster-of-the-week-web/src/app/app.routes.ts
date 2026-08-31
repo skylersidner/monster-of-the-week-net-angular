@@ -61,6 +61,11 @@ export const routes: Routes = [
           import('./features/locations/locations.routes').then((m) => m.LOCATIONS_ROUTES),
       },
       {
+        path: 'hunters',
+        loadChildren: () =>
+          import('./features/hunters/hunters.routes').then((m) => m.HUNTERS_ROUTES),
+      },
+      {
         path: 'search',
         loadChildren: () =>
           import('./features/search/search.routes').then((m) => m.SEARCH_ROUTES),

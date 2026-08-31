@@ -42,6 +42,9 @@ public sealed class PlaybookRepository(MotwDbContext dbContext) : IPlaybookRepos
     public async Task AddAsync(Playbook playbook, CancellationToken cancellationToken) =>
         await dbContext.Playbooks.AddAsync(playbook, cancellationToken);
 
+    public Task<int> CountHuntersAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.Hunters.CountAsync(x => x.PlaybookId == id, cancellationToken);
+
     public Task<int> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Playbooks
             .Where(x => x.Id == id)

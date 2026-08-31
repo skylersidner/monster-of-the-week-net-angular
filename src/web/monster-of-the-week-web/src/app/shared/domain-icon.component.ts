@@ -3,7 +3,15 @@ import { Component, Input, computed, signal } from '@angular/core';
 /**
  * Nav-icon keys used by `page-layout.html`'s `NavItem.icon`. Lowercase, plural.
  */
-type NavIconKey = 'dashboard' | 'data-admin' | 'mysteries' | 'monsters' | 'minions' | 'locations' | 'bystanders';
+type NavIconKey =
+  | 'dashboard'
+  | 'data-admin'
+  | 'mysteries'
+  | 'monsters'
+  | 'minions'
+  | 'locations'
+  | 'bystanders'
+  | 'hunters';
 
 /**
  * Maps a singular, capitalized `entityType` (as returned by the search API,
@@ -17,6 +25,11 @@ const SINGULAR_ENTITY_TYPE_TO_NAV_KEY: Readonly<Record<string, NavIconKey>> = {
   minion: 'minions',
   location: 'locations',
   bystander: 'bystanders',
+  // No HunterSearchProvider exists yet, so nothing produces entityType "Hunter" today. Mapped
+  // anyway because the alternative is a silent failure: an unmapped key passes through
+  // unchanged and renders `#icon-nav-hunter` (singular), which is not a symbol in the sprite —
+  // a blank icon, no error. Costs one line now versus a puzzling gap later.
+  hunter: 'hunters',
 };
 
 /**

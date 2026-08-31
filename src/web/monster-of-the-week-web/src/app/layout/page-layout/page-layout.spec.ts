@@ -63,6 +63,7 @@ describe('PageLayoutComponent', () => {
   it('renders nav entries for all entity routes', () => {
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Hunters');
     expect(element.textContent).toContain('Monsters');
     expect(element.textContent).toContain('Minions');
     expect(element.textContent).toContain('Locations');

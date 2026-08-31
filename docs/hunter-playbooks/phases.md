@@ -411,7 +411,19 @@ Not designed this pass — the bespoke-section shape's actual EF Core implementa
 
 **Phase 8's closing step, resolved 2026-08-25, is the actual production seed conversion**: once all 28 playbooks are fully authored (standard + bespoke + Move-internal), run the one-off script (built once, not maintained as ongoing tooling) that reads the working database and produces `Data/Seed/hunter-playbooks.json`, commit it, and extend `MotwDbInitializer` with a `SeedPlaybooksAsync` step guarded by the same blanket `AnyAsync()` pattern every other seeded table uses. This is the one point in the whole initiative where the canonical set actually becomes present in every environment automatically. After this runs, any further canonical-playbook changes go through normal EF Core migrations, not by re-running this script. Full mechanism: `architecture.md` Section 4.
 
-## Phase 9 — Hunter instance list UI (fully specified)
+## Phase 9 — Hunter instance list UI (fully specified; **implemented 2026-08-31**)
+
+**Delivered exactly as specified**, plus two additions and one deviation, each recorded below and in `architecture.md` Section 7.
+
+Backend: `Hunter` entity in a new `HunterEntities.cs`, the `AddHunter` migration (one table, `Restrict` FK, `idx_hunters_playbook_id`), `HunterContracts` / `IHunterRepository`+`HunterRepository` / `IHunterService`+`HunterService` / `HuntersController`, DI registered. Frontend: `HunterService.getAll()`, `HUNTERS_ROUTES`, `HuntersListComponent`, the `Hunters` nav entry, the `icon-nav-hunters` sprite symbol, and the `NavIconKey`/`SINGULAR_ENTITY_TYPE_TO_NAV_KEY` additions.
+
+**Deviation — no delete button on the list row**, unlike `MonstersListComponent`. `DELETE /api/hunters/{id}` is Phase 10, so the button would fail on click. The dead *links* this phase specifies are a different thing: those fall through the wildcard to the dashboard, which was verified rather than assumed.
+
+**Addition 1 — one new theme token pair** (`--color-badge-playbook`, light and dark), so the Playbook badge on a hunter row is not borrowing `badge-archetype`, whose own comment names it as Monster's.
+
+**Addition 2, and the one worth reading — `DELETE /api/playbooks/{id}` now returns `409` when Hunters are built from the playbook.** `architecture.md` Section 3 deferred this to "Phase 9/10"; Phase 9 is where it becomes reachable, because `Hunter` is the first row that can reference a Playbook. Left alone, the required FK would have defaulted to `Cascade` and deleting a Playbook would have silently deleted every Hunter built from it. The FK is `Restrict`, and the service guard turns that into an actionable message instead of an unhandled constraint violation. Costs: `ServiceErrorType.Conflict`, and `IPlaybookService.DeleteAsync` returning `ServiceResult<bool>` instead of `bool` (a bare bool cannot distinguish "missing" from "in use"). The **per-child-row** version of this check — a move or gear option a Hunter references — remains Phase 10, since those bridge tables do not exist yet.
+
+**Verified by driving the real app in a browser**, not just by compiling: nav entry and icon symbol resolve, rows render with playbook names in light and dark themes, both dead links land on the dashboard cleanly, the empty state reads correctly, and all three delete outcomes (`204` unreferenced / `409` in use / `404` missing) were checked as distinct. 179 API tests and 337 Angular tests pass. Test hunter rows were removed afterwards; the dev database is back to 28 playbooks and 0 hunters.
 
 **What**: One new `NavItem` in `page-layout.ts` (`{ label: 'Hunters', route: '/hunters', icon: 'hunters', exactMatch: false }`), one new icon symbol (`icon-nav-hunters` in `shared/icons/icon-sprite.component.ts`, plus the `hunters` key added to `DomainIconComponent`'s `NavIconKey` union and `SINGULAR_ENTITY_TYPE_TO_NAV_KEY` map), and a `HuntersListComponent` following `MonstersListComponent`'s shape exactly (flat `GET /api/hunters`-backed list, no mystery-scoping — Hunters aren't Mystery-owned).
 

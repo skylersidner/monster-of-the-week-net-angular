@@ -54,6 +54,8 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<BespokeJournalField> BespokeJournalFields => Set<BespokeJournalField>();
     public DbSet<PlaybookExtraTrack> PlaybookExtraTracks => Set<PlaybookExtraTrack>();
 
+    public DbSet<Hunter> Hunters => Set<Hunter>();
+
     // Named AppUsers, not Users: IdentityUserContext<TUser, ...> already declares a
     // DbSet<TUser> Users, so Users here would collide if this context ever derives from it.
     public DbSet<AppUser> AppUsers => Set<AppUser>();
@@ -757,6 +759,25 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasOne(e => e.Playbook).WithMany(e => e.ExtraTracks).HasForeignKey(e => e.PlaybookId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_extra_tracks_playbook_id");
+        });
+
+        modelBuilder.Entity<Hunter>(entity =>
+        {
+            entity.ToTable("hunters");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            // Restrict, not the Cascade a required FK would default to — see Hunter.PlaybookId.
+            // WithMany() with no navigation is deliberate: Playbook is template data and has no
+            // business carrying a collection of the instances built from it. The one query that
+            // needs the count reads Hunters directly.
+            entity.HasOne(e => e.Playbook).WithMany().HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_hunters_playbook_id");
         });
     }
 

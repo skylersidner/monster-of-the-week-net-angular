@@ -144,6 +144,20 @@ import { Component } from '@angular/core';
         <path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" />
       </symbol>
 
+      <!--
+        Hunters (Phase 9). A person inside a shield rather than another bare figure: at 20px the
+        sidebar already spends one figure on Bystanders and two on Minions, so a third
+        person-shape would be indistinguishable from those at a glance. The shield is what
+        carries the distinction, and it keeps Hunters inside the people family rather than
+        symbolising them with a weapon (which would read as gear once Phase 10 adds a gear
+        picker). Same stroke construction as every symbol above.
+      -->
+      <symbol id="icon-nav-hunters" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M12 2.5l7.5 3.2v5.6c0 4.6-3.2 8.1-7.5 10.2-4.3-2.1-7.5-5.6-7.5-10.2V5.7z" />
+        <circle cx="12" cy="9.8" r="2.1" />
+        <path d="M8.3 16.4c0-2.05 1.66-3.7 3.7-3.7s3.7 1.65 3.7 3.7" />
+      </symbol>
+
       <!-- ============================================================================ -->
       <!-- Mystery-section / countdown-stage icons (icon-mystery-*), consumed by         -->
       <!-- features/mysteries/shared/mystery-section-icon.ts for its non-domain kinds    -->

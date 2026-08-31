@@ -24,6 +24,14 @@ public interface IPlaybookRepository
     Task<Playbook?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
 
     Task<bool> NameExistsAsync(string name, Guid? excludingId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How many Hunters are built from this Playbook. Exists so the service can refuse a delete
+    /// with a 409 and a count the user can act on, rather than letting the Restrict FK surface
+    /// as an unhandled database error. See <c>Hunter.PlaybookId</c>.
+    /// </summary>
+    Task<int> CountHuntersAsync(Guid id, CancellationToken cancellationToken);
+
     Task AddAsync(Playbook playbook, CancellationToken cancellationToken);
     Task<int> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
