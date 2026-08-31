@@ -59,12 +59,32 @@ grant sentence ("You get all the basic moves, and **two** Crooked moves").
 
 **Use `tools/pdf-extract/extract-moves.mjs`, not `pdftotext`.** `PlaybookMove.DescriptionText`
 is the one standard field carrying the constrained HTML subset, and plain extraction cannot
-see bold or italic at all. Find the Moves column's x-range with `dump-page.mjs` first:
+see bold or italic at all.
+
+**Read the page's geometry before extracting — bound `y` as well as `x`.** Dump every
+section heading's coordinates and work out the Moves block's real extent:
 
 ```bash
-node dump-page.mjs "$PDF" <page> | grep -i "moves"          # read x off the heading
-node extract-moves.mjs "$PDF" <page> --minX N --maxX N --options --json > moves.json
+node dump-page.mjs "$PDF" <page> | grep -E '"str":"(Moves|Gear|Mission|Fate|[A-Z][a-z]+)"'
+node extract-moves.mjs "$PDF" <page> --minX N --maxX N --minY N --maxY N --options --json > moves.json
 ```
+
+Two layout traps, both of which fail **silently** — no error, just wrong output:
+
+- **Moves and Gear often share a column**, Gear printed below. Without a `--minY` floor at
+  the Gear heading, gear rows are returned as extra moves with empty titles.
+- **A playbook's Moves list may span two columns.** Known on Curse-Eater, Forged, and The
+  Divine, and probably more. Extract each column separately and concatenate down-column-1-
+  then-down-column-2, matching the reading order used for two-column Improvements.
+
+**Always cross-check the extracted move count against the raw source before authoring:**
+
+```bash
+pdftotext -raw -f <page> -l <page> "$PDF" - | sed -n '/^Moves/,/^Gear/p' | grep -cE '^b'
+```
+
+A count mismatch means one of the two traps above bit. This is the check that caught The
+Divine returning four of its seven moves.
 
 **Take text from the `*Html` fields, never the plain ones.** Each option carries both `raw`
 and `rawHtml`, `descriptionText` and `descriptionHtml`. The plain variants have had the
