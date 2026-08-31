@@ -473,7 +473,11 @@ List page follows the `MonstersListComponent` shape exactly (flat `GET /api/hunt
 
 Two things worth carrying forward from that work. **A freeform look answer references the category, not an option** — so the playbook-edit guard has to watch look *categories* as well as look options, or a line can be deleted out from under everyone who wrote their own text for it. And **"exactly one of option / freeform" has no database expression**, so it lives in the service with both failure directions tested.
 
-**Still not built, deliberately**: the bespoke-ruleset instance tables from 6.4 and structured History capture. `Hunter.Background` is now the placeholder for exactly those two things and nothing else — which makes it a fair measure of what the bespoke pass has left to absorb.
+**Follow-on 10b, 2026-08-31 — the bespoke instance tables are built.** All four of 6.4's tables ship as specified, with two departures forced by real data and recorded in `phases.md`: `HunterBespokeSelection` carries `SectionId` (without it, a free-text answer on a *non-repeatable* section — the Gumshoe Code — has nothing to attach to), and it carries `FreeformTitle` alongside `FreeformText` (four options put a `{{blank}}` in both of the template's text fields).
+
+**One implementation trap, promoted here because it is a reading error waiting to recur.** 6.4's derived-engagement rule is not a UI nicety, it is how pick-counts are *counted*: a category divider is never selected, so a section's `MinSelect`/`MaxSelect` counts **engaged** top-level options — dividers reached through their children, plus directly-picked leaves — and never selection rows. Counting rows reads every nested section as zero picks regardless of what is filled in. Both the refuse tier and the completeness tier now share one `BespokeEngagement` helper, because two implementations that drift could call the same hunter over its maximum and under its minimum at once.
+
+**`Hunter.Background` is now History and nothing else** — the one section Section 2 deliberately models as flat prose, per the brief's exclusion of hunter-to-hunter relationship modelling. Every other section of every playbook has structured capture.
 
 **Recommendation: a single-page reactive form, following the `MonsterFormComponent`/`MonsterCreateComponent` precedent — not a multi-step wizard.**
 

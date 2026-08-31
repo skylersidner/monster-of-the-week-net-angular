@@ -81,12 +81,40 @@ public sealed class PlaybookRepository(MotwDbContext dbContext) : IPlaybookRepos
             .Where(t => candidateIds.Contains(t.ExtraTrackId))
             .Select(t => t.ExtraTrackId);
 
+        // Three for bespoke, and the two section-level ones matter for the same reason the look
+        // *category* query does: a free-text answer and a repeatable-section instance both
+        // reference the Section with no option id at all.
+        var bespokeSections = dbContext.HunterBespokeSelections
+            .Where(b => candidateIds.Contains(b.SectionId))
+            .Select(b => b.SectionId);
+
+        var bespokeInstanceSections = dbContext.HunterBespokeSectionInstances
+            .Where(i => candidateIds.Contains(i.SectionId))
+            .Select(i => i.SectionId);
+
+        var bespokeOptions = dbContext.HunterBespokeSelections
+            .Where(b => b.BespokeOptionId != null && candidateIds.Contains(b.BespokeOptionId!.Value))
+            .Select(b => b.BespokeOptionId!.Value);
+
+        var journals = dbContext.HunterJournalEntries
+            .Where(e => candidateIds.Contains(e.JournalId))
+            .Select(e => e.JournalId);
+
+        var journalFields = dbContext.HunterJournalEntryFieldValues
+            .Where(v => candidateIds.Contains(v.JournalFieldId))
+            .Select(v => v.JournalFieldId);
+
         return await statArrays
             .Union(moves)
             .Union(gear)
             .Union(lookCategories)
             .Union(lookOptions)
             .Union(tracks)
+            .Union(bespokeSections)
+            .Union(bespokeInstanceSections)
+            .Union(bespokeOptions)
+            .Union(journals)
+            .Union(journalFields)
             .Distinct()
             .ToListAsync(cancellationToken);
     }

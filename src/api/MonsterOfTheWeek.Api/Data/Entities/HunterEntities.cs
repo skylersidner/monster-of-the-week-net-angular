@@ -15,12 +15,12 @@ namespace MonsterOfTheWeek.Api.Data.Entities;
  * schema from architecture.md Section 3 — the rating-array link, the mutable play-state
  * counters, the freeform background, and the two pick bridges.
  *
- * Still not built, and deliberately so: the bespoke-ruleset instance tables (6.4's
- * HunterBespokeSelection / HunterBespokeSectionInstance / HunterJournalEntry /
- * HunterJournalEntryFieldValue) and HunterExtraTrackValue. phases.md Phase 10 records
- * Skyler's confirmation that the first pass of this form captures the standard fields plus a
- * placeholder freeform box only, with the structured versions revisited afterwards. Hunter.
- * Background is that placeholder.
+ * Follow-on 10a added structured Looks and Extra Tracks; Follow-on 10b added the bespoke
+ * instance tables at the bottom of this file. Every hunter-side table in architecture.md
+ * Sections 3 and 6.4 now exists.
+ *
+ * What Hunter.Background still holds, and all it holds: History, which Section 2 deliberately
+ * models as flat prose because the brief ruled out modelling hunter-to-hunter relationships.
  */
 
 /// <summary>
@@ -106,6 +106,9 @@ public sealed class Hunter : ITimestamped
     public ICollection<HunterGearSelection> GearSelections { get; set; } = [];
     public ICollection<HunterLookSelection> LookSelections { get; set; } = [];
     public ICollection<HunterExtraTrackValue> ExtraTrackValues { get; set; } = [];
+    public ICollection<HunterBespokeSelection> BespokeSelections { get; set; } = [];
+    public ICollection<HunterBespokeSectionInstance> BespokeSectionInstances { get; set; } = [];
+    public ICollection<HunterJournalEntry> JournalEntries { get; set; } = [];
 }
 
 /*
@@ -193,4 +196,126 @@ public sealed class HunterExtraTrackValue
 
     public Hunter Hunter { get; set; } = null!;
     public PlaybookExtraTrack ExtraTrack { get; set; } = null!;
+}
+
+/*
+ * ---------------------------------------------------------------------------------------
+ * Bespoke-ruleset instance side — architecture.md Section 6.4.
+ *
+ * Two deliberate departures from 6.4's sketch, both forced by real data rather than taste:
+ *
+ * 1. HunterBespokeSelection carries SectionId. 6.4 has only BespokeOptionId (nullable, for
+ *    the free-text case) and SectionInstanceId (nullable, only for repeatable Sections).
+ *    That leaves a free-text answer on a NON-repeatable Section — the Gumshoe Code, whose
+ *    FreeTextLabel is "Your Code" — with no way to say which Section it answers: no option,
+ *    no instance. Storing SectionId always also makes "everything this hunter answered for
+ *    this Section" one flat query. It is the same denormalisation BespokeOption.SectionId
+ *    and BespokeSection.PlaybookId already make, for the same stated reason.
+ *
+ * 2. HunterBespokeSelection carries FreeformTitle as well as FreeformText. A BespokeOption
+ *    has two text fields that can each contain a {{blank}} fill-in token, and four real
+ *    options (The Monstrous's Curses and Natural Attacks) put a blank in BOTH — "write your
+ *    own, name it and describe it". One string cannot hold two answers without inventing a
+ *    delimiter, so the selection mirrors the template's own two fields one-for-one.
+ * ---------------------------------------------------------------------------------------
+ */
+
+/// <summary>
+/// One independent copy of a repeatable <see cref="BespokeSection"/>'s whole option tree —
+/// a single Rote, one Network member, one of the Spell-Slinger's three organizations.
+///
+/// <para>
+/// Its own row rather than a bare instance-number on the selections, so a freshly-added
+/// entry with nothing filled in yet is representable, and so an instance's own name (when
+/// the source asks for one — "give your new rote a name") has somewhere to live that is not
+/// a <see cref="BespokeOption"/>. Both reasons are 6.4's, restated here because they are the
+/// whole justification for the table existing.
+/// </para>
+/// </summary>
+public sealed class HunterBespokeSectionInstance
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid HunterId { get; set; }
+    public Guid SectionId { get; set; }
+
+    /// <summary>Per-instance free text, only where the source asks for a name.</summary>
+    public string? Name { get; set; }
+
+    public int SortOrder { get; set; }
+
+    public Hunter Hunter { get; set; } = null!;
+    public BespokeSection Section { get; set; } = null!;
+    public ICollection<HunterBespokeSelection> Selections { get; set; } = [];
+}
+
+/// <summary>
+/// One answer a hunter has recorded against a bespoke ruleset: a picked option, a filled-in
+/// blank, a numeric value, or the free-text answer to a whole Section.
+///
+/// <para>
+/// <b>Zero-option Sections never produce a row here.</b> A fixed always-active grant (the
+/// Covenant, Monster Breed, the Snoop's Crew — seven of them) is something the hunter has by
+/// virtue of the playbook, exactly like a <c>Required</c> move needing no per-hunter record.
+/// </para>
+/// </summary>
+public sealed class HunterBespokeSelection
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid HunterId { get; set; }
+
+    /// <summary>Always populated — see this file's departure note 1.</summary>
+    public Guid SectionId { get; set; }
+
+    /// <summary>
+    /// Null only when the Section is answered as a whole rather than by picking: a
+    /// <c>FreeTextLabel</c> Section. That is 6.4's single documented exception, and the
+    /// service refuses a null here for any other Section.
+    /// </summary>
+    public Guid? BespokeOptionId { get; set; }
+
+    /// <summary>Fills a <c>{{blank}}</c> in the option's DescriptionText, or answers a FreeTextLabel Section.</summary>
+    public string? FreeformText { get; set; }
+
+    /// <summary>Fills a <c>{{blank}}</c> in the option's Title — see departure note 2.</summary>
+    public string? FreeformTitle { get; set; }
+
+    /// <summary>Set only for an option carrying NumericMin/NumericMax (one option, playbook-wide).</summary>
+    public int? NumericValue { get; set; }
+
+    /// <summary>Set only when this answer belongs to one instance of a repeatable Section.</summary>
+    public Guid? SectionInstanceId { get; set; }
+
+    public Hunter Hunter { get; set; } = null!;
+    public BespokeSection Section { get; set; } = null!;
+    public BespokeOption? BespokeOption { get; set; }
+    public HunterBespokeSectionInstance? SectionInstance { get; set; }
+}
+
+/// <summary>
+/// One entry in a <see cref="BespokeJournal"/> — a Curse-Eater's consumed magic. Unlike every
+/// other hunter-side row this is not a bridge to a template row at all: the content is
+/// invented during play and the template defines only the field labels.
+/// </summary>
+public sealed class HunterJournalEntry
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid HunterId { get; set; }
+    public Guid JournalId { get; set; }
+    public int SortOrder { get; set; }
+
+    public Hunter Hunter { get; set; } = null!;
+    public BespokeJournal Journal { get; set; } = null!;
+    public ICollection<HunterJournalEntryFieldValue> FieldValues { get; set; } = [];
+}
+
+/// <summary>One entry's value for one of its journal's labelled slots.</summary>
+public sealed class HunterJournalEntryFieldValue
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public Guid EntryId { get; set; }
+    public Guid JournalFieldId { get; set; }
+    public string? Text { get; set; }
+
+    public HunterJournalEntry Entry { get; set; } = null!;
+    public BespokeJournalField JournalField { get; set; } = null!;
 }

@@ -41,6 +41,10 @@ public interface IHunterRepository
     void RemoveGearPicks(IEnumerable<HunterGearSelection> picks);
     void RemoveLookPicks(IEnumerable<HunterLookSelection> picks);
     void RemoveExtraTrackValues(IEnumerable<HunterExtraTrackValue> values);
+    void RemoveBespokeSelections(IEnumerable<HunterBespokeSelection> selections);
+    void RemoveBespokeInstances(IEnumerable<HunterBespokeSectionInstance> instances);
+    void RemoveJournalEntries(IEnumerable<HunterJournalEntry> entries);
+    void RemoveJournalFieldValues(IEnumerable<HunterJournalEntryFieldValue> values);
 
     Task AddHunterAsync(Hunter hunter, CancellationToken cancellationToken);
     Task<int> DeleteHunterAsync(Guid id, CancellationToken cancellationToken);

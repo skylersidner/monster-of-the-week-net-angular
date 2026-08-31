@@ -243,6 +243,12 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
             return lookError;
         }
 
+        var bespokeError = ValidateBespoke(request, playbook);
+        if (bespokeError is not null)
+        {
+            return bespokeError;
+        }
+
         var extraTrackError = ValidateExtraTracks(request.ExtraTracks ?? [], playbook);
         if (extraTrackError is not null)
         {
@@ -300,6 +306,210 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
 
         return null;
     }
+
+    /*
+     * Bespoke answers — the refuse tier only. Minimums (MinSelect, MinInstances, an unanswered
+     * free-text Section) are completeness, not correctness, and live in HunterCompleteness:
+     * an unfinished section asserts nothing false, so under Section 9's rule it is reported
+     * rather than rejected. Everything here would make the stored row a lie.
+     */
+    private static string? ValidateBespoke(UpsertHunterRequest request, Playbook playbook)
+    {
+        var sectionsById = playbook.BespokeSections.ToDictionary(x => x.Id);
+        var optionsById = playbook.BespokeSections.SelectMany(s => s.Options).ToDictionary(x => x.Id);
+
+        // A Move's own pick-structure only means anything if the hunter has that Move. Required
+        // moves are added on save whether or not the caller sent them, so they count here too.
+        var takenMoveIds = (request.PlaybookMoveIds ?? []).ToHashSet();
+        foreach (var required in playbook.Moves.Where(m => m.Required))
+        {
+            takenMoveIds.Add(required.Id);
+        }
+
+        foreach (var instance in request.BespokeInstances ?? [])
+        {
+            if (!sectionsById.TryGetValue(instance.SectionId, out var instanceSection))
+            {
+                return $"Bespoke section {instance.SectionId} does not belong to playbook \"{playbook.Name}\".";
+            }
+
+            if (instanceSection.MinInstances is null && instanceSection.MaxInstances is null)
+            {
+                return $"\"{instanceSection.Title}\" is not a repeatable section, so it cannot have entries.";
+            }
+        }
+
+        foreach (var group in (request.BespokeInstances ?? []).GroupBy(i => i.SectionId))
+        {
+            var section = sectionsById[group.Key];
+            if (section.MaxInstances is { } max && group.Count() > max)
+            {
+                return $"\"{section.Title}\" allows at most {max} {(max == 1 ? "entry" : "entries")}, but {group.Count()} were sent.";
+            }
+        }
+
+        // Section-level answers and each instance's own answers are validated by the same code;
+        // only the scope key differs, which is what keeps the two paths from drifting.
+        var scopes = new List<(Guid? InstanceId, IReadOnlyList<HunterBespokeSelectionModel> Selections)>
+        {
+            (null, request.BespokeSelections ?? []),
+        };
+        scopes.AddRange((request.BespokeInstances ?? []).Select(i => ((Guid?)i.SectionId, i.Selections ?? [])));
+
+        foreach (var (_, selections) in scopes)
+        {
+            var error = ValidateSelectionScope(selections, sectionsById, optionsById, takenMoveIds, playbook);
+            if (error is not null)
+            {
+                return error;
+            }
+        }
+
+        foreach (var entry in request.JournalEntries ?? [])
+        {
+            var journal = playbook.BespokeJournals.FirstOrDefault(j => j.Id == entry.JournalId);
+            if (journal is null)
+            {
+                return $"Journal {entry.JournalId} does not belong to playbook \"{playbook.Name}\".";
+            }
+
+            foreach (var field in entry.Fields ?? [])
+            {
+                if (journal.Fields.All(f => f.Id != field.JournalFieldId))
+                {
+                    return $"A journal field does not belong to \"{journal.Title}\".";
+                }
+            }
+
+            if ((entry.Fields ?? []).Select(f => f.JournalFieldId).Distinct().Count() != (entry.Fields ?? []).Count)
+            {
+                return $"A \"{journal.Title}\" entry gives the same field a value twice.";
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ValidateSelectionScope(
+        IReadOnlyList<HunterBespokeSelectionModel> selections,
+        Dictionary<Guid, BespokeSection> sectionsById,
+        Dictionary<Guid, BespokeOption> optionsById,
+        HashSet<Guid> takenMoveIds,
+        Playbook playbook)
+    {
+        if (selections.Select(s => (s.SectionId, s.BespokeOptionId)).Distinct().Count() != selections.Count)
+        {
+            return "The same bespoke answer was sent twice.";
+        }
+
+        foreach (var selection in selections)
+        {
+            if (!sectionsById.TryGetValue(selection.SectionId, out var section))
+            {
+                return $"Bespoke section {selection.SectionId} does not belong to playbook \"{playbook.Name}\".";
+            }
+
+            if (section.PlaybookMoveId is { } moveId && !takenMoveIds.Contains(moveId))
+            {
+                var move = playbook.Moves.FirstOrDefault(m => m.Id == moveId);
+                return $"\"{section.Title}\" belongs to the move \"{move?.Name}\", which this hunter has not taken.";
+            }
+
+            if (selection.BespokeOptionId is null)
+            {
+                // 6.4's single documented exception to "BespokeOptionId is required".
+                if (section.FreeTextLabel is null)
+                {
+                    return $"\"{section.Title}\" is answered by picking an option, not by free text.";
+                }
+
+                if (string.IsNullOrWhiteSpace(selection.FreeformText))
+                {
+                    return $"\"{section.Title}\" was sent with no answer.";
+                }
+
+                continue;
+            }
+
+            if (!optionsById.TryGetValue(selection.BespokeOptionId.Value, out var option)
+                || option.SectionId != section.Id)
+            {
+                return $"An option does not belong to \"{section.Title}\".";
+            }
+
+            // A blank-fill is only meaningful where the template actually prints a blank, and
+            // the two text fields are checked separately because four real options carry one in
+            // each (The Monstrous's write-your-own curses and natural attacks).
+            if (!string.IsNullOrWhiteSpace(selection.FreeformTitle) && !HasBlank(option.Title))
+            {
+                return $"An option in \"{section.Title}\" has no blank in its title to fill in.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(selection.FreeformText) && !HasBlank(option.DescriptionText))
+            {
+                return $"An option in \"{section.Title}\" has no blank to fill in.";
+            }
+
+            if (selection.NumericValue is { } numeric)
+            {
+                if (option.NumericMin is null && option.NumericMax is null)
+                {
+                    return $"An option in \"{section.Title}\" does not carry a numeric value.";
+                }
+
+                if (numeric < (option.NumericMin ?? int.MinValue) || numeric > (option.NumericMax ?? int.MaxValue))
+                {
+                    return $"\"{option.Title}\" accepts {option.NumericMin}–{option.NumericMax}, but {numeric} was sent.";
+                }
+            }
+        }
+
+        /*
+         * Ceilings, at every level of the tree. A Section's own MaxSelect governs how many of
+         * its *top-level* options may be picked; an option's MaxSelect governs its own children.
+         * One pass over the picked set answers both, because BespokeOption.ParentOptionId is
+         * what separates the levels and is populated at every depth.
+         */
+        var pickedIds = selections.Where(s => s.BespokeOptionId is not null)
+            .Select(s => s.BespokeOptionId!.Value)
+            .ToHashSet();
+        var engaged = BespokeEngagement.Engaged(pickedIds, optionsById);
+
+        foreach (var sectionId in engaged.Select(id => optionsById[id].SectionId).Distinct())
+        {
+            var section = sectionsById[sectionId];
+            if (section.MaxSelect is not { } sectionMax)
+            {
+                continue;
+            }
+
+            var count = BespokeEngagement.CountUnder(null, sectionId, engaged, optionsById);
+            if (count > sectionMax)
+            {
+                return $"\"{section.Title}\" allows {sectionMax} {(sectionMax == 1 ? "pick" : "picks")}, but {count} were made.";
+            }
+        }
+
+        foreach (var parentId in engaged)
+        {
+            var parent = optionsById[parentId];
+            if (parent.MaxSelect is not { } parentMax)
+            {
+                continue;
+            }
+
+            var count = BespokeEngagement.CountUnder(parent.Id, parent.SectionId, engaged, optionsById);
+            if (count > parentMax)
+            {
+                return $"\"{parent.Title}\" allows {parentMax} {(parentMax == 1 ? "pick" : "picks")}, but {count} were made.";
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The fill-in token from architecture.md 6.3, marking where a free-text input goes.</summary>
+    private static bool HasBlank(string? templateText) => templateText?.Contains("{{blank}}") == true;
 
     private static string? ValidateExtraTracks(IReadOnlyList<HunterExtraTrackValueModel> values, Playbook playbook)
     {
@@ -399,6 +609,168 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
             r => new HunterExtraTrackValue { HunterId = hunter.Id, ExtraTrackId = r.ExtraTrackId },
             (r, e) => e.CurrentValue = r.CurrentValue,
             hunterRepository.RemoveExtraTrackValues);
+
+        ApplyBespoke(hunter, request, playbook);
+    }
+
+    /*
+     * Bespoke answers. Three collections, reconciled in a fixed order that matters:
+     * instances first (so their ids exist for selections to point at), then selections
+     * (which is also what deletes a removed instance's answers, since their key includes the
+     * instance id), then journals.
+     *
+     * Every removal goes through the repository's explicit RemoveRange, never through severing
+     * a navigation alone — see IHunterRepository.RemoveMovePicks for the EF fixup trap that
+     * silently resurrects orphans when any FK on the Hunter is assigned.
+     */
+    private void ApplyBespoke(Hunter hunter, UpsertHunterRequest request, Playbook playbook)
+    {
+        var requestedInstances = request.BespokeInstances ?? [];
+
+        var keptInstanceIds = requestedInstances.Where(i => i.Id.HasValue).Select(i => i.Id!.Value).ToHashSet();
+        var staleInstances = hunter.BespokeSectionInstances.Where(i => !keptInstanceIds.Contains(i.Id)).ToList();
+        foreach (var stale in staleInstances)
+        {
+            hunter.BespokeSectionInstances.Remove(stale);
+        }
+
+        hunterRepository.RemoveBespokeInstances(staleInstances);
+
+        // Resolved per request entry so the selections below can name the row they belong to,
+        // whether it already existed or was created a moment ago.
+        var instanceEntities = new List<(HunterBespokeInstanceModel Model, HunterBespokeSectionInstance Entity)>();
+        var existingById = hunter.BespokeSectionInstances.ToDictionary(i => i.Id);
+        foreach (var model in requestedInstances)
+        {
+            if (model.Id is { } id && existingById.TryGetValue(id, out var entity))
+            {
+                entity.Name = Normalize(model.Name);
+                entity.SortOrder = model.SortOrder;
+                instanceEntities.Add((model, entity));
+                continue;
+            }
+
+            var created = new HunterBespokeSectionInstance
+            {
+                HunterId = hunter.Id,
+                SectionId = model.SectionId,
+                Name = Normalize(model.Name),
+                SortOrder = model.SortOrder,
+            };
+            hunter.BespokeSectionInstances.Add(created);
+            instanceEntities.Add((model, created));
+        }
+
+        var desired = new Dictionary<(Guid Section, Guid? Option, Guid? Instance), HunterBespokeSelectionModel>();
+        foreach (var selection in request.BespokeSelections ?? [])
+        {
+            desired[(selection.SectionId, selection.BespokeOptionId, null)] = selection;
+        }
+
+        foreach (var (model, entity) in instanceEntities)
+        {
+            foreach (var selection in model.Selections ?? [])
+            {
+                desired[(selection.SectionId, selection.BespokeOptionId, entity.Id)] = selection;
+            }
+        }
+
+        static (Guid, Guid?, Guid?) KeyOf(HunterBespokeSelection x) => (x.SectionId, x.BespokeOptionId, x.SectionInstanceId);
+
+        var staleSelections = hunter.BespokeSelections.Where(x => !desired.ContainsKey(KeyOf(x))).ToList();
+        foreach (var stale in staleSelections)
+        {
+            hunter.BespokeSelections.Remove(stale);
+        }
+
+        hunterRepository.RemoveBespokeSelections(staleSelections);
+
+        var selectionsByKey = hunter.BespokeSelections.ToDictionary(KeyOf);
+        foreach (var ((sectionId, optionId, instanceId), model) in desired)
+        {
+            if (!selectionsByKey.TryGetValue((sectionId, optionId, instanceId), out var entity))
+            {
+                entity = new HunterBespokeSelection
+                {
+                    HunterId = hunter.Id,
+                    SectionId = sectionId,
+                    BespokeOptionId = optionId,
+                    SectionInstanceId = instanceId,
+                };
+                hunter.BespokeSelections.Add(entity);
+            }
+
+            entity.FreeformTitle = Normalize(model.FreeformTitle);
+            entity.FreeformText = Normalize(model.FreeformText);
+            entity.NumericValue = model.NumericValue;
+        }
+
+        ApplyJournals(hunter, request);
+    }
+
+    private void ApplyJournals(Hunter hunter, UpsertHunterRequest request)
+    {
+        var requested = request.JournalEntries ?? [];
+        var keptEntryIds = requested.Where(e => e.Id.HasValue).Select(e => e.Id!.Value).ToHashSet();
+
+        var staleEntries = hunter.JournalEntries.Where(e => !keptEntryIds.Contains(e.Id)).ToList();
+        foreach (var stale in staleEntries)
+        {
+            hunter.JournalEntries.Remove(stale);
+        }
+
+        // Field values go explicitly too: their FK to the entry cascades in the database, but
+        // the tracked graph still holds them, and EF would try to save rows whose parent is gone.
+        hunterRepository.RemoveJournalFieldValues(staleEntries.SelectMany(e => e.FieldValues).ToList());
+        hunterRepository.RemoveJournalEntries(staleEntries);
+
+        var existingById = hunter.JournalEntries.ToDictionary(e => e.Id);
+        foreach (var model in requested)
+        {
+            HunterJournalEntry entry;
+            if (model.Id is { } id && existingById.TryGetValue(id, out var found))
+            {
+                entry = found;
+                entry.SortOrder = model.SortOrder;
+            }
+            else
+            {
+                entry = new HunterJournalEntry
+                {
+                    HunterId = hunter.Id,
+                    JournalId = model.JournalId,
+                    SortOrder = model.SortOrder,
+                };
+                hunter.JournalEntries.Add(entry);
+            }
+
+            var fields = model.Fields ?? [];
+            var keptFieldIds = fields.Select(f => f.JournalFieldId).ToHashSet();
+            var staleValues = entry.FieldValues.Where(v => !keptFieldIds.Contains(v.JournalFieldId)).ToList();
+            foreach (var stale in staleValues)
+            {
+                entry.FieldValues.Remove(stale);
+            }
+
+            hunterRepository.RemoveJournalFieldValues(staleValues);
+
+            var valuesByField = entry.FieldValues.ToDictionary(v => v.JournalFieldId);
+            foreach (var field in fields)
+            {
+                if (valuesByField.TryGetValue(field.JournalFieldId, out var value))
+                {
+                    value.Text = Normalize(field.Text);
+                    continue;
+                }
+
+                entry.FieldValues.Add(new HunterJournalEntryFieldValue
+                {
+                    EntryId = entry.Id,
+                    JournalFieldId = field.JournalFieldId,
+                    Text = Normalize(field.Text),
+                });
+            }
+        }
     }
 
     /// <summary>
@@ -485,6 +857,15 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
         [.. hunter.GearSelections.Select(x => x.PlaybookGearOptionId)],
         [.. hunter.LookSelections.Select(x => new HunterLookSelectionModel(x.LookCategoryId, x.LookOptionId, x.FreeformText))],
         [.. hunter.ExtraTrackValues.Select(x => new HunterExtraTrackValueModel(x.ExtraTrackId, x.CurrentValue))],
+        [.. hunter.BespokeSelections.Where(x => x.SectionInstanceId == null)
+            .Select(x => new HunterBespokeSelectionModel(x.SectionId, x.BespokeOptionId, x.FreeformTitle, x.FreeformText, x.NumericValue))],
+        [.. hunter.BespokeSectionInstances.OrderBy(i => i.SortOrder).Select(i => new HunterBespokeInstanceModel(
+            i.Id, i.SectionId, i.Name, i.SortOrder,
+            [.. hunter.BespokeSelections.Where(x => x.SectionInstanceId == i.Id)
+                .Select(x => new HunterBespokeSelectionModel(x.SectionId, x.BespokeOptionId, x.FreeformTitle, x.FreeformText, x.NumericValue))]))],
+        [.. hunter.JournalEntries.OrderBy(e => e.SortOrder).Select(e => new HunterJournalEntryModel(
+            e.Id, e.JournalId, e.SortOrder,
+            [.. e.FieldValues.Select(v => new HunterJournalFieldValueModel(v.JournalFieldId, v.Text))]))],
         // A null playbook is unreachable in practice — the FK is Restrict and a hunter cannot
         // outlive its template — so an empty list is the honest answer rather than a fallback
         // worth a code path: nothing is known to be outstanding.

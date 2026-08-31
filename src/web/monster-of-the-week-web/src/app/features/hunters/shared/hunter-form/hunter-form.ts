@@ -1,11 +1,17 @@
 import { Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { NgTemplateOutlet } from '@angular/common';
 import { CustomSelectComponent } from '../../../../shared/custom-select.component';
+import { BespokeOptionAnswer, BespokeOptionTreeComponent } from './bespoke-option-tree';
 import { PlaybookService } from '../../../../core/playbook';
 import {
   HunterDetailResponse,
   PlaybookDetailResponse,
+  BespokeJournalResponse,
+  BespokeOptionResponse,
+  BespokeSectionResponse,
+  HunterBespokeSelectionModel,
   PlaybookGearCategoryResponse,
   PlaybookLookCategoryResponse,
   PlaybookListItemResponse,
@@ -38,7 +44,7 @@ import {
 @Component({
   selector: 'app-hunter-form',
   standalone: true,
-  imports: [ReactiveFormsModule, CustomSelectComponent],
+  imports: [ReactiveFormsModule, NgTemplateOutlet, CustomSelectComponent, BespokeOptionTreeComponent],
   templateUrl: './hunter-form.html',
   host: { class: 'block' },
 })
@@ -71,6 +77,21 @@ export class HunterFormComponent implements OnInit, OnChanges {
 
   /** Current value per extra track, keyed by track id. */
   readonly trackValues = signal<ReadonlyMap<string, number>>(new Map());
+
+  /*
+   * Bespoke state. Every answer is keyed by SCOPE, not by option id alone: the same option can
+   * be ticked independently inside two entries of a repeatable section (two Rotes picking the
+   * same requirement), and a single option-keyed map would silently merge them.
+   *
+   * A scope is a section id, or an instance's local key for a repeatable one. Instances carry a
+   * local key rather than their server id because a newly-added entry has no server id until it
+   * is saved, and the answers still have to attach to something in the meantime.
+   */
+  readonly bespokePicks = signal<ReadonlyMap<string, ReadonlySet<string>>>(new Map());
+  readonly bespokeAnswers = signal<ReadonlyMap<string, ReadonlyMap<string, BespokeOptionAnswer>>>(new Map());
+  readonly bespokeFreeText = signal<ReadonlyMap<string, string>>(new Map());
+  readonly bespokeInstances = signal<readonly BespokeInstanceState[]>([]);
+  readonly journalEntries = signal<readonly JournalEntryState[]>([]);
 
   readonly hunterForm = this.formBuilder.group({
     playbookId: this.formBuilder.nonNullable.control('', [Validators.required]),
@@ -250,6 +271,150 @@ export class HunterFormComponent implements OnInit, OnChanges {
     this.trackValues.update((current) => new Map(current).set(trackId, clamped));
   }
 
+  // ---------------------------------------------------------------------------------------
+  // Bespoke rulesets
+  // ---------------------------------------------------------------------------------------
+
+  isRepeatable(section: BespokeSectionResponse): boolean {
+    return section.minInstances !== null || section.maxInstances !== null;
+  }
+
+  /** A section with no options and no free-text label is a fixed grant — rules, not a choice. */
+  isFixedGrant(section: BespokeSectionResponse): boolean {
+    return section.options.length === 0 && section.freeTextLabel === null;
+  }
+
+  instancesFor(section: BespokeSectionResponse): BespokeInstanceState[] {
+    return this.bespokeInstances().filter((i) => i.sectionId === section.id);
+  }
+
+  canAddInstance(section: BespokeSectionResponse): boolean {
+    return section.maxInstances === null || this.instancesFor(section).length < section.maxInstances;
+  }
+
+  addInstance(section: BespokeSectionResponse): void {
+    this.bespokeInstances.update((current) => [
+      ...current,
+      { key: `${section.id}:${current.length}:${nextLocalKey()}`, serverId: null, sectionId: section.id, name: '' },
+    ]);
+  }
+
+  removeInstance(key: string): void {
+    this.bespokeInstances.update((current) => current.filter((i) => i.key !== key));
+    this.bespokePicks.update((current) => omit(current, key));
+    this.bespokeAnswers.update((current) => omit(current, key));
+    this.bespokeFreeText.update((current) => omit(current, key));
+  }
+
+  setInstanceName(key: string, name: string): void {
+    this.bespokeInstances.update((current) =>
+      current.map((i) => (i.key === key ? { ...i, name } : i))
+    );
+  }
+
+  picksFor(scopeKey: string): ReadonlySet<string> {
+    return this.bespokePicks().get(scopeKey) ?? EMPTY_SET;
+  }
+
+  answersFor(scopeKey: string): ReadonlyMap<string, BespokeOptionAnswer> {
+    return this.bespokeAnswers().get(scopeKey) ?? EMPTY_ANSWERS;
+  }
+
+  toggleBespoke(scopeKey: string, optionId: string): void {
+    this.bespokePicks.update((current) => {
+      const next = new Map(current);
+      next.set(scopeKey, toggle(current.get(scopeKey) ?? EMPTY_SET, optionId));
+      return next;
+    });
+  }
+
+  setBespokeAnswer(scopeKey: string, change: { optionId: string; field: 'title' | 'text' | 'numeric'; value: string }): void {
+    this.bespokeAnswers.update((current) => {
+      const scope = new Map(current.get(scopeKey) ?? EMPTY_ANSWERS);
+      const existing = scope.get(change.optionId) ?? { freeformTitle: '', freeformText: '', numericValue: null };
+      scope.set(change.optionId, {
+        freeformTitle: change.field === 'title' ? change.value : existing.freeformTitle,
+        freeformText: change.field === 'text' ? change.value : existing.freeformText,
+        numericValue: change.field === 'numeric' ? toIntOrNull(change.value) : existing.numericValue,
+      });
+      return new Map(current).set(scopeKey, scope);
+    });
+  }
+
+  freeTextFor(scopeKey: string): string {
+    return this.bespokeFreeText().get(scopeKey) ?? '';
+  }
+
+  setFreeText(scopeKey: string, value: string): void {
+    this.bespokeFreeText.update((current) => new Map(current).set(scopeKey, value));
+  }
+
+  /**
+   * Which pick-scopes within this section are full, so the tree can disable their remaining
+   * options. Uses the same engagement rule the server does: a category counts because something
+   * beneath it is ticked, never because the category itself was clicked.
+   */
+  lockedScopes(section: BespokeSectionResponse, scopeKey: string): ReadonlySet<string> {
+    const picked = this.picksFor(scopeKey);
+    const locked = new Set<string>();
+
+    const engagedCount = (options: BespokeOptionResponse[]): number =>
+      options.filter((o) => isEngaged(o, picked)).length;
+
+    if (section.maxSelect !== null && engagedCount(section.options) >= section.maxSelect) {
+      locked.add('');
+    }
+
+    const walk = (options: BespokeOptionResponse[]): void => {
+      for (const option of options) {
+        if (option.maxSelect !== null && engagedCount(option.children) >= option.maxSelect) {
+          locked.add(option.id);
+        }
+        walk(option.children);
+      }
+    };
+    walk(section.options);
+
+    return locked;
+  }
+
+  /** Progress for a section's own top level, mirroring the "n of N picked" counters elsewhere. */
+  sectionProgress(section: BespokeSectionResponse, scopeKey: string): string | null {
+    if (section.minSelect === null && section.maxSelect === null) {
+      return null;
+    }
+    const picked = this.picksFor(scopeKey);
+    const engaged = section.options.filter((o) => isEngaged(o, picked)).length;
+    return `${engaged} of ${section.minSelect ?? section.maxSelect} picked`;
+  }
+
+  // ---- Journals
+
+  entriesFor(journal: BespokeJournalResponse): JournalEntryState[] {
+    return this.journalEntries().filter((e) => e.journalId === journal.id);
+  }
+
+  addJournalEntry(journal: BespokeJournalResponse): void {
+    this.journalEntries.update((current) => [
+      ...current,
+      { key: `${journal.id}:${nextLocalKey()}`, serverId: null, journalId: journal.id, fields: new Map() },
+    ]);
+  }
+
+  removeJournalEntry(key: string): void {
+    this.journalEntries.update((current) => current.filter((e) => e.key !== key));
+  }
+
+  journalFieldValue(entryKey: string, fieldId: string): string {
+    return this.journalEntries().find((e) => e.key === entryKey)?.fields.get(fieldId) ?? '';
+  }
+
+  setJournalField(entryKey: string, fieldId: string, value: string): void {
+    this.journalEntries.update((current) =>
+      current.map((e) => (e.key === entryKey ? { ...e, fields: new Map(e.fields).set(fieldId, value) } : e))
+    );
+  }
+
   /** Ratings are always written signed on a playbook sheet, including `+0`. */
   formatStat(value: number): string {
     return value < 0 ? `${value}` : `+${value}`;
@@ -294,7 +459,82 @@ export class HunterFormComponent implements OnInit, OnChanges {
         extraTrackId,
         currentValue,
       })),
+      bespokeSelections: this.collectSelections(this.nonRepeatableSectionIds()),
+      bespokeInstances: this.bespokeInstances().map((instance, index) => ({
+        id: instance.serverId,
+        sectionId: instance.sectionId,
+        name: instance.name.trim() || null,
+        sortOrder: index,
+        selections: this.collectSelections([instance.key], instance.sectionId),
+      })),
+      journalEntries: this.journalEntries().map((entry, index) => ({
+        id: entry.serverId,
+        journalId: entry.journalId,
+        sortOrder: index,
+        fields: [...entry.fields]
+          .filter(([, text]) => text.trim().length > 0)
+          .map(([journalFieldId, text]) => ({ journalFieldId, text: text.trim() })),
+      })),
     });
+  }
+
+  /** Section ids whose answers live at the top level rather than inside an instance. */
+  private nonRepeatableSectionIds(): string[] {
+    return this.allSections()
+      .filter((section) => !this.isRepeatable(section))
+      .map((section) => section.id);
+  }
+
+  /**
+   * Flattens one or more scopes into the wire shape. `sectionIdOverride` is what lets an
+   * instance's scope key (which is not a section id) still report the section it belongs to.
+   */
+  private collectSelections(scopeKeys: string[], sectionIdOverride?: string): HunterBespokeSelectionModel[] {
+    const out: HunterBespokeSelectionModel[] = [];
+    for (const scopeKey of scopeKeys) {
+      const sectionId = sectionIdOverride ?? scopeKey;
+
+      const freeText = this.freeTextFor(scopeKey).trim();
+      if (freeText.length > 0) {
+        out.push({ sectionId, bespokeOptionId: null, freeformTitle: null, freeformText: freeText, numericValue: null });
+      }
+
+      const answers = this.answersFor(scopeKey);
+      for (const optionId of this.picksFor(scopeKey)) {
+        const answer = answers.get(optionId);
+        out.push({
+          sectionId,
+          bespokeOptionId: optionId,
+          freeformTitle: answer?.freeformTitle.trim() || null,
+          freeformText: answer?.freeformText.trim() || null,
+          numericValue: answer?.numericValue ?? null,
+        });
+      }
+    }
+    return out;
+  }
+
+  /** Playbook-level sections plus the ones nested inside taken moves. */
+  private allSections(): BespokeSectionResponse[] {
+    const playbook = this.playbook();
+    if (!playbook) {
+      return [];
+    }
+    return [
+      ...playbook.bespokeSections,
+      ...playbook.moves.flatMap((move) => move.bespokeSections),
+    ];
+  }
+
+  /**
+   * A move's own pick-structure, shown only once the hunter has the move. Required moves count
+   * as taken from the start even though they are not in the picked set — the server adds them on
+   * save regardless, and five of the thirteen move-internal sections hang off a Required move
+   * (The Forged's Partner, The Searcher's First Encounter, and others), so treating them as
+   * untaken would hide those sections entirely.
+   */
+  moveSectionsFor(move: PlaybookMoveResponse): BespokeSectionResponse[] {
+    return move.required || this.isMoveSelected(move.id) ? move.bespokeSections : [];
   }
 
   private populate(hunter: HunterDetailResponse | null): void {
@@ -314,6 +554,11 @@ export class HunterFormComponent implements OnInit, OnChanges {
       this.selectedGearIds.set(new Set());
       this.lookAnswers.set(new Map());
       this.trackValues.set(new Map());
+      this.bespokePicks.set(new Map());
+      this.bespokeAnswers.set(new Map());
+      this.bespokeFreeText.set(new Map());
+      this.bespokeInstances.set([]);
+      this.journalEntries.set([]);
       this.playbook.set(null);
       return;
     }
@@ -335,6 +580,54 @@ export class HunterFormComponent implements OnInit, OnChanges {
       { optionId: look.lookOptionId, freeform: look.freeformText ?? '' },
     ])));
     this.trackValues.set(new Map(hunter.extraTracks.map((t) => [t.extraTrackId, t.currentValue])));
+
+    // A saved instance's scope key is its server id, so re-loading keeps every nested answer
+    // attached to the same entry it was saved under.
+    const instances = hunter.bespokeInstances.map((instance) => ({
+      key: instance.id!,
+      serverId: instance.id,
+      sectionId: instance.sectionId,
+      name: instance.name ?? '',
+    }));
+    this.bespokeInstances.set(instances);
+    this.journalEntries.set(hunter.journalEntries.map((entry) => ({
+      key: entry.id!,
+      serverId: entry.id,
+      journalId: entry.journalId,
+      fields: new Map(entry.fields.map((f) => [f.journalFieldId, f.text ?? ''])),
+    })));
+
+    const picks = new Map<string, Set<string>>();
+    const answers = new Map<string, Map<string, BespokeOptionAnswer>>();
+    const freeText = new Map<string, string>();
+
+    const absorb = (scopeKey: string, selections: HunterBespokeSelectionModel[]): void => {
+      for (const selection of selections) {
+        if (selection.bespokeOptionId === null) {
+          freeText.set(scopeKey, selection.freeformText ?? '');
+          continue;
+        }
+        if (!picks.has(scopeKey)) picks.set(scopeKey, new Set());
+        picks.get(scopeKey)!.add(selection.bespokeOptionId);
+        if (!answers.has(scopeKey)) answers.set(scopeKey, new Map());
+        answers.get(scopeKey)!.set(selection.bespokeOptionId, {
+          freeformTitle: selection.freeformTitle ?? '',
+          freeformText: selection.freeformText ?? '',
+          numericValue: selection.numericValue,
+        });
+      }
+    };
+
+    for (const selection of hunter.bespokeSelections) {
+      absorb(selection.sectionId, [selection]);
+    }
+    for (const instance of hunter.bespokeInstances) {
+      absorb(instance.id!, instance.selections);
+    }
+
+    this.bespokePicks.set(picks);
+    this.bespokeAnswers.set(answers);
+    this.bespokeFreeText.set(freeText);
     // Locked after creation: switching playbooks would silently discard every move, gear and
     // rating pick, which is not something a dropdown should do without asking. The API still
     // accepts a changed playbookId from a deliberate client.
@@ -391,11 +684,44 @@ export class HunterFormComponent implements OnInit, OnChanges {
       new Map([...current].filter(([trackId]) => validTrackIds.has(trackId)))
     );
 
+    // Bespoke answers belong to the previous playbook's sections entirely, so switching
+    // playbooks clears them rather than filtering — there is nothing that could survive.
+    const validSectionIds = new Set([
+      ...playbook.bespokeSections.map((s) => s.id),
+      ...playbook.moves.flatMap((m) => m.bespokeSections).map((s) => s.id),
+    ]);
+    this.bespokeInstances.update((current) => current.filter((i) => validSectionIds.has(i.sectionId)));
+    const liveScopes = new Set([
+      ...validSectionIds,
+      ...this.bespokeInstances().map((i) => i.key),
+    ]);
+    this.bespokePicks.update((current) => new Map([...current].filter(([k]) => liveScopes.has(k))));
+    this.bespokeAnswers.update((current) => new Map([...current].filter(([k]) => liveScopes.has(k))));
+    this.bespokeFreeText.update((current) => new Map([...current].filter(([k]) => liveScopes.has(k))));
+    const validJournalIds = new Set(playbook.bespokeJournals.map((j) => j.id));
+    this.journalEntries.update((current) => current.filter((e) => validJournalIds.has(e.journalId)));
+
     const ratingControl = this.hunterForm.controls.playbookStatArrayOptionId;
     if (ratingControl.value && !playbook.statArrayOptions.some((o) => o.id === ratingControl.value)) {
       ratingControl.setValue('');
     }
   }
+}
+
+/** One entry of a repeatable bespoke section, as the form holds it before submit. */
+export interface BespokeInstanceState {
+  /** Stable within this form session; `serverId` is what the API round-trips. */
+  readonly key: string;
+  readonly serverId: string | null;
+  readonly sectionId: string;
+  readonly name: string;
+}
+
+export interface JournalEntryState {
+  readonly key: string;
+  readonly serverId: string | null;
+  readonly journalId: string;
+  readonly fields: ReadonlyMap<string, string>;
 }
 
 interface LookAnswer {
@@ -406,6 +732,36 @@ interface LookAnswer {
 interface LookGroup {
   readonly label: string | null;
   readonly categories: PlaybookLookCategoryResponse[];
+}
+
+const EMPTY_SET: ReadonlySet<string> = new Set();
+const EMPTY_ANSWERS: ReadonlyMap<string, BespokeOptionAnswer> = new Map();
+
+let localKeyCounter = 0;
+/** Distinguishes two unsaved entries of the same section; never sent to the server. */
+function nextLocalKey(): string {
+  return `${++localKeyCounter}`;
+}
+
+function omit<T>(map: ReadonlyMap<string, T>, key: string): ReadonlyMap<string, T> {
+  const next = new Map(map);
+  next.delete(key);
+  return next;
+}
+
+function toIntOrNull(raw: string): number | null {
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * architecture.md 6.4's rule, client-side: a leaf is engaged when it is ticked, and a category
+ * divider is engaged when anything beneath it is. Dividers are never ticked themselves.
+ */
+function isEngaged(option: BespokeOptionResponse, picked: ReadonlySet<string>): boolean {
+  return option.children.length === 0
+    ? picked.has(option.id)
+    : option.children.some((child) => isEngaged(child, picked));
 }
 
 function toggle(current: ReadonlySet<string>, id: string): ReadonlySet<string> {

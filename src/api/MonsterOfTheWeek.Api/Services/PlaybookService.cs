@@ -193,6 +193,46 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             labels[track.Id] = $"track \"{track.Name}\"";
         }
 
+        /*
+         * Bespoke rows. A Section is referenced directly — not only through its options — by a
+         * free-text answer and by a repeatable section's instances, so the Section itself is a
+         * candidate, exactly as look categories are.
+         *
+         * A Move's own sections arrive nested under the Move rather than in the top-level list
+         * (BespokeSection.PlaybookMoveId, architecture.md 6.8), so both places are gathered here
+         * or every move-internal section would look removed on every save.
+         */
+        var keptSections = (request.BespokeSections ?? []).Where(x => x.Id.HasValue).Select(x => x.Id!.Value)
+            .Concat((request.Moves ?? []).SelectMany(m => m.BespokeSections ?? []).Where(x => x.Id.HasValue).Select(x => x.Id!.Value))
+            .ToHashSet();
+        var keptOptions = (request.BespokeSections ?? []).SelectMany(s => FlattenOptionIds(s.Options))
+            .Concat((request.Moves ?? []).SelectMany(m => m.BespokeSections ?? []).SelectMany(s => FlattenOptionIds(s.Options)))
+            .ToHashSet();
+
+        foreach (var section in stored.BespokeSections.Where(x => !keptSections.Contains(x.Id)))
+        {
+            labels[section.Id] = $"bespoke section \"{section.Title}\"";
+        }
+
+        foreach (var option in stored.BespokeSections.SelectMany(s => s.Options).Where(x => !keptOptions.Contains(x.Id)))
+        {
+            labels[option.Id] = $"bespoke option \"{option.Title ?? option.DescriptionText}\"";
+        }
+
+        var keptJournals = (request.BespokeJournals ?? []).Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToHashSet();
+        var keptJournalFields = (request.BespokeJournals ?? []).SelectMany(j => j.Fields ?? [])
+            .Where(f => f.Id.HasValue).Select(f => f.Id!.Value).ToHashSet();
+
+        foreach (var journal in stored.BespokeJournals.Where(x => !keptJournals.Contains(x.Id)))
+        {
+            labels[journal.Id] = $"journal \"{journal.Title}\"";
+        }
+
+        foreach (var field in stored.BespokeJournals.SelectMany(j => j.Fields).Where(x => !keptJournalFields.Contains(x.Id)))
+        {
+            labels[field.Id] = $"journal field \"{field.Label}\"";
+        }
+
         if (labels.Count == 0)
         {
             return null;
@@ -207,6 +247,26 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
         var named = inUse.Select(id => labels[id]).OrderBy(x => x, StringComparer.Ordinal).ToList();
         return $"Cannot remove {(named.Count == 1 ? "an entry that a hunter is" : "entries that hunters are")} "
             + $"using: {string.Join(", ", named)}. Update those hunters first.";
+    }
+
+    /// <summary>
+    /// Every option id in a request's nested option tree, at any depth — the wire format nests
+    /// children, so a flat "which ids did the client keep" set needs the walk.
+    /// </summary>
+    private static IEnumerable<Guid> FlattenOptionIds(IReadOnlyList<UpsertBespokeOptionRequest>? options)
+    {
+        foreach (var option in options ?? [])
+        {
+            if (option.Id is { } id)
+            {
+                yield return id;
+            }
+
+            foreach (var child in FlattenOptionIds(option.Children))
+            {
+                yield return child;
+            }
+        }
     }
 
     // -----------------------------------------------------------------------------------

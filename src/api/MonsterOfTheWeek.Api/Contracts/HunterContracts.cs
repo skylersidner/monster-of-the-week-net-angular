@@ -55,6 +55,63 @@ public sealed record HunterExtraTrackValueModel(
     Guid ExtraTrackId,
     int CurrentValue);
 
+/*
+ * Bespoke answers — Follow-on 10b.
+ *
+ * Instance-scoped answers are NESTED inside their instance rather than carried in one flat
+ * list with a cross-reference. A flat list would need the client to mint and correlate
+ * instance ids before the server has seen them; nesting makes the association structural, the
+ * same reasoning that puts a Move's own BespokeSections under the Move in PlaybookContracts.
+ *
+ * Selections carry no id of their own. Their natural key is (section, option) — or the section
+ * alone for a free-text answer — so the server reconciles by that rather than by a surrogate
+ * the client would have to round-trip.
+ */
+
+/// <summary>
+/// One recorded bespoke answer.
+///
+/// <para>
+/// <c>BespokeOptionId</c> is null only for a <c>FreeTextLabel</c> Section answered as a whole.
+/// <c>FreeformTitle</c>/<c>FreeformText</c> fill <c>{{blank}}</c> tokens in the option's own
+/// Title/DescriptionText — a handful of options (The Monstrous's write-your-own curses and
+/// natural attacks) have one in each, which is why there are two fields rather than one.
+/// </para>
+/// </summary>
+public sealed record HunterBespokeSelectionModel(
+    Guid SectionId,
+    Guid? BespokeOptionId,
+    string? FreeformTitle,
+    string? FreeformText,
+    int? NumericValue);
+
+/// <summary>
+/// One independent copy of a repeatable Section's option tree, with its own answers nested.
+/// <c>Id</c> is null for a newly-added instance and echoed back for an existing one, so an
+/// instance keeps its identity across saves instead of being torn down and recreated.
+/// </summary>
+public sealed record HunterBespokeInstanceModel(
+    Guid? Id,
+    Guid SectionId,
+    string? Name,
+    int SortOrder,
+    IReadOnlyList<HunterBespokeSelectionModel>? Selections);
+
+/// <summary>One field's value within a journal entry.</summary>
+public sealed record HunterJournalFieldValueModel(
+    Guid JournalFieldId,
+    string? Text);
+
+/// <summary>
+/// One journal entry. The only hunter-side content with no template row behind it — the
+/// journal defines field labels and nothing else (architecture.md 6.2).
+/// </summary>
+public sealed record HunterJournalEntryModel(
+    Guid? Id,
+    Guid JournalId,
+    int SortOrder,
+    IReadOnlyList<HunterJournalFieldValueModel>? Fields);
+
 /// <summary>
 /// <c>Outstanding</c> is what this hunter still owes its playbook, in sheet order — an empty
 /// list means ready to play. It is <b>recomputed on every read and never stored</b>: a hunter
@@ -78,6 +135,9 @@ public sealed record HunterDetailResponse(
     IReadOnlyList<Guid> PlaybookGearOptionIds,
     IReadOnlyList<HunterLookSelectionModel> Looks,
     IReadOnlyList<HunterExtraTrackValueModel> ExtraTracks,
+    IReadOnlyList<HunterBespokeSelectionModel> BespokeSelections,
+    IReadOnlyList<HunterBespokeInstanceModel> BespokeInstances,
+    IReadOnlyList<HunterJournalEntryModel> JournalEntries,
     IReadOnlyList<string> Outstanding,
     DateTimeOffset CreatedAt);
 
@@ -109,4 +169,7 @@ public sealed record UpsertHunterRequest(
     IReadOnlyList<Guid>? PlaybookMoveIds,
     IReadOnlyList<Guid>? PlaybookGearOptionIds,
     IReadOnlyList<HunterLookSelectionModel>? Looks,
-    IReadOnlyList<HunterExtraTrackValueModel>? ExtraTracks);
+    IReadOnlyList<HunterExtraTrackValueModel>? ExtraTracks,
+    IReadOnlyList<HunterBespokeSelectionModel>? BespokeSelections,
+    IReadOnlyList<HunterBespokeInstanceModel>? BespokeInstances,
+    IReadOnlyList<HunterJournalEntryModel>? JournalEntries);

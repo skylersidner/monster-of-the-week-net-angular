@@ -59,6 +59,10 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<HunterGearSelection> HunterGearSelections => Set<HunterGearSelection>();
     public DbSet<HunterLookSelection> HunterLookSelections => Set<HunterLookSelection>();
     public DbSet<HunterExtraTrackValue> HunterExtraTrackValues => Set<HunterExtraTrackValue>();
+    public DbSet<HunterBespokeSelection> HunterBespokeSelections => Set<HunterBespokeSelection>();
+    public DbSet<HunterBespokeSectionInstance> HunterBespokeSectionInstances => Set<HunterBespokeSectionInstance>();
+    public DbSet<HunterJournalEntry> HunterJournalEntries => Set<HunterJournalEntry>();
+    public DbSet<HunterJournalEntryFieldValue> HunterJournalEntryFieldValues => Set<HunterJournalEntryFieldValue>();
 
     // Named AppUsers, not Users: IdentityUserContext<TUser, ...> already declares a
     // DbSet<TUser> Users, so Users here would collide if this context ever derives from it.
@@ -853,6 +857,85 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasOne(e => e.ExtraTrack).WithMany().HasForeignKey(e => e.ExtraTrackId)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.ExtraTrackId).HasDatabaseName("idx_hunter_extra_track_values_track_id");
+        });
+
+        modelBuilder.Entity<HunterBespokeSectionInstance>(entity =>
+        {
+            entity.ToTable("hunter_bespoke_section_instances");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255);
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.BespokeSectionInstances).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Section).WithMany().HasForeignKey(e => e.SectionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.HunterId).HasDatabaseName("idx_hunter_bespoke_instances_hunter_id");
+            entity.HasIndex(e => e.SectionId).HasDatabaseName("idx_hunter_bespoke_instances_section_id");
+        });
+
+        modelBuilder.Entity<HunterBespokeSelection>(entity =>
+        {
+            entity.ToTable("hunter_bespoke_selections");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
+            entity.Property(e => e.BespokeOptionId).HasColumnName("bespoke_option_id");
+            entity.Property(e => e.FreeformText).HasColumnName("freeform_text");
+            entity.Property(e => e.FreeformTitle).HasColumnName("freeform_title");
+            entity.Property(e => e.NumericValue).HasColumnName("numeric_value");
+            entity.Property(e => e.SectionInstanceId).HasColumnName("section_instance_id");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.BespokeSelections).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Section).WithMany().HasForeignKey(e => e.SectionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.BespokeOption).WithMany().HasForeignKey(e => e.BespokeOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            // NoAction, not Cascade: Hunter already cascades to both this table and to
+            // HunterBespokeSectionInstance, and a second cascade path to the same rows is the
+            // kind of thing a provider can reject outright. The service deletes an instance's
+            // selections explicitly, which it has to do anyway to keep the tracked graph honest.
+            entity.HasOne(e => e.SectionInstance).WithMany(e => e.Selections).HasForeignKey(e => e.SectionInstanceId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasIndex(e => e.HunterId).HasDatabaseName("idx_hunter_bespoke_selections_hunter_id");
+            entity.HasIndex(e => e.SectionId).HasDatabaseName("idx_hunter_bespoke_selections_section_id");
+            entity.HasIndex(e => e.BespokeOptionId).HasDatabaseName("idx_hunter_bespoke_selections_option_id");
+            entity.HasIndex(e => e.SectionInstanceId).HasDatabaseName("idx_hunter_bespoke_selections_instance_id");
+        });
+
+        modelBuilder.Entity<HunterJournalEntry>(entity =>
+        {
+            entity.ToTable("hunter_journal_entries");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.JournalId).HasColumnName("journal_id");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.JournalEntries).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Journal).WithMany().HasForeignKey(e => e.JournalId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.HunterId).HasDatabaseName("idx_hunter_journal_entries_hunter_id");
+            entity.HasIndex(e => e.JournalId).HasDatabaseName("idx_hunter_journal_entries_journal_id");
+        });
+
+        modelBuilder.Entity<HunterJournalEntryFieldValue>(entity =>
+        {
+            entity.ToTable("hunter_journal_entry_field_values");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.EntryId).HasColumnName("entry_id");
+            entity.Property(e => e.JournalFieldId).HasColumnName("journal_field_id");
+            entity.Property(e => e.Text).HasColumnName("text");
+            entity.HasOne(e => e.Entry).WithMany(e => e.FieldValues).HasForeignKey(e => e.EntryId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.JournalField).WithMany().HasForeignKey(e => e.JournalFieldId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.EntryId).HasDatabaseName("idx_hunter_journal_field_values_entry_id");
+            entity.HasIndex(e => e.JournalFieldId).HasDatabaseName("idx_hunter_journal_field_values_field_id");
         });
     }
 

@@ -91,6 +91,11 @@
                 }
               </span>
             </label>
+            @for (section of moveSectionsFor(move); track section.id) {
+              <div class="ml-8 max-md:ml-3">
+                <ng-container [ngTemplateOutlet]="bespokeSection" [ngTemplateOutletContext]="{ $implicit: section }" />
+              </div>
+            }
           }
         </div>
       }
@@ -119,6 +124,12 @@
                 }
               </span>
             </label>
+            <!-- This Move's own pick-structure, printed inside the move on the sheet (6.8). -->
+            @for (section of moveSectionsFor(move); track section.id) {
+              <div class="ml-8 max-md:ml-3">
+                <ng-container [ngTemplateOutlet]="bespokeSection" [ngTemplateOutletContext]="{ $implicit: section }" />
+              </div>
+            }
           }
         </div>
       }
@@ -267,6 +278,62 @@
       </div>
     </section>
 
+    @if (book.bespokeSections.length > 0) {
+      <section class="grid gap-4">
+        <h3>{{ book.name }} rules</h3>
+        @for (section of book.bespokeSections; track section.id) {
+          <ng-container [ngTemplateOutlet]="bespokeSection" [ngTemplateOutletContext]="{ $implicit: section }" />
+        }
+      </section>
+    }
+
+    @if (book.bespokeJournals.length > 0) {
+      <section class="grid gap-4">
+        @for (journal of book.bespokeJournals; track journal.id) {
+          <div class="grid gap-2">
+            <div class="flex flex-wrap items-baseline gap-3">
+              <h3>{{ journal.title }}</h3>
+              <button
+                type="button"
+                class="bg-transparent border border-default rounded-lg text-[0.8rem] cursor-pointer font-[inherit] px-2 py-1"
+                (click)="addJournalEntry(journal)"
+              >
+                + Add entry
+              </button>
+            </div>
+            @if (journal.description) {
+              <span class="text-[0.85rem]" [innerHTML]="journal.description"></span>
+            }
+            @if (journal.effectText) {
+              <span class="text-[0.85rem] text-muted" [innerHTML]="journal.effectText"></span>
+            }
+            @for (entry of entriesFor(journal); track entry.key) {
+              <div class="bg-surface border border-default rounded-lg grid gap-2 p-3">
+                @for (field of journal.fields; track field.id) {
+                  <label class="grid font-medium gap-1 text-[0.85rem]">
+                    {{ field.label }}
+                    <input
+                      type="text"
+                      class="border border-strong rounded-lg px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+                      [value]="journalFieldValue(entry.key, field.id)"
+                      (input)="setJournalField(entry.key, field.id, $any($event.target).value)"
+                    />
+                  </label>
+                }
+                <button
+                  type="button"
+                  class="bg-transparent border-0 text-danger text-[0.8rem] cursor-pointer font-[inherit] justify-self-start p-0"
+                  (click)="removeJournalEntry(entry.key)"
+                >
+                  Remove entry
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </section>
+    }
+
     <section class="grid gap-[0.6rem]">
       <h3>Background</h3>
       <!--
@@ -296,3 +363,115 @@
     </div>
   }
 </form>
+
+<!--
+  One bespoke section, used for both playbook-level rulesets and the ones printed inside a Move.
+  A single template rather than two, because the only difference between them is where they
+  render — architecture.md 6.8 is explicit that the structure is identical.
+-->
+<ng-template #bespokeSection let-section>
+  <div class="grid gap-2">
+    <div class="flex flex-wrap items-baseline gap-3">
+      <span class="font-semibold">{{ section.title }}</span>
+      @if (sectionProgress(section, section.id); as progress) {
+        @if (!isRepeatable(section)) {
+          <small class="text-muted">{{ progress }}</small>
+        }
+      }
+      @if (isRepeatable(section) && canAddInstance(section)) {
+        <button
+          type="button"
+          class="bg-transparent border border-default rounded-lg text-[0.8rem] cursor-pointer font-[inherit] px-2 py-1"
+          (click)="addInstance(section)"
+        >
+          + Add
+        </button>
+      }
+    </div>
+
+    @if (section.description) {
+      <span class="text-[0.85rem]" [innerHTML]="section.description"></span>
+    }
+
+    @if (isFixedGrant(section)) {
+      <!--
+        Zero options and no free-text label: a fixed, always-active grant. Rendered read-only
+        rather than hidden — it is rules the hunter has, and hiding it would drop text the
+        player needs from the sheet. Seven sections are like this, and none produces a stored row.
+      -->
+      <span class="text-[0.8rem] text-muted italic">Always active — nothing to choose.</span>
+    } @else if (isRepeatable(section)) {
+      @for (instance of instancesFor(section); track instance.key) {
+        <div class="bg-surface border border-default rounded-lg grid gap-2 p-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 flex-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+              [placeholder]="section.freeTextLabel ?? 'Name'"
+              [value]="instance.name"
+              (input)="setInstanceName(instance.key, $any($event.target).value)"
+            />
+            <button
+              type="button"
+              class="bg-transparent border-0 text-danger text-[0.8rem] cursor-pointer font-[inherit] p-0"
+              (click)="removeInstance(instance.key)"
+            >
+              Remove
+            </button>
+          </div>
+          @if (section.freeTextLabel) {
+            <input
+              type="text"
+              class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+              placeholder="Details..."
+              [value]="freeTextFor(instance.key)"
+              (input)="setFreeText(instance.key, $any($event.target).value)"
+            />
+          }
+          @if (section.options.length > 0) {
+            <div class="grid gap-2">
+              <app-bespoke-option-tree
+                [options]="section.options"
+                [picked]="picksFor(instance.key)"
+                [answers]="answersFor(instance.key)"
+                parentKey=""
+                [lockedScopes]="lockedScopes(section, instance.key)"
+                (toggled)="toggleBespoke(instance.key, $event)"
+                (answerChanged)="setBespokeAnswer(instance.key, $event)"
+              />
+            </div>
+          }
+        </div>
+      }
+      @if (instancesFor(section).length === 0) {
+        <span class="text-[0.8rem] text-muted">None yet.</span>
+      }
+    } @else if (section.freeTextLabel) {
+      <label class="grid font-medium gap-1 text-[0.85rem]">
+        {{ section.freeTextLabel }}
+        <textarea
+          class="border border-strong rounded-lg px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+          rows="3"
+          [value]="freeTextFor(section.id)"
+          (input)="setFreeText(section.id, $any($event.target).value)"
+        ></textarea>
+      </label>
+    } @else {
+      <div class="grid gap-2">
+        <app-bespoke-option-tree
+          [options]="section.options"
+          [picked]="picksFor(section.id)"
+          [answers]="answersFor(section.id)"
+          parentKey=""
+          [lockedScopes]="lockedScopes(section, section.id)"
+          (toggled)="toggleBespoke(section.id, $event)"
+          (answerChanged)="setBespokeAnswer(section.id, $event)"
+        />
+      </div>
+    }
+
+    @if (section.effectText) {
+      <span class="text-[0.85rem] text-muted" [innerHTML]="section.effectText"></span>
+    }
+  </div>
+</ng-template>

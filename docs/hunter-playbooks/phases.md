@@ -469,7 +469,41 @@ Skyler split the deferred structured-capture work: do Looks and Extra Tracks now
 
 **Still deferred, and now the only thing left in `Hunter.Background`**: bespoke rulesets (including move-internal ones) and History. Plan first, per Skyler.
 
-### Follow-on 10b — bespoke rulesets on the Hunter sheet (**planned 2026-08-31, not started**)
+### Follow-on 10b — bespoke rulesets on the Hunter sheet (**implemented 2026-08-31**)
+
+Built as planned below, with the two answered questions applied and one of them since superseded. **`Hunter.Background` now holds History and nothing else** — every other section of every playbook has structured capture.
+
+**Delivered**: `AddHunterBespokeAnswers` (four tables — `hunter_bespoke_selections`, `hunter_bespoke_section_instances`, `hunter_journal_entries`, `hunter_journal_entry_field_values`), service validation and reconciliation, completeness reporting, the playbook-edit guard extension, and a recursive `BespokeOptionTreeComponent` rendering the tree to any depth. Custom moves are in, rendered inline under their move.
+
+**Superseded**: this section's planned "enforce minimums *and* maximums" was reversed by the completeness decision (`architecture.md` Section 9) before implementation. Maximums are refused; minimums are reported. That decision was taken on its own merits and this section's earlier reasoning is left below, struck, rather than rewritten.
+
+#### Two departures from `architecture.md` 6.4's sketch, both forced by real data
+
+**1. `HunterBespokeSelection` carries `SectionId`.** 6.4 has only `BespokeOptionId` (nullable, for free text) and `SectionInstanceId` (nullable, only for repeatable sections). That leaves a free-text answer on a **non-repeatable** section — the Gumshoe Code, whose `FreeTextLabel` is "Your Code" — with no way to say what it answers: no option, no instance. Storing `SectionId` always also makes "everything this hunter answered here" one flat query, the same denormalisation `BespokeOption.SectionId` and `BespokeSection.PlaybookId` already make.
+
+**2. `HunterBespokeSelection` carries `FreeformTitle` as well as `FreeformText`.** A `BespokeOption` has two text fields that can each hold a `{{blank}}`, and four real options — The Monstrous's write-your-own Curses and Natural Attacks — put a blank in **both**. One string cannot hold two answers without inventing a delimiter, so the selection mirrors the template's own two fields one-for-one.
+
+#### The bug worth remembering: engagement is not selection
+
+**A category divider is never picked; it is *engaged*.** A section's `MinSelect`/`MaxSelect` counts engaged top-level options, where a divider counts because something *beneath* it is ticked (6.4 already settled this). The first version of the validator counted selection rows with a null parent — which reads every nested section (Fate, Friendship, Combat Magic, Expatriation) as **zero picks no matter how much is filled in**. Caught by writing the test for the nested shape rather than by review. The rule now lives in one shared `BespokeEngagement` helper used by both tiers, because a validator and a completeness checker that count differently could call the same hunter simultaneously over its maximum and under its minimum.
+
+#### Other decisions taken during implementation
+
+- **Zero-option fixed grants render read-only** ("Always active — nothing to choose"), rather than being hidden. The catalogue explicitly deferred this as a Phase 10 UI question. They carry `Description`/`EffectText` that is rules the hunter has; hiding them would drop text from the sheet. Seven sections, and none produces a stored row.
+- **A move's own section is refused unless the hunter has that move** — and `Required` moves count as taken from the start, since five of the thirteen move-internal sections hang off one.
+- **A blank-fill is refused where the template prints no blank**, checked per field.
+
+#### Verified
+
+205 API tests (8 new) and 344 Angular tests pass. **The engagement rule was negative-tested** — removing the ancestor walk failed exactly the four tests that depend on it, neighbours green. Driven in a browser: The Crooked's three nested rulesets render 7 option trees with 4 dividers; The Hex's Rotes adds and removes entries; The Searcher's Required-move section renders inline; a tick in each ruleset plus a filled `{{blank}}` round-trips through save and reload; `Outstanding` correctly reports "Heat: 1 of 2 picked." while staying silent on the sections that were satisfied; and dropping a bespoke section from the playbook returns `409` naming the option in use. Dev DB left at 28 playbooks / 0 hunters, seed file untouched.
+
+#### Still not exercised
+
+The bounded-repeatable free-text shape (`FreeTextLabel` + `MinInstances`/`MaxInstances`, zero options — the Searcher's Network, the Spell-Slinger's Arcane Reputation) is implemented and rendered, but was **not** driven end-to-end in the browser. `architecture.md` 6.9 flagged it as never exercised, and it remains the least-proven path.
+
+---
+
+### Follow-on 10b — original plan (**superseded above; retained for its reasoning**)
 
 Skyler asked for a plan before implementation. This is it. Two questions were put to him and both are answered below; one open item remains, flagged at the end.
 

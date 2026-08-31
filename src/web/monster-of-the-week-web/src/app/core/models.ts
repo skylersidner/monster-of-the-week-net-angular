@@ -760,6 +760,34 @@ export interface HunterExtraTrackValueModel {
   currentValue: number;
 }
 
+export interface HunterBespokeSelectionModel {
+  sectionId: string;
+  bespokeOptionId: string | null;
+  freeformTitle: string | null;
+  freeformText: string | null;
+  numericValue: number | null;
+}
+
+export interface HunterBespokeInstanceModel {
+  id: string | null;
+  sectionId: string;
+  name: string | null;
+  sortOrder: number;
+  selections: HunterBespokeSelectionModel[];
+}
+
+export interface HunterJournalFieldValueModel {
+  journalFieldId: string;
+  text: string | null;
+}
+
+export interface HunterJournalEntryModel {
+  id: string | null;
+  journalId: string;
+  sortOrder: number;
+  fields: HunterJournalFieldValueModel[];
+}
+
 export interface HunterDetailResponse {
   id: string;
   name: string;
@@ -775,6 +803,9 @@ export interface HunterDetailResponse {
   playbookGearOptionIds: string[];
   looks: HunterLookSelectionModel[];
   extraTracks: HunterExtraTrackValueModel[];
+  bespokeSelections: HunterBespokeSelectionModel[];
+  bespokeInstances: HunterBespokeInstanceModel[];
+  journalEntries: HunterJournalEntryModel[];
   /**
    * What this hunter still owes its playbook, in sheet order — empty means ready to play.
    * Server-derived on every read and never stored (a hunter is live-linked to its playbook, so
@@ -797,4 +828,7 @@ export interface UpsertHunterRequest {
   playbookGearOptionIds: string[];
   looks: HunterLookSelectionModel[];
   extraTracks: HunterExtraTrackValueModel[];
+  bespokeSelections: HunterBespokeSelectionModel[];
+  bespokeInstances: HunterBespokeInstanceModel[];
+  journalEntries: HunterJournalEntryModel[];
 }

@@ -37,6 +37,23 @@ public sealed class HunterServiceTests
     private static readonly Guid OtherLookOptionId = Guid.Parse("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
     private static readonly Guid ExtraTrackId = Guid.Parse("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee");
 
+    // Bespoke fixture. Shapes chosen to match the four that real data actually exercises:
+    // a nested category tree, a free-text section, a repeatable section, and one owned by a move.
+    private static readonly Guid NestedSectionId = Guid.Parse("10000000-0000-4000-8000-000000000001");
+    private static readonly Guid CategoryAId = Guid.Parse("10000000-0000-4000-8000-00000000000a");
+    private static readonly Guid LeafA1Id = Guid.Parse("10000000-0000-4000-8000-0000000000a1");
+    private static readonly Guid LeafA2Id = Guid.Parse("10000000-0000-4000-8000-0000000000a2");
+    private static readonly Guid CategoryBId = Guid.Parse("10000000-0000-4000-8000-00000000000b");
+    private static readonly Guid LeafB1Id = Guid.Parse("10000000-0000-4000-8000-0000000000b1");
+    private static readonly Guid FreeTextSectionId = Guid.Parse("20000000-0000-4000-8000-000000000002");
+    private static readonly Guid RepeatableSectionId = Guid.Parse("30000000-0000-4000-8000-000000000003");
+    private static readonly Guid RoteOptionAId = Guid.Parse("30000000-0000-4000-8000-0000000000a0");
+    private static readonly Guid RoteOptionBId = Guid.Parse("30000000-0000-4000-8000-0000000000b0");
+    private static readonly Guid MoveSectionId = Guid.Parse("40000000-0000-4000-8000-000000000004");
+    private static readonly Guid MoveOptionId = Guid.Parse("40000000-0000-4000-8000-0000000000a4");
+    private static readonly Guid JournalId = Guid.Parse("50000000-0000-4000-8000-000000000005");
+    private static readonly Guid JournalFieldId = Guid.Parse("50000000-0000-4000-8000-0000000000a5");
+
     [Fact]
     public async Task Create_adds_required_moves_the_caller_left_out()
     {
@@ -228,7 +245,7 @@ public sealed class HunterServiceTests
         // Name and playbook only: no rating array, no move picks, no gear, no looks. This is
         // the state a hunter is in thirty seconds into being made, and it must persist.
         var result = await harness.Service.CreateAsync(
-            new UpsertHunterRequest("Half A Hunter", null, PlaybookId, null, 0, 0, 0, null, [], [], [], []),
+            new UpsertHunterRequest("Half A Hunter", null, PlaybookId, null, 0, 0, 0, null, [], [], [], [], [], [], []),
             default);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
@@ -244,7 +261,7 @@ public sealed class HunterServiceTests
         await using var harness = await Harness.StartAsync();
 
         var result = await harness.Service.CreateAsync(
-            new UpsertHunterRequest("Half A Hunter", null, PlaybookId, null, 0, 0, 0, null, [], [], [], []),
+            new UpsertHunterRequest("Half A Hunter", null, PlaybookId, null, 0, 0, 0, null, [], [], [], [], [], [], []),
             default);
 
         // Sheet order, and only the things that are genuinely unanswered. Extra tracks are
@@ -256,6 +273,8 @@ public sealed class HunterServiceTests
                 "Moves: 0 of 1 picked.",
                 "Gear — Weapons: 0 of 1 picked.",
                 "Look: 2 of 2 lines are unanswered.",
+                "Fate: 0 of 1 picked.",
+                "Gumshoe Code: not filled in.",
             ],
             result.Value!.Outstanding);
     }
@@ -274,6 +293,14 @@ public sealed class HunterServiceTests
                 [
                     new HunterLookSelectionModel(LookCategoryId, LookOptionId, null),
                     new HunterLookSelectionModel(OtherLookCategoryId, null, "in a borrowed coat"),
+                ],
+                // Bespoke answers count towards "finished" too: the nested section, the free-text
+                // one, and the section that belongs to the move this hunter just took.
+                BespokeSelections =
+                [
+                    new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, null, null),
+                    new HunterBespokeSelectionModel(FreeTextSectionId, null, null, "my code", null),
+                    new HunterBespokeSelectionModel(MoveSectionId, MoveOptionId, "Sword", "old and cold", null),
                 ],
             },
             default);
@@ -295,6 +322,14 @@ public sealed class HunterServiceTests
                 [
                     new HunterLookSelectionModel(LookCategoryId, LookOptionId, null),
                     new HunterLookSelectionModel(OtherLookCategoryId, null, "in a borrowed coat"),
+                ],
+                // Bespoke answers count towards "finished" too: the nested section, the free-text
+                // one, and the section that belongs to the move this hunter just took.
+                BespokeSelections =
+                [
+                    new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, null, null),
+                    new HunterBespokeSelectionModel(FreeTextSectionId, null, null, "my code", null),
+                    new HunterBespokeSelectionModel(MoveSectionId, MoveOptionId, "Sword", "old and cold", null),
                 ],
             },
             default);
@@ -324,6 +359,14 @@ public sealed class HunterServiceTests
                 [
                     new HunterLookSelectionModel(LookCategoryId, LookOptionId, null),
                     new HunterLookSelectionModel(OtherLookCategoryId, null, "in a borrowed coat"),
+                ],
+                // Bespoke answers count towards "finished" too: the nested section, the free-text
+                // one, and the section that belongs to the move this hunter just took.
+                BespokeSelections =
+                [
+                    new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, null, null),
+                    new HunterBespokeSelectionModel(FreeTextSectionId, null, null, "my code", null),
+                    new HunterBespokeSelectionModel(MoveSectionId, MoveOptionId, "Sword", "old and cold", null),
                 ],
             },
             default);
@@ -439,11 +482,261 @@ public sealed class HunterServiceTests
     }
 
     // ---------------------------------------------------------------------------------
+    // Bespoke rulesets (Follow-on 10b)
+    // ---------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_categorys_pick_count_is_met_by_engagement_not_by_selection_rows()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        /*
+         * The rule that is easy to get wrong, and did get written wrong first: "Fate" allows 2
+         * picks over its TOP-LEVEL options, and its top-level options are two category dividers
+         * that are never themselves selected. Counting selection rows with a null parent would
+         * read this as zero picks no matter how much is filled in; counting *engaged* categories
+         * is the rule (architecture.md 6.4).
+         */
+        var result = await harness.Service.CreateAsync(
+            Request() with
+            {
+                BespokeSelections =
+                [
+                    new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, null, null),
+                    new HunterBespokeSelectionModel(NestedSectionId, LeafB1Id, null, null, 2),
+                ],
+            },
+            default);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(2, result.Value!.BespokeSelections.Count);
+
+        // A third category would exceed MaxSelect=2 — but there are only two, so the ceiling is
+        // instead proven by over-picking WITHIN a category, whose own MaxSelect is 1.
+        var overPicked = await harness.Service.CreateAsync(
+            Request() with
+            {
+                BespokeSelections =
+                [
+                    new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, null, null),
+                    new HunterBespokeSelectionModel(NestedSectionId, LeafA2Id, null, null, null),
+                ],
+            },
+            default);
+
+        Assert.False(overPicked.IsSuccess);
+        Assert.Contains("\"Doom\" allows 1 pick", overPicked.Error!.Message);
+    }
+
+    [Fact]
+    public async Task An_unfinished_bespoke_section_is_reported_never_refused()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        // Nothing bespoke answered at all: saves cleanly, and says what is missing.
+        var result = await harness.Service.CreateAsync(Request(), default);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Contains("Fate: 0 of 1 picked.", result.Value!.Outstanding);
+        Assert.Contains("Gumshoe Code: not filled in.", result.Value.Outstanding);
+
+        // A category that is engaged but short reports separately from the section itself.
+        var partial = await harness.Service.CreateAsync(
+            Request() with
+            {
+                BespokeSelections = [new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, null, null)],
+            },
+            default);
+        Assert.DoesNotContain(partial.Value!.Outstanding, x => x.StartsWith("Fate: 0 of"));
+    }
+
+    [Fact]
+    public async Task A_free_text_section_round_trips_and_rejects_an_option_it_has_no_room_for()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        var created = await harness.Service.CreateAsync(
+            Request() with
+            {
+                BespokeSelections = [new HunterBespokeSelectionModel(FreeTextSectionId, null, null, "Never leave a client hanging.", null)],
+            },
+            default);
+
+        Assert.True(created.IsSuccess, created.Error?.Message);
+        var answer = Assert.Single(created.Value!.BespokeSelections);
+        Assert.Null(answer.BespokeOptionId);
+        Assert.Equal("Never leave a client hanging.", answer.FreeformText);
+
+        // The mirror case: a null option against a section that does have options is not the
+        // documented exception, it is a malformed answer.
+        var wrong = await harness.Service.CreateAsync(
+            Request() with { BespokeSelections = [new HunterBespokeSelectionModel(NestedSectionId, null, null, "freehand", null)] },
+            default);
+        Assert.False(wrong.IsSuccess);
+        Assert.Contains("answered by picking an option", wrong.Error!.Message);
+    }
+
+    [Fact]
+    public async Task Two_entries_of_a_repeatable_section_keep_their_answers_apart()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        var created = await harness.Service.CreateAsync(
+            Request() with
+            {
+                BespokeInstances =
+                [
+                    new HunterBespokeInstanceModel(null, RepeatableSectionId, "Fire", 0,
+                        [new HunterBespokeSelectionModel(RepeatableSectionId, RoteOptionAId, null, null, null)]),
+                    new HunterBespokeInstanceModel(null, RepeatableSectionId, "Ice", 1,
+                        [new HunterBespokeSelectionModel(RepeatableSectionId, RoteOptionBId, null, null, null)]),
+                ],
+            },
+            default);
+
+        Assert.True(created.IsSuccess, created.Error?.Message);
+        Assert.Equal(2, created.Value!.BespokeInstances.Count);
+        // Each entry keeps its own pick rather than both collapsing onto the section.
+        Assert.Equal(["Fire", "Ice"], created.Value.BespokeInstances.Select(i => i.Name));
+        Assert.Equal([RoteOptionAId, RoteOptionBId],
+            created.Value.BespokeInstances.SelectMany(i => i.Selections).Select(s => s.BespokeOptionId!.Value));
+        Assert.Empty(created.Value.BespokeSelections);
+
+        // Dropping an entry must take its answers with it, not orphan them onto the hunter.
+        var kept = created.Value.BespokeInstances.First(i => i.Name == "Ice");
+        var updated = await harness.Service.UpdateAsync(
+            created.Value.Id,
+            Request() with
+            {
+                BespokeInstances = [new HunterBespokeInstanceModel(kept.Id, RepeatableSectionId, "Ice", 0, kept.Selections)],
+            },
+            default);
+
+        Assert.True(updated.IsSuccess, updated.Error?.Message);
+        await using var verify = harness.NewContext();
+        Assert.Equal(1, await verify.HunterBespokeSectionInstances.CountAsync(x => x.HunterId == created.Value.Id));
+        Assert.Equal(1, await verify.HunterBespokeSelections.CountAsync(x => x.HunterId == created.Value.Id));
+    }
+
+    [Fact]
+    public async Task A_moves_own_section_cannot_be_answered_unless_the_move_is_taken()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        var refused = await harness.Service.CreateAsync(
+            Request() with
+            {
+                PlaybookMoveIds = [],
+                BespokeSelections = [new HunterBespokeSelectionModel(MoveSectionId, MoveOptionId, "Sword", "old and cold", null)],
+            },
+            default);
+
+        Assert.False(refused.IsSuccess);
+        Assert.Contains("which this hunter has not taken", refused.Error!.Message);
+
+        // With the move taken it is accepted — and both blank fills survive, which is the whole
+        // reason FreeformTitle exists alongside FreeformText.
+        var accepted = await harness.Service.CreateAsync(
+            Request() with
+            {
+                PlaybookMoveIds = [PickableMoveId],
+                BespokeSelections = [new HunterBespokeSelectionModel(MoveSectionId, MoveOptionId, "Sword", "old and cold", null)],
+            },
+            default);
+
+        Assert.True(accepted.IsSuccess, accepted.Error?.Message);
+        var answer = Assert.Single(accepted.Value!.BespokeSelections);
+        Assert.Equal("Sword", answer.FreeformTitle);
+        Assert.Equal("old and cold", answer.FreeformText);
+    }
+
+    [Fact]
+    public async Task A_numeric_leaf_is_bounded_and_a_blank_fill_needs_a_blank_to_fill()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        var outOfRange = await harness.Service.CreateAsync(
+            Request() with { BespokeSelections = [new HunterBespokeSelectionModel(NestedSectionId, LeafB1Id, null, null, 9)] },
+            default);
+        Assert.False(outOfRange.IsSuccess);
+        Assert.Contains("accepts 0–3", outOfRange.Error!.Message);
+
+        // "Betrayed" prints no {{blank}}, so text against it would be stored with nowhere to show.
+        var strayText = await harness.Service.CreateAsync(
+            Request() with { BespokeSelections = [new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, "extra", null)] },
+            default);
+        Assert.False(strayText.IsSuccess);
+        Assert.Contains("no blank to fill in", strayText.Error!.Message);
+    }
+
+    [Fact]
+    public async Task Journal_entries_round_trip_and_are_replaced_wholesale()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        var created = await harness.Service.CreateAsync(
+            Request() with
+            {
+                JournalEntries =
+                [
+                    new HunterJournalEntryModel(null, JournalId, 0, [new HunterJournalFieldValueModel(JournalFieldId, "Fly")]),
+                    new HunterJournalEntryModel(null, JournalId, 1, [new HunterJournalFieldValueModel(JournalFieldId, "Burn")]),
+                ],
+            },
+            default);
+
+        Assert.True(created.IsSuccess, created.Error?.Message);
+        Assert.Equal(2, created.Value!.JournalEntries.Count);
+
+        var updated = await harness.Service.UpdateAsync(
+            created.Value.Id,
+            Request() with { JournalEntries = [] },
+            default);
+
+        Assert.True(updated.IsSuccess, updated.Error?.Message);
+        await using var verify = harness.NewContext();
+        Assert.Equal(0, await verify.HunterJournalEntries.CountAsync(x => x.HunterId == created.Value.Id));
+        // The field values go too — a stale one would be an orphan the next read would trip over.
+        Assert.Equal(0, await verify.HunterJournalEntryFieldValues.CountAsync());
+    }
+
+    [Fact]
+    public async Task Editing_a_playbook_cannot_remove_a_bespoke_option_or_a_free_text_section_in_use()
+    {
+        await using var harness = await Harness.StartAsync();
+        await harness.Service.CreateAsync(
+            Request() with
+            {
+                BespokeSelections =
+                [
+                    new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, null, null),
+                    new HunterBespokeSelectionModel(FreeTextSectionId, null, null, "my code", null),
+                ],
+            },
+            default);
+
+        await using var context = harness.NewContext();
+        var playbookService = new PlaybookService(new PlaybookRepository(context));
+        var stored = await playbookService.GetByIdAsync(PlaybookId, default);
+
+        // Dropping the whole free-text section: it is referenced with no option id at all, the
+        // same shape that made look *categories* need their own guard query.
+        var withoutFreeText = ToUpsert(stored!) with
+        {
+            BespokeSections = [.. ToUpsert(stored!).BespokeSections!.Where(s => s.Id != FreeTextSectionId)],
+        };
+        var refusedSection = await playbookService.UpdateAsync(PlaybookId, withoutFreeText, default);
+        Assert.False(refusedSection.IsSuccess);
+        Assert.Equal(ServiceErrorType.Conflict, refusedSection.Error!.Type);
+        Assert.Contains("Gumshoe Code", refusedSection.Error.Message);
+    }
+
+    // ---------------------------------------------------------------------------------
     // Fixtures
     // ---------------------------------------------------------------------------------
 
     private static UpsertHunterRequest Request() => new(
-        "Test Hunter", null, PlaybookId, StatArrayId, 0, 0, 0, null, [], [], [], []);
+        "Test Hunter", null, PlaybookId, StatArrayId, 0, 0, 0, null, [], [], [], [], [], [], []);
 
     private static UpsertPlaybookRequest ToUpsert(PlaybookDetailResponse playbook) => new(
         playbook.Name,
@@ -459,15 +752,29 @@ public sealed class HunterServiceTests
         playbook.LevelingUpText,
         playbook.HistoryPromptsText,
         [.. playbook.StatArrayOptions.Select(x => new UpsertPlaybookStatArrayOptionRequest(x.Id, x.Charm, x.Cool, x.Sharp, x.Tough, x.Weird, x.SortOrder))],
-        [.. playbook.Moves.Select(x => new UpsertPlaybookMoveRequest(x.Id, x.Name, x.DescriptionText, x.Required, x.IsAdvanced, x.SortOrder, []))],
+        // A move's own bespoke sections must be echoed back, or the Id-based diff reads them as
+        // removed on every save and the in-use guard refuses the whole update.
+        [.. playbook.Moves.Select(x => new UpsertPlaybookMoveRequest(x.Id, x.Name, x.DescriptionText, x.Required, x.IsAdvanced, x.SortOrder,
+            [.. x.BespokeSections.Select(ToUpsertSection)]))],
         [.. playbook.GearCategories.Select(c => new UpsertPlaybookGearCategoryRequest(c.Id, c.Label, c.PickCount, c.IsOptional, c.SortOrder,
             [.. c.Options.Select(o => new UpsertPlaybookGearOptionRequest(o.Id, o.Name, o.MechanicalText, o.SortOrder))]))],
         [.. playbook.LookCategories.Select(c => new UpsertPlaybookLookCategoryRequest(c.Id, c.AllowsFreeform, c.GroupLabel, c.SortOrder,
             [.. c.Options.Select(o => new UpsertPlaybookLookOptionRequest(o.Id, o.Text, o.SortOrder))]))],
         [],
-        [],
-        [],
+        [.. playbook.BespokeSections.Select(ToUpsertSection)],
+        [.. playbook.BespokeJournals.Select(j => new UpsertBespokeJournalRequest(j.Id, j.Title, j.Description, j.EffectText, j.SortOrder,
+            [.. j.Fields.Select(f => new UpsertBespokeJournalFieldRequest(f.Id, f.Label, f.SortOrder))]))],
         [.. playbook.ExtraTracks.Select(t => new UpsertPlaybookExtraTrackRequest(t.Id, t.Name, t.Description, t.EffectText, t.BoxCount, t.StartLabel, t.EndLabel, t.SortOrder))]);
+
+    private static UpsertBespokeSectionRequest ToUpsertSection(BespokeSectionResponse section) => new(
+        section.Id, section.Title, section.Description, section.EffectText, section.FreeTextLabel,
+        section.MinSelect, section.MaxSelect, section.MinInstances, section.MaxInstances, section.SortOrder,
+        [.. section.Options.Select(ToUpsertOption)]);
+
+    private static UpsertBespokeOptionRequest ToUpsertOption(BespokeOptionResponse option) => new(
+        option.Id, option.Title, option.DescriptionText, option.MinSelect, option.MaxSelect,
+        option.NumericMin, option.NumericMax, option.SortOrder,
+        [.. option.Children.Select(ToUpsertOption)]);
 
     private static Playbook SeedPlaybook() => new()
     {
@@ -524,6 +831,50 @@ public sealed class HunterServiceTests
         ExtraTracks =
         [
             new PlaybookExtraTrack { Id = ExtraTrackId, Name = "Corruption", BoxCount = 7, EndLabel = "Lost", SortOrder = 0 },
+        ],
+        BespokeSections =
+        [
+            // Options are stored FLAT with ParentOptionId, at every depth — that is the storage
+            // shape (BespokeOption.SectionId is populated on descendants); only the wire format
+            // nests them.
+            new BespokeSection
+            {
+                Id = NestedSectionId, Title = "Fate", MinSelect = 1, MaxSelect = 2, SortOrder = 0,
+                Options =
+                [
+                    new BespokeOption { Id = CategoryAId, SectionId = NestedSectionId, Title = "Doom", MinSelect = 1, MaxSelect = 1, SortOrder = 0 },
+                    new BespokeOption { Id = LeafA1Id, SectionId = NestedSectionId, ParentOptionId = CategoryAId, Title = "Betrayed", SortOrder = 0 },
+                    new BespokeOption { Id = LeafA2Id, SectionId = NestedSectionId, ParentOptionId = CategoryAId, Title = "Forgotten", SortOrder = 1 },
+                    new BespokeOption { Id = CategoryBId, SectionId = NestedSectionId, Title = "Destiny", MinSelect = 1, MaxSelect = 1, SortOrder = 1 },
+                    new BespokeOption { Id = LeafB1Id, SectionId = NestedSectionId, ParentOptionId = CategoryBId, Title = "Favour", NumericMin = 0, NumericMax = 3, SortOrder = 0 },
+                ],
+            },
+            new BespokeSection { Id = FreeTextSectionId, Title = "Gumshoe Code", FreeTextLabel = "Your Code", SortOrder = 1 },
+            new BespokeSection
+            {
+                Id = RepeatableSectionId, Title = "Rotes", MinInstances = 0, MinSelect = 1, MaxSelect = 1, SortOrder = 2,
+                Options =
+                [
+                    new BespokeOption { Id = RoteOptionAId, SectionId = RepeatableSectionId, Title = "Words", SortOrder = 0 },
+                    new BespokeOption { Id = RoteOptionBId, SectionId = RepeatableSectionId, Title = "Gestures", SortOrder = 1 },
+                ],
+            },
+            new BespokeSection
+            {
+                Id = MoveSectionId, PlaybookMoveId = PickableMoveId, Title = "Artifact", MinSelect = 1, MaxSelect = 1, SortOrder = 0,
+                Options =
+                [
+                    new BespokeOption { Id = MoveOptionId, SectionId = MoveSectionId, Title = "{{blank}}", DescriptionText = "It is {{blank}}.", SortOrder = 0 },
+                ],
+            },
+        ],
+        BespokeJournals =
+        [
+            new BespokeJournal
+            {
+                Id = JournalId, Title = "Consumed Magic", SortOrder = 0,
+                Fields = [new BespokeJournalField { Id = JournalFieldId, Label = "Power", SortOrder = 0 }],
+            },
         ],
     };
 
