@@ -1,15 +1,31 @@
 using Microsoft.EntityFrameworkCore;
 using MonsterOfTheWeek.Api.Data.Entities;
+using MonsterOfTheWeek.Api.Data.Seed;
 
 namespace MonsterOfTheWeek.Api.Data;
 
 public static class MotwDbInitializer
 {
-    public static async Task InitializeAsync(MotwDbContext dbContext, CancellationToken cancellationToken = default)
+    public static async Task InitializeAsync(
+        MotwDbContext dbContext,
+        string? contentRootPath = null,
+        CancellationToken cancellationToken = default)
     {
         await dbContext.Database.MigrateAsync(cancellationToken);
         await SeedLookupTablesAsync(dbContext, cancellationToken);
+        await SeedPlaybooksAsync(dbContext, contentRootPath, cancellationToken);
     }
+
+    /// <summary>
+    /// Loads the canonical 28 playbooks. The work itself lives in
+    /// <see cref="PlaybookSeed.ApplyAsync"/> — including the guard that stops it touching a
+    /// database that already has playbooks — so it can be tested without a Postgres provider.
+    /// </summary>
+    private static Task SeedPlaybooksAsync(
+        MotwDbContext dbContext,
+        string? contentRootPath,
+        CancellationToken cancellationToken) =>
+        PlaybookSeed.ApplyAsync(dbContext, contentRootPath ?? AppContext.BaseDirectory, cancellationToken);
 
     private static async Task SeedLookupTablesAsync(MotwDbContext dbContext, CancellationToken cancellationToken)
     {

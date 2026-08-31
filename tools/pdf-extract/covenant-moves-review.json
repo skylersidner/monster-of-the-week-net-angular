@@ -1,0 +1,35 @@
+{
+  "playbook": "The Covenant",
+  "section": "Moves",
+  "intro": "You get all the basic moves, plus two Covenant moves. Pick two of these:",
+  "moves": [
+    {
+      "title": "Get Down!",
+      "descriptionHtml": "When you <b>protect someone</b>, you may choose to split the harm suffered with a nearby ally as well as yourself and the protected person."
+    },
+    {
+      "title": "Fast Friends",
+      "descriptionHtml": "When you meet a new being and <i>spend time befriending them</i>, roll +Charm.<ul><li>On a 10+, they become your ally.</li><li>On a 7–9, they become your ally until the end of the mystery.</li><li>On a miss, you’ve offended them.</li></ul>You can only gain one permanent ally per mystery with this move (a second 10+ makes them an ally for the rest of the mystery)."
+    },
+    {
+      "title": "Smash Cut",
+      "descriptionHtml": "Once per mystery, when you <i>reveal you asked an ally to do something for you</i>, describe the task as a flashback and roll +Cool.<ul><li>On a 10+, it went off smoothly. The Keeper describes the results.</li><li>On a 7–9, it was either more dangerous or less effective than you hoped. The Keeper describes the results.</li><li>On a miss, your allies are in serious danger right now.</li></ul>"
+    },
+    {
+      "title": "The Geek in the Chair",
+      "descriptionHtml": "Your ally watches and guides you remotely. You may spend 1 hold from <b>read a bad situation</b> to warn someone about to suffer harm, pre- venting 2 harm. You gain +1 forward to <b>read a bad situation</b> in each new location."
+    },
+    {
+      "title": "Acolyte",
+      "descriptionHtml": "Either one of your existing allies has acquired supernatural powers or you have acquired a supernatu- ral ally. You decide with the Keeper what sort of powers they have."
+    },
+    {
+      "title": "Who Said I Was Alone?",
+      "descriptionHtml": "Once per session, when your ally suddenly appears, treat a miss result as if you rolled a 7–9. Immediate consequences (such as suffering harm) apply to you, but the ally becomes the focus of attention."
+    },
+    {
+      "title": "Opening Doors",
+      "descriptionHtml": "Your allies have their own contacts and social circles. Once per session, an ally can arrange a meeting between you and someone they know. You have +1 ongoing to interact with your ally’s contacts during this meeting."
+    }
+  ]
+}

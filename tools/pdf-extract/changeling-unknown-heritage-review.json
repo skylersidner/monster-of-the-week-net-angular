@@ -1,0 +1,50 @@
+{
+  "playbook": "The Changeling",
+  "section": "Unknown Heritage",
+  "selectInstruction": "Your non-human heritage has pitfalls you were never taught about. Pick three:",
+  "options": [
+    {
+      "title": "Dietary restriction",
+      "descriptionText": null
+    },
+    {
+      "title": "Hygienic need",
+      "descriptionText": null
+    },
+    {
+      "title": "Unearned reputation",
+      "descriptionText": null
+    },
+    {
+      "title": "Erratic power",
+      "descriptionText": null
+    },
+    {
+      "title": "Strange thoughts",
+      "descriptionText": null
+    },
+    {
+      "title": "Sensory bombardment",
+      "descriptionText": null
+    },
+    {
+      "title": "Allergy to",
+      "descriptionText": null
+    },
+    {
+      "title": "Repulsion from",
+      "descriptionText": null
+    },
+    {
+      "title": "Attraction to",
+      "descriptionText": null
+    },
+    {
+      "title": "Obsession with",
+      "descriptionText": null
+    }
+  ],
+  "sectionExplanation": "The Keeper may introduce obstacles or distractions based on these tags. If you push through or ignore them, things can spiral out of control, and you may need to <b>act under pressure</b>. Alternatively, devote time to dealing with it and put other concerns (like the current crisis, ongoing mystery, or personal issues) on hold. If you do, mark experience. You always have the temptation to find out about your nature. When <b>investigating a mystery</b> with a source of supernatural knowledge, you may ask, \"What do I learn about myself?\" as one of your questions. If the character gains any useful knowledge of themself, word will get out among the supernatural world that they're asking questions.",
+  "blankMarkerFinding": "ABSENT. Checked directly against the raw PDF item stream (not just plain-text extraction): the item immediately following the last text item of each of \"Allergy to\", \"Repulsion from\", \"Attraction to\", and \"Obsession with\" is the line-break marker for the NEXT tag (or, for \"Obsession with\", the line-break marker leading straight into the section's trailing paragraph, \"The Keeper may introduce...\"). No underscore run, no blank-space glyph, no extra character of any kind appears after any of the 4 tags — they are printed exactly as written, with nothing following. This is a different convention from Heat's inline `________` blanks (Crooked), which appear as literal underscore characters embedded mid-sentence in the option's own text; Unknown Heritage's tags have no such glyph at all, embedded or otherwise.",
+  "formattingNote": "5 bold/italic run(s) detected in this column; 0 matched a tag label exactly (expected 0). Zero italic anywhere on this page — confirmed both from the font table (no WarnockPro-It embedded on page 6 at all) and from extract-runs.mjs finding zero italic runs. Two bold cross-reference spans found in the section's trailing explanatory paragraph (\"act under pressure\", \"investigating a mystery\" — both references to base moves), none within the 10 tag options themselves, and none within the short select-instruction sentence."
+}

@@ -16,4 +16,18 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      The playbook seed has to reach the build output as well as the publish output:
+      MotwDbInitializer resolves it under ContentRootPath, which is the project directory when
+      running locally but the deployed folder in a container. Without this the app starts fine
+      and simply seeds nothing — exactly the kind of silent no-op a Production deploy surfaces
+      far too late.
+
+      Update, not Include: the Web SDK already picks up .json under the project directory as a
+      Content item, so Include would duplicate it and fail the build (NETSDK1022).
+    -->
+    <Content Update="Data\Seed\hunter-playbooks.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

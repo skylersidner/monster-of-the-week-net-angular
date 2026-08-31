@@ -1,0 +1,43 @@
+{
+  "playbook": "The Curse-eater",
+  "targets": {
+    "corruption": {
+      "sectionTitle": "Corruption",
+      "description": "When you consume evil magic, you gain corruption as well as the ability to use some of those powers. Record what the magic was, the power it offers you, and the downside it asks of you. The Keeper will provide these, and can also confirm whether you are in the presence of a consumable curse. Repeated <b>devouring evil</b> may give the same or different effects. Other moves, starting with <b>unleash corruption</b>, depend on these corruptions. If you <i>should</i> take corruption, but the track is full, you become a monster under the Keeper's control.",
+      "note": "\"Consumed MagiC (Power, Downside)\" (page 13) has ZERO body text of its own — confirmed it is the last item on the page's item stream, immediately followed by nothing. It is a table/tracker heading (for a blank fill-in area on the character sheet), not a described mechanic with its own prose. The entire explanatory paragraph above belongs to \"Corruption\" alone. Flagged for Yoshi: this doesn't match the proposed 2-part split (Corruption's half vs. Consumed Magic's half) as originally framed — there is no separate block of prose to split out for Consumed Magic."
+    },
+    "howConsumingMagicWorks": {
+      "sectionTitle": "How consuming magic works",
+      "intro": "When you consume/absorb evil magic, how does it work?",
+      "options": [
+        {
+          "title": null,
+          "descriptionText": "You lay your hands on it and a visible glowing smoke transports the curse."
+        },
+        {
+          "title": null,
+          "descriptionText": "You ritually eat some part of it."
+        },
+        {
+          "title": null,
+          "descriptionText": "You closely embrace the cursed thing and spend several minutes bonding with it."
+        },
+        {
+          "title": null,
+          "descriptionText": "You have an amulet that you must hold against it."
+        },
+        {
+          "title": null,
+          "descriptionText": "Something else: ______________________________"
+        }
+      ],
+      "blankMarkerFinding": {
+        "status": "PRESENT",
+        "rawText": "Something else: ______________________________",
+        "underscoreCount": 30,
+        "detail": "A real, rendered blank marker — the first case in this pipeline's output where one actually prints (Changeling's 4 tags and Covenant's \"Something else\" were both confirmed ABSENT). Exact form: the label \"Something else:\" is followed by a single literal space, then a run of exactly 30 consecutive underscore (\"_\") characters. All of this — label, colon, space, and the full underscore run — is ONE single PDF text item (not split into separate positioned pieces), in the same plain/regular font as the rest of the option text (not bold, not italic, not a distinct glyph/symbol font). No extra spacing before the underscore run beyond the single space after the colon."
+      }
+    }
+  },
+  "formattingNote": "Page 13 column: 2 bold cross-reference spans (\"devouring evil\", \"unleash corruption\") + 1 italic emphasis (\"should\") found in the Corruption paragraph; \"Corruption\" and \"Consumed MagiC (Power, Downside)\" themselves are just bold section headings, not content. Page 14 column: entirely plain — 0 bold/italic across the intro sentence and all 5 options (4 bold/italic run(s) detected in the column, all structural headings: \"Getting Started\"/\"Introductions\"/\"History\"/\"How consuming magic works\" — none inside the target content)."
+}

@@ -21,6 +21,10 @@ describe('app routes', () => {
     expect(defaultChildRoute?.redirectTo).toBe('dashboard');
   });
 
+  it('registers the hunters route inside the authenticated shell', () => {
+    expect(appShell.children?.find((child) => child.path === 'hunters')).toBeTruthy();
+  });
+
   it('registers data admin route', () => {
     const rootRoute = routes.find((route) => route.path === '');
     const dataAdminRoute = rootRoute?.children?.find((child) => child.path === 'data-admin');
@@ -40,7 +44,9 @@ describe('app routes', () => {
     const lazyChildren = (appShell.children ?? []).filter(
       (child) => child.loadChildren || child.loadComponent
     );
-    expect(lazyChildren).toHaveLength(9);
+    // 10 as of Phase 9's 'hunters' route. This count is the point of the test — it fails when a
+    // feature is added outside the guarded shell, which would leak its chunk to a signed-out user.
+    expect(lazyChildren).toHaveLength(10);
   });
 
   it('registers an anonymous shell for the logged-out case', () => {

@@ -1189,6 +1189,26 @@ Modified: `src/web/monster-of-the-week-web/src/index.html` (lines 8-9 only). Add
 
 ---
 
+## 2026-08-30 — Armor Special Description Display Gap (bug fix)
+
+### Task
+Skyler: checking "Special" + filling `specialDescription` on an armor entry didn't display anywhere on the read-back views. Audited every armor-rendering surface app-wide (`monster-create`, `minion-create`, both `-detail` pages, `mystery-create-dossier`, `mystery-create-monster-phase`, `mystery-detail`, both list pages) via grep for `armor|Armor|harmSoak|isSpecial|specialDescription`.
+
+### Findings
+- Only 2 surfaces were missing it: `monster-detail.html` and `minion-detail.html` (both the "already-persisted armor list" `@for` loop, not the add-form — the add-form always had the `isSpecial`/`specialDescription` fields). Every create/wizard surface Skyler + the orchestrator named was already correct.
+- `mystery-detail.html` (the saved-mystery summary page, distinct from the create wizard) renders monsters/minions as name-only links to the shared `monster-detail`/`minion-detail` routes — no armor rendering of its own, so no gap there once the detail pages are fixed.
+- List pages (`monsters-list.html`, `minions-list.html`) only show an `armorCount` number, never armor entries — not in scope.
+- Confirmed no mapper/transform layer drops the field on read: `monster-detail.ts`/`minion-detail.ts` call `monsterService.getById()`/`minionService.getById()` and `.set()` the raw `MonsterDetailResponse`/`MinionDetailResponse` straight onto the signal — pure template gap, not a data-loading bug, as the orchestrator suspected.
+- Fixed by adding the identical `@if (armor.isSpecial && armor.specialDescription) { <p>Special: {{ armor.specialDescription }}</p> }` block used by `monster-create.html`/`minion-create.html`, matching each file's local Tailwind convention exactly (`monster-detail.html`'s `description` `<p>` has no `mb-0`, so the new block doesn't either; `minion-detail.html`'s does, so the new block matches).
+
+### Verification
+`npm run build`: clean, same 2 pre-existing budget warnings (`custom-select.component.scss`, `mystery-create.scss`) as prior sessions. `npm test -- --watch=false`: 42 files / 323 tests green (up from the 38/278 baseline in an earlier entry — other branch work added files; no regressions from this change). Added one DOM-rendering test per detail spec (`shows the special description when an armor entry is special`) asserting `Special: <text>` appears for a special armor entry and is absent for a non-special one in the same list — neither spec had a rendering-level armor assertion before (only form-validation ones existed in `monster-detail.spec.ts`).
+
+### Files
+Modified: `features/monsters/pages/monster-detail/monster-detail.html`, `features/minions/pages/minion-detail/minion-detail.html`, `features/monsters/pages/monster-detail/monster-detail.spec.ts`, `features/minions/pages/minion-detail/minion-detail.spec.ts`.
+
+---
+
 ## 2026-08-30 — Data Admin: Adventure Types + Monster Archetypes (Name + Description shape generalized)
 
 ### Task
@@ -1208,3 +1228,34 @@ Skyler noticed `adventure_types` and `monster_archetypes` were never surfaced in
 
 ### Files
 New: `src/app/pages/data-admin/components/name-description-admin/name-description-admin.{ts,html,scss,spec.ts}`. Deleted: `src/app/pages/data-admin/components/weapon-tag-admin/` (all 4 files). Modified: `src/app/core/models.ts`, `src/app/core/reference-data.{ts,spec.ts}`, `src/app/pages/data-admin/data-admin.{ts,html,spec.ts}`. Decision filed at `.squad/decisions/inbox/luigi-name-description-reference-tables.md`.
+
+---
+
+## 2026-08-30 — Playbook Form "Tracks" Overlap Bug + Playbook UI Session Review
+
+### Task
+Skyler: number inputs in the Playbook create/edit form's "Tracks" section were visually overlapping. Fixed, then reviewed the rest of the session's new Data Admin tab/Playbook admin work per Skyler's follow-up ask.
+
+### Root cause (confirmed, not just plausible)
+Each affected `<label>` is a `display:grid` container with an explicit fixed `width` (`w-[9rem]`/`w-[11rem]`/`w-[5rem]`/`w-[8rem]`), and its sole child is a bare `<input type="number">` grid item. Grid/flex items default to `min-width: auto`, i.e. their automatic minimum is their content-based min size, not `0`. A number input's UA-default intrinsic width (~170-220px, tied to the absent `size` attribute) exceeds every one of those fixed label widths, so the implicit grid track — and the input painted into it — grows past the label box and over the next field instead of shrinking to fit. This is the exact same failure mode `min-w-0` already exists in this codebase to guard against for flex overflow (`page-layout.html`, `custom-select.component.html`, all five `*-list.html` pages) — it's a grid item here rather than a flex item, but the underlying CSS mechanism (auto min-size default) is identical.
+
+### Fix
+Added `w-full min-w-0` to every number input living inside one of these fixed-width labels: all 5 in Tracks, all 5 `charm/cool/sharp/tough/weird` in Ratings, and Gear's `pickCount`. `min-w-0` removes the content-based floor so the item can shrink to the label's width; `w-full` makes it explicit rather than relying on implicit grid stretch (matches the belt-and-suspenders `w-full` already on `minion-form.html`'s number inputs). Also added `min="0"` to the five Track inputs whose FormControl already carries `Validators.min(0)` (`luckBoxCount`, `harmBoxCount`, `harmUnstableThreshold`, `experienceBoxCount`, `moveGrantCount`) — every other numeric field in the app pairs those two (`monster-form.html`, `minion-form.html`), and these five were the only ones in the codebase missing the HTML attribute. Deliberately did NOT add `min="0"` to Ratings (`charm`/etc., which only carry `Validators.required`, no `Validators.min`) or Gear's `pickCount` (no validators at all, `null` = "grant every option automatically" is a meaningful state) — no established convention says they should have a floor.
+
+### Review finding, fixed: Playbooks list had no delete confirmation
+`playbook-admin.html`'s Delete button called `deletePlaybook(record)` directly on click — an instant, irreversible delete with zero confirmation. Every other list page in the app (monsters, minions, locations, bystanders, mysteries) uses the shared `ConfirmDeleteModalComponent` for exactly this. This wasn't a judgment call — it's a working, already-proven, low-risk convention this component simply skipped — so fixed it: `pendingDelete` signal, `requestDelete`/`cancelDelete`/`confirmDelete` methods mirroring `bystanders-list.ts`'s (simplest) shape (no cascade-children lookup needed, unlike `monsters-list.ts`'s minion-aware variant), `<app-confirm-delete-modal>` added to the template. Verified live: Cancel leaves the row in place, Delete removes it, matches every other list page pixel-for-pixel.
+
+### Review findings, described but NOT fixed (flagged for Skyler)
+- **Only the top-level `name` field has visible inline validation messaging.** Every other required field in the form — the five Track counts, and every FormArray child's required control (move name, gear category label, look option text, improvement text) — has a `Validators.required` (or `.min(0)`) but no `shouldShowXError()`-style message anywhere in the template. Submitting with one of those blank makes `form.invalid` true and `submit()` silently returns after `markAllAsTouched()` — the Save button visibly does nothing, no text explains why. This is a big-surface, wording/scope decision (which fields get messages, what they say, whether the top-level `name` field's `*`-in-label convention from `monster-form.html`/`minion-form.html` should be adopted here too, since this form currently uses neither the asterisk convention nor per-field messages beyond `name`) — described, left alone.
+- `data-admin.html`'s `@if (activeTab() === 'types') { <div role="tabpanel" ...}` block content (the pre-existing type-table form/records table) wasn't re-indented one level when it got wrapped in the new tab-panel `@if` — purely cosmetic whitespace, zero runtime effect, but worth a cleanup pass sometime since it reads as if the wrapper is one level shallower than it is.
+
+### Verified NOT bugs (ruled out during review, not just assumed fine)
+- Roving-tabindex/arrow-key/Home/End tablist in `data-admin.ts`/`.html`: first Playwright pass looked broken (`aria-selected` appeared not to move), but that was a test-timing artifact — reading DOM state via a synchronous `page.evaluate` immediately after `page.keyboard.press()` races Angular's change detection. Re-verified with a `waitForTimeout` after each key press: `aria-selected`, `tabindex` (roving 0/-1), focus, and which tabpanel renders all update correctly for ArrowRight/ArrowLeft/Home/End, and `Tab` correctly leaves the tablist into panel content rather than cycling tabs. Worth remembering generally: **don't trust an `evaluate()` read taken with zero delay after a `keyboard.press()` as proof of an Angular signal-driven bug** — always add a short wait (or `waitForFunction`) before concluding state didn't update.
+- Text inputs elsewhere in the same form (`flex-1 min-w-[Xrem]` inside `.flex` rows for move/gear/look names) don't share the Tracks/Ratings bug: they're flex items with `flex-1` and no *narrower*-than-content fixed width, so there's no width smaller than the input's intrinsic size for it to overflow past.
+- The hidden `id`-round-trip invariant (constraint from the brief): traced every `toRequest()` branch in `playbook-form.ts` — `statArrayOptions`, `moves`, `gearCategories`, nested `gearOptions`, `lookCategories`, nested `lookOptions`, `improvements` — every one sends `group.controls['id'].value`. Untouched by this task's edits (only `.html` files were touched).
+
+### Verification
+`npx ng build`: clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`), unrelated. `npx ng test --no-watch`: 42 files / 336 tests green, no regressions (no spec files added or touched, per Skyler's explicit instruction deferring test-writing). Live Playwright verification against the running API + built app at three viewports (1400/900/500px): all 11 previously-overflowing number inputs now report `inputWidth === labelWidth` (zero overflow) at every width, `flex-wrap` degrades sensibly narrow. Separate live pass confirmed the new delete-confirm modal: Cancel preserves the row (count unchanged), Delete removes it (count -1), visual match to the shared modal's existing appearance across the app.
+
+### Files
+Modified: `src/app/pages/data-admin/components/playbook-admin/playbook-form/playbook-form.html` (Tracks/Ratings/Gear pickCount width-overflow fix), `src/app/pages/data-admin/components/playbook-admin/playbook-admin.ts` and `.html` (delete-confirmation modal wiring). Not committed.

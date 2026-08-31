@@ -1,0 +1,35 @@
+{
+  "playbook": "The Action Scientist",
+  "section": "Area of Study",
+  "intro": "Pick one focus for your research and training:",
+  "options": [
+    {
+      "title": "Physics and Cosmology",
+      "descriptionHtml": "You can tell when something is altering the basic laws of reality around you. When you <b>investigate a mystery</b>, you may ask one of these as well as the usual questions:<ul><li>What direction is the source?</li><li>Is this static or changing?</li><li>What equipment would tell me more about this?</li></ul>"
+    },
+    {
+      "title": "Biology and Chemistry",
+      "descriptionHtml": "When you <i>examine a mysterious substance,</i> ask the Keeper what the source is. They’ll tell you if it’s biological or not, and if the source is mundane, supernatural, extraterrestrial, or extra-dimensional."
+    },
+    {
+      "title": "Neurology and Psychology",
+      "descriptionHtml": "When you’re <i>talking to someone and assessing their motives,</i> roll +Sharp.<ul><li>On a 10+, the Keeper will tell you if they’re really human and whether they’re an ally, bystander, villain, minion, or monster.</li><li>On a 7–9, the Keeper will tell you if there’s something off about them but you’re not sure what it is yet.</li><li>On a miss, you reveal too much about yourself instead.</li></ul>"
+    },
+    {
+      "title": "Computers and Electronics",
+      "descriptionHtml": "When you <i>access a secure computer system or electronic device, or change what it does</i>, roll +Cool.<ul><li>On a 10+, you get access, or change it (within the limits of the system).</li><li>On a 7–9, either it takes extra time or something unexpected happens.</li><li>On a miss, it all goes wrong in the worst way possible.</li></ul>"
+    },
+    {
+      "title": "Violence",
+      "descriptionHtml": "You may roll +Sharp to <b>kick some ass</b> instead of +Tough. When you make a scientific attack, either do +1 harm or take +1 forward."
+    },
+    {
+      "title": "Mechanics and Engineering",
+      "descriptionHtml": "When you <i>fix machinery</i>, it takes much less time than expected. You also don’t need all the proper tools to work on machines (sometimes a thump in the right spot is all that was needed). You may also <i>combine any two devices, rebuilding them together</i>. The new gadget has all the abilities of each com- ponent, and is the size of the larger one. It has all the tags of both components. You may add, delete, or change one tag."
+    },
+    {
+      "title": "Space",
+      "descriptionHtml": "You have +1 ongoing with rocketry or astronaut stuff. You have access to a space launch facility (including use of spacecraft)."
+    }
+  ]
+}

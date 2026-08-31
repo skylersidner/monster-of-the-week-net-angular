@@ -1,0 +1,17 @@
+<section class="text-primary">
+  <a routerLink="/hunters" class="inline-block mb-3">← Back to hunters</a>
+  <h2 class="mb-4">New Hunter</h2>
+
+  @if (isLoading()) {
+    <p>Loading playbooks...</p>
+  } @else if (errorMessage()) {
+    <p class="text-danger">{{ errorMessage() }}</p>
+  } @else {
+    <app-hunter-form
+      [playbooks]="playbooks()"
+      [isSaving]="isSaving()"
+      submitLabel="Create Hunter"
+      (save)="onSave($event)"
+    />
+  }
+</section>

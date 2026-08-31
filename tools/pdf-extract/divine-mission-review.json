@@ -1,0 +1,30 @@
+{
+  "playbook": "The Divine",
+  "sections": [
+    {
+      "title": "Mission",
+      "options": [
+        {
+          "title": null,
+          "descriptionText": "You are here to fight the schemes of an Adversary."
+        },
+        {
+          "title": null,
+          "descriptionText": "The End of Days approaches. Your role is to guide these hunters and prevent it from coming to pass."
+        },
+        {
+          "title": null,
+          "descriptionText": "The End of Days approaches. Your role is to guide these hunters and ensure it comes to pass."
+        },
+        {
+          "title": null,
+          "descriptionText": "You have been exiled. You must work for the cause of Good without drawing attention from your brothers and sisters, as they are bound to execute you for your crimes."
+        },
+        {
+          "title": null,
+          "descriptionText": "One of the other hunters has a crucial role to play in events to come. You must prepare them for their role, and protect them at <i>any</i> cost."
+        }
+      ]
+    }
+  ]
+}

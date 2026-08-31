@@ -96,6 +96,8 @@
   --color-on-badge-archetype: var(--color-purple-700);
   --color-badge-mystery: var(--color-amber-100); /* mysteries-list.html / mystery-detail.html / mystery-create-dossier.html / search-results.ts */
   --color-on-badge-mystery: var(--color-amber-700);
+  --color-badge-playbook: var(--color-indigo-100); /* hunters-list.html — the Playbook a Hunter is built from */
+  --color-on-badge-playbook: var(--color-indigo-700);
 
   /* Weapon tag chip */
   --color-weapon-chip: var(--color-indigo-50);
@@ -159,6 +161,8 @@
   --color-on-badge-archetype: var(--color-purple-300);
   --color-badge-mystery: var(--color-amber-950); /* dark-theme-palette.md */
   --color-on-badge-mystery: var(--color-amber-300);
+  --color-badge-playbook: var(--color-indigo-950); /* #1e1b4b — same deep-tinted-bg + light-tinted-text construction as the badges above */
+  --color-on-badge-playbook: var(--color-indigo-300); /* #a5b4fc */
 
   --color-weapon-chip: var(--color-indigo-950); /* #1e1b4b — same deep-tinted-bg + light-tinted-text construction as the badges */
   --color-on-weapon-chip: var(--color-indigo-300); /* #a5b4fc */

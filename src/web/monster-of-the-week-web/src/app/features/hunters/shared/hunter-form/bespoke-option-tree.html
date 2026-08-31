@@ -1,0 +1,87 @@
+@for (option of options; track option.id) {
+  @if (isLeaf(option)) {
+    <label
+      class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3"
+      [class.opacity-60]="isDisabled(option)"
+    >
+      <input
+        type="checkbox"
+        class="mt-1"
+        [checked]="picked.has(option.id)"
+        [disabled]="isDisabled(option)"
+        (change)="toggled.emit(option.id)"
+      />
+      <span class="grid gap-1">
+        @if (option.title) {
+          <span class="font-medium">{{ withoutBlank(option.title) }}</span>
+        }
+        @if (option.descriptionText) {
+          <span class="text-[0.85rem]" [innerHTML]="withoutBlank(option.descriptionText)"></span>
+        }
+
+        <!-- A blank only becomes an input once its option is actually picked. -->
+        @if (picked.has(option.id)) {
+          @if (hasBlankTitle(option)) {
+            <input
+              type="text"
+              class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+              placeholder="Name it..."
+              [value]="answerFor(option.id, 'title')"
+              (input)="answerChanged.emit({ optionId: option.id, field: 'title', value: $any($event.target).value })"
+            />
+          }
+          @if (hasBlankText(option)) {
+            <input
+              type="text"
+              class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+              placeholder="Fill in the blank..."
+              [value]="answerFor(option.id, 'text')"
+              (input)="answerChanged.emit({ optionId: option.id, field: 'text', value: $any($event.target).value })"
+            />
+          }
+          @if (isNumeric(option)) {
+            <label class="flex items-center gap-2 text-[0.85rem]">
+              <span class="text-muted">Value</span>
+              <input
+                type="number"
+                class="border border-strong rounded-lg w-20 px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+                [min]="option.numericMin ?? 0"
+                [max]="option.numericMax ?? 99"
+                [value]="numericFor(option)"
+                (input)="answerChanged.emit({ optionId: option.id, field: 'numeric', value: $any($event.target).value })"
+              />
+              <span class="text-muted">of {{ option.numericMax }}</span>
+            </label>
+          }
+        }
+      </span>
+    </label>
+  } @else {
+    <!--
+      A category divider: a heading with its own pick-count, never a checkbox. It counts as
+      engaged purely because something beneath it is ticked (architecture.md 6.4).
+    -->
+    <div class="grid gap-2 border-l-2 border-default pl-3">
+      <div class="flex flex-wrap items-baseline gap-2">
+        @if (option.title) {
+          <span class="font-semibold">{{ withoutBlank(option.title) }}</span>
+        }
+        @if (hint(option); as pickHint) {
+          <small class="text-muted">{{ pickHint }}</small>
+        }
+      </div>
+      @if (option.descriptionText) {
+        <span class="text-[0.85rem]" [innerHTML]="withoutBlank(option.descriptionText)"></span>
+      }
+      <app-bespoke-option-tree
+        [options]="option.children"
+        [picked]="picked"
+        [answers]="answers"
+        [parentKey]="option.id"
+        [lockedScopes]="lockedScopes"
+        (toggled)="toggled.emit($event)"
+        (answerChanged)="answerChanged.emit($event)"
+      />
+    </div>
+  }
+}

@@ -435,3 +435,400 @@ export interface UpsertBystanderRequest {
   description: string | null;
   bystanderTypeId: string;
 }
+
+// ---------------------------------------------------------------------------------------
+// Hunter Playbooks
+//
+// Every child *request* carries a nullable `id`, and that nullable is load-bearing rather
+// than incidental: the server reconciles a PUT by matching child rows on it (present =
+// update that row in place, absent = insert, stored-but-missing = delete). Child ids must
+// therefore survive the GET -> form -> PUT round-trip, because a Hunter instance
+// live-links to the exact row id it picked. Dropping them would silently re-create every
+// child on each save. See docs/hunter-playbooks/architecture.md Section 3.
+// ---------------------------------------------------------------------------------------
+
+export interface PlaybookListItemResponse {
+  id: string;
+  name: string;
+  statArrayOptionCount: number;
+  moveCount: number;
+  bespokeSectionCount: number;
+}
+
+export interface PlaybookStatArrayOptionResponse {
+  id: string;
+  charm: number;
+  cool: number;
+  sharp: number;
+  tough: number;
+  weird: number;
+  sortOrder: number;
+}
+
+export interface PlaybookMoveResponse {
+  id: string;
+  name: string;
+  descriptionText: string | null;
+  required: boolean;
+  isAdvanced: boolean;
+  sortOrder: number;
+  /**
+   * Phase 6: pick-structure embedded in this move own text. Nested here rather than
+   * flattened with a playbookMoveId, which is what keeps PlaybookDetailResponse.
+   * bespokeSections unambiguously playbook-level. Almost always empty.
+   */
+  bespokeSections: BespokeSectionResponse[];
+}
+
+export interface PlaybookGearOptionResponse {
+  id: string;
+  name: string;
+  mechanicalText: string | null;
+  sortOrder: number;
+}
+
+export interface PlaybookGearCategoryResponse {
+  id: string;
+  label: string;
+  pickCount: number | null;
+  isOptional: boolean;
+  sortOrder: number;
+  options: PlaybookGearOptionResponse[];
+}
+
+export interface PlaybookLookOptionResponse {
+  id: string;
+  text: string;
+  sortOrder: number;
+}
+
+export interface PlaybookLookCategoryResponse {
+  id: string;
+  allowsFreeform: boolean;
+  groupLabel: string | null;
+  sortOrder: number;
+  options: PlaybookLookOptionResponse[];
+}
+
+export interface PlaybookImprovementResponse {
+  id: string;
+  text: string;
+  isAdvanced: boolean;
+  sortOrder: number;
+}
+
+export interface PlaybookDetailResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  luckBoxCount: number;
+  luckSpecialText: string | null;
+  harmUnstableThreshold: number;
+  harmBoxCount: number;
+  experienceBoxCount: number;
+  moveGrantCount: number;
+  gettingStartedText: string | null;
+  introductionsText: string | null;
+  levelingUpText: string | null;
+  historyPromptsText: string | null;
+  statArrayOptions: PlaybookStatArrayOptionResponse[];
+  moves: PlaybookMoveResponse[];
+  gearCategories: PlaybookGearCategoryResponse[];
+  lookCategories: PlaybookLookCategoryResponse[];
+  improvements: PlaybookImprovementResponse[];
+  bespokeSections: BespokeSectionResponse[];
+  bespokeJournals: BespokeJournalResponse[];
+  extraTracks: PlaybookExtraTrackResponse[];
+}
+
+export interface UpsertPlaybookStatArrayOptionRequest {
+  id: string | null;
+  charm: number;
+  cool: number;
+  sharp: number;
+  tough: number;
+  weird: number;
+  sortOrder: number;
+}
+
+export interface UpsertPlaybookMoveRequest {
+  id: string | null;
+  name: string;
+  descriptionText: string | null;
+  required: boolean;
+  isAdvanced: boolean;
+  sortOrder: number;
+  bespokeSections: UpsertBespokeSectionRequest[];
+}
+
+export interface UpsertPlaybookGearOptionRequest {
+  id: string | null;
+  name: string;
+  mechanicalText: string | null;
+  sortOrder: number;
+}
+
+export interface UpsertPlaybookGearCategoryRequest {
+  id: string | null;
+  label: string;
+  pickCount: number | null;
+  isOptional: boolean;
+  sortOrder: number;
+  options: UpsertPlaybookGearOptionRequest[];
+}
+
+export interface UpsertPlaybookLookOptionRequest {
+  id: string | null;
+  text: string;
+  sortOrder: number;
+}
+
+export interface UpsertPlaybookLookCategoryRequest {
+  id: string | null;
+  allowsFreeform: boolean;
+  groupLabel: string | null;
+  sortOrder: number;
+  options: UpsertPlaybookLookOptionRequest[];
+}
+
+export interface UpsertPlaybookImprovementRequest {
+  id: string | null;
+  text: string;
+  isAdvanced: boolean;
+  sortOrder: number;
+}
+
+export interface UpsertPlaybookRequest {
+  name: string;
+  description: string | null;
+  luckBoxCount: number;
+  luckSpecialText: string | null;
+  harmUnstableThreshold: number;
+  harmBoxCount: number;
+  experienceBoxCount: number;
+  moveGrantCount: number;
+  gettingStartedText: string | null;
+  introductionsText: string | null;
+  levelingUpText: string | null;
+  historyPromptsText: string | null;
+  statArrayOptions: UpsertPlaybookStatArrayOptionRequest[];
+  moves: UpsertPlaybookMoveRequest[];
+  gearCategories: UpsertPlaybookGearCategoryRequest[];
+  lookCategories: UpsertPlaybookLookCategoryRequest[];
+  improvements: UpsertPlaybookImprovementRequest[];
+  bespokeSections: UpsertBespokeSectionRequest[];
+  bespokeJournals: UpsertBespokeJournalRequest[];
+  extraTracks: UpsertPlaybookExtraTrackRequest[];
+}
+
+// --- Phase 5: bespoke rulesets ---------------------------------------------------------
+// Options are a nested tree on the wire (children), not a flat list plus parent ids — the
+// nesting is the model's whole point, and a flat format would make every client rebuild it.
+
+export interface BespokeOptionResponse {
+  id: string;
+  title: string | null;
+  descriptionText: string | null;
+  minSelect: number | null;
+  maxSelect: number | null;
+  numericMin: number | null;
+  numericMax: number | null;
+  sortOrder: number;
+  children: BespokeOptionResponse[];
+}
+
+export interface BespokeSectionResponse {
+  id: string;
+  title: string;
+  description: string | null;
+  effectText: string | null;
+  freeTextLabel: string | null;
+  minSelect: number | null;
+  maxSelect: number | null;
+  minInstances: number | null;
+  maxInstances: number | null;
+  sortOrder: number;
+  options: BespokeOptionResponse[];
+}
+
+export interface BespokeJournalFieldResponse {
+  id: string;
+  label: string;
+  sortOrder: number;
+}
+
+export interface BespokeJournalResponse {
+  id: string;
+  title: string;
+  description: string | null;
+  effectText: string | null;
+  sortOrder: number;
+  fields: BespokeJournalFieldResponse[];
+}
+
+export interface PlaybookExtraTrackResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  effectText: string | null;
+  boxCount: number;
+  startLabel: string | null;
+  endLabel: string;
+  sortOrder: number;
+}
+
+export interface UpsertBespokeOptionRequest {
+  id: string | null;
+  title: string | null;
+  descriptionText: string | null;
+  minSelect: number | null;
+  maxSelect: number | null;
+  numericMin: number | null;
+  numericMax: number | null;
+  sortOrder: number;
+  children: UpsertBespokeOptionRequest[];
+}
+
+export interface UpsertBespokeSectionRequest {
+  id: string | null;
+  title: string;
+  description: string | null;
+  effectText: string | null;
+  freeTextLabel: string | null;
+  minSelect: number | null;
+  maxSelect: number | null;
+  minInstances: number | null;
+  maxInstances: number | null;
+  sortOrder: number;
+  options: UpsertBespokeOptionRequest[];
+}
+
+export interface UpsertBespokeJournalFieldRequest {
+  id: string | null;
+  label: string;
+  sortOrder: number;
+}
+
+export interface UpsertBespokeJournalRequest {
+  id: string | null;
+  title: string;
+  description: string | null;
+  effectText: string | null;
+  sortOrder: number;
+  fields: UpsertBespokeJournalFieldRequest[];
+}
+
+export interface UpsertPlaybookExtraTrackRequest {
+  id: string | null;
+  name: string;
+  description: string | null;
+  effectText: string | null;
+  boxCount: number;
+  startLabel: string | null;
+  endLabel: string;
+  sortOrder: number;
+}
+
+// ---------------------------------------------------------------------------------------
+// Hunters (Phases 9 and 10).
+//
+// The two pick collections are bare id arrays, not expanded rows: the form loads the full
+// PlaybookDetailResponse anyway to render every available option, so expanding the selected
+// ones would duplicate data the client already holds. See HunterContracts.cs.
+// ---------------------------------------------------------------------------------------
+
+export interface HunterListItemResponse {
+  id: string;
+  name: string;
+  playbookId: string;
+  playbookName: string;
+  createdAt: string;
+}
+
+/**
+ * One answered Look line. Exactly one of `lookOptionId` / `freeformText` is populated; an
+ * unanswered line has no entry at all rather than an entry with both null.
+ */
+export interface HunterLookSelectionModel {
+  lookCategoryId: string;
+  lookOptionId: string | null;
+  freeformText: string | null;
+}
+
+export interface HunterExtraTrackValueModel {
+  extraTrackId: string;
+  currentValue: number;
+}
+
+export interface HunterBespokeSelectionModel {
+  sectionId: string;
+  bespokeOptionId: string | null;
+  freeformTitle: string | null;
+  freeformText: string | null;
+  numericValue: number | null;
+}
+
+export interface HunterBespokeInstanceModel {
+  id: string | null;
+  sectionId: string;
+  name: string | null;
+  sortOrder: number;
+  selections: HunterBespokeSelectionModel[];
+}
+
+export interface HunterJournalFieldValueModel {
+  journalFieldId: string;
+  text: string | null;
+}
+
+export interface HunterJournalEntryModel {
+  id: string | null;
+  journalId: string;
+  sortOrder: number;
+  fields: HunterJournalFieldValueModel[];
+}
+
+export interface HunterDetailResponse {
+  id: string;
+  name: string;
+  pronouns: string | null;
+  playbookId: string;
+  playbookName: string;
+  playbookStatArrayOptionId: string | null;
+  luck: number;
+  harm: number;
+  experience: number;
+  background: string | null;
+  playbookMoveIds: string[];
+  playbookGearOptionIds: string[];
+  looks: HunterLookSelectionModel[];
+  extraTracks: HunterExtraTrackValueModel[];
+  bespokeSelections: HunterBespokeSelectionModel[];
+  bespokeInstances: HunterBespokeInstanceModel[];
+  journalEntries: HunterJournalEntryModel[];
+  /**
+   * What this hunter still owes its playbook, in sheet order — empty means ready to play.
+   * Server-derived on every read and never stored (a hunter is live-linked to its playbook, so
+   * a stored flag would go stale silently). Partial hunters save fine; this is what says so.
+   */
+  outstanding: string[];
+  createdAt: string;
+}
+
+export interface UpsertHunterRequest {
+  name: string;
+  pronouns: string | null;
+  playbookId: string;
+  playbookStatArrayOptionId: string | null;
+  luck: number;
+  harm: number;
+  experience: number;
+  background: string | null;
+  playbookMoveIds: string[];
+  playbookGearOptionIds: string[];
+  looks: HunterLookSelectionModel[];
+  extraTracks: HunterExtraTrackValueModel[];
+  bespokeSelections: HunterBespokeSelectionModel[];
+  bespokeInstances: HunterBespokeInstanceModel[];
+  journalEntries: HunterJournalEntryModel[];
+}

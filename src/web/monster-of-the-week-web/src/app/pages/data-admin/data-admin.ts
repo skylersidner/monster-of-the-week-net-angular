@@ -12,15 +12,35 @@ import { NotificationService } from '../../core/notifications';
 import { ReferenceDataService } from '../../core/reference-data';
 import { CustomSelectComponent } from '../../shared/custom-select.component';
 import { NameDescriptionAdminComponent } from './components/name-description-admin/name-description-admin';
+import { PlaybookAdminComponent } from './components/playbook-admin/playbook-admin';
 
 interface ReferenceTypeOption {
   readonly table: ReferenceTypeTable;
   readonly label: string;
 }
 
+/**
+ * Which top-level section of the Data Admin page is showing. Client-side state on the
+ * existing `/data-admin` route rather than a router child — there is no deep-linking need
+ * for "which Data Admin tab" the way there is for a domain detail page, and this page is a
+ * `pages/` cross-cutting view, not a `features/*` vertical with CRUD-per-route.
+ * See docs/hunter-playbooks/architecture.md Section 5.
+ *
+ * A discriminated union rather than the `isShowingUserMenu`-style boolean signals in
+ * `page-layout.ts`: those are independent toggles that can both be on, whereas tabs are
+ * mutually exclusive, so one signal holding the active tab makes an invalid state
+ * unrepresentable and extends to a third tab without a second boolean to keep in sync.
+ */
+export type DataAdminTab = 'types' | 'playbooks';
+
+interface DataAdminTabOption {
+  readonly tab: DataAdminTab;
+  readonly label: string;
+}
+
 @Component({
   selector: 'app-data-admin-page',
-  imports: [ReactiveFormsModule, CustomSelectComponent, NameDescriptionAdminComponent],
+  imports: [ReactiveFormsModule, CustomSelectComponent, NameDescriptionAdminComponent, PlaybookAdminComponent],
   templateUrl: './data-admin.html',
   styleUrl: './data-admin.scss',
 })
@@ -40,6 +60,53 @@ export class DataAdminPageComponent implements OnInit {
 
   readonly referenceTypeOptionValue = (option: ReferenceTypeOption): string => option.table;
   readonly referenceTypeOptionLabel = (option: ReferenceTypeOption): string => option.label;
+
+  readonly tabs: readonly DataAdminTabOption[] = [
+    { tab: 'types', label: 'Types' },
+    { tab: 'playbooks', label: 'Playbooks' },
+  ];
+
+  readonly activeTab = signal<DataAdminTab>('types');
+
+  selectTab(tab: DataAdminTab): void {
+    this.activeTab.set(tab);
+  }
+
+  /**
+   * Roving-focus keyboard support for the tablist. Claiming `role="tablist"`/`role="tab"`
+   * without arrow-key navigation would be worse than not claiming it at all — assistive
+   * technology announces the widget as a tablist and users then expect arrows to move
+   * between tabs. Home/End included for the same reason.
+   */
+  onTabKeydown(event: KeyboardEvent, index: number): void {
+    const lastIndex = this.tabs.length - 1;
+    let nextIndex: number;
+
+    switch (event.key) {
+      case 'ArrowRight':
+        nextIndex = index === lastIndex ? 0 : index + 1;
+        break;
+      case 'ArrowLeft':
+        nextIndex = index === 0 ? lastIndex : index - 1;
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = lastIndex;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    this.selectTab(this.tabs[nextIndex].tab);
+    const target = event.target as HTMLElement;
+    const nextTab = target.parentElement?.children.item(nextIndex);
+    if (nextTab instanceof HTMLElement) {
+      nextTab.focus();
+    }
+  }
 
   readonly hasSubmitted = signal(false);
   readonly isSaving = signal(false);

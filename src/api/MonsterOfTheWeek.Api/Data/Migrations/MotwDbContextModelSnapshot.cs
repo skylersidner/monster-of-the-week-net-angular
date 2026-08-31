@@ -97,6 +97,213 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.ToTable("app_users", (string)null);
                 });
 
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BasicMove", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DescriptionText")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description_text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("basic_moves", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeJournal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("EffectText")
+                        .HasColumnType("text")
+                        .HasColumnName("effect_text");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_bespoke_journals_playbook_id");
+
+                    b.ToTable("bespoke_journals", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeJournalField", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("JournalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("journal_id");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("label");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JournalId")
+                        .HasDatabaseName("idx_bespoke_journal_fields_journal_id");
+
+                    b.ToTable("bespoke_journal_fields", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DescriptionText")
+                        .HasColumnType("text")
+                        .HasColumnName("description_text");
+
+                    b.Property<int?>("MaxSelect")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_select");
+
+                    b.Property<int?>("MinSelect")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_select");
+
+                    b.Property<int?>("NumericMax")
+                        .HasColumnType("integer")
+                        .HasColumnName("numeric_max");
+
+                    b.Property<int?>("NumericMin")
+                        .HasColumnType("integer")
+                        .HasColumnName("numeric_min");
+
+                    b.Property<Guid?>("ParentOptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_option_id");
+
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("section_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentOptionId")
+                        .HasDatabaseName("idx_bespoke_options_parent_option_id");
+
+                    b.HasIndex("SectionId")
+                        .HasDatabaseName("idx_bespoke_options_section_id");
+
+                    b.ToTable("bespoke_options", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeSection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("EffectText")
+                        .HasColumnType("text")
+                        .HasColumnName("effect_text");
+
+                    b.Property<string>("FreeTextLabel")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("free_text_label");
+
+                    b.Property<int?>("MaxInstances")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_instances");
+
+                    b.Property<int?>("MaxSelect")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_select");
+
+                    b.Property<int?>("MinInstances")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_instances");
+
+                    b.Property<int?>("MinSelect")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_select");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<Guid?>("PlaybookMoveId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_move_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_bespoke_sections_playbook_id");
+
+                    b.HasIndex("PlaybookMoveId")
+                        .HasDatabaseName("idx_bespoke_sections_playbook_move_id");
+
+                    b.ToTable("bespoke_sections", (string)null);
+                });
+
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Bystander", b =>
                 {
                     b.Property<Guid>("Id")
@@ -225,6 +432,297 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("countdowns", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Hunter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Background")
+                        .HasColumnType("text")
+                        .HasColumnName("background");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Experience")
+                        .HasColumnType("integer")
+                        .HasColumnName("experience");
+
+                    b.Property<int>("Harm")
+                        .HasColumnType("integer")
+                        .HasColumnName("harm");
+
+                    b.Property<int>("Luck")
+                        .HasColumnType("integer")
+                        .HasColumnName("luck");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<Guid?>("PlaybookStatArrayOptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_stat_array_option_id");
+
+                    b.Property<string>("Pronouns")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("pronouns");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_hunters_playbook_id");
+
+                    b.HasIndex("PlaybookStatArrayOptionId")
+                        .HasDatabaseName("idx_hunters_stat_array_option_id");
+
+                    b.ToTable("hunters", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterBespokeSectionInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("HunterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hunter_id");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("section_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HunterId")
+                        .HasDatabaseName("idx_hunter_bespoke_instances_hunter_id");
+
+                    b.HasIndex("SectionId")
+                        .HasDatabaseName("idx_hunter_bespoke_instances_section_id");
+
+                    b.ToTable("hunter_bespoke_section_instances", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterBespokeSelection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("BespokeOptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bespoke_option_id");
+
+                    b.Property<string>("FreeformText")
+                        .HasColumnType("text")
+                        .HasColumnName("freeform_text");
+
+                    b.Property<string>("FreeformTitle")
+                        .HasColumnType("text")
+                        .HasColumnName("freeform_title");
+
+                    b.Property<Guid>("HunterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hunter_id");
+
+                    b.Property<int?>("NumericValue")
+                        .HasColumnType("integer")
+                        .HasColumnName("numeric_value");
+
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("section_id");
+
+                    b.Property<Guid?>("SectionInstanceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("section_instance_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BespokeOptionId")
+                        .HasDatabaseName("idx_hunter_bespoke_selections_option_id");
+
+                    b.HasIndex("HunterId")
+                        .HasDatabaseName("idx_hunter_bespoke_selections_hunter_id");
+
+                    b.HasIndex("SectionId")
+                        .HasDatabaseName("idx_hunter_bespoke_selections_section_id");
+
+                    b.HasIndex("SectionInstanceId")
+                        .HasDatabaseName("idx_hunter_bespoke_selections_instance_id");
+
+                    b.ToTable("hunter_bespoke_selections", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterExtraTrackValue", b =>
+                {
+                    b.Property<Guid>("HunterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hunter_id");
+
+                    b.Property<Guid>("ExtraTrackId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("extra_track_id");
+
+                    b.Property<int>("CurrentValue")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_value");
+
+                    b.HasKey("HunterId", "ExtraTrackId");
+
+                    b.HasIndex("ExtraTrackId")
+                        .HasDatabaseName("idx_hunter_extra_track_values_track_id");
+
+                    b.ToTable("hunter_extra_track_values", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterGearSelection", b =>
+                {
+                    b.Property<Guid>("HunterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hunter_id");
+
+                    b.Property<Guid>("PlaybookGearOptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_gear_option_id");
+
+                    b.HasKey("HunterId", "PlaybookGearOptionId");
+
+                    b.HasIndex("PlaybookGearOptionId")
+                        .HasDatabaseName("idx_hunter_gear_selections_option_id");
+
+                    b.ToTable("hunter_gear_selections", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterJournalEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("HunterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hunter_id");
+
+                    b.Property<Guid>("JournalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("journal_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HunterId")
+                        .HasDatabaseName("idx_hunter_journal_entries_hunter_id");
+
+                    b.HasIndex("JournalId")
+                        .HasDatabaseName("idx_hunter_journal_entries_journal_id");
+
+                    b.ToTable("hunter_journal_entries", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterJournalEntryFieldValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("EntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entry_id");
+
+                    b.Property<Guid>("JournalFieldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("journal_field_id");
+
+                    b.Property<string>("Text")
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntryId")
+                        .HasDatabaseName("idx_hunter_journal_field_values_entry_id");
+
+                    b.HasIndex("JournalFieldId")
+                        .HasDatabaseName("idx_hunter_journal_field_values_field_id");
+
+                    b.ToTable("hunter_journal_entry_field_values", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterLookSelection", b =>
+                {
+                    b.Property<Guid>("HunterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hunter_id");
+
+                    b.Property<Guid>("LookCategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("look_category_id");
+
+                    b.Property<string>("FreeformText")
+                        .HasColumnType("text")
+                        .HasColumnName("freeform_text");
+
+                    b.Property<Guid?>("LookOptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("look_option_id");
+
+                    b.HasKey("HunterId", "LookCategoryId");
+
+                    b.HasIndex("LookCategoryId")
+                        .HasDatabaseName("idx_hunter_look_selections_category_id");
+
+                    b.HasIndex("LookOptionId")
+                        .HasDatabaseName("idx_hunter_look_selections_option_id");
+
+                    b.ToTable("hunter_look_selections", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterMove", b =>
+                {
+                    b.Property<Guid>("HunterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("hunter_id");
+
+                    b.Property<Guid>("PlaybookMoveId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_move_id");
+
+                    b.HasKey("HunterId", "PlaybookMoveId");
+
+                    b.HasIndex("PlaybookMoveId")
+                        .HasDatabaseName("idx_hunter_moves_playbook_move_id");
+
+                    b.ToTable("hunter_moves", (string)null);
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Location", b =>
@@ -951,6 +1449,361 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.ToTable("mystery_monsters", (string)null);
                 });
 
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Playbook", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<int>("ExperienceBoxCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("experience_box_count");
+
+                    b.Property<string>("GettingStartedText")
+                        .HasColumnType("text")
+                        .HasColumnName("getting_started_text");
+
+                    b.Property<int>("HarmBoxCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("harm_box_count");
+
+                    b.Property<int>("HarmUnstableThreshold")
+                        .HasColumnType("integer")
+                        .HasColumnName("harm_unstable_threshold");
+
+                    b.Property<string>("HistoryPromptsText")
+                        .HasColumnType("text")
+                        .HasColumnName("history_prompts_text");
+
+                    b.Property<string>("IntroductionsText")
+                        .HasColumnType("text")
+                        .HasColumnName("introductions_text");
+
+                    b.Property<string>("LevelingUpText")
+                        .HasColumnType("text")
+                        .HasColumnName("leveling_up_text");
+
+                    b.Property<int>("LuckBoxCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("luck_box_count");
+
+                    b.Property<string>("LuckSpecialText")
+                        .HasColumnType("text")
+                        .HasColumnName("luck_special_text");
+
+                    b.Property<int>("MoveGrantCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("move_grant_count");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("idx_playbooks_name");
+
+                    b.ToTable("playbooks", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookExtraTrack", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("BoxCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("box_count");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("EffectText")
+                        .HasColumnType("text")
+                        .HasColumnName("effect_text");
+
+                    b.Property<string>("EndLabel")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("end_label");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("StartLabel")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("start_label");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_playbook_extra_tracks_playbook_id");
+
+                    b.ToTable("playbook_extra_tracks", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookGearCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("IsOptional")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_optional");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("label");
+
+                    b.Property<int?>("PickCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("pick_count");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_playbook_gear_categories_playbook_id");
+
+                    b.ToTable("playbook_gear_categories", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookGearOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<string>("MechanicalText")
+                        .HasColumnType("text")
+                        .HasColumnName("mechanical_text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("idx_playbook_gear_options_category_id");
+
+                    b.ToTable("playbook_gear_options", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookImprovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("IsAdvanced")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_advanced");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_playbook_improvements_playbook_id");
+
+                    b.ToTable("playbook_improvements", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AllowsFreeform")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allows_freeform");
+
+                    b.Property<string>("GroupLabel")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("group_label");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_playbook_look_categories_playbook_id");
+
+                    b.ToTable("playbook_look_categories", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("idx_playbook_look_options_category_id");
+
+                    b.ToTable("playbook_look_options", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookMove", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DescriptionText")
+                        .HasColumnType("text")
+                        .HasColumnName("description_text");
+
+                    b.Property<bool>("IsAdvanced")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_advanced");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<bool>("Required")
+                        .HasColumnType("boolean")
+                        .HasColumnName("required");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_playbook_moves_playbook_id");
+
+                    b.ToTable("playbook_moves", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookStatArrayOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Charm")
+                        .HasColumnType("integer")
+                        .HasColumnName("charm");
+
+                    b.Property<int>("Cool")
+                        .HasColumnType("integer")
+                        .HasColumnName("cool");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<int>("Sharp")
+                        .HasColumnType("integer")
+                        .HasColumnName("sharp");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<int>("Tough")
+                        .HasColumnType("integer")
+                        .HasColumnName("tough");
+
+                    b.Property<int>("Weird")
+                        .HasColumnType("integer")
+                        .HasColumnName("weird");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_playbook_stat_array_options_playbook_id");
+
+                    b.ToTable("playbook_stat_array_options", (string)null);
+                });
+
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.WeaponTag", b =>
                 {
                     b.Property<Guid>("Id")
@@ -971,6 +1824,64 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("weapon_tags", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeJournal", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany("BespokeJournals")
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Playbook");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeJournalField", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeJournal", "Journal")
+                        .WithMany("Fields")
+                        .HasForeignKey("JournalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Journal");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeOption", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeOption", "ParentOption")
+                        .WithMany("ChildOptions")
+                        .HasForeignKey("ParentOptionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeSection", "Section")
+                        .WithMany("Options")
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ParentOption");
+
+                    b.Navigation("Section");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeSection", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany("BespokeSections")
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookMove", "PlaybookMove")
+                        .WithMany("BespokeSections")
+                        .HasForeignKey("PlaybookMoveId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Playbook");
+
+                    b.Navigation("PlaybookMove");
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Bystander", b =>
@@ -1004,6 +1915,197 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Mystery");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Hunter", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany()
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookStatArrayOption", "PlaybookStatArrayOption")
+                        .WithMany()
+                        .HasForeignKey("PlaybookStatArrayOptionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Playbook");
+
+                    b.Navigation("PlaybookStatArrayOption");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterBespokeSectionInstance", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
+                        .WithMany("BespokeSectionInstances")
+                        .HasForeignKey("HunterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeSection", "Section")
+                        .WithMany()
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Hunter");
+
+                    b.Navigation("Section");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterBespokeSelection", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeOption", "BespokeOption")
+                        .WithMany()
+                        .HasForeignKey("BespokeOptionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
+                        .WithMany("BespokeSelections")
+                        .HasForeignKey("HunterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeSection", "Section")
+                        .WithMany()
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.HunterBespokeSectionInstance", "SectionInstance")
+                        .WithMany("Selections")
+                        .HasForeignKey("SectionInstanceId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("BespokeOption");
+
+                    b.Navigation("Hunter");
+
+                    b.Navigation("Section");
+
+                    b.Navigation("SectionInstance");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterExtraTrackValue", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookExtraTrack", "ExtraTrack")
+                        .WithMany()
+                        .HasForeignKey("ExtraTrackId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
+                        .WithMany("ExtraTrackValues")
+                        .HasForeignKey("HunterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ExtraTrack");
+
+                    b.Navigation("Hunter");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterGearSelection", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
+                        .WithMany("GearSelections")
+                        .HasForeignKey("HunterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookGearOption", "PlaybookGearOption")
+                        .WithMany()
+                        .HasForeignKey("PlaybookGearOptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Hunter");
+
+                    b.Navigation("PlaybookGearOption");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterJournalEntry", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
+                        .WithMany("JournalEntries")
+                        .HasForeignKey("HunterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeJournal", "Journal")
+                        .WithMany()
+                        .HasForeignKey("JournalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Hunter");
+
+                    b.Navigation("Journal");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterJournalEntryFieldValue", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.HunterJournalEntry", "Entry")
+                        .WithMany("FieldValues")
+                        .HasForeignKey("EntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeJournalField", "JournalField")
+                        .WithMany()
+                        .HasForeignKey("JournalFieldId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Entry");
+
+                    b.Navigation("JournalField");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterLookSelection", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
+                        .WithMany("LookSelections")
+                        .HasForeignKey("HunterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookCategory", "LookCategory")
+                        .WithMany()
+                        .HasForeignKey("LookCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookOption", "LookOption")
+                        .WithMany()
+                        .HasForeignKey("LookOptionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Hunter");
+
+                    b.Navigation("LookCategory");
+
+                    b.Navigation("LookOption");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterMove", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Hunter", "Hunter")
+                        .WithMany("Moves")
+                        .HasForeignKey("HunterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookMove", "PlaybookMove")
+                        .WithMany()
+                        .HasForeignKey("PlaybookMoveId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Hunter");
+
+                    b.Navigation("PlaybookMove");
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Location", b =>
@@ -1293,9 +2395,112 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("Mystery");
                 });
 
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookExtraTrack", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany("ExtraTracks")
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Playbook");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookGearCategory", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany("GearCategories")
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Playbook");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookGearOption", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookGearCategory", "Category")
+                        .WithMany("Options")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookImprovement", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany("Improvements")
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Playbook");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookCategory", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany("LookCategories")
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Playbook");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookOption", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookCategory", "Category")
+                        .WithMany("Options")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookMove", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany("Moves")
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Playbook");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookStatArrayOption", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany("StatArrayOptions")
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Playbook");
+                });
+
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.AdventureType", b =>
                 {
                     b.Navigation("Mysteries");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeJournal", b =>
+                {
+                    b.Navigation("Fields");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeOption", b =>
+                {
+                    b.Navigation("ChildOptions");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BespokeSection", b =>
+                {
+                    b.Navigation("Options");
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Bystander", b =>
@@ -1308,6 +2513,33 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BystanderType", b =>
                 {
                     b.Navigation("Bystanders");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Hunter", b =>
+                {
+                    b.Navigation("BespokeSectionInstances");
+
+                    b.Navigation("BespokeSelections");
+
+                    b.Navigation("ExtraTrackValues");
+
+                    b.Navigation("GearSelections");
+
+                    b.Navigation("JournalEntries");
+
+                    b.Navigation("LookSelections");
+
+                    b.Navigation("Moves");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterBespokeSectionInstance", b =>
+                {
+                    b.Navigation("Selections");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.HunterJournalEntry", b =>
+                {
+                    b.Navigation("FieldValues");
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Location", b =>
@@ -1388,6 +2620,40 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("MysteryLocations");
 
                     b.Navigation("MysteryMonsters");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Playbook", b =>
+                {
+                    b.Navigation("BespokeJournals");
+
+                    b.Navigation("BespokeSections");
+
+                    b.Navigation("ExtraTracks");
+
+                    b.Navigation("GearCategories");
+
+                    b.Navigation("Improvements");
+
+                    b.Navigation("LookCategories");
+
+                    b.Navigation("Moves");
+
+                    b.Navigation("StatArrayOptions");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookGearCategory", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookLookCategory", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookMove", b =>
+                {
+                    b.Navigation("BespokeSections");
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.WeaponTag", b =>

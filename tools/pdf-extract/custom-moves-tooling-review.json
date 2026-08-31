@@ -1,0 +1,1242 @@
+{
+  "pass": "Phase 6 custom-moves extraction tooling",
+  "scope": "Tooling validation, not content authoring. Covers the 6 inline moves named in custom-moves-ideation.md Section 5, the known-verified bulleted in-move case (Host p31), and one further bulleted case added during the pass (Searcher p45's First Encounter) because it contradicts the doc's font-signal claim.",
+  "titleProvenanceFinding": "Every Title/DescriptionText split below is DELIMITER-derived (colon or parenthesis) — the extractor never derives a title boundary from a font run for in-move content, exactly as custom-moves-ideation.md Section 5 item 2 requires. titleProvenance tally across all validated groups: delimiter:paren=11, none=64, delimiter:colon=13. titleStyle tally (whether the SOURCE independently styles the title run): regular=81, bold=7.",
+  "ideationDocCorrections": [
+    "Section 2.5(a) / Section 5 item 2 says no font-derived Title boundary exists ANYWHERE in this content class — \"not an exception, it's the rule for this entire content class\". That is NOT universally true. The Searcher's First Encounter (page 45, one of the 14 in-scope moves, Required) has genuinely BOLD option names — \"Cryptid Sighting\" is g_d0_f2 = WarnockPro-Bold on that page, verified against the raw item stream, not inferred from the extractor's own classification. The doc's claim was verified on exactly two cases (Crooked p11 inline, Host p31 bulleted) and generalised; it holds for those two and for most others, but it is not safe as a blanket assumption. The tooling therefore MEASURES it per option (titleStyle / titleFontCorroborated) instead of assuming it, while still deriving the boundary itself from the delimiter — which is the right split even where a font signal exists, because the whole option is often one text item and a bold run alone cannot say where the title ends.",
+    "Professional's Mobility has two CATEGORY labels (\"Good things\", \"Bad things\") that ARE font-signalled, in ITALIC (WarnockPro-It). These are category headings rather than option titles, so they do not contradict the doc's rule about option names — but they matter to the tooling, because Mobility carries no pick verb immediately before its colons, and that italic label is what the inline detector keys on instead."
+  ],
+  "parenSplitCaveat": "titleProvenance \"delimiter:paren\" ALWAYS needs review before authoring. Real counterexample found on this pass, not theorised: Gumshoe's The Naked City contains \"Criminals (organised)\", \"Criminals (street)\", \"Police (local)\" and \"Police (national)\", where the parenthetical is part of the contact type's NAME, not a description. The extractor still reports the split (with provenance) rather than guessing, because on Crooked's Artifact the same paren form IS the mechanical description (\"Protective amulet (1-armour magic recharge)\").",
+  "bulletedPathGapsFound": [
+    "A capital \"B\" FateCoreGlyphs glyph marks a REQUIRED move; the extractor only recognised lowercase \"b\". Every Required move's whole body was therefore silently absorbed into the preceding segment (or into `intro`, when it came first). Verified against the pre-change extractor on this exact page-31 target: it put all of Defensive Adaptation into `intro` with the literal glyph still in the text, then emitted the move's 6 options as 6 title-less top-level \"moves\". Now recognised, with the glyph's case reported as `required`.",
+    "In-move option bullets use the SAME \"b\" glyph as a top-level move bullet, distinguished only by x-indent (Host p31: options at x=521.2 under a move bullet at x=503.2; same shape on Searcher p45's First Encounter, Visitor p55's Something Strange, Forged p23's Partner). Top-level is now taken as the leftmost glyph bullet in scope; anything further right than --bulletTolerance (6pt) is a nested option marker.",
+    "Checked and found FALSE, so recorded as a negative result: the marker form does NOT tell you whether a list is a creation-time pick or an in-play menu. Spell-Slinger's Tools and Techniques (creation-time, p49) uses \"•\", and Could've Been Worse (in-play, same page) uses \"•\" too. Both marker forms are reported and the author decides."
+  ],
+  "incidentalFinding": "Not asked for, surfaced by the new inline path while re-running the existing regression suite: The Monstrous's Curses option \"Pure Drive\" (page 37, an already-authored Phase 5 BESPOKE option, not a Move) contains its own creation-time inline pick — \"One emotion rules you. Pick from: hunger, hate, anger, fear, jealousy, greed, joy, pride, envy, lust, or cruelty.\" That is a pick nested inside a bespoke option, which is outside the Phase 6 census's scope (Section 2.1 covers picks inside Moves) and is not recorded as a structured pick anywhere. Flagged for Yoshi/Skyler, not acted on here.",
+  "targets": [
+    {
+      "playbook": "The Crooked",
+      "page": 11,
+      "move": "Artifact",
+      "required": false,
+      "presentation": "inline",
+      "censusShape": "1 of 5",
+      "optionCounts": [
+        5
+      ],
+      "matchesCensus": true,
+      "descriptionHtml": "You ‘found’ a magical artifact with handy powers, and kept it. Pick one: Protective amulet (1-armour magic recharge), Lucky charm (may be used as a Luck point, once only), Grimoire (studying the book gives +1 forward to use magic), Skeleton key (opens any magically sealed lock), Imp stone (A weak demon is bound to serve the holder. The imp must be summoned with the <b>use magic</b> move).",
+      "optionGroups": [
+        {
+          "presentation": "inline",
+          "markerKind": null,
+          "delimiter": ",",
+          "instruction": "Pick one:",
+          "precedingContext": ": You ‘found’ a magical artifact with handy powers, and kept it. Pick one:",
+          "cueKind": "pick-verb",
+          "rawRun": "Protective amulet (1-armour magic recharge), Lucky charm (may be used as a Luck point, once only), Grimoire (studying the book gives +1 forward to use magic), Skeleton key (opens any magically sealed lock), Imp stone (A weak demon is bound to serve the holder. The imp must be summoned with the use magic move)",
+          "terminator": "sentence-period",
+          "y": 533.2802,
+          "options": [
+            {
+              "raw": "Protective amulet (1-armour magic recharge)",
+              "rawHtml": "Protective amulet (1-armour magic recharge)",
+              "title": "Protective amulet",
+              "titleHtml": "Protective amulet",
+              "descriptionText": "1-armour magic recharge",
+              "descriptionHtml": "1-armour magic recharge",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Lucky charm (may be used as a Luck point, once only)",
+              "rawHtml": "Lucky charm (may be used as a Luck point, once only)",
+              "title": "Lucky charm",
+              "titleHtml": "Lucky charm",
+              "descriptionText": "may be used as a Luck point, once only",
+              "descriptionHtml": "may be used as a Luck point, once only",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Grimoire (studying the book gives +1 forward to use magic)",
+              "rawHtml": "Grimoire (studying the book gives +1 forward to use magic)",
+              "title": "Grimoire",
+              "titleHtml": "Grimoire",
+              "descriptionText": "studying the book gives +1 forward to use magic",
+              "descriptionHtml": "studying the book gives +1 forward to use magic",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Skeleton key (opens any magically sealed lock)",
+              "rawHtml": "Skeleton key (opens any magically sealed lock)",
+              "title": "Skeleton key",
+              "titleHtml": "Skeleton key",
+              "descriptionText": "opens any magically sealed lock",
+              "descriptionHtml": "opens any magically sealed lock",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Imp stone (A weak demon is bound to serve the holder. The imp must be summoned with the use magic move)",
+              "rawHtml": "Imp stone (A weak demon is bound to serve the holder. The imp must be summoned with the <b>use magic</b> move)",
+              "title": "Imp stone",
+              "titleHtml": "Imp stone",
+              "descriptionText": "A weak demon is bound to serve the holder. The imp must be summoned with the use magic move",
+              "descriptionHtml": "A weak demon is bound to serve the holder. The imp must be summoned with the <b>use magic</b> move",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            }
+          ]
+        }
+      ],
+      "otherGroups": []
+    },
+    {
+      "playbook": "The Crooked",
+      "page": 11,
+      "move": "Deal with the Devil",
+      "required": false,
+      "presentation": "inline",
+      "censusShape": "1-2 of 5 (a real range)",
+      "optionCounts": [
+        5
+      ],
+      "matchesCensus": true,
+      "descriptionHtml": "You sold your soul to the Devil. Pick one or two things you got out of the deal: wealth, fame, youth, sensual gratification, skill (add +1 to two ratings). Payment is due either when you die, in six months (if you picked two things) or otherwise in a year.",
+      "optionGroups": [
+        {
+          "presentation": "inline",
+          "markerKind": null,
+          "delimiter": ",",
+          "instruction": "Pick one or two things you got out of the deal:",
+          "precedingContext": ": You sold your soul to the Devil. Pick one or two things you got out of the deal:",
+          "cueKind": "pick-verb",
+          "rawRun": "wealth, fame, youth, sensual gratification, skill (add +1 to two ratings)",
+          "terminator": "sentence-period",
+          "y": 408.9802,
+          "options": [
+            {
+              "raw": "wealth",
+              "rawHtml": "wealth",
+              "title": "wealth",
+              "titleHtml": "wealth",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "fame",
+              "rawHtml": "fame",
+              "title": "fame",
+              "titleHtml": "fame",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "youth",
+              "rawHtml": "youth",
+              "title": "youth",
+              "titleHtml": "youth",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "sensual gratification",
+              "rawHtml": "sensual gratification",
+              "title": "sensual gratification",
+              "titleHtml": "sensual gratification",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "skill (add +1 to two ratings)",
+              "rawHtml": "skill (add +1 to two ratings)",
+              "title": "skill",
+              "titleHtml": "skill",
+              "descriptionText": "add +1 to two ratings",
+              "descriptionHtml": "add +1 to two ratings",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            }
+          ]
+        }
+      ],
+      "otherGroups": []
+    },
+    {
+      "playbook": "The Changeling",
+      "page": 5,
+      "move": "Force of Nature",
+      "required": false,
+      "presentation": "inline",
+      "censusShape": "1 of 3 + open-ended slot",
+      "optionCounts": [
+        4
+      ],
+      "matchesCensus": true,
+      "descriptionHtml": "You have a supernatural attack from your heritage. Choose its type: lightning, insect swarms, magical blades, or something else. When you <i>unleash your power</i>, roll +Weird. On any 7+, you summon a 1-harm close weapon for a short time. On a 10+, pick two extras. On a 7–9, pick one. On a miss, the power turns against you.<ul><li>Extras: +1 harm, hand, far, autonomous, distracting, ignore-armour, area, grab, blind, stun</li></ul>",
+      "optionGroups": [
+        {
+          "presentation": "inline",
+          "markerKind": null,
+          "delimiter": ",",
+          "instruction": "Choose its type:",
+          "precedingContext": "You have a supernatural attack from your heritage. Choose its type:",
+          "cueKind": "pick-verb",
+          "rawRun": "lightning, insect swarms, magical blades, or something else",
+          "terminator": "sentence-period",
+          "y": 372.3802,
+          "options": [
+            {
+              "raw": "lightning",
+              "rawHtml": "lightning",
+              "title": "lightning",
+              "titleHtml": "lightning",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "insect swarms",
+              "rawHtml": "insect swarms",
+              "title": "insect swarms",
+              "titleHtml": "insect swarms",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "magical blades",
+              "rawHtml": "magical blades",
+              "title": "magical blades",
+              "titleHtml": "magical blades",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "something else",
+              "rawHtml": "something else",
+              "title": "something else",
+              "titleHtml": "something else",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            }
+          ]
+        }
+      ],
+      "otherGroups": [
+        {
+          "presentation": "bulleted",
+          "markerKind": "bullet-char",
+          "delimiter": null,
+          "instruction": "",
+          "options": [
+            {
+              "raw": "Extras: +1 harm, hand, far, autonomous, distracting, ignore-armour, area, grab, blind, stun",
+              "rawHtml": "Extras: +1 harm, hand, far, autonomous, distracting, ignore-armour, area, grab, blind, stun",
+              "title": "Extras",
+              "titleHtml": "Extras",
+              "descriptionText": "+1 harm, hand, far, autonomous, distracting, ignore-armour, area, grab, blind, stun",
+              "descriptionHtml": "+1 harm, hand, far, autonomous, distracting, ignore-armour, area, grab, blind, stun",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "playbook": "The Gumshoe",
+      "page": 25,
+      "move": "The Naked City",
+      "required": true,
+      "presentation": "inline",
+      "censusShape": "4 of 34",
+      "optionCounts": [
+        34
+      ],
+      "matchesCensus": true,
+      "descriptionHtml": "You have lots of personal contacts wherever you go. Pick four contact types from the fol- lowing areas (or from other areas agreed to between you and the Keeper): Academics, Accountants, Artists, Bartenders, Clergy, Conspiracy Theorists, Construction, Courts, Criminals (organised), Criminals (street), Cultists, Engineers, Espi- onage, Film and TV, Forensic Scientists, Fringe Scientists, Hackers, Journalists, Lawyers, Mechanics, Media, Medical Practioners, Military, Morgue, Occult, Police (local), Police (national), Politicians, Prisons, Private Security, Property Developers, Stage Magicians, Technologists, Transportation You can hit them up for info (+1 to one <b>investigate a mystery</b> roll) or small favours—but there may be a small cost involved. Personal contacts can provide more significant help but the Keeper decides their price on a case-by-case basis.",
+      "optionGroups": [
+        {
+          "presentation": "inline",
+          "markerKind": null,
+          "delimiter": ",",
+          "instruction": "Pick four contact types from the fol- lowing areas (or from other areas agreed to between you and the Keeper):",
+          "precedingContext": ": You have lots of personal contacts wherever you go. Pick four contact types from the fol- lowing areas (or from other areas agreed to between you and the Keeper):",
+          "cueKind": "pick-verb",
+          "rawRun": "Academics, Accountants, Artists, Bartenders, Clergy, Conspiracy Theorists, Construction, Courts, Criminals (organised), Criminals (street), Cultists, Engineers, Espi- onage, Film and TV, Forensic Scientists, Fringe Scientists, Hackers, Journalists, Lawyers, Mechanics, Media, Medical Practioners, Military, Morgue, Occult, Police (local), Police (national), Politicians, Prisons, Private Security, Property Developers, Stage Magicians, Technologists, Transportation",
+          "terminator": "dedent",
+          "y": 183.4802,
+          "options": [
+            {
+              "raw": "Academics",
+              "rawHtml": "Academics",
+              "title": "Academics",
+              "titleHtml": "Academics",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Accountants",
+              "rawHtml": "Accountants",
+              "title": "Accountants",
+              "titleHtml": "Accountants",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Artists",
+              "rawHtml": "Artists",
+              "title": "Artists",
+              "titleHtml": "Artists",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Bartenders",
+              "rawHtml": "Bartenders",
+              "title": "Bartenders",
+              "titleHtml": "Bartenders",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Clergy",
+              "rawHtml": "Clergy",
+              "title": "Clergy",
+              "titleHtml": "Clergy",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Conspiracy Theorists",
+              "rawHtml": "Conspiracy Theorists",
+              "title": "Conspiracy Theorists",
+              "titleHtml": "Conspiracy Theorists",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Construction",
+              "rawHtml": "Construction",
+              "title": "Construction",
+              "titleHtml": "Construction",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Courts",
+              "rawHtml": "Courts",
+              "title": "Courts",
+              "titleHtml": "Courts",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Criminals (organised)",
+              "rawHtml": "Criminals (organised)",
+              "title": "Criminals",
+              "titleHtml": "Criminals",
+              "descriptionText": "organised",
+              "descriptionHtml": "organised",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Criminals (street)",
+              "rawHtml": "Criminals (street)",
+              "title": "Criminals",
+              "titleHtml": "Criminals",
+              "descriptionText": "street",
+              "descriptionHtml": "street",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Cultists",
+              "rawHtml": "Cultists",
+              "title": "Cultists",
+              "titleHtml": "Cultists",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Engineers",
+              "rawHtml": "Engineers",
+              "title": "Engineers",
+              "titleHtml": "Engineers",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Espi- onage",
+              "rawHtml": "Espi- onage",
+              "title": "Espi- onage",
+              "titleHtml": "Espi- onage",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Film and TV",
+              "rawHtml": "Film and TV",
+              "title": "Film and TV",
+              "titleHtml": "Film and TV",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Forensic Scientists",
+              "rawHtml": "Forensic Scientists",
+              "title": "Forensic Scientists",
+              "titleHtml": "Forensic Scientists",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Fringe Scientists",
+              "rawHtml": "Fringe Scientists",
+              "title": "Fringe Scientists",
+              "titleHtml": "Fringe Scientists",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Hackers",
+              "rawHtml": "Hackers",
+              "title": "Hackers",
+              "titleHtml": "Hackers",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Journalists",
+              "rawHtml": "Journalists",
+              "title": "Journalists",
+              "titleHtml": "Journalists",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Lawyers",
+              "rawHtml": "Lawyers",
+              "title": "Lawyers",
+              "titleHtml": "Lawyers",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Mechanics",
+              "rawHtml": "Mechanics",
+              "title": "Mechanics",
+              "titleHtml": "Mechanics",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Media",
+              "rawHtml": "Media",
+              "title": "Media",
+              "titleHtml": "Media",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Medical Practioners",
+              "rawHtml": "Medical Practioners",
+              "title": "Medical Practioners",
+              "titleHtml": "Medical Practioners",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Military",
+              "rawHtml": "Military",
+              "title": "Military",
+              "titleHtml": "Military",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Morgue",
+              "rawHtml": "Morgue",
+              "title": "Morgue",
+              "titleHtml": "Morgue",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Occult",
+              "rawHtml": "Occult",
+              "title": "Occult",
+              "titleHtml": "Occult",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Police (local)",
+              "rawHtml": "Police (local)",
+              "title": "Police",
+              "titleHtml": "Police",
+              "descriptionText": "local",
+              "descriptionHtml": "local",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Police (national)",
+              "rawHtml": "Police (national)",
+              "title": "Police",
+              "titleHtml": "Police",
+              "descriptionText": "national",
+              "descriptionHtml": "national",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Politicians",
+              "rawHtml": "Politicians",
+              "title": "Politicians",
+              "titleHtml": "Politicians",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Prisons",
+              "rawHtml": "Prisons",
+              "title": "Prisons",
+              "titleHtml": "Prisons",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Private Security",
+              "rawHtml": "Private Security",
+              "title": "Private Security",
+              "titleHtml": "Private Security",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Property Developers",
+              "rawHtml": "Property Developers",
+              "title": "Property Developers",
+              "titleHtml": "Property Developers",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Stage Magicians",
+              "rawHtml": "Stage Magicians",
+              "title": "Stage Magicians",
+              "titleHtml": "Stage Magicians",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Technologists",
+              "rawHtml": "Technologists",
+              "title": "Technologists",
+              "titleHtml": "Technologists",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Transportation",
+              "rawHtml": "Transportation",
+              "title": "Transportation",
+              "titleHtml": "Transportation",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            }
+          ]
+        }
+      ],
+      "otherGroups": []
+    },
+    {
+      "playbook": "The Professional",
+      "page": 43,
+      "move": "Mobility",
+      "required": false,
+      "presentation": "inline",
+      "censusShape": "Good 2 of 14, Bad 1 of 8",
+      "optionCounts": [
+        14,
+        8
+      ],
+      "matchesCensus": true,
+      "descriptionHtml": "You have a truck, van, or car built for monster hunting. Choose two good things and one bad thing about it. <i>Good things</i>: roomy; surveillance gear; fast; stealthy; intimidating; classic; medical kit; sleeping space; toolkit; concealed weapons; anonymous; armoured (+1 armour inside); tough; monster cage. <i>Bad things</i>: loud; obvious; temperamental; beat- en-up; gas-guzzler; uncomfortable; slow; old.",
+      "optionGroups": [
+        {
+          "presentation": "inline",
+          "markerKind": null,
+          "delimiter": ";",
+          "instruction": "Good things:",
+          "precedingContext": ": You have a truck, van, or car built for monster hunting. Choose two good things and one bad thing about it. Good things:",
+          "cueKind": "styled-label",
+          "rawRun": "roomy; surveillance gear; fast; stealthy; intimidating; classic; medical kit; sleeping space; toolkit; concealed weapons; anonymous; armoured (+1 armour inside); tough; monster cage",
+          "terminator": "sentence-period",
+          "y": 195.6802,
+          "options": [
+            {
+              "raw": "roomy",
+              "rawHtml": "roomy",
+              "title": "roomy",
+              "titleHtml": "roomy",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "surveillance gear",
+              "rawHtml": "surveillance gear",
+              "title": "surveillance gear",
+              "titleHtml": "surveillance gear",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "fast",
+              "rawHtml": "fast",
+              "title": "fast",
+              "titleHtml": "fast",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "stealthy",
+              "rawHtml": "stealthy",
+              "title": "stealthy",
+              "titleHtml": "stealthy",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "intimidating",
+              "rawHtml": "intimidating",
+              "title": "intimidating",
+              "titleHtml": "intimidating",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "classic",
+              "rawHtml": "classic",
+              "title": "classic",
+              "titleHtml": "classic",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "medical kit",
+              "rawHtml": "medical kit",
+              "title": "medical kit",
+              "titleHtml": "medical kit",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "sleeping space",
+              "rawHtml": "sleeping space",
+              "title": "sleeping space",
+              "titleHtml": "sleeping space",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "toolkit",
+              "rawHtml": "toolkit",
+              "title": "toolkit",
+              "titleHtml": "toolkit",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "concealed weapons",
+              "rawHtml": "concealed weapons",
+              "title": "concealed weapons",
+              "titleHtml": "concealed weapons",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "anonymous",
+              "rawHtml": "anonymous",
+              "title": "anonymous",
+              "titleHtml": "anonymous",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "armoured (+1 armour inside)",
+              "rawHtml": "armoured (+1 armour inside)",
+              "title": "armoured",
+              "titleHtml": "armoured",
+              "descriptionText": "+1 armour inside",
+              "descriptionHtml": "+1 armour inside",
+              "titleProvenance": "delimiter:paren",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "tough",
+              "rawHtml": "tough",
+              "title": "tough",
+              "titleHtml": "tough",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "monster cage",
+              "rawHtml": "monster cage",
+              "title": "monster cage",
+              "titleHtml": "monster cage",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            }
+          ]
+        },
+        {
+          "presentation": "inline",
+          "markerKind": null,
+          "delimiter": ";",
+          "instruction": "Bad things:",
+          "precedingContext": "ing about it. Good things: roomy; surveillance gear; fast; stealthy; intimidating; classic; medical kit; sleeping space; toolkit; concealed weapons; anonymous; armoured (+1 armour inside); tough; monster cage. Bad things:",
+          "cueKind": "styled-label",
+          "rawRun": "loud; obvious; temperamental; beat- en-up; gas-guzzler; uncomfortable; slow; old",
+          "terminator": "sentence-period",
+          "y": 145.6802,
+          "options": [
+            {
+              "raw": "loud",
+              "rawHtml": "loud",
+              "title": "loud",
+              "titleHtml": "loud",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "obvious",
+              "rawHtml": "obvious",
+              "title": "obvious",
+              "titleHtml": "obvious",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "temperamental",
+              "rawHtml": "temperamental",
+              "title": "temperamental",
+              "titleHtml": "temperamental",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "beat- en-up",
+              "rawHtml": "beat- en-up",
+              "title": "beat- en-up",
+              "titleHtml": "beat- en-up",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "gas-guzzler",
+              "rawHtml": "gas-guzzler",
+              "title": "gas-guzzler",
+              "titleHtml": "gas-guzzler",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "uncomfortable",
+              "rawHtml": "uncomfortable",
+              "title": "uncomfortable",
+              "titleHtml": "uncomfortable",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "slow",
+              "rawHtml": "slow",
+              "title": "slow",
+              "titleHtml": "slow",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "old",
+              "rawHtml": "old",
+              "title": "old",
+              "titleHtml": "old",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            }
+          ]
+        }
+      ],
+      "otherGroups": []
+    },
+    {
+      "playbook": "The Searcher",
+      "page": 45,
+      "move": "Guardian",
+      "required": false,
+      "presentation": "inline",
+      "censusShape": "1 of 5",
+      "optionCounts": [
+        5
+      ],
+      "matchesCensus": true,
+      "descriptionHtml": "You have a mystical ally (perhaps a spirit, alien, or cryptid) who helps and defends you. Define them, and their powers, with the Keeper’s agreement. Their look is one of: invisible, an intangible spirit thing, a weird creature, disguised as an animal, or disguised as a person.",
+      "optionGroups": [
+        {
+          "presentation": "inline",
+          "markerKind": null,
+          "delimiter": ",",
+          "instruction": "Their look is one of:",
+          "precedingContext": ": You have a mystical ally (perhaps a spirit, alien, or cryptid) who helps and defends you. Define them, and their powers, with the Keeper’s agreement. Their look is one of:",
+          "cueKind": "pick-verb",
+          "rawRun": "invisible, an intangible spirit thing, a weird creature, disguised as an animal, or disguised as a person",
+          "terminator": "sentence-period",
+          "y": 417.4551,
+          "options": [
+            {
+              "raw": "invisible",
+              "rawHtml": "invisible",
+              "title": "invisible",
+              "titleHtml": "invisible",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "an intangible spirit thing",
+              "rawHtml": "an intangible spirit thing",
+              "title": "an intangible spirit thing",
+              "titleHtml": "an intangible spirit thing",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "a weird creature",
+              "rawHtml": "a weird creature",
+              "title": "a weird creature",
+              "titleHtml": "a weird creature",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "disguised as an animal",
+              "rawHtml": "disguised as an animal",
+              "title": "disguised as an animal",
+              "titleHtml": "disguised as an animal",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "disguised as a person",
+              "rawHtml": "disguised as a person",
+              "title": "disguised as a person",
+              "titleHtml": "disguised as a person",
+              "descriptionText": "",
+              "descriptionHtml": "",
+              "titleProvenance": "none",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            }
+          ]
+        }
+      ],
+      "otherGroups": []
+    },
+    {
+      "playbook": "The Host",
+      "page": 31,
+      "move": "Defensive Adaptation",
+      "required": true,
+      "presentation": "bulleted",
+      "censusShape": "1 of 6",
+      "optionCounts": [
+        6
+      ],
+      "matchesCensus": true,
+      "descriptionHtml": "Your symbiote protects you. Pick one:<ul><li>Silk threads: 0-harm close entangle sticky.</li><li>Acid spray: 1-harm close blinding acid.</li><li>Soothe thoughts: 0-harm intimate/hand sedative calming.</li><li>Scales: 1-armour.</li><li>Camouflage: +1 ongoing to stay out of sight.</li><li>Whispered advice: Get +1 hold to <b>read a bad situation</b>, even on a miss.</li></ul>Then pick two of these:",
+      "optionGroups": [
+        {
+          "presentation": "bulleted",
+          "markerKind": "glyph",
+          "delimiter": null,
+          "instruction": "Pick one:",
+          "options": [
+            {
+              "raw": "Silk threads: 0-harm close entangle sticky.",
+              "rawHtml": "Silk threads: 0-harm close entangle sticky.",
+              "title": "Silk threads",
+              "titleHtml": "Silk threads",
+              "descriptionText": "0-harm close entangle sticky.",
+              "descriptionHtml": "0-harm close entangle sticky.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Acid spray: 1-harm close blinding acid.",
+              "rawHtml": "Acid spray: 1-harm close blinding acid.",
+              "title": "Acid spray",
+              "titleHtml": "Acid spray",
+              "descriptionText": "1-harm close blinding acid.",
+              "descriptionHtml": "1-harm close blinding acid.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Soothe thoughts: 0-harm intimate/hand sedative calming.",
+              "rawHtml": "Soothe thoughts: 0-harm intimate/hand sedative calming.",
+              "title": "Soothe thoughts",
+              "titleHtml": "Soothe thoughts",
+              "descriptionText": "0-harm intimate/hand sedative calming.",
+              "descriptionHtml": "0-harm intimate/hand sedative calming.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Scales: 1-armour.",
+              "rawHtml": "Scales: 1-armour.",
+              "title": "Scales",
+              "titleHtml": "Scales",
+              "descriptionText": "1-armour.",
+              "descriptionHtml": "1-armour.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Camouflage: +1 ongoing to stay out of sight.",
+              "rawHtml": "Camouflage: +1 ongoing to stay out of sight.",
+              "title": "Camouflage",
+              "titleHtml": "Camouflage",
+              "descriptionText": "+1 ongoing to stay out of sight.",
+              "descriptionHtml": "+1 ongoing to stay out of sight.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            },
+            {
+              "raw": "Whispered advice: Get +1 hold to read a bad situation, even on a miss.",
+              "rawHtml": "Whispered advice: Get +1 hold to <b>read a bad situation</b>, even on a miss.",
+              "title": "Whispered advice",
+              "titleHtml": "Whispered advice",
+              "descriptionText": "Get +1 hold to read a bad situation, even on a miss.",
+              "descriptionHtml": "Get +1 hold to <b>read a bad situation</b>, even on a miss.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "regular",
+              "titleFontCorroborated": false
+            }
+          ]
+        }
+      ],
+      "otherGroups": []
+    },
+    {
+      "playbook": "The Searcher",
+      "page": 45,
+      "move": "First Encounter",
+      "required": true,
+      "presentation": "bulleted",
+      "censusShape": "1 of 7",
+      "optionCounts": [
+        7
+      ],
+      "matchesCensus": true,
+      "descriptionHtml": "One strange event started you down this path, sparking your need to discover the truth behind the unexplained. Decide what that event was: pick a category below and take the associated move. Then tell everyone what happened to you (or someone close to you).<ul><li><b>Cryptid Sighting</b>: You take note of any reports of strange creatures. Whenever you first see a new type of creature, you may immediately ask one of the <b>investigate a mystery</b> questions.</li><li><b>Zone of Strangeness</b>: Things are not fixed. You never need <b>act under pressure</b> when supernatural forces alter the environment around you, and you get 2-armour against harm from sudden changes to the laws of physics.</li><li><b>Psychic Event</b>: Your mind is awakened. You may <b>act under pressure</b> to use the <b>sensitive</b> weird move, or—if <b>sensitive</b> is your weird move— <b>empath</b>. See page 21 of <i>Tome of Mysteries</i>.</li><li><b>Higher power</b>: Something looks out for you. You start with an extra Luck.</li><li><b>Strange Dangers</b>: You are always watching for hazards. When you have no armour, you still count as having 1-armour.</li><li><b>Abduction</b>: They taught you hidden knowledge. Gain +1 to any move when you research strange or ancient secrets to do it.</li><li><b>Cosmic Insight</b>: You have encompassed the soul of the universe. You never need to <b>act under pres- sure</b> due to feelings of fear, despair, or isolation.</li></ul>",
+      "optionGroups": [
+        {
+          "presentation": "bulleted",
+          "markerKind": "glyph",
+          "delimiter": null,
+          "instruction": "",
+          "options": [
+            {
+              "raw": "Cryptid Sighting: You take note of any reports of strange creatures. Whenever you first see a new type of creature, you may immediately ask one of the investigate a mystery questions.",
+              "rawHtml": "<b>Cryptid Sighting</b>: You take note of any reports of strange creatures. Whenever you first see a new type of creature, you may immediately ask one of the <b>investigate a mystery</b> questions.",
+              "title": "Cryptid Sighting",
+              "titleHtml": "<b>Cryptid Sighting</b>",
+              "descriptionText": "You take note of any reports of strange creatures. Whenever you first see a new type of creature, you may immediately ask one of the investigate a mystery questions.",
+              "descriptionHtml": "You take note of any reports of strange creatures. Whenever you first see a new type of creature, you may immediately ask one of the <b>investigate a mystery</b> questions.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "bold",
+              "titleFontCorroborated": true
+            },
+            {
+              "raw": "Zone of Strangeness: Things are not fixed. You never need act under pressure when supernatural forces alter the environment around you, and you get 2-armour against harm from sudden changes to the laws of physics.",
+              "rawHtml": "<b>Zone of Strangeness</b>: Things are not fixed. You never need <b>act under pressure</b> when supernatural forces alter the environment around you, and you get 2-armour against harm from sudden changes to the laws of physics.",
+              "title": "Zone of Strangeness",
+              "titleHtml": "<b>Zone of Strangeness</b>",
+              "descriptionText": "Things are not fixed. You never need act under pressure when supernatural forces alter the environment around you, and you get 2-armour against harm from sudden changes to the laws of physics.",
+              "descriptionHtml": "Things are not fixed. You never need <b>act under pressure</b> when supernatural forces alter the environment around you, and you get 2-armour against harm from sudden changes to the laws of physics.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "bold",
+              "titleFontCorroborated": true
+            },
+            {
+              "raw": "Psychic Event: Your mind is awakened. You may act under pressure to use the sensitive weird move, or—if sensitive is your weird move— empath. See page 21 of Tome of Mysteries.",
+              "rawHtml": "<b>Psychic Event</b>: Your mind is awakened. You may <b>act under pressure</b> to use the <b>sensitive</b> weird move, or—if <b>sensitive</b> is your weird move— <b>empath</b>. See page 21 of <i>Tome of Mysteries</i>.",
+              "title": "Psychic Event",
+              "titleHtml": "<b>Psychic Event</b>",
+              "descriptionText": "Your mind is awakened. You may act under pressure to use the sensitive weird move, or—if sensitive is your weird move— empath. See page 21 of Tome of Mysteries.",
+              "descriptionHtml": "Your mind is awakened. You may <b>act under pressure</b> to use the <b>sensitive</b> weird move, or—if <b>sensitive</b> is your weird move— <b>empath</b>. See page 21 of <i>Tome of Mysteries</i>.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "bold",
+              "titleFontCorroborated": true
+            },
+            {
+              "raw": "Higher power: Something looks out for you. You start with an extra Luck.",
+              "rawHtml": "<b>Higher power</b>: Something looks out for you. You start with an extra Luck.",
+              "title": "Higher power",
+              "titleHtml": "<b>Higher power</b>",
+              "descriptionText": "Something looks out for you. You start with an extra Luck.",
+              "descriptionHtml": "Something looks out for you. You start with an extra Luck.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "bold",
+              "titleFontCorroborated": true
+            },
+            {
+              "raw": "Strange Dangers: You are always watching for hazards. When you have no armour, you still count as having 1-armour.",
+              "rawHtml": "<b>Strange Dangers</b>: You are always watching for hazards. When you have no armour, you still count as having 1-armour.",
+              "title": "Strange Dangers",
+              "titleHtml": "<b>Strange Dangers</b>",
+              "descriptionText": "You are always watching for hazards. When you have no armour, you still count as having 1-armour.",
+              "descriptionHtml": "You are always watching for hazards. When you have no armour, you still count as having 1-armour.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "bold",
+              "titleFontCorroborated": true
+            },
+            {
+              "raw": "Abduction: They taught you hidden knowledge. Gain +1 to any move when you research strange or ancient secrets to do it.",
+              "rawHtml": "<b>Abduction</b>: They taught you hidden knowledge. Gain +1 to any move when you research strange or ancient secrets to do it.",
+              "title": "Abduction",
+              "titleHtml": "<b>Abduction</b>",
+              "descriptionText": "They taught you hidden knowledge. Gain +1 to any move when you research strange or ancient secrets to do it.",
+              "descriptionHtml": "They taught you hidden knowledge. Gain +1 to any move when you research strange or ancient secrets to do it.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "bold",
+              "titleFontCorroborated": true
+            },
+            {
+              "raw": "Cosmic Insight: You have encompassed the soul of the universe. You never need to act under pres- sure due to feelings of fear, despair, or isolation.",
+              "rawHtml": "<b>Cosmic Insight</b>: You have encompassed the soul of the universe. You never need to <b>act under pres- sure</b> due to feelings of fear, despair, or isolation.",
+              "title": "Cosmic Insight",
+              "titleHtml": "<b>Cosmic Insight</b>",
+              "descriptionText": "You have encompassed the soul of the universe. You never need to act under pres- sure due to feelings of fear, despair, or isolation.",
+              "descriptionHtml": "You have encompassed the soul of the universe. You never need to <b>act under pres- sure</b> due to feelings of fear, despair, or isolation.",
+              "titleProvenance": "delimiter:colon",
+              "titleStyle": "bold",
+              "titleFontCorroborated": true
+            }
+          ]
+        }
+      ],
+      "otherGroups": []
+    }
+  ]
+}

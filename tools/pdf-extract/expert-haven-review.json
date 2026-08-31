@@ -1,0 +1,45 @@
+{
+  "playbook": "The Expert",
+  "section": "Haven",
+  "intro": "You have set up a haven, a safe place to work. Pick three of the options below for your haven:",
+  "options": [
+    {
+      "title": "Lore Library",
+      "descriptionText": "When you hit the books, take +1 forward to <b>investigate the mystery</b> (as long as historical or reference works are appropriate)."
+    },
+    {
+      "title": "Mystical Library",
+      "descriptionText": "If you use your library’s occult tomes and grimoires, preparing with your tomes and grimoires, take +1 forward for <b>use magic</b>."
+    },
+    {
+      "title": "Protection Spells",
+      "descriptionText": "Your haven is safe from mon- sters—they cannot enter. Monsters might be able to do something special to evade the wards, but not easily."
+    },
+    {
+      "title": "Armory",
+      "descriptionText": "You have a stockpile of mystical and rare mon- ster-killing weapons and items. If you <b>need a special weapon</b>, roll +Weird. On a 10+ you have it (and plenty if that matters). On a 7-9 you have it, but only the minimum. On a miss, you’ve got the wrong thing."
+    },
+    {
+      "title": "Infirmary",
+      "descriptionText": "You can heal people, and have the space for one or two to recuperate. The Keeper will tell you how long any patient’s recovery is likely to take, and if you need extra supplies or help."
+    },
+    {
+      "title": "Workshop",
+      "descriptionText": "You have a space for building and repairing guns, cars and other gadgets. Work out with the Keeper how long any repair or construction will take, and if you need extra supplies or help."
+    },
+    {
+      "title": "Oubliette",
+      "descriptionText": "This room is isolated from every kind of monster, spirit and magic that you know about. Any- thing you stash in there can’t be found, can’t do any magic, and can’t get out."
+    },
+    {
+      "title": "Panic Room",
+      "descriptionText": "This has essential supplies and is pro- tected by normal and mystical means. You can hide out there for a few days, safe from pretty much anything."
+    },
+    {
+      "title": "Magical Laboratory",
+      "descriptionText": "You have a mystical lab with all kinds of weird ingredients and tools useful for casting spells (like the <b>use magic</b> move, big magic, and any other magical moves)."
+    }
+  ],
+  "armoryListStructureFinding": "NO EMBEDDED LIST STRUCTURE. Checked directly against the raw PDF item stream: Armory's roll-outcome breakdown (\"On a 10+ you have it... On a 7-9 you have it... On a miss, you've got the wrong thing.\") contains zero \"•\" bullet-marker characters anywhere in its item range — it is flowing prose, written as plain sentences within the same paragraph as the rest of the option, not a bulleted <ul>/<li> list like Action Scientist's similarly-shaped Neurology and Psychology / Computers and Electronics options (which DO use real \"•\" list markers for their own 10+/7-9/miss breakdowns). Confirmed programmatically: no <ul> in the extracted output.",
+  "formattingNote": "0 italic run(s) found in this column (expected 0 — confirmed programmatically, not just assumed): every one of Haven's 9 options is entirely free of italic. Bold cross-references appear in 3 options — Lore Library (\"investigate the mystery\"), Mystical Library and Magical Laboratory (both \"use magic\") — consistent with the base-move-reference-bolding pattern already seen in every other playbook processed so far. Armory has one additional bold trigger clause (\"need a special weapon\"), styled bold rather than italic (a different convention from most other playbooks' italicized trigger clauses, e.g. Envoy's Secret Wisdom EffectText) — flagged as a real, book-wide inconsistency in trigger-clause styling, not an extraction error."
+}

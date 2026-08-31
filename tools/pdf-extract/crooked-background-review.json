@@ -1,0 +1,84 @@
+{
+  "playbook": "The Crooked",
+  "sections": [
+    {
+      "title": "Background",
+      "options": [
+        {
+          "title": "Hoodlum",
+          "descriptionText": "You can use Tough instead of Charm to <b>manipulate someone</b> with threats of violence."
+        },
+        {
+          "title": "Burglar",
+          "descriptionText": "When you <b>break into a secure location</b>, roll +Sharp. On a 10+ pick three, on a 7-9 pick two: you get in undetected, you get out undetected, you don't leave a mess, you find what you were after."
+        },
+        {
+          "title": "Grifter",
+          "descriptionText": "When you are about to <b>manipulate someone</b>, you can ask the Keeper \"What will convince this person to do what I want?\" The Keeper must answer honestly, but not necessarily completely."
+        },
+        {
+          "title": "Fixer",
+          "descriptionText": "If you <b>need to buy something, sell something, or hire someone</b>, roll +Charm. On a 10+ you know just the person who will be interested. On a 7-9 you know the only person who can do it, but there's a complication. Pick one: you owe them; they screwed you over; you screwed them over. On a miss, the only person who can help is someone who absolutely hates you."
+        },
+        {
+          "title": "Assassin",
+          "descriptionText": "When you take your first shot at an unsuspecting target, do +2 Harm."
+        },
+        {
+          "title": "Charlatan",
+          "descriptionText": "When you want people to think you are using magic, roll +Cool. On a 10 or more, your audience is amazed and fooled by your illusion. On a 7-9 you tripped up a couple of times, maybe someone will notice. You may also <b>manipulate people</b> with fortune telling. When you do that, ask \"What are they hoping for right now?\" as a free question (even on a miss)."
+        },
+        {
+          "title": "Pickpocket",
+          "descriptionText": "When you <b>steal something small</b>, roll +Charm. On a 10 or more, you get it and they didn't notice you taking it. On a 7-9 either you don't grab it, you grab the wrong thing, or they remember you later: your choice."
+        }
+      ]
+    },
+    {
+      "title": "Heat",
+      "options": [
+        {
+          "title": null,
+          "descriptionText": "A police detective, {{blank}}, has made it a personal goal to put you away."
+        },
+        {
+          "title": null,
+          "descriptionText": "You have a rival from your background, {{blank}}, who never misses a chance to screw you over."
+        },
+        {
+          "title": null,
+          "descriptionText": "You pissed off a well-connected criminal, {{blank}}, and they'll do whatever they can to destroy you."
+        },
+        {
+          "title": null,
+          "descriptionText": "{{blank}} is someone with special powers, a person or monster, who you took advantage of."
+        },
+        {
+          "title": null,
+          "descriptionText": "{{blank}} is an old partner you betrayed in the middle of a job."
+        }
+      ]
+    },
+    {
+      "title": "Underworld (top-level options only)",
+      "options": [
+        {
+          "title": null,
+          "descriptionText": "The target of a job was a dangerous creature."
+        },
+        {
+          "title": null,
+          "descriptionText": "You worked with someone who was more than they seemed."
+        },
+        {
+          "title": null,
+          "descriptionText": "You were hired by something weird."
+        },
+        {
+          "title": null,
+          "descriptionText": "Things went south on a job, including but not limited to running into."
+        }
+      ]
+    }
+  ]
+}

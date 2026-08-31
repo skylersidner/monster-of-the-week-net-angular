@@ -1,0 +1,153 @@
+{
+  "playbook": "The Chosen",
+  "sections": [
+    {
+      "title": "Fate — How You Found Out",
+      "options": [
+        {
+          "title": "Nightmares and visions",
+          "descriptionText": null
+        },
+        {
+          "title": "Some weirdo told you",
+          "descriptionText": null
+        },
+        {
+          "title": "An ancient cult found you",
+          "descriptionText": null
+        },
+        {
+          "title": "Sought out by your nemesis",
+          "descriptionText": null
+        },
+        {
+          "title": "Attacked by monsters",
+          "descriptionText": null
+        },
+        {
+          "title": "Trained from birth",
+          "descriptionText": null
+        },
+        {
+          "title": "You found the prophecy",
+          "descriptionText": null
+        }
+      ]
+    },
+    {
+      "title": "Fate — Heroic tags",
+      "options": [
+        {
+          "title": "True love",
+          "descriptionText": null
+        },
+        {
+          "title": "Sacrifice",
+          "descriptionText": null
+        },
+        {
+          "title": "You are the Champion",
+          "descriptionText": null
+        },
+        {
+          "title": "Visions",
+          "descriptionText": null
+        },
+        {
+          "title": "Secret training",
+          "descriptionText": null
+        },
+        {
+          "title": "Magical powers",
+          "descriptionText": null
+        },
+        {
+          "title": "Mystical inheritance",
+          "descriptionText": null
+        },
+        {
+          "title": "A normal life",
+          "descriptionText": null
+        },
+        {
+          "title": "You can save the world",
+          "descriptionText": null
+        },
+        {
+          "title": "Hidden allies",
+          "descriptionText": null
+        },
+        {
+          "title": "The end of monsters",
+          "descriptionText": null
+        },
+        {
+          "title": "Divine help",
+          "descriptionText": null
+        }
+      ]
+    },
+    {
+      "title": "Fate — Doom tags",
+      "options": [
+        {
+          "title": "Death",
+          "descriptionText": null
+        },
+        {
+          "title": "You can't save everyone",
+          "descriptionText": null
+        },
+        {
+          "title": "Impossible love",
+          "descriptionText": null
+        },
+        {
+          "title": "Failure",
+          "descriptionText": null
+        },
+        {
+          "title": "A nemesis",
+          "descriptionText": null
+        },
+        {
+          "title": "No normal life",
+          "descriptionText": null
+        },
+        {
+          "title": "Loss of loved ones",
+          "descriptionText": null
+        },
+        {
+          "title": "Treachery",
+          "descriptionText": null
+        },
+        {
+          "title": "Doubt",
+          "descriptionText": null
+        },
+        {
+          "title": "Sympathy with the enemy",
+          "descriptionText": null
+        },
+        {
+          "title": "Damnation",
+          "descriptionText": null
+        },
+        {
+          "title": "Hosts of monsters",
+          "descriptionText": null
+        },
+        {
+          "title": "The end of days",
+          "descriptionText": null
+        },
+        {
+          "title": "The source of Evil",
+          "descriptionText": null
+        }
+      ]
+    }
+  ],
+  "extractionNote": "5 bold/italic run(s) detected in this column; 0 matched a tag label exactly. All detected runs are section headings (\"Your Fate\", \"How You Found Out\", \"Heroic\", \"Doom\") or the \"Whenever you mark off a point of Luck,\" aside — not part of any tag option, so no <b>/<i> markup applies to Fate's options."
+}

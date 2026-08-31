@@ -39,6 +39,31 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<MinionWeakness> MinionWeaknesses => Set<MinionWeakness>();
     public DbSet<MinionCustomMove> MinionCustomMoves => Set<MinionCustomMove>();
 
+    public DbSet<Playbook> Playbooks => Set<Playbook>();
+    public DbSet<PlaybookStatArrayOption> PlaybookStatArrayOptions => Set<PlaybookStatArrayOption>();
+    public DbSet<PlaybookMove> PlaybookMoves => Set<PlaybookMove>();
+    public DbSet<PlaybookGearCategory> PlaybookGearCategories => Set<PlaybookGearCategory>();
+    public DbSet<PlaybookGearOption> PlaybookGearOptions => Set<PlaybookGearOption>();
+    public DbSet<PlaybookLookCategory> PlaybookLookCategories => Set<PlaybookLookCategory>();
+    public DbSet<PlaybookLookOption> PlaybookLookOptions => Set<PlaybookLookOption>();
+    public DbSet<PlaybookImprovement> PlaybookImprovements => Set<PlaybookImprovement>();
+    public DbSet<BasicMove> BasicMoves => Set<BasicMove>();
+    public DbSet<BespokeSection> BespokeSections => Set<BespokeSection>();
+    public DbSet<BespokeOption> BespokeOptions => Set<BespokeOption>();
+    public DbSet<BespokeJournal> BespokeJournals => Set<BespokeJournal>();
+    public DbSet<BespokeJournalField> BespokeJournalFields => Set<BespokeJournalField>();
+    public DbSet<PlaybookExtraTrack> PlaybookExtraTracks => Set<PlaybookExtraTrack>();
+
+    public DbSet<Hunter> Hunters => Set<Hunter>();
+    public DbSet<HunterMove> HunterMoves => Set<HunterMove>();
+    public DbSet<HunterGearSelection> HunterGearSelections => Set<HunterGearSelection>();
+    public DbSet<HunterLookSelection> HunterLookSelections => Set<HunterLookSelection>();
+    public DbSet<HunterExtraTrackValue> HunterExtraTrackValues => Set<HunterExtraTrackValue>();
+    public DbSet<HunterBespokeSelection> HunterBespokeSelections => Set<HunterBespokeSelection>();
+    public DbSet<HunterBespokeSectionInstance> HunterBespokeSectionInstances => Set<HunterBespokeSectionInstance>();
+    public DbSet<HunterJournalEntry> HunterJournalEntries => Set<HunterJournalEntry>();
+    public DbSet<HunterJournalEntryFieldValue> HunterJournalEntryFieldValues => Set<HunterJournalEntryFieldValue>();
+
     // Named AppUsers, not Users: IdentityUserContext<TUser, ...> already declares a
     // DbSet<TUser> Users, so Users here would collide if this context ever derives from it.
     public DbSet<AppUser> AppUsers => Set<AppUser>();
@@ -447,6 +472,470 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.FriendlyName).HasColumnName("friendly_name");
             entity.Property(e => e.Xml).HasColumnName("xml");
+        });
+
+        ConfigurePlaybooks(modelBuilder);
+    }
+
+    /*
+     * Hunter Playbook template data — docs/hunter-playbooks/ Phase 2.
+     *
+     * Split into its own method rather than extending the already-long OnModelCreating
+     * inline: this domain adds nine entities now and four more when Phase 5 lands.
+     *
+     * Cascade delete throughout, matching the Minion child tables: a Playbook's stat
+     * arrays, moves, gear, looks and improvements have no meaning without it. Hunter
+     * instances are a separate concern — they live-link to these rows by FK (Phase 9/10),
+     * and guarding against deleting a row a Hunter still references is deferred to that
+     * point, since no Hunter table exists yet. See architecture.md Section 3,
+     * "Persistence semantics for the upsert-the-graph endpoint."
+     *
+     * ValueGeneratedNever() on every key here, unlike the entities above, and it is
+     * load-bearing rather than cosmetic. These entities populate Id inline
+     * (= Guid.NewGuid()), so a brand-new child already carries a non-default key. Under
+     * EF's default ValueGeneratedOnAdd for Guid keys, a non-default key on an entity
+     * discovered through a tracked parent's navigation is read as "this row already
+     * exists", so the new child is classified Modified and saved as an UPDATE that matches
+     * zero rows — surfacing as DbUpdateConcurrencyException at the end of an otherwise
+     * valid PUT. Declaring the keys app-generated (which is the truth) makes EF decide
+     * Added vs. Modified from whether the entity is tracked, which is what the Id-based
+     * diff in PlaybookService needs. The entities above never hit this because none of
+     * them add children to an already-tracked graph — they go through Add() on the root,
+     * which marks the whole graph Added regardless of key values.
+     *
+     * Model-side metadata only: it changes no column definition, so it produces no DDL.
+     */
+    private static void ConfigurePlaybooks(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Playbook>(entity =>
+        {
+            entity.ToTable("playbooks");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.LuckBoxCount).HasColumnName("luck_box_count");
+            entity.Property(e => e.LuckSpecialText).HasColumnName("luck_special_text");
+            entity.Property(e => e.HarmUnstableThreshold).HasColumnName("harm_unstable_threshold");
+            entity.Property(e => e.HarmBoxCount).HasColumnName("harm_box_count");
+            entity.Property(e => e.ExperienceBoxCount).HasColumnName("experience_box_count");
+            entity.Property(e => e.MoveGrantCount).HasColumnName("move_grant_count");
+            entity.Property(e => e.GettingStartedText).HasColumnName("getting_started_text");
+            entity.Property(e => e.IntroductionsText).HasColumnName("introductions_text");
+            entity.Property(e => e.LevelingUpText).HasColumnName("leveling_up_text");
+            entity.Property(e => e.HistoryPromptsText).HasColumnName("history_prompts_text");
+            entity.HasIndex(e => e.Name).IsUnique().HasDatabaseName("idx_playbooks_name");
+        });
+
+        modelBuilder.Entity<PlaybookStatArrayOption>(entity =>
+        {
+            entity.ToTable("playbook_stat_array_options");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Charm).HasColumnName("charm");
+            entity.Property(e => e.Cool).HasColumnName("cool");
+            entity.Property(e => e.Sharp).HasColumnName("sharp");
+            entity.Property(e => e.Tough).HasColumnName("tough");
+            entity.Property(e => e.Weird).HasColumnName("weird");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.StatArrayOptions).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_stat_array_options_playbook_id");
+        });
+
+        modelBuilder.Entity<PlaybookMove>(entity =>
+        {
+            entity.ToTable("playbook_moves");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.DescriptionText).HasColumnName("description_text");
+            entity.Property(e => e.Required).HasColumnName("required");
+            entity.Property(e => e.IsAdvanced).HasColumnName("is_advanced");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.Moves).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_moves_playbook_id");
+        });
+
+        modelBuilder.Entity<PlaybookGearCategory>(entity =>
+        {
+            entity.ToTable("playbook_gear_categories");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Label).HasColumnName("label").HasMaxLength(512).IsRequired();
+            entity.Property(e => e.PickCount).HasColumnName("pick_count");
+            entity.Property(e => e.IsOptional).HasColumnName("is_optional");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.GearCategories).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_gear_categories_playbook_id");
+        });
+
+        modelBuilder.Entity<PlaybookGearOption>(entity =>
+        {
+            entity.ToTable("playbook_gear_options");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.CategoryId).HasColumnName("category_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.MechanicalText).HasColumnName("mechanical_text");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Category).WithMany(e => e.Options).HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.CategoryId).HasDatabaseName("idx_playbook_gear_options_category_id");
+        });
+
+        modelBuilder.Entity<PlaybookLookCategory>(entity =>
+        {
+            entity.ToTable("playbook_look_categories");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.AllowsFreeform).HasColumnName("allows_freeform");
+            entity.Property(e => e.GroupLabel).HasColumnName("group_label").HasMaxLength(255);
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.LookCategories).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_look_categories_playbook_id");
+        });
+
+        modelBuilder.Entity<PlaybookLookOption>(entity =>
+        {
+            entity.ToTable("playbook_look_options");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.CategoryId).HasColumnName("category_id");
+            entity.Property(e => e.Text).HasColumnName("text").IsRequired();
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Category).WithMany(e => e.Options).HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.CategoryId).HasDatabaseName("idx_playbook_look_options_category_id");
+        });
+
+        modelBuilder.Entity<PlaybookImprovement>(entity =>
+        {
+            entity.ToTable("playbook_improvements");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Text).HasColumnName("text").IsRequired();
+            entity.Property(e => e.IsAdvanced).HasColumnName("is_advanced");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.Improvements).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_improvements_playbook_id");
+        });
+
+        modelBuilder.Entity<BasicMove>(entity =>
+        {
+            entity.ToTable("basic_moves");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.DescriptionText).HasColumnName("description_text").IsRequired();
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+        });
+
+        ConfigureBespokeRulesets(modelBuilder);
+    }
+
+    /*
+     * Phase 5 — bespoke rulesets. architecture.md Section 6 is the authoritative spec.
+     *
+     * Same ValueGeneratedNever() rule as ConfigurePlaybooks above, for the same
+     * load-bearing reason: these rows are added to an already-tracked Playbook graph by the
+     * upsert endpoint, and a pre-populated Guid key would otherwise be read as "already
+     * exists" and saved as a zero-row UPDATE.
+     */
+    private static void ConfigureBespokeRulesets(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<BespokeSection>(entity =>
+        {
+            entity.ToTable("bespoke_sections");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.PlaybookMoveId).HasColumnName("playbook_move_id");
+            entity.Property(e => e.Title).HasColumnName("title").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.EffectText).HasColumnName("effect_text");
+            entity.Property(e => e.FreeTextLabel).HasColumnName("free_text_label").HasMaxLength(255);
+            entity.Property(e => e.MinSelect).HasColumnName("min_select");
+            entity.Property(e => e.MaxSelect).HasColumnName("max_select");
+            entity.Property(e => e.MinInstances).HasColumnName("min_instances");
+            entity.Property(e => e.MaxInstances).HasColumnName("max_instances");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.BespokeSections).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            /*
+             * Phase 6. Cascade so that removing a Move takes its embedded pick-structure
+             * with it. This does create a diamond — a move-attached Section is reachable
+             * from playbooks both directly and via playbook_moves — which Postgres handles
+             * without complaint (unlike SQL Server, where it would be a multiple-cascade-
+             * path error). Both paths delete the same rows, so the outcome is identical
+             * whichever the planner takes.
+             */
+            entity.HasOne(e => e.PlaybookMove).WithMany(e => e.BespokeSections)
+                .HasForeignKey(e => e.PlaybookMoveId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_bespoke_sections_playbook_id");
+            entity.HasIndex(e => e.PlaybookMoveId).HasDatabaseName("idx_bespoke_sections_playbook_move_id");
+        });
+
+        modelBuilder.Entity<BespokeOption>(entity =>
+        {
+            entity.ToTable("bespoke_options");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
+            entity.Property(e => e.ParentOptionId).HasColumnName("parent_option_id");
+            entity.Property(e => e.Title).HasColumnName("title");
+            entity.Property(e => e.DescriptionText).HasColumnName("description_text");
+            entity.Property(e => e.MinSelect).HasColumnName("min_select");
+            entity.Property(e => e.MaxSelect).HasColumnName("max_select");
+            entity.Property(e => e.NumericMin).HasColumnName("numeric_min");
+            entity.Property(e => e.NumericMax).HasColumnName("numeric_max");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+
+            entity.HasOne(e => e.Section).WithMany(e => e.Options).HasForeignKey(e => e.SectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            /*
+             * The self-reference is NoAction, deliberately, and it is not a weaker choice
+             * than Cascade. Every option already carries SectionId, so deleting a Section
+             * cascades to the whole tree in one step regardless of depth — the parent link
+             * has no work to do there. Declaring it Cascade as well would give Postgres two
+             * cascade paths to the same rows for no benefit. Deleting a subtree without
+             * deleting its Section is handled explicitly in PlaybookService, which walks
+             * descendants before removing a parent, so orphan rows are impossible.
+             */
+            entity.HasOne(e => e.ParentOption).WithMany(e => e.ChildOptions)
+                .HasForeignKey(e => e.ParentOptionId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasIndex(e => e.SectionId).HasDatabaseName("idx_bespoke_options_section_id");
+            entity.HasIndex(e => e.ParentOptionId).HasDatabaseName("idx_bespoke_options_parent_option_id");
+        });
+
+        modelBuilder.Entity<BespokeJournal>(entity =>
+        {
+            entity.ToTable("bespoke_journals");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Title).HasColumnName("title").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.EffectText).HasColumnName("effect_text");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.BespokeJournals).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_bespoke_journals_playbook_id");
+        });
+
+        modelBuilder.Entity<BespokeJournalField>(entity =>
+        {
+            entity.ToTable("bespoke_journal_fields");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.JournalId).HasColumnName("journal_id");
+            entity.Property(e => e.Label).HasColumnName("label").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Journal).WithMany(e => e.Fields).HasForeignKey(e => e.JournalId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.JournalId).HasDatabaseName("idx_bespoke_journal_fields_journal_id");
+        });
+
+        modelBuilder.Entity<PlaybookExtraTrack>(entity =>
+        {
+            entity.ToTable("playbook_extra_tracks");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.EffectText).HasColumnName("effect_text");
+            entity.Property(e => e.BoxCount).HasColumnName("box_count");
+            entity.Property(e => e.StartLabel).HasColumnName("start_label").HasMaxLength(255);
+            entity.Property(e => e.EndLabel).HasColumnName("end_label").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.ExtraTracks).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_extra_tracks_playbook_id");
+        });
+
+        modelBuilder.Entity<Hunter>(entity =>
+        {
+            entity.ToTable("hunters");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Pronouns).HasColumnName("pronouns").HasMaxLength(255);
+            entity.Property(e => e.PlaybookStatArrayOptionId).HasColumnName("playbook_stat_array_option_id");
+            entity.Property(e => e.Luck).HasColumnName("luck");
+            entity.Property(e => e.Harm).HasColumnName("harm");
+            entity.Property(e => e.Experience).HasColumnName("experience");
+            entity.Property(e => e.Background).HasColumnName("background");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            // Restrict, not the Cascade a required FK would default to — see Hunter.PlaybookId.
+            // WithMany() with no navigation is deliberate: Playbook is template data and has no
+            // business carrying a collection of the instances built from it. The one query that
+            // needs the count reads Hunters directly.
+            entity.HasOne(e => e.Playbook).WithMany().HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.PlaybookStatArrayOption).WithMany().HasForeignKey(e => e.PlaybookStatArrayOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_hunters_playbook_id");
+            entity.HasIndex(e => e.PlaybookStatArrayOptionId).HasDatabaseName("idx_hunters_stat_array_option_id");
+        });
+
+        modelBuilder.Entity<HunterMove>(entity =>
+        {
+            entity.ToTable("hunter_moves");
+            entity.HasKey(e => new { e.HunterId, e.PlaybookMoveId });
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.PlaybookMoveId).HasColumnName("playbook_move_id");
+            // Cascade from the Hunter (deleting a hunter takes its own picks with it), Restrict
+            // from the template side (removing a move a hunter uses is refused, not silent).
+            entity.HasOne(e => e.Hunter).WithMany(e => e.Moves).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.PlaybookMove).WithMany().HasForeignKey(e => e.PlaybookMoveId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.PlaybookMoveId).HasDatabaseName("idx_hunter_moves_playbook_move_id");
+        });
+
+        modelBuilder.Entity<HunterGearSelection>(entity =>
+        {
+            entity.ToTable("hunter_gear_selections");
+            entity.HasKey(e => new { e.HunterId, e.PlaybookGearOptionId });
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.PlaybookGearOptionId).HasColumnName("playbook_gear_option_id");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.GearSelections).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.PlaybookGearOption).WithMany().HasForeignKey(e => e.PlaybookGearOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.PlaybookGearOptionId).HasDatabaseName("idx_hunter_gear_selections_option_id");
+        });
+
+        modelBuilder.Entity<HunterLookSelection>(entity =>
+        {
+            entity.ToTable("hunter_look_selections");
+            entity.HasKey(e => new { e.HunterId, e.LookCategoryId });
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.LookCategoryId).HasColumnName("look_category_id");
+            entity.Property(e => e.LookOptionId).HasColumnName("look_option_id");
+            entity.Property(e => e.FreeformText).HasColumnName("freeform_text");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.LookSelections).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // Restrict on both template-side FKs, as with every other hunter pick: an edit that
+            // would remove a line or an option someone is using is refused, never silently applied.
+            entity.HasOne(e => e.LookCategory).WithMany().HasForeignKey(e => e.LookCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.LookOption).WithMany().HasForeignKey(e => e.LookOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.LookCategoryId).HasDatabaseName("idx_hunter_look_selections_category_id");
+            entity.HasIndex(e => e.LookOptionId).HasDatabaseName("idx_hunter_look_selections_option_id");
+        });
+
+        modelBuilder.Entity<HunterExtraTrackValue>(entity =>
+        {
+            entity.ToTable("hunter_extra_track_values");
+            entity.HasKey(e => new { e.HunterId, e.ExtraTrackId });
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.ExtraTrackId).HasColumnName("extra_track_id");
+            entity.Property(e => e.CurrentValue).HasColumnName("current_value");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.ExtraTrackValues).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.ExtraTrack).WithMany().HasForeignKey(e => e.ExtraTrackId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.ExtraTrackId).HasDatabaseName("idx_hunter_extra_track_values_track_id");
+        });
+
+        modelBuilder.Entity<HunterBespokeSectionInstance>(entity =>
+        {
+            entity.ToTable("hunter_bespoke_section_instances");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255);
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.BespokeSectionInstances).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Section).WithMany().HasForeignKey(e => e.SectionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.HunterId).HasDatabaseName("idx_hunter_bespoke_instances_hunter_id");
+            entity.HasIndex(e => e.SectionId).HasDatabaseName("idx_hunter_bespoke_instances_section_id");
+        });
+
+        modelBuilder.Entity<HunterBespokeSelection>(entity =>
+        {
+            entity.ToTable("hunter_bespoke_selections");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
+            entity.Property(e => e.BespokeOptionId).HasColumnName("bespoke_option_id");
+            entity.Property(e => e.FreeformText).HasColumnName("freeform_text");
+            entity.Property(e => e.FreeformTitle).HasColumnName("freeform_title");
+            entity.Property(e => e.NumericValue).HasColumnName("numeric_value");
+            entity.Property(e => e.SectionInstanceId).HasColumnName("section_instance_id");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.BespokeSelections).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Section).WithMany().HasForeignKey(e => e.SectionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.BespokeOption).WithMany().HasForeignKey(e => e.BespokeOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            // NoAction, not Cascade: Hunter already cascades to both this table and to
+            // HunterBespokeSectionInstance, and a second cascade path to the same rows is the
+            // kind of thing a provider can reject outright. The service deletes an instance's
+            // selections explicitly, which it has to do anyway to keep the tracked graph honest.
+            entity.HasOne(e => e.SectionInstance).WithMany(e => e.Selections).HasForeignKey(e => e.SectionInstanceId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasIndex(e => e.HunterId).HasDatabaseName("idx_hunter_bespoke_selections_hunter_id");
+            entity.HasIndex(e => e.SectionId).HasDatabaseName("idx_hunter_bespoke_selections_section_id");
+            entity.HasIndex(e => e.BespokeOptionId).HasDatabaseName("idx_hunter_bespoke_selections_option_id");
+            entity.HasIndex(e => e.SectionInstanceId).HasDatabaseName("idx_hunter_bespoke_selections_instance_id");
+        });
+
+        modelBuilder.Entity<HunterJournalEntry>(entity =>
+        {
+            entity.ToTable("hunter_journal_entries");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.HunterId).HasColumnName("hunter_id");
+            entity.Property(e => e.JournalId).HasColumnName("journal_id");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Hunter).WithMany(e => e.JournalEntries).HasForeignKey(e => e.HunterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Journal).WithMany().HasForeignKey(e => e.JournalId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.HunterId).HasDatabaseName("idx_hunter_journal_entries_hunter_id");
+            entity.HasIndex(e => e.JournalId).HasDatabaseName("idx_hunter_journal_entries_journal_id");
+        });
+
+        modelBuilder.Entity<HunterJournalEntryFieldValue>(entity =>
+        {
+            entity.ToTable("hunter_journal_entry_field_values");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.EntryId).HasColumnName("entry_id");
+            entity.Property(e => e.JournalFieldId).HasColumnName("journal_field_id");
+            entity.Property(e => e.Text).HasColumnName("text");
+            entity.HasOne(e => e.Entry).WithMany(e => e.FieldValues).HasForeignKey(e => e.EntryId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.JournalField).WithMany().HasForeignKey(e => e.JournalFieldId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.EntryId).HasDatabaseName("idx_hunter_journal_field_values_entry_id");
+            entity.HasIndex(e => e.JournalFieldId).HasDatabaseName("idx_hunter_journal_field_values_field_id");
         });
     }
 

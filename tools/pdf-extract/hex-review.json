@@ -1,0 +1,87 @@
+{
+  "playbook": "The Hex",
+  "streamOrderCheck": "Spot-checked pdftotext -raw against pages 27, 29, 30 for the column-swap defect (Skyler's Forged finding) before extracting, per standard practice. Page 27: raw stream order is Rotes -> Temptation -> (Vengeance...) -> Moves -> \"Then pick one of these:\" — correct left-to-right order, no swap. Pages 29-30 (worksheet-insert layout, not the 3-column character-sheet template) show no swap signature. Clean on all 3 pages.",
+  "targets": {
+    "temptation": {
+      "sectionTitle": "Temptation",
+      "framing": "You have a dangerous drive that you pursue, sometimes to the exclusion of your own safety. Decide if your Temptation drove you to learn magic, or if learning magic drove you to it. Whenever you give in to your Temptation and act accordingly, you mark experience. You need to <b>act under pressure</b> to resist giving in to your temptation, if a perfect opportunity presents itself; if you fail this roll, you don't mark experience like you would have if you'd willingly acted out your desires. Choose one Temptation:",
+      "options": [
+        {
+          "title": "Vengeance",
+          "descriptionText": "Use magic to inflict disproportionate ret- ribution on someone who wronged you."
+        },
+        {
+          "title": "Power",
+          "descriptionText": "Use magic to exert your dominance over another."
+        },
+        {
+          "title": "Addiction",
+          "descriptionText": "Use magic to do what you could do without it."
+        },
+        {
+          "title": "Callousness",
+          "descriptionText": "Use magic without regard for the safety of others."
+        },
+        {
+          "title": "Carnage",
+          "descriptionText": "Use magic to inflict gruesome violence."
+        },
+        {
+          "title": "Secrets",
+          "descriptionText": "Use magic to discover forbidden, dangerous knowledge."
+        },
+        {
+          "title": "Glory",
+          "descriptionText": "Use magic to steal someone’s thunder."
+        }
+      ]
+    },
+    "rotes": {
+      "pageBlurb": {
+        "note": "Page 27's shorter introductory blurb (points the reader to the separate Rotes sheet).",
+        "text": "Whenever you <b>use magic</b>, you can decide afterwards that a particular spell is a <b>rote</b> that you know. See the separate Rotes sheet for more details."
+      },
+      "fullExplanation": {
+        "note": "Page 29's full explanation. Assembled from 3 spliced/hand-verified prose segments + 1 real bulleted list — see build-hex-review.mjs comments for exactly why each segment was handled the way it was, including the one paragraph corrected by hand rather than trusted from the automated splice.",
+        "intro": "Whenever you <b>use magic</b>, you can decide afterwards that a particular spell is a <b>rote</b> that you know. Write down in detail what the spell does, and what it requires. You know how to cast it off the top of your head, and you choose two requirements from this list:",
+        "requirementsLongForm": {
+          "note": "A REAL bulleted list in the source (literal \"•\" markers), all 5 items entirely plain.",
+          "html": "<ul><li>Magic words and ritual gestures.</li><li>An object of power (wand, talisman, orb, staff, etc) which must be wielded.</li><li>An expendable component such as sulfur, sage, or incense, which must be burned, blown, or scattered during the casting.</li><li>Runes or symbols written or engraved on a surface (which must be prepared).</li><li>A spilling of blood, which inflicts 1-harm upon you or a willing participant.</li></ul>",
+          "items": [
+            "Magic words and ritual gestures.",
+            "An object of power (wand, talisman, orb, staff, etc) which must be wielded.",
+            "An expendable component such as sulfur, sage, or incense, which must be burned, blown, or scattered during the casting.",
+            "Runes or symbols written or engraved on a surface (which must be prepared).",
+            "A spilling of blood, which inflicts 1-harm upon you or a willing participant."
+          ]
+        },
+        "rest": "Give your new rote a name, and decide specifically what the requirements are (which words, gestures, objects, symbols, and procedures are required). Unlike regular <b>use magic</b>, a rote's cost and the consequences for failing it are known to you in advance. After you cast it for the first time, treat each rote as a custom move—a specialised version of use magic, which is built with the Keeper. Write down what it does on a 10+, a 7-9, and a miss. Also, a rote is a bit more powerful than a basic <b>use magic</b> spell: its glitches are less onerous and its effect may be a little bigger. Casting a rote requires you to have the needed items at hand and the ability to physically use them. You roll +Weird to cast it, as you would when <b>using magic</b> normally.",
+        "restCorrectionNote": "This paragraph's <b> placement was corrected by hand against the raw PDF item dump, NOT taken from the automated splice — the automated splice matched the wrong occurrence of a 3x-repeated, inconsistently-styled phrase (\"use magic\", bold on occurrences 1 and 3, plain on occurrence 2). See the script's header comment for the full mechanism."
+      },
+      "howManyRotes": {
+        "heading": "How many rotes?",
+        "headingNote": "Bold structural sub-heading, not embedded inline in the body text.",
+        "text": "You start out knowing up to one <b>rote</b>, which you can choose when creating your character or during play. You can learn more by taking improvements—when you do, you can choose the new rote right away or in play."
+      },
+      "requirementsShortForm": {
+        "note": "Page 29-30 worksheet's terser form of the same 5 Requirements (repeats identically in all 8 worksheet instances). All plain, confirmed programmatically.",
+        "items": [
+          "Magic words, ritual gestures",
+          "Object of power which must be wielded",
+          "Expendable component destroyed or scattered",
+          "Runes or symbols written or engraved on a surface",
+          "Spilling of blood (1-harm to you or willing person)"
+        ]
+      },
+      "worksheetFieldLabels": {
+        "Rote:": "NOT bold, NOT italic — uses a distinct DISPLAY font (\"3rdMan\", the same decorative font used for playbook titles like \"The Hex\") rather than either WarnockPro-Bold or -It. This is a structural/decorative label style, not semantic emphasis, so it correctly falls outside the <b>/<i> enumerated subset — flagged explicitly since it visually reads as \"styled\" but isn't bold or italic by this pipeline's classification, and shouldn't be persisted as <b> markup.",
+        "Requirements, pick two:": "BOLD.",
+        "Effect:": "BOLD.",
+        "On a 10+": "Plain — NOT bold, despite being a roll-outcome label.",
+        "On a 7-9:": "Plain — NOT bold.",
+        "On a miss:": "Plain — NOT bold."
+      }
+    }
+  },
+  "formattingNote": "Temptation: framing+consequence has 1 bold span (\"act under pressure\", base-move cross-reference); all 7 options have bold titles (already handled) and fully plain descriptions. Rotes blurb (page 27): 2 bold spans (\"use magic\", \"rote\" — the latter a term-definition bold on its first mention, a different kind of bold usage than the established move-cross-reference pattern). Page 29 full explanation: \"use magic\"/\"using magic\" bolded on 4 of 5 total occurrences across the page (1 in the intro, 2 of 3 in the rest paragraph, 1 in \"as you would when using magic normally\"), \"rote\" bolded on its first mention in the intro and again in \"How many rotes?\"'s own body paragraph, \"How many rotes?\" itself is a bold structural sub-heading. Zero italic anywhere across pages 27, 29, and 30 for this playbook's Hex-specific content. Worksheet field labels: \"Requirements, pick two:\"/\"Effect:\" bold, \"On a 10+\"/\"On a 7-9:\"/\"On a miss:\" plain, \"Rote:\" a distinct display font (neither bold nor italic)."
+}

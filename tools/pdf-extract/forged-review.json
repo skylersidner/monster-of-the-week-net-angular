@@ -1,0 +1,212 @@
+{
+  "playbook": "The Forged",
+  "targets": {
+    "bondsBurdensDualNature": {
+      "sectionTitle": "Bonds / Burdens / Dual Nature (Partner's own Move text excluded, out of scope)",
+      "bonds": [
+        {
+          "title": "Telepathic link",
+          "descriptionText": null
+        },
+        {
+          "title": "Locational awareness",
+          "descriptionText": null
+        },
+        {
+          "title": "Imitate your partner",
+          "descriptionText": null
+        },
+        {
+          "title": "Speaking in each other's name",
+          "descriptionText": null
+        },
+        {
+          "title": "Something else",
+          "descriptionText": null
+        }
+      ],
+      "bondsBlankMarker": {
+        "status": "PRESENT",
+        "rawText": "Something else: ______________________________",
+        "underscoreCount": 30,
+        "detail": "PRESENT — the \"inline same-line\" convention (matches Curse-eater's \"How consuming magic works\" pattern, not Envoy's next-line pattern): \"Something else: \" and the underscore run are ONE single plain-font PDF text item. Exactly 30 consecutive underscore characters. Identical rendering + length to Burdens' own marker on this same page (checked independently)."
+      },
+      "burdens": [
+        {
+          "title": "Emotional bleed-over",
+          "descriptionText": null
+        },
+        {
+          "title": "Separation pains",
+          "descriptionText": null
+        },
+        {
+          "title": "Dire curse",
+          "descriptionText": null
+        },
+        {
+          "title": "Covetous seeker",
+          "descriptionText": null
+        },
+        {
+          "title": "Dread enemy",
+          "descriptionText": null
+        },
+        {
+          "title": "Something else",
+          "descriptionText": null
+        }
+      ],
+      "burdensBlankMarker": {
+        "status": "PRESENT",
+        "rawText": "Something else: ______________________________",
+        "underscoreCount": 30,
+        "detail": "PRESENT — the \"inline same-line\" convention (matches Curse-eater's \"How consuming magic works\" pattern, not Envoy's next-line pattern): \"Something else: \" and the underscore run are ONE single plain-font PDF text item. Exactly 30 consecutive underscore characters. Identical rendering + length to Bonds' own marker on this same page (checked independently)."
+      },
+      "dualNatureDescription": "You may freely transform between your human and weapon shapes. You can't <b>kick some ass</b> when in weapon form, but when wielded as a weapon, your bearer adds harm equal to your Weird. Pick your base range, benefits, and flaw.",
+      "range": [
+        {
+          "title": "Intimate",
+          "descriptionText": null
+        },
+        {
+          "title": "Close",
+          "descriptionText": null
+        },
+        {
+          "title": "Hand",
+          "descriptionText": null
+        },
+        {
+          "title": "Far",
+          "descriptionText": null
+        }
+      ],
+      "benefits": [
+        {
+          "title": "Magic",
+          "descriptionText": "Add the \"magic\" tag"
+        },
+        {
+          "title": "Vicious",
+          "descriptionText": "You deal +1 harm"
+        },
+        {
+          "title": "Precise",
+          "descriptionText": "You deal +1 harm"
+        },
+        {
+          "title": "Life Drain",
+          "descriptionText": "Add the \"life-drain\" tag; you may heal your wielder instead of yourself"
+        },
+        {
+          "title": "Reach",
+          "descriptionText": "Add another range"
+        },
+        {
+          "title": "Defensive",
+          "descriptionText": "Add 1-armour for your wielder"
+        },
+        {
+          "title": "Sweeping",
+          "descriptionText": "Add the \"area\" tag"
+        },
+        {
+          "title": "Elemental",
+          "descriptionText": "Add matching tags such as \"fire,\" \"wind,\" \"lightning,\" \"mind,\" or \"darkness\""
+        }
+      ],
+      "benefitsNote": "Benefits' title/description split above is done by this script's own colon-splitting, NOT recovered from a PDF font signal — verified directly that each Benefits line (e.g. \"Magic: Add the \\\"magic\\\" tag\") is a SINGLE plain-font text item with no bold styling distinguishing a title from the rest, unlike every other title+description shape processed by this pipeline so far (all of which had a real bold-run boundary). Flagged for Yoshi: if BespokeOption.Title needs to be populated for Benefits, it has to come from string parsing like this, not font-based extraction.",
+      "flaws": [
+        {
+          "title": "Unwieldy",
+          "descriptionText": null
+        },
+        {
+          "title": "Conspicuous",
+          "descriptionText": null
+        },
+        {
+          "title": "Charging",
+          "descriptionText": null
+        },
+        {
+          "title": "Distinctive",
+          "descriptionText": null
+        },
+        {
+          "title": "Restricted",
+          "descriptionText": null
+        }
+      ]
+    },
+    "origin": {
+      "sectionTitle": "Origin",
+      "forging": [
+        {
+          "title": null,
+          "descriptionText": "You always thought you were human."
+        },
+        {
+          "title": null,
+          "descriptionText": "You gained sentience by the perfection of your maker's craft."
+        },
+        {
+          "title": null,
+          "descriptionText": "You used to be a supernatural being."
+        },
+        {
+          "title": null,
+          "descriptionText": "A magical accident resulted in your creation."
+        },
+        {
+          "title": null,
+          "descriptionText": "You were created to fulfil an obligation."
+        },
+        {
+          "title": null,
+          "descriptionText": "“You know what? I don’t remember.”"
+        }
+      ],
+      "forgingBlankMarker": {
+        "status": "PRESENT",
+        "rawText": "Something else: ___________________________",
+        "underscoreCount": 27,
+        "detail": "PRESENT — the \"inline same-line\" convention (matches Curse-eater's \"How consuming magic works\" pattern, not Envoy's next-line pattern): \"Something else: \" and the underscore run are ONE single plain-font PDF text item. Exactly 27 consecutive underscore characters. 27 underscores — a DIFFERENT count from Bonds'/Burdens' 30-underscore markers on page 23, though the same rendering convention (single inline item)."
+      },
+      "partnering": [
+        {
+          "title": null,
+          "descriptionText": "Your partner displayed great faith and devotion."
+        },
+        {
+          "title": null,
+          "descriptionText": "Your partner solved puzzles requiring wit and wisdom."
+        },
+        {
+          "title": null,
+          "descriptionText": "Your partner won your allegiance through power and might."
+        },
+        {
+          "title": null,
+          "descriptionText": "You were created specifically for your partner."
+        },
+        {
+          "title": null,
+          "descriptionText": "Your partner swore to perform a task and you are to aid them."
+        },
+        {
+          "title": null,
+          "descriptionText": "You met through sheer luck and happenstance."
+        }
+      ],
+      "partneringBlankMarker": {
+        "status": "PRESENT",
+        "rawText": "Something else: ___________________________",
+        "underscoreCount": 27,
+        "detail": "PRESENT — the \"inline same-line\" convention (matches Curse-eater's \"How consuming magic works\" pattern, not Envoy's next-line pattern): \"Something else: \" and the underscore run are ONE single plain-font PDF text item. Exactly 27 consecutive underscore characters. Identical rendering + length (27 underscores) to Forging's own marker on this same page (checked independently)."
+      }
+    }
+  },
+  "formattingNote": "Page 23 (x 280-520, y 40-480, Partner excluded): 1 bold span found (\"kick some ass\" in Dual Nature's intro, a base-move cross-reference). Zero bold/italic on all 5 Bonds tags, 6 Burdens tags, 4 Range tags, 8 Benefits entries, and 5 Flaws tags (confirmed programmatically — the only bold runs detected in this scope are the 6 structural section headings plus the one Dual Nature span). Zero italic anywhere in this scope. Page 24 Origin column: 5 bold/italic run(s) detected, all structural headings (\"Origin Forging (pick one):\", \"Partnering (pick one):\", \"Ratings, pick one line:\", \"Introductions\", \"History\") — zero formatting on any of the 14 Forging+Partnering options. No italic font at all embedded on page 24."
+}

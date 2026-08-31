@@ -1,0 +1,76 @@
+@if (isFormOpen()) {
+  <app-playbook-form
+    [playbook]="editing()"
+    [isSaving]="isSaving()"
+    (save)="savePlaybook($event)"
+    (cancel)="closeForm()"
+  />
+} @else {
+  <article class="bg-surface border border-default rounded-lg p-4 grid gap-3">
+    <div class="flex items-center justify-between">
+      <h2 class="m-0">Playbooks</h2>
+      <button
+        type="button"
+        class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer font-[inherit] px-[0.85rem] py-2"
+        (click)="startCreate()"
+      >
+        New playbook
+      </button>
+    </div>
+
+    @if (isLoading()) {
+      <p class="text-muted m-0">Loading playbooks...</p>
+    } @else if (loadError()) {
+      <p class="text-danger m-0">{{ loadError() }}</p>
+    } @else if (records().length === 0) {
+      <p class="text-muted m-0">No playbooks yet.</p>
+    } @else {
+      <table class="records-table border-collapse w-full">
+        <thead>
+          <tr>
+            <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Name</th>
+            <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Ratings</th>
+            <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Moves</th>
+            <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (record of records(); track record.id) {
+            <tr>
+              <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.name }}</td>
+              <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.statArrayOptionCount }}</td>
+              <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.moveCount }}</td>
+              <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="bg-accent-subtle border-0 rounded-[0.35rem] text-accent cursor-pointer font-[inherit] font-semibold px-3 py-[0.3rem] text-[0.85rem]"
+                    (click)="startEdit(record)"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="bg-transparent border border-default rounded-[0.35rem] text-danger cursor-pointer font-[inherit] px-3 py-[0.3rem] text-[0.85rem]"
+                    (click)="requestDelete(record)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </article>
+
+  <app-confirm-delete-modal
+    [visible]="!!pendingDelete()"
+    [itemName]="pendingDelete()?.name ?? ''"
+    message="This cannot be undone."
+    [items]="[]"
+    (confirmed)="confirmDelete()"
+    (cancelled)="cancelDelete()"
+  />
+}
