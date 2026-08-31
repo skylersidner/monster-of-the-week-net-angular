@@ -3,11 +3,10 @@ namespace MonsterOfTheWeek.Api.Data.Entities;
 /*
  * Hunter Playbook template data — Phase 2 of docs/hunter-playbooks/.
  *
- * Kept in its own file rather than appended to DomainEntities.cs: this domain contributes
- * eight entities now and gains four more when Phase 5's bespoke-ruleset tables land
- * (BespokeSection/BespokeOption/BespokeJournal/BespokeJournalField), which would push a
- * single shared file past the point of being navigable. AppUser.cs already establishes
- * that a domain may own its own entity file.
+ * Kept in its own file rather than appended to DomainEntities.cs, which would push a
+ * shared file past the point of being navigable. AppUser.cs already establishes that a
+ * domain may own its own entity file. Phase 5's bespoke-ruleset entities took the same
+ * split one step further and live in BespokeEntities.cs alongside this one.
  *
  * Deliberately NOT ITimestamped, matching the reference/lookup precedent (AdventureType,
  * MonsterType, WeaponTag) rather than the user-content precedent (Mystery, Monster):
@@ -70,6 +69,11 @@ public sealed class Playbook
     public ICollection<PlaybookGearCategory> GearCategories { get; set; } = [];
     public ICollection<PlaybookLookCategory> LookCategories { get; set; } = [];
     public ICollection<PlaybookImprovement> Improvements { get; set; } = [];
+
+    // Phase 5 — see BespokeEntities.cs
+    public ICollection<BespokeSection> BespokeSections { get; set; } = [];
+    public ICollection<BespokeJournal> BespokeJournals { get; set; } = [];
+    public ICollection<PlaybookExtraTrack> ExtraTracks { get; set; } = [];
 }
 
 /// <summary>

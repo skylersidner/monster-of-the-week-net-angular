@@ -251,7 +251,14 @@ Current state, verified by reading the live code (`pages/data-admin/data-admin.t
 
 This is a small, low-risk phase: it adds one signal + one conditional block to `data-admin.ts`/`.html`, extracts the existing content into (or wraps it in) a component if not already cleanly separable, and adds an empty placeholder for the new tab. No backend changes.
 
-## 6. Bespoke rulesets — Phase 5 data model (fully specified, validated against all 28 playbooks, 2026-08-29)
+## 6. Bespoke rulesets — Phase 5 data model (fully specified, validated against all 28 playbooks 2026-08-29; **implemented 2026-08-30**)
+
+**Implementation status, 2026-08-30**: the playbook-side tables defined in 6.1, 6.2 and 6.6 are built and migrated (`AddBespokeRulesets`, entities in `Data/Entities/BespokeEntities.cs`), exposed through the existing upsert-the-graph endpoint, and validated against real catalogued content rather than synthetic fixtures. Two implementation details are worth knowing before touching this code, both explained in full in `phases.md` Phase 5:
+
+- **`BespokeOption` is nested on the wire but flat in the database.** The API exposes `children`; the service flattens to `ParentOptionId` on write and rebuilds the tree on read. `SectionId` is populated at every depth, which is what lets the repository load a tree of any depth with a single `Include`.
+- **The self-referencing FK is `NoAction`, deliberately.** Section-level cascade already removes a whole tree; subtree deletion without deleting the Section is handled explicitly in `PlaybookService.RemoveSubtree`. Verified to leave no orphans.
+
+The instance-side tables in 6.4 are **not** built — every one requires a `Hunter` table, which lands in Phase 9/10. `BespokeSection.PlaybookMoveId` (6.8) is also not built; it is Phase 6's entire schema delta.
 
 **Status: this is the authoritative schema. No ambiguity remains at the shape level.** This section originally (2026-08-25) flagged Phase 5 as deferred, with a preliminary hypothesis drawn from Crooked alone ("a single free-text `UniqueMechanicText` field per playbook" was already known to be insufficient, and a `PlaybookBespokeSection` shape was floated as a starting guess). That hypothesis was worked through in detail in `phase5-bespoke-ideation.md` and then **verified directly against all 28 real playbooks** via a systematic one-playbook-at-a-time walkthrough (2026-08-26 through 2026-08-29), recorded per-playbook in `bespoke-ruleset-catalogue.md`. The `UniqueMechanicText` placeholder column has been removed from `Playbook` (Section 3) — it's fully superseded by the schema below, which is real and complete, not a placeholder.
 

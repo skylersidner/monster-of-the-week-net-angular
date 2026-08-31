@@ -10,6 +10,11 @@ import {
   UpsertPlaybookMoveRequest,
   UpsertPlaybookRequest,
   UpsertPlaybookStatArrayOptionRequest,
+  UpsertBespokeJournalRequest,
+  UpsertBespokeOptionRequest,
+  UpsertBespokeSectionRequest,
+  UpsertPlaybookExtraTrackRequest,
+  BespokeOptionResponse,
 } from '../../../../../core/models';
 
 /** Mirrors the server's `[MinLength(2)]` on `UpsertPlaybookRequest.Name`. */
@@ -45,6 +50,27 @@ export class PlaybookFormComponent implements OnChanges {
   @Output() readonly cancel = new EventEmitter<void>();
 
   readonly hasSubmitted = signal(false);
+
+  /*
+   * Phase 5's bespoke rulesets, held verbatim and sent back unchanged on save.
+   *
+   * This form has no editors for them yet — Phase 7 authors bespoke content through the
+   * API, not through this page. But the upsert endpoint takes the *whole* graph and treats
+   * a collection's absence as "delete everything in it", so simply not sending these would
+   * make one save through this form silently destroy every bespoke section, journal and
+   * extra track on the playbook. Round-tripping them is what makes the form safe to use on
+   * a playbook that has bespoke data.
+   *
+   * When real editors are built, they replace this passthrough rather than sitting beside
+   * it. Until then these are read-only here: `bespokeSummary()` renders them so the data is
+   * visibly present rather than invisibly carried.
+   */
+  private bespokeSections: UpsertBespokeSectionRequest[] = [];
+  private bespokeJournals: UpsertBespokeJournalRequest[] = [];
+  private extraTracks: UpsertPlaybookExtraTrackRequest[] = [];
+
+  /** Read-only labels for the bespoke content this form carries but cannot edit. */
+  readonly bespokeSummary = signal<string[]>([]);
 
   readonly form = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [Validators.required, Validators.minLength(NAME_MIN_LENGTH)]),
@@ -239,6 +265,9 @@ export class PlaybookFormComponent implements OnChanges {
           ),
         })
       ),
+      bespokeSections: this.bespokeSections,
+      bespokeJournals: this.bespokeJournals,
+      extraTracks: this.extraTracks,
       improvements: this.improvements.controls.map(
         (group, index): UpsertPlaybookImprovementRequest => ({
           id: group.controls['id'].value,
@@ -275,7 +304,72 @@ export class PlaybookFormComponent implements OnChanges {
     replaceAll(this.moves, (source?.moves ?? []).map((x) => this.buildMoveGroup(x)));
     replaceAll(this.gearCategories, (source?.gearCategories ?? []).map((x) => this.buildGearCategoryGroup(x)));
     replaceAll(this.lookCategories, (source?.lookCategories ?? []).map((x) => this.buildLookCategoryGroup(x)));
+    this.captureBespoke(source);
+
     replaceAll(this.improvements, (source?.improvements ?? []).map((x) => this.buildImprovementGroup(x, x.isAdvanced)));
+  }
+
+  /**
+   * Copies the loaded playbook's bespoke content into the passthrough buffers, converting
+   * response shape to request shape — structurally identical apart from `id` becoming
+   * nullable. Every id is preserved, so the server's diff updates those rows in place
+   * rather than replacing them.
+   */
+  private captureBespoke(source: PlaybookDetailResponse | null): void {
+    const toOption = (o: BespokeOptionResponse): UpsertBespokeOptionRequest => ({
+      id: o.id,
+      title: o.title,
+      descriptionText: o.descriptionText,
+      minSelect: o.minSelect,
+      maxSelect: o.maxSelect,
+      numericMin: o.numericMin,
+      numericMax: o.numericMax,
+      sortOrder: o.sortOrder,
+      children: o.children.map(toOption),
+    });
+
+    this.bespokeSections = (source?.bespokeSections ?? []).map((s) => ({
+      id: s.id,
+      title: s.title,
+      description: s.description,
+      effectText: s.effectText,
+      freeTextLabel: s.freeTextLabel,
+      minSelect: s.minSelect,
+      maxSelect: s.maxSelect,
+      minInstances: s.minInstances,
+      maxInstances: s.maxInstances,
+      sortOrder: s.sortOrder,
+      options: s.options.map(toOption),
+    }));
+
+    this.bespokeJournals = (source?.bespokeJournals ?? []).map((j) => ({
+      id: j.id,
+      title: j.title,
+      description: j.description,
+      effectText: j.effectText,
+      sortOrder: j.sortOrder,
+      fields: j.fields.map((f) => ({ id: f.id, label: f.label, sortOrder: f.sortOrder })),
+    }));
+
+    this.extraTracks = (source?.extraTracks ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      effectText: t.effectText,
+      boxCount: t.boxCount,
+      startLabel: t.startLabel,
+      endLabel: t.endLabel,
+      sortOrder: t.sortOrder,
+    }));
+
+    const countOptions = (options: UpsertBespokeOptionRequest[]): number =>
+      options.reduce((total, o) => total + 1 + countOptions(o.children), 0);
+
+    this.bespokeSummary.set([
+      ...this.bespokeSections.map((s) => `${s.title} — ${countOptions(s.options)} option(s)`),
+      ...this.bespokeJournals.map((j) => `${j.title} — journal, ${j.fields.length} field(s)`),
+      ...this.extraTracks.map((t) => `${t.name} — track, ${t.boxCount} boxes`),
+    ]);
   }
 
   private buildStatArrayGroup(source: { id: string; charm: number; cool: number; sharp: number; tough: number; weird: number } | null): FormGroup {

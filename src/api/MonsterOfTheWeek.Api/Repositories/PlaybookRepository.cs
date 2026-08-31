@@ -15,7 +15,8 @@ public sealed class PlaybookRepository(MotwDbContext dbContext) : IPlaybookRepos
                 x.Id,
                 x.Name,
                 x.StatArrayOptions.Count,
-                x.Moves.Count))
+                x.Moves.Count,
+                x.BespokeSections.Count))
             .ToListAsync(cancellationToken);
 
     /*
@@ -56,5 +57,12 @@ public sealed class PlaybookRepository(MotwDbContext dbContext) : IPlaybookRepos
             .Include(x => x.GearCategories).ThenInclude(x => x.Options)
             .Include(x => x.LookCategories).ThenInclude(x => x.Options)
             .Include(x => x.Improvements)
+            // Every option in a section is loaded by this one Include regardless of depth:
+            // BespokeOption.SectionId is populated on descendants too, so the whole tree
+            // comes back flat and EF fixes up ParentOption/ChildOptions in the change
+            // tracker. A ThenInclude chain per level would cap the supported depth.
+            .Include(x => x.BespokeSections).ThenInclude(x => x.Options)
+            .Include(x => x.BespokeJournals).ThenInclude(x => x.Fields)
+            .Include(x => x.ExtraTracks)
             .AsSplitQuery();
 }

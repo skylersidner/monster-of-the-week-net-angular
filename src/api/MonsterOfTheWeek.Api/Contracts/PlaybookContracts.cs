@@ -26,7 +26,8 @@ public sealed record PlaybookListItemResponse(
     Guid Id,
     string Name,
     int StatArrayOptionCount,
-    int MoveCount);
+    int MoveCount,
+    int BespokeSectionCount);
 
 public sealed record PlaybookStatArrayOptionResponse(
     Guid Id,
@@ -93,7 +94,10 @@ public sealed record PlaybookDetailResponse(
     IReadOnlyList<PlaybookMoveResponse> Moves,
     IReadOnlyList<PlaybookGearCategoryResponse> GearCategories,
     IReadOnlyList<PlaybookLookCategoryResponse> LookCategories,
-    IReadOnlyList<PlaybookImprovementResponse> Improvements);
+    IReadOnlyList<PlaybookImprovementResponse> Improvements,
+    IReadOnlyList<BespokeSectionResponse> BespokeSections,
+    IReadOnlyList<BespokeJournalResponse> BespokeJournals,
+    IReadOnlyList<PlaybookExtraTrackResponse> ExtraTracks);
 
 public sealed record BasicMoveResponse(Guid Id, string Name, string DescriptionText, int SortOrder);
 
@@ -167,4 +171,108 @@ public sealed record UpsertPlaybookRequest(
     IReadOnlyList<UpsertPlaybookMoveRequest>? Moves,
     IReadOnlyList<UpsertPlaybookGearCategoryRequest>? GearCategories,
     IReadOnlyList<UpsertPlaybookLookCategoryRequest>? LookCategories,
-    IReadOnlyList<UpsertPlaybookImprovementRequest>? Improvements);
+    IReadOnlyList<UpsertPlaybookImprovementRequest>? Improvements,
+    IReadOnlyList<UpsertBespokeSectionRequest>? BespokeSections,
+    IReadOnlyList<UpsertBespokeJournalRequest>? BespokeJournals,
+    IReadOnlyList<UpsertPlaybookExtraTrackRequest>? ExtraTracks);
+
+// ---------------------------------------------------------------------------------------
+// Phase 5 — bespoke rulesets. architecture.md Section 6.
+//
+// BespokeOption is a self-referencing tree in the database (ParentOptionId), but it is
+// exposed here as **nested children**, not a flat list plus parent ids. The nesting is the
+// point of the model — "pick 2 of my children" is what makes multi-level structures work —
+// and a flat wire format would force every client to rebuild the tree before it could
+// render or edit one. The service flattens to ParentOptionId when persisting.
+// ---------------------------------------------------------------------------------------
+
+public sealed record BespokeOptionResponse(
+    Guid Id,
+    string? Title,
+    string? DescriptionText,
+    int? MinSelect,
+    int? MaxSelect,
+    int? NumericMin,
+    int? NumericMax,
+    int SortOrder,
+    IReadOnlyList<BespokeOptionResponse> Children);
+
+public sealed record BespokeSectionResponse(
+    Guid Id,
+    string Title,
+    string? Description,
+    string? EffectText,
+    string? FreeTextLabel,
+    int? MinSelect,
+    int? MaxSelect,
+    int? MinInstances,
+    int? MaxInstances,
+    int SortOrder,
+    IReadOnlyList<BespokeOptionResponse> Options);
+
+public sealed record BespokeJournalFieldResponse(Guid Id, string Label, int SortOrder);
+
+public sealed record BespokeJournalResponse(
+    Guid Id,
+    string Title,
+    string? Description,
+    string? EffectText,
+    int SortOrder,
+    IReadOnlyList<BespokeJournalFieldResponse> Fields);
+
+public sealed record PlaybookExtraTrackResponse(
+    Guid Id,
+    string Name,
+    string Description,
+    string? EffectText,
+    int BoxCount,
+    string? StartLabel,
+    string EndLabel,
+    int SortOrder);
+
+public sealed record UpsertBespokeOptionRequest(
+    Guid? Id,
+    string? Title,
+    string? DescriptionText,
+    int? MinSelect,
+    int? MaxSelect,
+    int? NumericMin,
+    int? NumericMax,
+    int SortOrder,
+    IReadOnlyList<UpsertBespokeOptionRequest>? Children);
+
+public sealed record UpsertBespokeSectionRequest(
+    Guid? Id,
+    [param: Required, MinLength(1)] string Title,
+    string? Description,
+    string? EffectText,
+    string? FreeTextLabel,
+    int? MinSelect,
+    int? MaxSelect,
+    int? MinInstances,
+    int? MaxInstances,
+    int SortOrder,
+    IReadOnlyList<UpsertBespokeOptionRequest>? Options);
+
+public sealed record UpsertBespokeJournalFieldRequest(
+    Guid? Id,
+    [param: Required, MinLength(1)] string Label,
+    int SortOrder);
+
+public sealed record UpsertBespokeJournalRequest(
+    Guid? Id,
+    [param: Required, MinLength(1)] string Title,
+    string? Description,
+    string? EffectText,
+    int SortOrder,
+    IReadOnlyList<UpsertBespokeJournalFieldRequest>? Fields);
+
+public sealed record UpsertPlaybookExtraTrackRequest(
+    Guid? Id,
+    [param: Required, MinLength(1)] string Name,
+    [param: Required, MinLength(1)] string Description,
+    string? EffectText,
+    [param: Range(1, 50)] int BoxCount,
+    string? StartLabel,
+    [param: Required, MinLength(1)] string EndLabel,
+    int SortOrder);

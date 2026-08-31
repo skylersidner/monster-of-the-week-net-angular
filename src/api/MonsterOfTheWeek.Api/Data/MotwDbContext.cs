@@ -48,6 +48,11 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<PlaybookLookOption> PlaybookLookOptions => Set<PlaybookLookOption>();
     public DbSet<PlaybookImprovement> PlaybookImprovements => Set<PlaybookImprovement>();
     public DbSet<BasicMove> BasicMoves => Set<BasicMove>();
+    public DbSet<BespokeSection> BespokeSections => Set<BespokeSection>();
+    public DbSet<BespokeOption> BespokeOptions => Set<BespokeOption>();
+    public DbSet<BespokeJournal> BespokeJournals => Set<BespokeJournal>();
+    public DbSet<BespokeJournalField> BespokeJournalFields => Set<BespokeJournalField>();
+    public DbSet<PlaybookExtraTrack> PlaybookExtraTracks => Set<PlaybookExtraTrack>();
 
     // Named AppUsers, not Users: IdentityUserContext<TUser, ...> already declares a
     // DbSet<TUser> Users, so Users here would collide if this context ever derives from it.
@@ -621,6 +626,120 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.DescriptionText).HasColumnName("description_text").IsRequired();
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+        });
+
+        ConfigureBespokeRulesets(modelBuilder);
+    }
+
+    /*
+     * Phase 5 — bespoke rulesets. architecture.md Section 6 is the authoritative spec.
+     *
+     * Same ValueGeneratedNever() rule as ConfigurePlaybooks above, for the same
+     * load-bearing reason: these rows are added to an already-tracked Playbook graph by the
+     * upsert endpoint, and a pre-populated Guid key would otherwise be read as "already
+     * exists" and saved as a zero-row UPDATE.
+     */
+    private static void ConfigureBespokeRulesets(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<BespokeSection>(entity =>
+        {
+            entity.ToTable("bespoke_sections");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Title).HasColumnName("title").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.EffectText).HasColumnName("effect_text");
+            entity.Property(e => e.FreeTextLabel).HasColumnName("free_text_label").HasMaxLength(255);
+            entity.Property(e => e.MinSelect).HasColumnName("min_select");
+            entity.Property(e => e.MaxSelect).HasColumnName("max_select");
+            entity.Property(e => e.MinInstances).HasColumnName("min_instances");
+            entity.Property(e => e.MaxInstances).HasColumnName("max_instances");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.BespokeSections).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_bespoke_sections_playbook_id");
+        });
+
+        modelBuilder.Entity<BespokeOption>(entity =>
+        {
+            entity.ToTable("bespoke_options");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.SectionId).HasColumnName("section_id");
+            entity.Property(e => e.ParentOptionId).HasColumnName("parent_option_id");
+            entity.Property(e => e.Title).HasColumnName("title");
+            entity.Property(e => e.DescriptionText).HasColumnName("description_text");
+            entity.Property(e => e.MinSelect).HasColumnName("min_select");
+            entity.Property(e => e.MaxSelect).HasColumnName("max_select");
+            entity.Property(e => e.NumericMin).HasColumnName("numeric_min");
+            entity.Property(e => e.NumericMax).HasColumnName("numeric_max");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+
+            entity.HasOne(e => e.Section).WithMany(e => e.Options).HasForeignKey(e => e.SectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            /*
+             * The self-reference is NoAction, deliberately, and it is not a weaker choice
+             * than Cascade. Every option already carries SectionId, so deleting a Section
+             * cascades to the whole tree in one step regardless of depth — the parent link
+             * has no work to do there. Declaring it Cascade as well would give Postgres two
+             * cascade paths to the same rows for no benefit. Deleting a subtree without
+             * deleting its Section is handled explicitly in PlaybookService, which walks
+             * descendants before removing a parent, so orphan rows are impossible.
+             */
+            entity.HasOne(e => e.ParentOption).WithMany(e => e.ChildOptions)
+                .HasForeignKey(e => e.ParentOptionId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasIndex(e => e.SectionId).HasDatabaseName("idx_bespoke_options_section_id");
+            entity.HasIndex(e => e.ParentOptionId).HasDatabaseName("idx_bespoke_options_parent_option_id");
+        });
+
+        modelBuilder.Entity<BespokeJournal>(entity =>
+        {
+            entity.ToTable("bespoke_journals");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Title).HasColumnName("title").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.EffectText).HasColumnName("effect_text");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.BespokeJournals).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_bespoke_journals_playbook_id");
+        });
+
+        modelBuilder.Entity<BespokeJournalField>(entity =>
+        {
+            entity.ToTable("bespoke_journal_fields");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.JournalId).HasColumnName("journal_id");
+            entity.Property(e => e.Label).HasColumnName("label").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Journal).WithMany(e => e.Fields).HasForeignKey(e => e.JournalId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.JournalId).HasDatabaseName("idx_bespoke_journal_fields_journal_id");
+        });
+
+        modelBuilder.Entity<PlaybookExtraTrack>(entity =>
+        {
+            entity.ToTable("playbook_extra_tracks");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description").IsRequired();
+            entity.Property(e => e.EffectText).HasColumnName("effect_text");
+            entity.Property(e => e.BoxCount).HasColumnName("box_count");
+            entity.Property(e => e.StartLabel).HasColumnName("start_label").HasMaxLength(255);
+            entity.Property(e => e.EndLabel).HasColumnName("end_label").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.ExtraTracks).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_extra_tracks_playbook_id");
         });
     }
 

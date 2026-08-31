@@ -109,6 +109,101 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             }
         }
 
+        foreach (var section in request.BespokeSections ?? [])
+        {
+            var error = ValidateBespokeSection(section);
+            if (error is not null)
+            {
+                return error;
+            }
+        }
+
+        return null;
+    }
+
+    /*
+     * Guards the invariants architecture.md Section 6 states in prose, so a malformed
+     * ruleset is rejected at authoring time rather than discovered when a Hunter form tries
+     * to render it. Deliberately does NOT try to enforce the shape vocabulary from Section
+     * 6.5 — shape is derived from populated fields, never validated as a closed set, and a
+     * new legitimate combination should not need a code change to be storable.
+     */
+    private static string? ValidateBespokeSection(UpsertBespokeSectionRequest section)
+    {
+        var optionCount = section.Options?.Count ?? 0;
+
+        // 6.1: both null means "no option set to pick from at all". 0/0 would wrongly read
+        // as a real but empty option set, so it is rejected rather than silently accepted.
+        if (section.MinSelect is 0 && section.MaxSelect is 0)
+        {
+            return $"Bespoke section \"{section.Title}\" uses MinSelect/MaxSelect of 0/0; leave both null to mean \"no options to pick from\".";
+        }
+
+        if (section.MinSelect is { } min && section.MaxSelect is { } max && min > max)
+        {
+            return $"Bespoke section \"{section.Title}\" has MinSelect {min} greater than MaxSelect {max}.";
+        }
+
+        if (section.MaxSelect is { } cap && optionCount > 0 && cap > optionCount)
+        {
+            return $"Bespoke section \"{section.Title}\" allows picking {cap} option(s) but only lists {optionCount}.";
+        }
+
+        // 6.1: FreeTextLabel is for a Section whose entire content is one authored value.
+        if (section.FreeTextLabel is not null && optionCount > 0)
+        {
+            return $"Bespoke section \"{section.Title}\" sets FreeTextLabel but also lists {optionCount} option(s); a free-text section has none.";
+        }
+
+        if (section.MinInstances is { } minI && section.MaxInstances is { } maxI && minI > maxI)
+        {
+            return $"Bespoke section \"{section.Title}\" has MinInstances {minI} greater than MaxInstances {maxI}.";
+        }
+
+        return ValidateOptions(section.Title, section.Options);
+    }
+
+    private static string? ValidateOptions(string sectionTitle, IReadOnlyList<UpsertBespokeOptionRequest>? options)
+    {
+        foreach (var option in options ?? [])
+        {
+            var label = option.Title ?? option.DescriptionText ?? "(untitled)";
+            var childCount = option.Children?.Count ?? 0;
+
+            if (option.MaxSelect is { } cap && childCount > 0 && cap > childCount)
+            {
+                return $"Option \"{label}\" in \"{sectionTitle}\" allows picking {cap} child option(s) but only lists {childCount}.";
+            }
+
+            if (option.MinSelect is { } min && option.MaxSelect is { } max && min > max)
+            {
+                return $"Option \"{label}\" in \"{sectionTitle}\" has MinSelect {min} greater than MaxSelect {max}.";
+            }
+
+            // 6.1: a numeric leaf has no children, so its own MinSelect/MaxSelect stay null.
+            if (option.NumericMin is not null && childCount > 0)
+            {
+                return $"Option \"{label}\" in \"{sectionTitle}\" is a numeric leaf but has {childCount} child option(s).";
+            }
+
+            if (option.NumericMin is { } nMin && option.NumericMax is { } nMax && nMin > nMax)
+            {
+                return $"Option \"{label}\" in \"{sectionTitle}\" has NumericMin {nMin} greater than NumericMax {nMax}.";
+            }
+
+            // Neither title nor description nor children: nothing to render or pick.
+            if (option.Title is null && option.DescriptionText is null && childCount == 0)
+            {
+                return $"An option in \"{sectionTitle}\" has no title, no description, and no children.";
+            }
+
+            var childError = ValidateOptions(sectionTitle, option.Children);
+            if (childError is not null)
+            {
+                return childError;
+            }
+        }
+
         return null;
     }
 
@@ -226,6 +321,155 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
                 e.IsAdvanced = r.IsAdvanced;
                 e.SortOrder = r.SortOrder;
             });
+
+        ApplyBespoke(playbook, request);
+    }
+
+    // -----------------------------------------------------------------------------------
+    // Phase 5 — bespoke rulesets
+    // -----------------------------------------------------------------------------------
+
+    private static void ApplyBespoke(Playbook playbook, UpsertPlaybookRequest request)
+    {
+        Reconcile(
+            playbook.BespokeSections,
+            request.BespokeSections,
+            r => r.Id,
+            e => e.Id,
+            r => new BespokeSection { Title = r.Title.Trim() },
+            (r, e) =>
+            {
+                e.Title = r.Title.Trim();
+                e.Description = Normalize(r.Description);
+                e.EffectText = Normalize(r.EffectText);
+                e.FreeTextLabel = Normalize(r.FreeTextLabel);
+                e.MinSelect = r.MinSelect;
+                e.MaxSelect = r.MaxSelect;
+                e.MinInstances = r.MinInstances;
+                e.MaxInstances = r.MaxInstances;
+                e.SortOrder = r.SortOrder;
+
+                ReconcileOptions(e, null, e.Options.Where(o => o.ParentOptionId is null), r.Options);
+            });
+
+        Reconcile(
+            playbook.BespokeJournals,
+            request.BespokeJournals,
+            r => r.Id,
+            e => e.Id,
+            r => new BespokeJournal { Title = r.Title.Trim() },
+            (r, e) =>
+            {
+                e.Title = r.Title.Trim();
+                e.Description = Normalize(r.Description);
+                e.EffectText = Normalize(r.EffectText);
+                e.SortOrder = r.SortOrder;
+
+                Reconcile(
+                    e.Fields,
+                    r.Fields,
+                    f => f.Id,
+                    f => f.Id,
+                    f => new BespokeJournalField { Label = f.Label.Trim() },
+                    (f, field) =>
+                    {
+                        field.Label = f.Label.Trim();
+                        field.SortOrder = f.SortOrder;
+                    });
+            });
+
+        Reconcile(
+            playbook.ExtraTracks,
+            request.ExtraTracks,
+            r => r.Id,
+            e => e.Id,
+            r => new PlaybookExtraTrack { Name = r.Name.Trim(), Description = r.Description.Trim(), EndLabel = r.EndLabel.Trim() },
+            (r, e) =>
+            {
+                e.Name = r.Name.Trim();
+                e.Description = r.Description.Trim();
+                e.EffectText = Normalize(r.EffectText);
+                e.BoxCount = r.BoxCount;
+                e.StartLabel = Normalize(r.StartLabel);
+                e.EndLabel = r.EndLabel.Trim();
+                e.SortOrder = r.SortOrder;
+            });
+    }
+
+    /*
+     * The recursive twin of Reconcile, for BespokeOption's self-referencing tree.
+     *
+     * It cannot reuse Reconcile directly for two reasons. First, the "existing" set at each
+     * level is not a stored navigation collection but a filtered view of the Section's flat
+     * option list (children of one specific parent), so removals have to be applied to the
+     * Section's own collection. Second, deleting an option must delete its whole subtree:
+     * the self-referencing FK is NoAction by design (see MotwDbContext), so nothing in the
+     * database will cascade that for us and an orphaned grandchild would violate the FK.
+     *
+     * `parent` is null at the top level; every option gets SectionId set at every depth,
+     * which is what lets the repository load the whole tree with a single Include.
+     */
+    private static void ReconcileOptions(
+        BespokeSection section,
+        BespokeOption? parent,
+        IEnumerable<BespokeOption> existingAtThisLevel,
+        IReadOnlyList<UpsertBespokeOptionRequest>? incoming)
+    {
+        var incomingItems = incoming ?? [];
+        var existing = existingAtThisLevel.ToList();
+        var keptIds = new HashSet<Guid>();
+
+        foreach (var item in incomingItems)
+        {
+            BespokeOption target;
+
+            if (item.Id is { } id && existing.FirstOrDefault(o => o.Id == id) is { } matched)
+            {
+                target = matched;
+                keptIds.Add(id);
+            }
+            else
+            {
+                target = new BespokeOption();
+                section.Options.Add(target);
+            }
+
+            target.SectionId = section.Id;
+            target.ParentOption = parent;
+            target.ParentOptionId = parent?.Id;
+            target.Title = Normalize(item.Title);
+            target.DescriptionText = Normalize(item.DescriptionText);
+            target.MinSelect = item.MinSelect;
+            target.MaxSelect = item.MaxSelect;
+            target.NumericMin = item.NumericMin;
+            target.NumericMax = item.NumericMax;
+            target.SortOrder = item.SortOrder;
+
+            ReconcileOptions(
+                section,
+                target,
+                section.Options.Where(o => o.ParentOptionId == target.Id && o.Id != target.Id),
+                item.Children);
+        }
+
+        foreach (var orphan in existing.Where(o => !keptIds.Contains(o.Id)))
+        {
+            RemoveSubtree(section, orphan);
+        }
+    }
+
+    /// <summary>
+    /// Removes an option and every descendant, deepest first. Necessary because the
+    /// self-referencing FK is deliberately NoAction — see the comment on ReconcileOptions.
+    /// </summary>
+    private static void RemoveSubtree(BespokeSection section, BespokeOption option)
+    {
+        foreach (var child in section.Options.Where(o => o.ParentOptionId == option.Id && o.Id != option.Id).ToList())
+        {
+            RemoveSubtree(section, child);
+        }
+
+        section.Options.Remove(option);
     }
 
     /*
@@ -328,5 +572,71 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
                     .Select(o => new PlaybookLookOptionResponse(o.Id, o.Text, o.SortOrder))]))],
         [.. playbook.Improvements
             .OrderBy(x => x.IsAdvanced).ThenBy(x => x.SortOrder)
-            .Select(x => new PlaybookImprovementResponse(x.Id, x.Text, x.IsAdvanced, x.SortOrder))]);
+            .Select(x => new PlaybookImprovementResponse(x.Id, x.Text, x.IsAdvanced, x.SortOrder))],
+        [.. playbook.BespokeSections
+            .OrderBy(x => x.SortOrder)
+            .Select(x => new BespokeSectionResponse(
+                x.Id,
+                x.Title,
+                x.Description,
+                x.EffectText,
+                x.FreeTextLabel,
+                x.MinSelect,
+                x.MaxSelect,
+                x.MinInstances,
+                x.MaxInstances,
+                x.SortOrder,
+                // Rebuild the tree from the flat, fully-loaded option list.
+                BuildOptionTree(x.Options, null)))],
+        [.. playbook.BespokeJournals
+            .OrderBy(x => x.SortOrder)
+            .Select(x => new BespokeJournalResponse(
+                x.Id,
+                x.Title,
+                x.Description,
+                x.EffectText,
+                x.SortOrder,
+                [.. x.Fields
+                    .OrderBy(f => f.SortOrder)
+                    .Select(f => new BespokeJournalFieldResponse(f.Id, f.Label, f.SortOrder))]))],
+        [.. playbook.ExtraTracks
+            .OrderBy(x => x.SortOrder)
+            .Select(x => new PlaybookExtraTrackResponse(
+                x.Id,
+                x.Name,
+                x.Description,
+                x.EffectText,
+                x.BoxCount,
+                x.StartLabel,
+                x.EndLabel,
+                x.SortOrder))]);
+
+    /// <summary>
+    /// Rebuilds the nested response shape from the flat option list the repository loads.
+    /// Recurses on <c>ParentOptionId</c>, so it supports arbitrary depth rather than the
+    /// fixed number of levels a ThenInclude chain would allow.
+    /// </summary>
+    private static IReadOnlyList<BespokeOptionResponse> BuildOptionTree(
+        IEnumerable<BespokeOption> allOptions,
+        Guid? parentId)
+    {
+        var options = allOptions as ICollection<BespokeOption> ?? [.. allOptions];
+
+        return
+        [
+            .. options
+                .Where(o => o.ParentOptionId == parentId)
+                .OrderBy(o => o.SortOrder)
+                .Select(o => new BespokeOptionResponse(
+                    o.Id,
+                    o.Title,
+                    o.DescriptionText,
+                    o.MinSelect,
+                    o.MaxSelect,
+                    o.NumericMin,
+                    o.NumericMax,
+                    o.SortOrder,
+                    BuildOptionTree(options, o.Id)))
+        ];
+    }
 }

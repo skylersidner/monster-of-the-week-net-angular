@@ -452,6 +452,7 @@ export interface PlaybookListItemResponse {
   name: string;
   statArrayOptionCount: number;
   moveCount: number;
+  bespokeSectionCount: number;
 }
 
 export interface PlaybookStatArrayOptionResponse {
@@ -527,6 +528,9 @@ export interface PlaybookDetailResponse {
   gearCategories: PlaybookGearCategoryResponse[];
   lookCategories: PlaybookLookCategoryResponse[];
   improvements: PlaybookImprovementResponse[];
+  bespokeSections: BespokeSectionResponse[];
+  bespokeJournals: BespokeJournalResponse[];
+  extraTracks: PlaybookExtraTrackResponse[];
 }
 
 export interface UpsertPlaybookStatArrayOptionRequest {
@@ -601,4 +605,115 @@ export interface UpsertPlaybookRequest {
   gearCategories: UpsertPlaybookGearCategoryRequest[];
   lookCategories: UpsertPlaybookLookCategoryRequest[];
   improvements: UpsertPlaybookImprovementRequest[];
+  bespokeSections: UpsertBespokeSectionRequest[];
+  bespokeJournals: UpsertBespokeJournalRequest[];
+  extraTracks: UpsertPlaybookExtraTrackRequest[];
+}
+
+// --- Phase 5: bespoke rulesets ---------------------------------------------------------
+// Options are a nested tree on the wire (children), not a flat list plus parent ids — the
+// nesting is the model's whole point, and a flat format would make every client rebuild it.
+
+export interface BespokeOptionResponse {
+  id: string;
+  title: string | null;
+  descriptionText: string | null;
+  minSelect: number | null;
+  maxSelect: number | null;
+  numericMin: number | null;
+  numericMax: number | null;
+  sortOrder: number;
+  children: BespokeOptionResponse[];
+}
+
+export interface BespokeSectionResponse {
+  id: string;
+  title: string;
+  description: string | null;
+  effectText: string | null;
+  freeTextLabel: string | null;
+  minSelect: number | null;
+  maxSelect: number | null;
+  minInstances: number | null;
+  maxInstances: number | null;
+  sortOrder: number;
+  options: BespokeOptionResponse[];
+}
+
+export interface BespokeJournalFieldResponse {
+  id: string;
+  label: string;
+  sortOrder: number;
+}
+
+export interface BespokeJournalResponse {
+  id: string;
+  title: string;
+  description: string | null;
+  effectText: string | null;
+  sortOrder: number;
+  fields: BespokeJournalFieldResponse[];
+}
+
+export interface PlaybookExtraTrackResponse {
+  id: string;
+  name: string;
+  description: string;
+  effectText: string | null;
+  boxCount: number;
+  startLabel: string | null;
+  endLabel: string;
+  sortOrder: number;
+}
+
+export interface UpsertBespokeOptionRequest {
+  id: string | null;
+  title: string | null;
+  descriptionText: string | null;
+  minSelect: number | null;
+  maxSelect: number | null;
+  numericMin: number | null;
+  numericMax: number | null;
+  sortOrder: number;
+  children: UpsertBespokeOptionRequest[];
+}
+
+export interface UpsertBespokeSectionRequest {
+  id: string | null;
+  title: string;
+  description: string | null;
+  effectText: string | null;
+  freeTextLabel: string | null;
+  minSelect: number | null;
+  maxSelect: number | null;
+  minInstances: number | null;
+  maxInstances: number | null;
+  sortOrder: number;
+  options: UpsertBespokeOptionRequest[];
+}
+
+export interface UpsertBespokeJournalFieldRequest {
+  id: string | null;
+  label: string;
+  sortOrder: number;
+}
+
+export interface UpsertBespokeJournalRequest {
+  id: string | null;
+  title: string;
+  description: string | null;
+  effectText: string | null;
+  sortOrder: number;
+  fields: UpsertBespokeJournalFieldRequest[];
+}
+
+export interface UpsertPlaybookExtraTrackRequest {
+  id: string | null;
+  name: string;
+  description: string;
+  effectText: string | null;
+  boxCount: number;
+  startLabel: string | null;
+  endLabel: string;
+  sortOrder: number;
 }

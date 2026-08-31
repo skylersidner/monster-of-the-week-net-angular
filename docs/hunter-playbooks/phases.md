@@ -124,7 +124,60 @@ One implementation trap is recorded in `architecture.md` Section 3 (EF classifie
 
 **Extraction mechanism, resolved 2026-08-26 — no longer a spike, part of the defined process.** Skyler approved Bowser's pdf.js-based extraction pipeline (both the Crooked/Background `<b>` test and The Covenant/Moves `<i>`/`<ul>`/`<li>` test passed). Full writeup: `docs/hunter-playbooks/pdf-extraction-pipeline.md`. Concrete tools, standard going forward for every playbook: `tools/pdf-extract/extract-runs.mjs` + `splice-formatting.mjs` for flat description text with only inline emphasis (Background-shaped content — splice `<b>`/`<i>` runs into the existing `pdftotext -layout` plain text); `tools/pdf-extract/extract-moves.mjs` for Moves-shaped content, which reconstructs `{title, descriptionHtml}` directly from the PDF's item stream including any nested `<ul>`/`<li>` roll-result breakdowns. Both require locating the target column's x-range first (`dump-page.mjs`), and both keep the same review discipline already established elsewhere in this phase (self-verify the spliced/reconstructed output before treating it as final — the pipeline's own writeup documents two real false positives/bugs this review step caught during the spike).
 
-## Phase 5 — Bespoke ruleset abstraction (design validated against all 28 real playbooks, 2026-08-29 — schema implementation not yet started)
+## Phase 5 — Bespoke ruleset abstraction (design validated 2026-08-29; **schema implemented 2026-08-30**)
+
+**Implemented 2026-08-30.** Five tables shipped via migration `AddBespokeRulesets`:
+`bespoke_sections`, `bespoke_options`, `bespoke_journals`, `bespoke_journal_fields`,
+`playbook_extra_tracks` — the full Section 6 spec, entities in `Data/Entities/BespokeEntities.cs`.
+All three collections join the existing upsert-the-graph endpoint; no new endpoints, matching
+Phase 3's no-sub-resources rule.
+
+**`BespokeOption` is nested on the wire, flat in the database.** The API exposes options as
+nested `children`, because the nesting *is* the model and a flat list-plus-parent-ids format
+would force every client to rebuild the tree before rendering it. The service flattens to
+`ParentOptionId` on write and rebuilds on read. `SectionId` is populated at every depth, so
+the repository loads a whole tree of any depth with **one** `Include` — a `ThenInclude` chain
+would have capped the supported nesting depth at however many links were written.
+
+**Two pieces of non-obvious implementation, both deliberate:**
+- **The self-referencing FK is `NoAction`, not `Cascade`.** Every option already carries
+  `SectionId`, so deleting a Section cascades the whole tree in one step regardless of depth;
+  declaring the parent link `Cascade` as well would give Postgres two cascade paths to the
+  same rows for nothing. Deleting a *subtree* without its Section is therefore handled in
+  `PlaybookService.RemoveSubtree`, which walks descendants depth-first before removing the
+  parent. Verified directly against the database: removing a parent option leaves **zero**
+  orphaned grandchildren and zero dangling `parent_option_id` values anywhere in the table.
+- **The admin form round-trips bespoke content verbatim.** It has no bespoke editors — Phase 7
+  authors through the API — but the upsert endpoint treats an absent collection as "delete
+  everything in it", so a form that simply omitted them would silently destroy every bespoke
+  section on a playbook the first time someone edited its name. `PlaybookFormComponent` holds
+  them and sends them back unchanged, and renders a read-only summary so the data is visibly
+  carried rather than invisibly. **When real editors are built they replace this passthrough,
+  not sit beside it.**
+
+**Validated against real catalogued data, not synthetic fixtures.** The Crooked's three actual
+rulesets were authored through the API from `bespoke-ruleset-catalogue.md`, chosen because
+between them they exercise most of Section 6's shapes: Titled Choice (Background, 1-of-7 with
+`<b>` markup preserved), Simple Choice + Blank-Fill with `{{blank}}` tokens at varying
+positions (Heat), an uncapped range — `MinSelect=2, MaxSelect=null` (Heat), and two-level
+Nested Choice with recursive per-option `MinSelect`/`MaxSelect` over Tag Pick leaves
+(Underworld, 4 parents x 4 children). **16 round-trip checks, 11 nested-mutation checks
+(including subtree deletion), 10 validation checks, 5 UI passthrough checks — all passing.**
+Section 6's model needed no changes to store any of it.
+
+**Deliberately not implemented this phase**: the Hunter-side tables
+(`HunterBespokeSelection`, `HunterBespokeSectionInstance`, `HunterJournalEntry`,
+`HunterJournalEntryFieldValue`, `HunterExtraTrackValue`). Every one requires a `Hunter` table,
+which lands in Phase 9/10; their shapes are specified in Section 6.4 and ship with it.
+`BespokeSection.PlaybookMoveId` is likewise not here — it is Phase 6's entire schema delta.
+
+**One judgement call worth flagging**: `SortOrder` was added to `BespokeSection` and
+`BespokeOption`, which Section 6's field list omits (though it gives one to
+`BespokeJournalField`). Same reasoning already accepted for the gear/look option tables —
+these lists are ordered and user-visible, and without the column they return in arbitrary
+database order.
+
+### Original entry (design status, retained)
 
 Per Skyler's brief, deferred as an implementation *decision* — but Skyler drove it through a full design/validation pass via a systematic, one-playbook-at-a-time walkthrough (2026-08-26 through 2026-08-29), not just ideation. **The authoritative schema now lives in `architecture.md` Section 6** — complete field-by-field definitions, conventions, and instance-side tables, written to implement directly from without needing to cross-reference the other two files below for the shape itself. Full reasoning history: **`phase5-bespoke-ideation.md`**; the complete, catalogued per-playbook result: **`bespoke-ruleset-catalogue.md`** (status: COMPLETE, all 28 playbooks processed).
 

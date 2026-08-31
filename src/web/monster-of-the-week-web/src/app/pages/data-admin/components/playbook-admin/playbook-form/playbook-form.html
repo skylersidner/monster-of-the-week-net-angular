@@ -262,6 +262,21 @@
     </div>
   </article>
 
+  @if (bespokeSummary().length > 0) {
+    <article class="bg-surface border border-default rounded-lg p-4 grid gap-[0.5rem]">
+      <h3 class="m-0">Bespoke rulesets</h3>
+      <p class="text-muted text-[0.85rem] m-0">
+        Read-only here. This playbook's bespoke content is preserved exactly as-is when you save —
+        editing it is done through the API (Phase 7), not this form.
+      </p>
+      <ul class="m-0 pl-5 grid gap-[0.2rem]">
+        @for (item of bespokeSummary(); track item) {
+          <li class="text-[0.9rem]">{{ item }}</li>
+        }
+      </ul>
+    </article>
+  }
+
   <div class="flex gap-2">
     <button
       type="submit"
