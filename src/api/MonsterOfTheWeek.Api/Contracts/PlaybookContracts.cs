@@ -25,7 +25,6 @@ namespace MonsterOfTheWeek.Api.Contracts;
 public sealed record PlaybookListItemResponse(
     Guid Id,
     string Name,
-    string? Tagline,
     int StatArrayOptionCount,
     int MoveCount);
 
@@ -79,7 +78,6 @@ public sealed record PlaybookImprovementResponse(
 public sealed record PlaybookDetailResponse(
     Guid Id,
     string Name,
-    string? Tagline,
     string? Description,
     int LuckBoxCount,
     string? LuckSpecialText,
@@ -152,7 +150,6 @@ public sealed record UpsertPlaybookImprovementRequest(
 
 public sealed record UpsertPlaybookRequest(
     [param: Required, MinLength(2)] string Name,
-    string? Tagline,
     string? Description,
     [param: Range(0, 50)] int LuckBoxCount,
     string? LuckSpecialText,

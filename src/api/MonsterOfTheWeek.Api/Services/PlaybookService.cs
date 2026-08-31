@@ -118,7 +118,6 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
 
     private static void ApplyScalars(Playbook playbook, UpsertPlaybookRequest request)
     {
-        playbook.Tagline = Normalize(request.Tagline);
         playbook.Description = Normalize(request.Description);
         playbook.LuckBoxCount = request.LuckBoxCount;
         playbook.LuckSpecialText = Normalize(request.LuckSpecialText);
@@ -290,7 +289,6 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
     private static PlaybookDetailResponse ToDetailResponse(Playbook playbook) => new(
         playbook.Id,
         playbook.Name,
-        playbook.Tagline,
         playbook.Description,
         playbook.LuckBoxCount,
         playbook.LuckSpecialText,

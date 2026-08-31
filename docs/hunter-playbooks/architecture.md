@@ -133,7 +133,7 @@ Extends the existing `MonsterArchetype`/`MonsterType`/`WeaponTag` + `MonsterAtta
 
 ```
 Playbook
-  Id, Name, Tagline (short flavor line), Description
+  Id, Name, Description
   LuckBoxCount (int), LuckSpecialText (free text)
   HarmUnstableThreshold (int), HarmBoxCount (int)
   ExperienceBoxCount (int)
@@ -149,7 +149,7 @@ PlaybookGearCategory         (Id, PlaybookId, Label, PickCount [nullable], IsOpt
 PlaybookGearOption           (Id, CategoryId, Name, MechanicalText [nullable])
 PlaybookLookCategory         (Id, PlaybookId, SortOrder, AllowsFreeform)
 PlaybookLookOption           (Id, CategoryId, Text)
-PlaybookImprovement          (Id, PlaybookId, Text, IsAdvanced, SortOrder)
+PlaybookImprovement          (Id, PlaybookId, Text, IsAdvanced, SortOrder)   -- one table; IsAdvanced splits the two printed lists, each with its own SortOrder sequence
 PlaybookExtraTrack           (Id, PlaybookId, Name, Description, EffectText [nullable], BoxCount, StartLabel [nullable, added 2026-08-28], EndLabel)   -- added 2026-08-27, see Section 2 "Extra Tracks"; additive only, not a rework of Luck/Harm/Experience above
 
 BespokeSection                (Id, PlaybookId, PlaybookMoveId [nullable FK — Phase 6, see Section 6.8], Title, Description, EffectText [nullable], FreeTextLabel [nullable], MinSelect [nullable], MaxSelect [nullable], MinInstances [nullable], MaxInstances [nullable])   -- Phase 5, see Section 6 for full field-by-field spec
@@ -161,6 +161,10 @@ BasicMove                    (Id, Name, DescriptionText)   -- real reference tab
 ```
 
 Every child table follows the existing `MonsterAttack`/`MonsterPower`-style shape (owning-entity FK, no further nesting beyond one level except gear category→option, which mirrors `MonsterAttack`→`MonsterAttackWeaponTag` in spirit though not in exact bridge-table form, since gear options aren't a shared reference vocabulary the way weapon tags are).
+
+**`Playbook.Tagline` removed 2026-08-30, after Phase 4 proved it had nothing to hold.** The original schema gave `Playbook` both a `Tagline` ("short flavor line") and a `Description`, on the assumption the sheets carry both. Authoring all three pilots showed they do not: each playbook prints exactly **one** flavor blurb under its title — prose for The Chosen, a quotation for The Crooked, verse for The Divine — and that single blurb is `Description`. `Tagline` was null on all three and had no plausible source across the remaining 25. Dropped at Skyler's direction via migration `DropPlaybookTagline`, rather than left as a permanently-null column that every future authoring pass would have to re-decide about. **There is no short-flavor-line field on `Playbook`; do not add one back without a source that needs it.**
+
+**Improvement ordering, decided 2026-08-30**: stored in the order printed on the playbook, top to bottom, **all regular improvements first, then all advanced** — `IsAdvanced` separates them within the one table, and each list carries its own `SortOrder` sequence starting at 0. Most playbooks print Improvements in a single column, where this is unambiguous. **Where a playbook's layout makes the reading order genuinely ambiguous, it is surfaced for Skyler to decide, never guessed.** That has already happened once: The Chosen prints its Improvements in two sub-columns (measured at x=64 and x=88), where a literal column-by-column read puts its two "Take a move from another playbook" entries 6th and 7th, while the pattern both other pilots use in their unambiguous single-column lists puts them last. Skyler chose the latter — stat boosts → take-another-playbook-move ×2 → bespoke grants → take-a-move-from-another-playbook ×2 — which is also what `pdftotext -raw`'s item stream emits.
 
 **`MoveGrantCount` carries a known-wrong value between Phase 4 and Phase 6, deliberately (decided 2026-08-30).** Skyler re-scoped Phase 4 to exclude the entire Moves section, which leaves this column — a non-nullable `int` on `Playbook`, not on `PlaybookMove` — with no correct value to hold at authoring time. Three options were weighed (author just the integer; make the column nullable; leave it non-nullable at `0`); Skyler chose to leave it non-nullable and default to `0`. Stated plainly because it has a real consequence: between Phase 4 and Phase 6, `MoveGrantCount == 0` is **indistinguishable from a playbook that genuinely grants zero moves**, so nothing in that window should branch on it or treat it as authored data. Phase 6 populates it alongside the `PlaybookMove` rows themselves.
 

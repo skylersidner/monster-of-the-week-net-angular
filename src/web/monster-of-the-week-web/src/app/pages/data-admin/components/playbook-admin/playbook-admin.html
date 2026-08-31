@@ -29,7 +29,6 @@
         <thead>
           <tr>
             <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Name</th>
-            <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Tagline</th>
             <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Ratings</th>
             <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Moves</th>
             <th scope="col" class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top bg-accent-subtle text-primary font-bold">Actions</th>
@@ -39,7 +38,6 @@
           @for (record of records(); track record.id) {
             <tr>
               <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.name }}</td>
-              <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.tagline }}</td>
               <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.statArrayOptionCount }}</td>
               <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">{{ record.moveCount }}</td>
               <td class="border-b border-default px-[0.65rem] py-[0.55rem] text-left align-top">

@@ -48,7 +48,6 @@ export class PlaybookFormComponent implements OnChanges {
 
   readonly form = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [Validators.required, Validators.minLength(NAME_MIN_LENGTH)]),
-    tagline: this.formBuilder.nonNullable.control(''),
     description: this.formBuilder.nonNullable.control(''),
     luckBoxCount: this.formBuilder.nonNullable.control(7, [Validators.required, Validators.min(0)]),
     luckSpecialText: this.formBuilder.nonNullable.control(''),
@@ -176,7 +175,6 @@ export class PlaybookFormComponent implements OnChanges {
 
     return {
       name: value.name.trim(),
-      tagline: blankToNull(value.tagline),
       description: blankToNull(value.description),
       luckBoxCount: value.luckBoxCount,
       luckSpecialText: blankToNull(value.luckSpecialText),
@@ -260,7 +258,6 @@ export class PlaybookFormComponent implements OnChanges {
 
     this.form.patchValue({
       name: source?.name ?? '',
-      tagline: source?.tagline ?? '',
       description: source?.description ?? '',
       luckBoxCount: source?.luckBoxCount ?? 7,
       luckSpecialText: source?.luckSpecialText ?? '',

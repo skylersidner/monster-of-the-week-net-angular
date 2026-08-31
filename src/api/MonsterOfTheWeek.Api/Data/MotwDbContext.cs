@@ -498,7 +498,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Tagline).HasColumnName("tagline").HasMaxLength(500);
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.LuckBoxCount).HasColumnName("luck_box_count");
             entity.Property(e => e.LuckSpecialText).HasColumnName("luck_special_text");

@@ -24,8 +24,6 @@ public sealed class Playbook
     public Guid Id { get; init; } = Guid.NewGuid();
     public required string Name { get; set; }
 
-    /// <summary>Short flavor line printed under the playbook's title.</summary>
-    public string? Tagline { get; set; }
     public string? Description { get; set; }
 
     public int LuckBoxCount { get; set; }

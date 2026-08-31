@@ -2,7 +2,9 @@
 
 Design docs for adding Monster of the Week "Hunter Playbooks" (player-character templates) and the "Hunter" instances created from them to this app.
 
-**Status: implementation started 2026-08-30 — Phases 1–4 in progress.** Everything before that date was planning only, with no application code written; see the 2026-08-30 entry at the bottom of this section for what opening implementation changed in these docs. The paragraph below describes the original planning pass and is kept as history. This is a from-scratch pass — a prior planning doc for this same feature (`hunter-playbooks-plan.md`, written 2026-08-24) was deleted by Skyler because it needed more consideration before committing to an approach. This doc supersedes it; see `architecture.md` Section 0 for what carried over and what changed.
+**Status: Phases 1–4 implemented 2026-08-30.** Data Admin tabs, the Playbook schema + migration, the full CRUD vertical slice, and the three pilot playbooks authored and verified. The authoring procedure is packaged as `.claude/skills/hunter-playbook-authoring/`. Phase 5 (bespoke rulesets) is designed but not implemented; Phase 6 (Moves) is designed but not authored.
+
+Everything dated before 2026-08-30 in this file was planning only, with no application code written — see the 2026-08-30 entry at the end of this section for what opening implementation changed across these docs. The rest of this paragraph is the original planning pass's own framing, kept as history: this is a from-scratch pass — a prior planning doc for this same feature (`hunter-playbooks-plan.md`, written 2026-08-24) was deleted by Skyler because it needed more consideration before committing to an approach. This doc supersedes it; see `architecture.md` Section 0 for what carried over and what changed.
 
 **Revised 2026-08-25**: Skyler corrected a real misconception in the original seeding/deployment recommendation — the canonical 28-playbook set needs to reach every environment automatically (like the static lookup tables), not via manual per-environment Admin UI entry. `architecture.md` Section 4 and the Phase 4/8 entries below were rewritten accordingly.
 

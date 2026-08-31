@@ -14,7 +14,6 @@ public sealed class PlaybookRepository(MotwDbContext dbContext) : IPlaybookRepos
             .Select(x => new PlaybookListItemResponse(
                 x.Id,
                 x.Name,
-                x.Tagline,
                 x.StatArrayOptions.Count,
                 x.Moves.Count))
             .ToListAsync(cancellationToken);

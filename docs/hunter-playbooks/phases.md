@@ -59,6 +59,17 @@ One implementation trap is recorded in `architecture.md` Section 3 (EF classifie
 
 ## Phase 4 — Validate the model *and* pin down a repeatable authoring pattern: agent-authored Chosen/Crooked/Divine standard data (fully specified, revised 2026-08-25 twice, formatting pipeline finalized 2026-08-26, **re-scoped 2026-08-30**)
 
+**Executed 2026-08-30 — all three pilots authored and verified.** The Chosen, The Crooked, and The Divine are in the working database, authored through the real `POST /api/playbooks` endpoint (not the admin form, not a direct DB write), each from its own bounded pass over the source pages. Per-section counts, all matching this doc set's prior expectations: Chosen 5 ratings / 4 gear categories / 3 look categories / 10+8 improvements; Crooked 5 / 1 / 2 / 10+7; Divine 5 / 2 / 3 / 10+8. Zero Moves rows and `MoveGrantCount = 0` on all three, per the re-scope below.
+
+**Self-verification: 49 automated checks, all passing** (`.claude/skills/hunter-playbook-authoring/scripts/verify.mjs`). It re-reads each playbook back *from the API* rather than checking the payload, and covers all three known artifact classes (basic-move contamination, page-bleed wording, mid-word column splits), full content fidelity of every stored option/improvement string against the raw source text, digit-by-digit rating-line verification, cross-playbook track uniformity, and the Moves scope boundary. Also confirmed the authored graph round-trips into the Phase 3 edit form in a browser.
+
+**The Skill exists and is registered**: `.claude/skills/hunter-playbook-authoring/`, written *from* this pass rather than in advance, exactly as `open-questions.md` Q10 argued for. `Skill` was added to Bowser's tools list so it can actually invoke it. Phase 8 inherits both.
+
+**Three findings surfaced, not absorbed** — per the standing instruction below. All three are recorded in the Skill's "Known gaps" section so the next 25 playbooks hit a documented decision rather than re-deriving one:
+1. **`Playbook.Tagline` has no source to populate it.** Each playbook prints exactly one flavor blurb, which goes to `Description`. `Tagline` is null on all three and is likely to stay null across all 28. Either it should be dropped, or its intended content identified.
+2. **Gear has no freeform escape.** `PlaybookLookCategory.AllowsFreeform` exists; `PlaybookGearCategory` has no equivalent. Chosen's Special Weapon Material ends "or anything else you want", stored for now as a literal ninth option — an explicit stopgap, not a modeling decision.
+3. **Improvements are stored in `-raw` (column-major) order**, which is the source's own item order but not its visual left-to-right reading order for the two-column layouts. Either is defensible; it needs to be one of them consistently across 28.
+
 **Re-scoped 2026-08-30 by Skyler — Moves are out of this phase entirely.** Skyler identified this as fallout from the 2026-08-29 renumber that inserted Phase 6: "Because the Moves section will not be enacted until Phase 6, they are now out of scope for Phase 4." Phase 4 no longer authors any `PlaybookMove` rows or `MoveGrantCount`. **The sections this phase authors, per Skyler's own list:**
 
 | In scope | Note |

@@ -450,7 +450,6 @@ export interface UpsertBystanderRequest {
 export interface PlaybookListItemResponse {
   id: string;
   name: string;
-  tagline: string | null;
   statArrayOptionCount: number;
   moveCount: number;
 }
@@ -512,7 +511,6 @@ export interface PlaybookImprovementResponse {
 export interface PlaybookDetailResponse {
   id: string;
   name: string;
-  tagline: string | null;
   description: string | null;
   luckBoxCount: number;
   luckSpecialText: string | null;
@@ -587,7 +585,6 @@ export interface UpsertPlaybookImprovementRequest {
 
 export interface UpsertPlaybookRequest {
   name: string;
-  tagline: string | null;
   description: string | null;
   luckBoxCount: number;
   luckSpecialText: string | null;
