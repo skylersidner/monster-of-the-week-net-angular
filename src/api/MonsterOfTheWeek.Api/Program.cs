@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MonsterOfTheWeek.Api.Data;
+using MonsterOfTheWeek.Api.Data.Seed;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
 using MonsterOfTheWeek.Api.Services.Search;
@@ -173,10 +174,22 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Developer command, not a server mode: rewrites Data/Seed/hunter-playbooks.json from the
+// connected database and exits without ever listening. It runs here, after the host is built,
+// specifically so it uses the same configuration, connection string and DI wiring the app
+// does — a standalone script would have to duplicate all three and could drift from them.
+if (args.Contains(PlaybookSeedExporter.CommandName))
+{
+    using var exportScope = app.Services.CreateScope();
+    var exportDbContext = exportScope.ServiceProvider.GetRequiredService<MotwDbContext>();
+    Console.WriteLine(await PlaybookSeedExporter.ExportAsync(exportDbContext, app.Environment.ContentRootPath));
+    return;
+}
+
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<MotwDbContext>();
-    await MotwDbInitializer.InitializeAsync(dbContext);
+    await MotwDbInitializer.InitializeAsync(dbContext, app.Environment.ContentRootPath);
 }
 
 // AllowAnonymous is required now that the fallback policy is active — without it the health

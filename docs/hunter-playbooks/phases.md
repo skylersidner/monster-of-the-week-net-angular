@@ -378,7 +378,32 @@ The classifier now has **three** verdicts rather than two: genuine, artifact, or
 
 **Five more catalogue ordering corrections**, all the same class found in groups 1–3 — entries recorded row-major where the sheet prints a column-major grid: the Spooky's 16 Dark Side tags, two of the Visitor's Expatriation sub-blocks, and the Wronged's "Why couldn't you save them?". Plus two count corrections (the Searcher's investigation tools are 7 not 6; the Visitor has 11 regular improvements, not 10). **Across all four groups that is 11 ordering/count errors found in the catalogue by checking it against the page** — its structural decisions held up throughout, but its transcribed orderings and counts did not, and future work should treat those as needing verification rather than trusted.
 
-**Phase 8's authoring is done. What remains is its closing step**: the one-time production seed conversion described below — read the working database, produce `Data/Seed/hunter-playbooks.json`, commit it, and add the guarded `SeedPlaybooksAsync` step to `MotwDbInitializer`. That has not been started.
+**Phase 8's closing step is complete, 2026-08-31 — but built as a maintained tool rather than the one-off script this doc originally specified.** Skyler's instruction: *"I want to make sure this is something that's repeatable. If I change anything or discover small adjustments, I want to be able to run the script again so it can capture those changes. I also anticipate there may be more data structure changes over time. If we can find a way to validate the script through some kind of test, that would be ideal."* That reverses `architecture.md` Section 4 items 2 and 5, which are annotated in place.
+
+**What shipped:**
+
+| Piece | What it does |
+|---|---|
+| `Data/Seed/hunter-playbooks.json` | The canonical 28, 737 KB, ordered by name so re-exports produce reviewable diffs rather than churn |
+| `PlaybookSeedExporter` | `dotnet run --project src/api/MonsterOfTheWeek.Api -- export-playbook-seed` — rewrites the file from the connected database |
+| `PlaybookSeed.ToEntity` / `ApplyAsync` | Rebuilds the entity graph (ids included) and seeds it, guarded so it only ever fills an empty table |
+| `PlaybookSeedTests` | Six tests, described below |
+
+**The design choice that makes it repeatable is the file format: the seed file *is* `PlaybookDetailResponse[]`** — the exact shape `GET /api/playbooks/{id}` already returns. Exporting is therefore "call the read path for every playbook and write the array down", with no second serialisation format that could drift from the contract. A field added to the contract appears in the export automatically; the only thing needing a human is `ToEntity`, and the tests fail until it gets one.
+
+**Ids are preserved rather than regenerated**, matching how every other seeded table uses stable Guids — and mattering more here, because Hunter instances live-link to specific child rows and a future data migration correcting one canonical row has to be able to name it.
+
+**The tests are the part that answers "tell me when something broke":**
+- **Round-trip** — a fully-populated fixture goes seed JSON → `ToEntity` → SQLite → the *real* repository and service → JSON, and must come back identical.
+- **Contract coverage** — reflection over the response records asserts the fixture gives every property a non-default value, so a newly-added field cannot pass the round-trip by simply never being exercised. This is the test that fires when the schema grows.
+- **Committed-file checks** — 28 entries, unique ids and names, name-ordered, and the file loads into a database and re-serialises byte-identically.
+- **Seeding behaviour** — populates an empty database, is a no-op on a populated one, and treats a missing file as "nothing to seed" rather than a startup failure.
+
+**Both guards were negative-tested rather than assumed.** Deleting one field (`IsAdvanced`) from `ToEntity` failed 2 tests; blanking one fixture value failed the coverage test with the exact property named. A test that cannot fail is worth nothing, and neither of these was taken on trust.
+
+**Verified end-to-end on real Postgres, not only SQLite.** A scratch database was created empty, the app booted against it (running migrations and seeding for real), and it came up with all 28 playbooks and every edge-case feature intact: 2 advanced moves, 7 look group labels, 1 numeric leaf, 13 move-internal sections, 322 nested options, 1 null track description. Re-exporting from that scratch database produced a file **byte-identical** to the one exported from the dev database — so `dev DB → file → fresh Postgres → file` is lossless. Scratch database dropped afterwards; the dev database was never touched.
+
+179 API tests pass (172 before, 6 new, and `InitializeAsync` gained a `contentRootPath` parameter).
 
 Not designed this pass — the bespoke-section shape's actual EF Core implementation (Phase 5/7) needs to land first, and per Phase 6's own note above, so does Phase 6's Move-internal-pick schema if the 3 pilots demonstrate a need for it. **The reading prerequisite is now satisfied**: all 28 playbooks (not just Chosen/Crooked/Divine) have been read at full depth and catalogued for bespoke content (`bespoke-ruleset-catalogue.md`, complete 2026-08-29) — Phase 8's own authoring/seeding work is still unstarted, but it no longer needs to re-derive the bespoke model's shape playbook-by-playbook the way Phase 5's walkthrough did; it can author directly from the already-verified catalogue. (Phase 6's own equivalent full-playbook read for Move-internal structure is a separate, not-yet-done prerequisite — see Phase 6's note on the existing trap list being a seed, not a census.) Depends on Phases 2–7 having proven out against all 28, not just 3 — per the task brief's own framing, this is explicitly out of scope for this pass.
 
