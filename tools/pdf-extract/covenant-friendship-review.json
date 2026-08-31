@@ -1,56 +1,57 @@
 {
-  "playbook": "The Covenant",
-  "section": "Covenant / Friendship",
-  "covenantAbility": "You have a knack for keeping allies safe. Once per session, if an ally would be killed, describe how you help them survive and escape. They return, fully or mostly recovered, at the start of the next mystery.",
-  "friendshipIntro": "You start with an ally. Pick a type (<i>Monster of the Week</i> hardcover, page 131) and a style:",
-  "types": [
-    {
-      "title": "Watson",
-      "descriptionText": "An individual, extra-competent ally."
-    },
-    {
-      "title": "Rolodex",
-      "descriptionText": "An ally team with various skills; tends to operate individually."
-    },
-    {
-      "title": "Unit",
-      "descriptionText": "A small group that usually operates as a team."
-    }
-  ],
-  "styleTags": [
-    {
-      "title": "Loyal retainer",
-      "descriptionText": null
-    },
-    {
-      "title": "Long-time coworker",
-      "descriptionText": null
-    },
-    {
-      "title": "Good buddy",
-      "descriptionText": null
-    },
-    {
-      "title": "Supernatural creature",
-      "descriptionText": null
-    },
-    {
-      "title": "Romantic interest",
-      "descriptionText": null
-    },
-    {
-      "title": "Friendly employer",
-      "descriptionText": null
-    },
-    {
-      "title": "Mutually cursed",
-      "descriptionText": null
-    },
-    {
-      "title": "Something else",
-      "descriptionText": null
-    }
-  ],
-  "blankMarkerFinding": "ABSENT. Checked directly against the raw PDF item stream (not just plain-text extraction): \"Something else:\" is the very last item in this column before the page's NEXT unrelated section (\"Gear\") begins — no underscore run, no blank-space glyph, no extra character of any kind follows it. Note the label itself DOES end with a literal colon in the source text (\"Something else:\", unlike the other 7 style tags which have no trailing punctuation) — that colon is the only visual cue a fill-in is expected; nothing is actually rendered after it. Same absent-marker finding as Changeling's Unknown Heritage tags, and a different convention from Heat's inline `________` blanks (which are embedded mid-sentence in the option's own text, not just implied by a trailing colon).",
-  "formattingNote": "9 bold/italic run(s) detected in this column; 0 matched a style-tag label exactly (expected 0). One genuine italic span found: \"Monster of the Week\" (the game's own title, italicized as a cross-reference) inside the Friendship intro sentence — not previously predicted. The Covenant ability paragraph is entirely plain (0 bold/italic). All 3 Type options have a bold title (already captured) and a plain description body, no additional inline formatting. All 8 Style tags are plain."
+ "playbook": "The Covenant",
+ "section": "Covenant / Friendship",
+ "covenantAbility": "You have a knack for keeping allies safe. Once per session, if an ally would be killed, describe how you help them survive and escape. They return, fully or mostly recovered, at the start of the next mystery.",
+ "friendshipIntro": "You start with an ally. Pick a type (<i>Monster of the Week</i> hardcover, page 131) and a style:",
+ "types": [
+  {
+   "title": "Watson",
+   "descriptionText": "An individual, extra-competent ally."
+  },
+  {
+   "title": "Rolodex",
+   "descriptionText": "An ally team with various skills; tends to operate individually."
+  },
+  {
+   "title": "Unit",
+   "descriptionText": "A small group that usually operates as a team."
+  }
+ ],
+ "styleTags": [
+  {
+   "title": "Long-time coworker",
+   "descriptionText": null
+  },
+  {
+   "title": "Good buddy",
+   "descriptionText": null
+  },
+  {
+   "title": "Supernatural creature",
+   "descriptionText": null
+  },
+  {
+   "title": "Romantic interest",
+   "descriptionText": null
+  },
+  {
+   "title": "Friendly employer",
+   "descriptionText": null
+  },
+  {
+   "title": "Loyal retainer",
+   "descriptionText": null
+  },
+  {
+   "title": "Mutually cursed",
+   "descriptionText": null
+  },
+  {
+   "title": "Something else",
+   "descriptionText": null
+  }
+ ],
+ "blankMarkerFinding": "ABSENT. Checked directly against the raw PDF item stream (not just plain-text extraction): \"Something else:\" is the very last item in this column before the page's NEXT unrelated section (\"Gear\") begins — no underscore run, no blank-space glyph, no extra character of any kind follows it. Note the label itself DOES end with a literal colon in the source text (\"Something else:\", unlike the other 7 style tags which have no trailing punctuation) — that colon is the only visual cue a fill-in is expected; nothing is actually rendered after it. Same absent-marker finding as Changeling's Unknown Heritage tags, and a different convention from Heat's inline `________` blanks (which are embedded mid-sentence in the option's own text, not just implied by a trailing colon).",
+ "formattingNote": "9 bold/italic run(s) detected in this column; 0 matched a style-tag label exactly (expected 0). One genuine italic span found: \"Monster of the Week\" (the game's own title, italicized as a cross-reference) inside the Friendship intro sentence — not previously predicted. The Covenant ability paragraph is entirely plain (0 bold/italic). All 3 Type options have a bold title (already captured) and a plain description body, no additional inline formatting. All 8 Style tags are plain.",
+ "styleTagOrderNote": "Corrected 2026-08-31: this file originally listed Loyal retainer first. The 8 tags are printed in a two-column grid (page 9, column 1 at x=534 y=395..345, column 2 at x=654 y=395..370); Loyal retainer heads the SECOND column. Reordered to column-major per Skyler 2026-08-31, which is also what pdftotext -raw emits. Set unchanged, order only."
 }

@@ -543,6 +543,7 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.DescriptionText).HasColumnName("description_text");
             entity.Property(e => e.Required).HasColumnName("required");
+            entity.Property(e => e.IsAdvanced).HasColumnName("is_advanced");
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
             entity.HasOne(e => e.Playbook).WithMany(e => e.Moves).HasForeignKey(e => e.PlaybookId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -555,7 +556,7 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
             entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
-            entity.Property(e => e.Label).HasColumnName("label").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Label).HasColumnName("label").HasMaxLength(512).IsRequired();
             entity.Property(e => e.PickCount).HasColumnName("pick_count");
             entity.Property(e => e.IsOptional).HasColumnName("is_optional");
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
@@ -585,6 +586,7 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
             entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
             entity.Property(e => e.AllowsFreeform).HasColumnName("allows_freeform");
+            entity.Property(e => e.GroupLabel).HasColumnName("group_label").HasMaxLength(255);
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
             entity.HasOne(e => e.Playbook).WithMany(e => e.LookCategories).HasForeignKey(e => e.PlaybookId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -746,7 +748,7 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
             entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description").IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.EffectText).HasColumnName("effect_text");
             entity.Property(e => e.BoxCount).HasColumnName("box_count");
             entity.Property(e => e.StartLabel).HasColumnName("start_label").HasMaxLength(255);

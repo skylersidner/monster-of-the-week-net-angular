@@ -144,6 +144,10 @@
               <input type="checkbox" formControlName="required" />
               Required
             </label>
+            <label class="flex items-center gap-2 font-medium py-[0.6rem]">
+              <input type="checkbox" formControlName="isAdvanced" />
+              Advanced
+            </label>
             <button type="button" class="bg-transparent border border-default rounded-[0.35rem] text-danger cursor-pointer font-[inherit] px-3 py-[0.45rem]" (click)="removeAt(moves, i)">Remove</button>
           </div>
           <label class="grid font-medium gap-[0.2rem]">
@@ -211,12 +215,16 @@
     <div formArrayName="lookCategories" class="grid gap-3">
       @for (category of lookCategories.controls; track category; let i = $index) {
         <div [formGroupName]="i" class="border border-default rounded-lg p-3 grid gap-2">
-          <div class="flex items-center gap-3">
-            <label class="flex items-center gap-2 font-medium">
+          <div class="flex flex-wrap items-end gap-3">
+            <label class="grid font-medium gap-[0.2rem] flex-1 min-w-0">
+              Group label
+              <input type="text" class="w-full min-w-0 border border-strong rounded-lg px-3 py-[0.5rem] focus:border-accent focus:outline-none focus:ring-focus font-[inherit]" formControlName="groupLabel" placeholder="Optional — e.g. Human look" />
+            </label>
+            <label class="flex items-center gap-2 font-medium py-[0.6rem]">
               <input type="checkbox" formControlName="allowsFreeform" />
               Allows freeform
             </label>
-            <button type="button" class="bg-transparent border border-default rounded-[0.35rem] text-danger cursor-pointer font-[inherit] px-3 py-[0.35rem] ml-auto" (click)="removeAt(lookCategories, i)">Remove</button>
+            <button type="button" class="bg-transparent border border-default rounded-[0.35rem] text-danger cursor-pointer font-[inherit] px-3 py-[0.45rem]" (click)="removeAt(lookCategories, i)">Remove</button>
           </div>
 
           <div formArrayName="options" class="grid gap-2 pl-3 border-l-2 border-default">

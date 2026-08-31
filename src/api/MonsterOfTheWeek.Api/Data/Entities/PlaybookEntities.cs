@@ -115,6 +115,20 @@ public sealed class PlaybookMove
     /// </summary>
     public bool Required { get; set; }
 
+    /// <summary>
+    /// True for a move that can only ever be taken through an advanced improvement, never
+    /// at character creation — so it is neither granted nor part of the pick pool, and must
+    /// not be offered when a Hunter is created. Splits this one table into two lists
+    /// exactly as <see cref="PlaybookImprovement.IsAdvanced"/> does for improvements.
+    ///
+    /// Added 2026-08-31 for The Hex, whose sheet prints two "Advanced Hex Moves"
+    /// (Apotheosis, Synthesis) behind the "Choose one advanced Hex move" improvement. It is
+    /// the only playbook of the 28 that does this — checked across all 58 pages, not
+    /// assumed — but the alternative was either losing that rules text entirely or letting
+    /// a creation UI offer moves the rules do not.
+    /// </summary>
+    public bool IsAdvanced { get; set; }
+
     public int SortOrder { get; set; }
 
     public Playbook Playbook { get; set; } = null!;
@@ -135,6 +149,19 @@ public sealed class PlaybookGearCategory
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid PlaybookId { get; set; }
+
+    /// <summary>
+    /// The heading or grant sentence the sheet prints above this category's options — often
+    /// a short label ("Ride (pick one)"), sometimes a full sentence ("You also get divine
+    /// armour...").
+    ///
+    /// Widened from 255 to 512 on 2026-08-31: The Initiate's Gear block opens with a
+    /// 280-character conditional paragraph that is the only statement of what its two pick
+    /// counts actually are ("If your Sect has fighting arts or obsolete gear then pick three
+    /// old-fashioned weapons...") — and those counts depend on a bespoke ruleset, so no
+    /// fixed <see cref="PickCount"/> can express them. Skyler's call was the headroom rather
+    /// than a separate notes field.
+    /// </summary>
     public required string Label { get; set; }
 
     /// <summary>
@@ -193,6 +220,18 @@ public sealed class PlaybookLookCategory
     /// case a later playbook's category is closed-list-only.
     /// </summary>
     public bool AllowsFreeform { get; set; }
+
+    /// <summary>
+    /// The heading a sheet prints above a run of Look categories when it groups them, or
+    /// null when it just lists them — which is the case on 27 of the 28 playbooks.
+    ///
+    /// Added 2026-08-31 for The Forged, the only hunter with two physical forms: its seven
+    /// categories are printed under "Human look:" and "Weapon look:", and without this the
+    /// data could not say which four describe the weapon rather than the person. Deliberately
+    /// on the category rather than a separate group table — the label is a heading repeated
+    /// across consecutive categories, not an entity with anything of its own.
+    /// </summary>
+    public string? GroupLabel { get; set; }
 
     public int SortOrder { get; set; }
 

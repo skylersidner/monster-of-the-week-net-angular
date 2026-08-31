@@ -269,6 +269,7 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
                 e.Name = r.Name.Trim();
                 e.DescriptionText = Normalize(r.DescriptionText);
                 e.Required = r.Required;
+                e.IsAdvanced = r.IsAdvanced;
                 e.SortOrder = r.SortOrder;
 
                 // Phase 6: this Move's own embedded pick-structure, if it has any.
@@ -311,6 +312,7 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             (r, e) =>
             {
                 e.AllowsFreeform = r.AllowsFreeform;
+                e.GroupLabel = Normalize(r.GroupLabel);
                 e.SortOrder = r.SortOrder;
 
                 Reconcile(
@@ -383,11 +385,11 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             request.ExtraTracks,
             r => r.Id,
             e => e.Id,
-            r => new PlaybookExtraTrack { Name = r.Name.Trim(), Description = r.Description.Trim(), EndLabel = r.EndLabel.Trim() },
+            r => new PlaybookExtraTrack { Name = r.Name.Trim(), EndLabel = r.EndLabel.Trim() },
             (r, e) =>
             {
                 e.Name = r.Name.Trim();
-                e.Description = r.Description.Trim();
+                e.Description = Normalize(r.Description);
                 e.EffectText = Normalize(r.EffectText);
                 e.BoxCount = r.BoxCount;
                 e.StartLabel = Normalize(r.StartLabel);
@@ -609,13 +611,17 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
         [.. playbook.StatArrayOptions
             .OrderBy(x => x.SortOrder)
             .Select(x => new PlaybookStatArrayOptionResponse(x.Id, x.Charm, x.Cool, x.Sharp, x.Tough, x.Weird, x.SortOrder))],
+        // Ordered the same way improvements are: the two lists are separate sequences, each
+        // restarting its own SortOrder at 0, so IsAdvanced has to lead the ordering or the
+        // creation-time moves and the advanced ones interleave.
         [.. playbook.Moves
-            .OrderBy(x => x.SortOrder)
+            .OrderBy(x => x.IsAdvanced).ThenBy(x => x.SortOrder)
             .Select(x => new PlaybookMoveResponse(
                 x.Id,
                 x.Name,
                 x.DescriptionText,
                 x.Required,
+                x.IsAdvanced,
                 x.SortOrder,
                 [.. playbook.BespokeSections
                     .Where(s => s.PlaybookMoveId == x.Id)
@@ -637,6 +643,7 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             .Select(x => new PlaybookLookCategoryResponse(
                 x.Id,
                 x.AllowsFreeform,
+                x.GroupLabel,
                 x.SortOrder,
                 [.. x.Options
                     .OrderBy(o => o.SortOrder)

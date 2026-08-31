@@ -220,7 +220,16 @@ public sealed class PlaybookExtraTrack
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid PlaybookId { get; set; }
     public required string Name { get; set; }
-    public required string Description { get; set; }
+
+    /// <summary>
+    /// Null when the sheet prints the track as a bare header plus its box row and nothing
+    /// else. The Pararomantic's Relationship Status is the case that made this nullable:
+    /// the two mechanics that drive it (the Luck spend-trigger and Fate of Your Love's
+    /// unravelling) are printed and stored in their own places, so attributing either of
+    /// them here would duplicate stored text rather than describe the track.
+    /// </summary>
+    public string? Description { get; set; }
+
     public string? EffectText { get; set; }
     public int BoxCount { get; set; }
 

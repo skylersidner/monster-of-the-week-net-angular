@@ -43,6 +43,7 @@ public sealed record PlaybookMoveResponse(
     string Name,
     string? DescriptionText,
     bool Required,
+    bool IsAdvanced,
     int SortOrder,
     // Phase 6. Nesting a Move's pick-structure here rather than exposing PlaybookMoveId on
     // a flat list is what makes the "filter PlaybookMoveId IS NULL" reading rule structural:
@@ -72,6 +73,7 @@ public sealed record PlaybookLookOptionResponse(
 public sealed record PlaybookLookCategoryResponse(
     Guid Id,
     bool AllowsFreeform,
+    string? GroupLabel,
     int SortOrder,
     IReadOnlyList<PlaybookLookOptionResponse> Options);
 
@@ -124,6 +126,7 @@ public sealed record UpsertPlaybookMoveRequest(
     [param: Required, MinLength(1)] string Name,
     string? DescriptionText,
     bool Required,
+    bool IsAdvanced,
     int SortOrder,
     IReadOnlyList<UpsertBespokeSectionRequest>? BespokeSections);
 
@@ -149,6 +152,7 @@ public sealed record UpsertPlaybookLookOptionRequest(
 public sealed record UpsertPlaybookLookCategoryRequest(
     Guid? Id,
     bool AllowsFreeform,
+    string? GroupLabel,
     int SortOrder,
     IReadOnlyList<UpsertPlaybookLookOptionRequest>? Options);
 
@@ -229,7 +233,7 @@ public sealed record BespokeJournalResponse(
 public sealed record PlaybookExtraTrackResponse(
     Guid Id,
     string Name,
-    string Description,
+    string? Description,
     string? EffectText,
     int BoxCount,
     string? StartLabel,
@@ -276,7 +280,7 @@ public sealed record UpsertBespokeJournalRequest(
 public sealed record UpsertPlaybookExtraTrackRequest(
     Guid? Id,
     [param: Required, MinLength(1)] string Name,
-    [param: Required, MinLength(1)] string Description,
+    string? Description,
     string? EffectText,
     [param: Range(1, 50)] int BoxCount,
     string? StartLabel,

@@ -111,7 +111,9 @@ Every playbook sheet has a blank "Pronouns: ___" line. There's nothing to model 
 
 ### Looks — standard, 2–3 categories per playbook, always freeform-capable
 
-"Look, pick one from each list" — Chosen has 3 categories (age/vibe, face, clothes), Crooked has 2 (eyes, clothes), Divine has 3 (embodiment, eyes, clothes). Each category lists several preset text options and, in every category sampled, ends with a blank-fill option (`__________ eyes`). **Model**: `PlaybookLookCategory` (`Id`, `PlaybookId`, `SortOrder`, `AllowsFreeform` bool) → `PlaybookLookOption` (`Id`, `CategoryId`, `Text`). `AllowsFreeform` was true in every category sampled — still a real column rather than an assumed UI constant, per Skyler's instruction, in case a later playbook's category is closed-list-only.
+"Look, pick one from each list" — Chosen has 3 categories (age/vibe, face, clothes), Crooked has 2 (eyes, clothes), Divine has 3 (embodiment, eyes, clothes). Each category lists several preset text options and, in every category sampled, ends with a blank-fill option (`__________ eyes`). **Model**: `PlaybookLookCategory` (`Id`, `PlaybookId`, `SortOrder`, `AllowsFreeform` bool, `GroupLabel` string?) → `PlaybookLookOption` (`Id`, `CategoryId`, `Text`). `AllowsFreeform` was true in every category sampled — still a real column rather than an assumed UI constant, per Skyler's instruction, in case a later playbook's category is closed-list-only.
+
+**`GroupLabel` added 2026-08-31 (Phase 8 group 2).** Nullable, and null on 27 of the 28 playbooks. The Forged is the only hunter with two physical forms: its seven Look categories are printed under "Human look:" and "Weapon look:", and without a label the data cannot say which four describe the weapon rather than the person. Put on the category rather than in a separate group table deliberately — the label is a heading repeated across consecutive categories, not an entity with any content of its own, and a grouping table would add a join for one playbook.
 
 ### History — deferred exactly as instructed; modeled as flat text
 
@@ -144,13 +146,13 @@ Playbook
   HistoryPromptsText (free text)       -- includes the section's own intro sentence, not just the prompt list
 
 PlaybookStatArrayOption      (Id, PlaybookId, Charm, Cool, Sharp, Tough, Weird, SortOrder)
-PlaybookMove                 (Id, PlaybookId, Name, DescriptionText, Required, SortOrder)
-PlaybookGearCategory         (Id, PlaybookId, Label, PickCount [nullable], IsOptional, SortOrder)
+PlaybookMove                 (Id, PlaybookId, Name, DescriptionText, Required, IsAdvanced, SortOrder)
+PlaybookGearCategory         (Id, PlaybookId, Label [512 chars, widened 2026-08-31], PickCount [nullable], IsOptional, SortOrder)
 PlaybookGearOption           (Id, CategoryId, Name, MechanicalText [nullable])
 PlaybookLookCategory         (Id, PlaybookId, SortOrder, AllowsFreeform)
 PlaybookLookOption           (Id, CategoryId, Text)
 PlaybookImprovement          (Id, PlaybookId, Text, IsAdvanced, SortOrder)   -- one table; IsAdvanced splits the two printed lists, each with its own SortOrder sequence
-PlaybookExtraTrack           (Id, PlaybookId, Name, Description, EffectText [nullable], BoxCount, StartLabel [nullable, added 2026-08-28], EndLabel)   -- added 2026-08-27, see Section 2 "Extra Tracks"; additive only, not a rework of Luck/Harm/Experience above
+PlaybookExtraTrack           (Id, PlaybookId, Name, Description [nullable, 2026-08-31], EffectText [nullable], BoxCount, StartLabel [nullable, added 2026-08-28], EndLabel)   -- added 2026-08-27, see Section 2 "Extra Tracks"; additive only, not a rework of Luck/Harm/Experience above
 
 BespokeSection                (Id, PlaybookId, PlaybookMoveId [nullable FK — Phase 6, see Section 6.8], Title, Description, EffectText [nullable], FreeTextLabel [nullable], MinSelect [nullable], MaxSelect [nullable], MinInstances [nullable], MaxInstances [nullable])   -- Phase 5, see Section 6 for full field-by-field spec
 BespokeOption                 (Id, SectionId, ParentOptionId [nullable, self-ref], Title [nullable], DescriptionText [nullable], MinSelect [nullable], MaxSelect [nullable], NumericMin [nullable], NumericMax [nullable])   -- Phase 5, see Section 6
@@ -165,6 +167,8 @@ Every child table follows the existing `MonsterAttack`/`MonsterPower`-style shap
 **`Playbook.Tagline` removed 2026-08-30, after Phase 4 proved it had nothing to hold.** The original schema gave `Playbook` both a `Tagline` ("short flavor line") and a `Description`, on the assumption the sheets carry both. Authoring all three pilots showed they do not: each playbook prints exactly **one** flavor blurb under its title — prose for The Chosen, a quotation for The Crooked, verse for The Divine — and that single blurb is `Description`. `Tagline` was null on all three and had no plausible source across the remaining 25. Dropped at Skyler's direction via migration `DropPlaybookTagline`, rather than left as a permanently-null column that every future authoring pass would have to re-decide about. **There is no short-flavor-line field on `Playbook`; do not add one back without a source that needs it.**
 
 **Improvement ordering, decided 2026-08-30**: stored in the order printed on the playbook, top to bottom, **all regular improvements first, then all advanced** — `IsAdvanced` separates them within the one table, and each list carries its own `SortOrder` sequence starting at 0. Most playbooks print Improvements in a single column, where this is unambiguous. **Where a playbook's layout makes the reading order genuinely ambiguous, it is surfaced for Skyler to decide, never guessed.** That has already happened once: The Chosen prints its Improvements in two sub-columns (measured at x=64 and x=88), where a literal column-by-column read puts its two "Take a move from another playbook" entries 6th and 7th, while the pattern both other pilots use in their unambiguous single-column lists puts them last. Skyler chose the latter — stat boosts → take-another-playbook-move ×2 → bespoke grants → take-a-move-from-another-playbook ×2 — which is also what `pdftotext -raw`'s item stream emits.
+
+**`PlaybookMove.IsAdvanced` added 2026-08-31 (Phase 8 group 2).** Non-nullable bool defaulting to false. Marks a move that can only ever be taken through an advanced improvement — never granted, never in the pick pool, and so never offered at Hunter creation. The Hex is the only playbook of the 28 that has any (Apotheosis and Synthesis, behind its "Choose one advanced Hex move" improvement), verified across all 58 pages rather than assumed; the alternative was either dropping that rules text or letting a creation UI offer moves the rules do not. It splits the one table into two lists exactly as `PlaybookImprovement.IsAdvanced` does, with the same consequences: **each list keeps its own `SortOrder` sequence starting at 0**, reads back ordered `IsAdvanced` then `SortOrder`, and is mutually exclusive with `Required`.
 
 **`MoveGrantCount` carries a known-wrong value between Phase 4 and Phase 6, deliberately (decided 2026-08-30).** Skyler re-scoped Phase 4 to exclude the entire Moves section, which leaves this column — a non-nullable `int` on `Playbook`, not on `PlaybookMove` — with no correct value to hold at authoring time. Three options were weighed (author just the integer; make the column nullable; leave it non-nullable at `0`); Skyler chose to leave it non-nullable and default to `0`. Stated plainly because it has a real consequence: between Phase 4 and Phase 6, `MoveGrantCount == 0` is **indistinguishable from a playbook that genuinely grants zero moves**, so nothing in that window should branch on it or treat it as authored data. Phase 6 populates it alongside the `PlaybookMove` rows themselves.
 
@@ -366,6 +370,8 @@ Useful for docs, conversation, and admin-UI grouping. A shape is always derived 
 - **Free-text Section** — `FreeTextLabel` populated (6.1).
 - **Repeatable Section** — `MinInstances`/`MaxInstances` populated (6.1, 6.4).
 - **Numeric leaf** — `NumericMin`/`NumericMax` populated on a leaf option (6.1).
+
+**`Description` made nullable 2026-08-31 (Phase 8 group 3).** The Pararomantic's Relationship Status prints only its header and its box row — no explanatory paragraph at all. The two mechanics that drive it (the Luck spend-trigger and Fate of Your Love's unravelling) are printed and stored in their own places, so attributing either here would duplicate stored text rather than describe the track. The catalogue had specified `null` for this track since 2026-08-28; the column simply had not caught up.
 
 ### 6.6 Extra Tracks — cross-reference, not a duplicate definition
 

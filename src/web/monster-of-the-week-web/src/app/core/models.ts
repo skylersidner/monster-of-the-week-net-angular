@@ -470,6 +470,7 @@ export interface PlaybookMoveResponse {
   name: string;
   descriptionText: string | null;
   required: boolean;
+  isAdvanced: boolean;
   sortOrder: number;
   /**
    * Phase 6: pick-structure embedded in this move own text. Nested here rather than
@@ -504,6 +505,7 @@ export interface PlaybookLookOptionResponse {
 export interface PlaybookLookCategoryResponse {
   id: string;
   allowsFreeform: boolean;
+  groupLabel: string | null;
   sortOrder: number;
   options: PlaybookLookOptionResponse[];
 }
@@ -554,6 +556,7 @@ export interface UpsertPlaybookMoveRequest {
   name: string;
   descriptionText: string | null;
   required: boolean;
+  isAdvanced: boolean;
   sortOrder: number;
   bespokeSections: UpsertBespokeSectionRequest[];
 }
@@ -583,6 +586,7 @@ export interface UpsertPlaybookLookOptionRequest {
 export interface UpsertPlaybookLookCategoryRequest {
   id: string | null;
   allowsFreeform: boolean;
+  groupLabel: string | null;
   sortOrder: number;
   options: UpsertPlaybookLookOptionRequest[];
 }
@@ -665,7 +669,7 @@ export interface BespokeJournalResponse {
 export interface PlaybookExtraTrackResponse {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   effectText: string | null;
   boxCount: number;
   startLabel: string | null;
@@ -717,7 +721,7 @@ export interface UpsertBespokeJournalRequest {
 export interface UpsertPlaybookExtraTrackRequest {
   id: string | null;
   name: string;
-  description: string;
+  description: string | null;
   effectText: string | null;
   boxCount: number;
   startLabel: string | null;

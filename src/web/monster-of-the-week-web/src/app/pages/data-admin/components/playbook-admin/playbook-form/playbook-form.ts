@@ -224,16 +224,24 @@ export class PlaybookFormComponent implements OnChanges {
           sortOrder: index,
         })
       ),
-      moves: this.moves.controls.map(
-        (group, index): UpsertPlaybookMoveRequest => ({
-          id: group.controls['id'].value,
-          name: group.controls['name'].value.trim(),
-          descriptionText: blankToNull(group.controls['descriptionText'].value),
-          required: group.controls['required'].value,
-          sortOrder: index,
-          bespokeSections: group.controls['bespokeSections'].value,
-        })
-      ),
+      // Partitioned by isAdvanced for the same reason improvements are (see below): the
+      // creation-time moves and the advanced-only ones are two separate lists, each with its
+      // own sequence, and the server orders them that way when reading back.
+      moves: (() => {
+        const nextSortOrder = { regular: 0, advanced: 0 };
+        return this.moves.controls.map((group): UpsertPlaybookMoveRequest => {
+          const isAdvanced: boolean = group.controls['isAdvanced'].value;
+          return {
+            id: group.controls['id'].value,
+            name: group.controls['name'].value.trim(),
+            descriptionText: blankToNull(group.controls['descriptionText'].value),
+            required: group.controls['required'].value,
+            isAdvanced,
+            sortOrder: isAdvanced ? nextSortOrder.advanced++ : nextSortOrder.regular++,
+            bespokeSections: group.controls['bespokeSections'].value,
+          };
+        });
+      })(),
       gearCategories: this.gearCategories.controls.map(
         (group, index): UpsertPlaybookGearCategoryRequest => ({
           id: group.controls['id'].value,
@@ -257,6 +265,7 @@ export class PlaybookFormComponent implements OnChanges {
         (group, index): UpsertPlaybookLookCategoryRequest => ({
           id: group.controls['id'].value,
           allowsFreeform: group.controls['allowsFreeform'].value,
+          groupLabel: blankToNull(group.controls['groupLabel'].value),
           sortOrder: index,
           options: this.lookOptions(group).controls.map(
             (option, optionIndex): UpsertPlaybookLookOptionRequest => ({
@@ -270,14 +279,23 @@ export class PlaybookFormComponent implements OnChanges {
       bespokeSections: this.bespokeSections,
       bespokeJournals: this.bespokeJournals,
       extraTracks: this.extraTracks,
-      improvements: this.improvements.controls.map(
-        (group, index): UpsertPlaybookImprovementRequest => ({
-          id: group.controls['id'].value,
-          text: group.controls['text'].value.trim(),
-          isAdvanced: group.controls['isAdvanced'].value,
-          sortOrder: index,
-        })
-      ),
+      // sortOrder restarts at 0 for each of the two lists rather than running continuously
+      // across the combined array, because isAdvanced is what actually groups them — the
+      // regular and advanced lists are printed and read as two separate sequences. Using the
+      // raw FormArray index here numbered them 0-N as one run, which quietly rewrote the
+      // stored numbering of every playbook saved through this form.
+      improvements: (() => {
+        const nextSortOrder = { regular: 0, advanced: 0 };
+        return this.improvements.controls.map((group): UpsertPlaybookImprovementRequest => {
+          const isAdvanced: boolean = group.controls['isAdvanced'].value;
+          return {
+            id: group.controls['id'].value,
+            text: group.controls['text'].value.trim(),
+            isAdvanced,
+            sortOrder: isAdvanced ? nextSortOrder.advanced++ : nextSortOrder.regular++,
+          };
+        });
+      })(),
     };
   }
 
@@ -371,7 +389,7 @@ export class PlaybookFormComponent implements OnChanges {
   }
 
   private buildMoveGroup(
-    source: { id: string; name: string; descriptionText: string | null; required: boolean; bespokeSections?: BespokeSectionResponse[] } | null
+    source: { id: string; name: string; descriptionText: string | null; required: boolean; isAdvanced: boolean; bespokeSections?: BespokeSectionResponse[] } | null
   ): FormGroup {
     return this.formBuilder.group({
       id: this.formBuilder.control<string | null>(source?.id ?? null),
@@ -387,6 +405,7 @@ export class PlaybookFormComponent implements OnChanges {
       name: this.formBuilder.nonNullable.control(source?.name ?? '', [Validators.required]),
       descriptionText: this.formBuilder.nonNullable.control(source?.descriptionText ?? ''),
       required: this.formBuilder.nonNullable.control(source?.required ?? false),
+      isAdvanced: this.formBuilder.nonNullable.control(source?.isAdvanced ?? false),
     });
   }
 
@@ -413,11 +432,12 @@ export class PlaybookFormComponent implements OnChanges {
   }
 
   private buildLookCategoryGroup(
-    source: { id: string; allowsFreeform: boolean; options: { id: string; text: string }[] } | null
+    source: { id: string; allowsFreeform: boolean; groupLabel: string | null; options: { id: string; text: string }[] } | null
   ): FormGroup {
     return this.formBuilder.group({
       id: this.formBuilder.control<string | null>(source?.id ?? null),
       allowsFreeform: this.formBuilder.nonNullable.control(source?.allowsFreeform ?? true),
+      groupLabel: this.formBuilder.nonNullable.control(source?.groupLabel ?? ''),
       options: this.formBuilder.array<FormGroup>(
         (source?.options ?? []).map((option) => this.buildLookOptionGroup(option))
       ),

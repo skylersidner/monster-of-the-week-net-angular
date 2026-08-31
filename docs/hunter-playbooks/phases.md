@@ -265,7 +265,120 @@ This **reverses** the catalogue's original judgment, which had excluded the asid
 
 Not designed this pass. **Authoring mechanism, once Phase 5 lands, matches Phase 4's**: an AI agent authors the bespoke-section data via the real API (whatever endpoint shape Phase 5's schema implies), not the Admin UI form — same reasoning as Phase 4, per `architecture.md` Section 4. The Phase 4 Skill (above) will need extending to cover bespoke-field extraction once Phase 5's shape exists — expected, not a gap; the Skill was always going to grow with the schema it's driving. **Also depends on Phase 6**: if any of Chosen/Crooked/Divine's own Moves turn out to need Phase 6's internal-pick-structure treatment, this phase's authoring pass needs that schema in hand too, not just Phase 5's — sequencing this after both, not just Phase 5, is why the renumber placed Phase 6 directly before this phase rather than after it.
 
-## Phase 8 — Import the remaining 25 playbooks, then run the one-time production seed conversion (deferred, later work per Skyler's brief; conversion mechanism now settled)
+## Phase 8 — Import the remaining 25 playbooks, then run the one-time production seed conversion (**in progress — group 1 of 4 complete, 2026-08-31**)
+
+**Paced in four groups of seven at Skyler's direction, 2026-08-31**, rather than one 25-playbook run: "this phase has some of the highest risk for error, unforeseen exceptions to assumed patterns, and other issues." That judgment was borne out immediately — see the findings below.
+
+**Group 1 complete: The Action Scientist, The Celebrity, The Changeling, The Chosen, The Covenant, The Crooked, The Curse-Eater.** Chosen and Crooked were already authored (Phases 4–7); the other five were authored this pass through the real `POST /api/playbooks` endpoint, each complete in one pass — standard sections, Moves, and bespoke content together, which is the shape Phase 8 was designed around and the first time it has actually been exercised.
+
+| Playbook | Ratings | Gear | Look | Improv | Moves (grant / required) | Bespoke |
+|---|---|---|---|---|---|---|
+| Action Scientist | 5 | 3 | 3 | 10 + 9 | 5 (2 / 0) | Area of Study — 7 options |
+| Celebrity | 5 | 3 | 3 | 10 + 9 | 8 (3 / 1) | none — confirmed zero |
+| Changeling | 5 | 3 | 4 | 10 + 10 | 8 (3 / 1) | Unknown Heritage — 10; Force of Nature (move-internal) — 4 |
+| Covenant | 5 | 3 | 3 | 11 + 8 | 7 (2 / 0) | Covenant (zero-option) + Friendship — 2 categories, 11 |
+| Curse-Eater | 5 | 3 | 3 | 10 + 9 | 9 (4 / 2) | How Consuming Magic Works — 5; Consumed Magic journal; Corruption track |
+
+**Self-verification: 287 automated checks across all eight authored playbooks, all passing**, plus a browser round-trip of the Curse-Eater through the real admin form (the first playbook carrying both a `BespokeJournal` and a `PlaybookExtraTrack`, so the first real test that the form's passthrough buffers preserve them).
+
+**The main lesson of group 1 is about the verifier, not the playbooks.** Three Phase 4 checks encoded coincidences of the three pilots as universal rules, and each was wrong by the fourth playbook: the source uses **two wording families** for the six "universal" advanced improvements (the old check treated family B's "new playbook" as proof of page-bleed, and would have failed four correct imports); regular improvement counts are **not always 10** (the Covenant prints 11); and the mid-word-hyphen check never looked at Moves or bespoke text, which did not exist when it was written. `scripts/verify.mjs` was rewritten accordingly — 287 checks now, covering move bodies, bespoke/journal/track text, prose fields, `sortOrder` density, and bespoke structural coherence.
+
+**Four pre-existing defects in the Phase 4–7 pilots, found by the strengthened verifier and fixed:** line-wrap hyphens surviving into Moves bodies on the Chosen, the Crooked and the Divine (`imme- diate`, `Addi- tionally`, `any- thing`, `some- thing`, `ban- ished` — five moves in total), and the Crooked's advanced improvements carrying `sortOrder` 10–16 instead of restarting at 0. All corrected in place through `PUT`, so every child row kept its Id.
+
+**Three corrections to `bespoke-ruleset-catalogue.md`**, all found by checking it against the page: the Covenant's Friendship style tags were recorded in an order matching neither a column-major nor a row-major reading of the printed two-column grid; the Curse-Eater's gear line said "2-category" and then listed three; and two of that playbook's gear lists were overcounted. The catalogue remains authoritative for *structure* — but group 1 is the evidence that its *counts and orderings* need cross-checking against the source.
+
+**Four decisions taken by Skyler this pass**, all recorded in the Skill so groups 2–4 hit a documented answer: genuine source typos are corrected on storage rather than preserved (with each correction registered in the verifier's `EXEMPTIONS` table so fidelity is still checked against the real page); the Changeling's single nested improvement stays one row using the existing `<ul>/<li>` subset; the Action Scientist's one-off gear-tag note is dropped; and **multi-column option grids are transcribed column-major**, which settles the general rule for gear, bespoke options and improvements alike.
+
+**Two further decisions, taken after group 1's report, 2026-08-31:**
+
+- **The admin form now partitions improvement `sortOrder` by `isAdvanced`** rather than numbering the combined array 0–N from its FormArray index (Skyler: "I will always want those grouped that way"). The old behaviour silently rewrote the stored numbering of any playbook saved through the UI. Fixed in `playbook-form.ts`; a no-op save of the Curse-Eater through the real form now comes back byte-identical, and all 336 Angular tests still pass. A form-reactivity spec for this belongs to the deferred testing step, not here.
+- **Line-width hyphenation is never preserved in stored data** — those words go in whole. Hyphens genuinely part of a word stay. A full scan across all eight authored playbooks found **zero** surviving artifacts, and 30 distinct genuine compounds correctly kept (`Curse-eater`, `fear-based`, `ignore-armour`, `air-supply`, `co-star`, …). The scan is now a permanent verifier check rather than a one-off: a spaced split (`per- ceptions`) is caught by pattern, while a spaceless rejoin (`com-ponent`) is shape-identical to a real compound and is instead settled against the pooled raw corpus — a token printed intact on one line anywhere is genuine, one that only ever straddles a line break is an artifact, and anything matching neither is reported as unattested rather than silently passed. Negative-tested in both directions before being trusted.
+
+**Group 2 complete, 2026-08-31: The Divine, The Envoy, The Expert, The Flake, The Forged, The Gumshoe, The Hex.** The Divine was already authored (Phase 4/7); the other six were authored this pass, complete in one pass each.
+
+| Playbook | Ratings | Gear | Look | Improv | Moves (grant / req / adv) | Bespoke |
+|---|---|---|---|---|---|---|
+| Envoy | 5 | 2 | 3 | 11 + 9 | 7 (2 / 0 / 0) | Task — 4; Secret Wisdom (zero-option); Overseers — 2 categories, 21 |
+| Expert | 5 | 1 | 2 | 10 + 7 | 7 (2 / 0 / 0) | Haven — 9 |
+| Flake | 5 | 2 | 2 | 10 + 7 | 8 (3 / 0 / 0) | none — confirmed zero |
+| Forged | 5 | 2 | **7** | 11 + 10 | 7 (2 / 1 / 0) | Dual Nature — 3 categories, 17; Origin — 2 categories, 14; Partner (move-internal) — 2 categories, 11 |
+| Gumshoe | 5 | 3 | 2 | 9 + 8 | 9 (3 / 2 / 0) | Gumshoe Code (FreeTextLabel); The Naked City (move-internal) — 34 |
+| Hex | 5 | 2 | 2 | 11 + 9 | 10 (3 / 1 / **2**) | Temptation — 7; Rotes (repeatable) — 2 categories, 8 |
+
+**540 automated checks across all fourteen authored playbooks, all passing**, plus browser round-trips of the Hex and the Forged through the real admin form.
+
+**Two schema additions, both decided by Skyler after being surfaced, both verified one-offs across all 58 pages** (migration `AddMoveIsAdvancedAndLookGroupLabel`, additive, nullable/defaulted so no existing row changed):
+- **`PlaybookLookCategory.GroupLabel`** — The Forged is the only hunter with two physical forms, and prints its seven Look categories under "Human look:" and "Weapon look:". Without this the data could not say which four describe the weapon rather than the person.
+- **`PlaybookMove.IsAdvanced`** — The Hex prints two "Advanced Hex Moves" (Apotheosis, Synthesis) reachable only through an improvement. Splits the Moves table into two lists exactly as `PlaybookImprovement.IsAdvanced` already does, each with its own `sortOrder` from 0. The alternative was losing the rules text or letting a creation UI offer moves the rules don't.
+
+**Group 2 broke two of group 1's own replacement rules, which is the pattern worth noting.** Group 1 replaced the "six universal advanced improvements, present exactly once" check after finding two wording families; group 2 then found that a beat can be **absent entirely** (The Forged prints no "Mark another two") and worded differently again (the Gumshoe and Hex print "**Make up** a second hunter"). The check now asserts only that no beat appears *twice* — duplication is the real contamination signal — and reports absences. Two more sample-derived assumptions also fell: playbooks are not always two pages (**the Hex runs 27–30**, its Rotes worksheet being where the actual ruleset content lives), and a playbook need not print a blurb under its title at all (**the Gumshoe and the Hex** put their flavour quotation elsewhere on the spread; Skyler's call was to use it as `description`).
+
+**Three defects found and fixed, two of them in shipped code:**
+- **The admin form numbered moves 0–N across the combined array**, so the Hex's two advanced moves came back as sortOrder 8–9 instead of 0–1 — the identical bug fixed for improvements after group 1, in the collection added this pass. Caught by the browser round-trip, not the verifier; fixed in `playbook-form.ts`, and a no-op save now comes back byte-identical.
+- **The verifier's content-fidelity check could not match any stored value spanning a bullet boundary.** `pdftotext -raw` renders a checkbox as a literal ASCII `b`, which survives alphanumeric squashing, so the source read `...move.bHerald: When you...` where the stored text read `...move.Herald: When you...`. Surfaced by the Envoy's Secret Wisdom, the first stored value to span four bulleted items. Bullet glyphs are now stripped from the source first — negative-tested in both directions to confirm the check still rejects fabricated text.
+- **The hyphen classifier reported genuine compounds as unattested** when the source only ever prints them broken across a line ("mon-\\nster-killing", "too-for-\\nmal"). It now also attests against a healed copy of the corpus; the line-break detection itself is untouched, so real artifacts are still caught.
+
+**A fourth artifact class was added to the checklist**: kerning splits. Heavy letter-spacing on a display title makes the extractor emit spurious spaces *inside* words — The Forged's "Don't Worry About Me" reads as `D on’t Worr y Ab out Me`. No punctuation is left behind, so the only signal is a stranded single letter, which the verifier now flags.
+
+**One judgment worth recording**: The Naked City keeps its instruction sentence in the move's own `DescriptionText`, against the usual rule of dropping it, because it carries a real escape hatch ("or from other areas agreed to between you and the Keeper") that no `MinSelect` expresses and that has no option row to attach to.
+
+**Three further catalogue corrections**, all from checking it against the page: The Forged's Dual Nature Range and Flaws were both recorded row-major where the printed two-column grids read column-major, and the Curse-Eater's gear/improvement counts were wrong (already fixed in group 1). The catalogue remains authoritative for *structure*; its counts and orderings need cross-checking.
+
+**Group 3 complete, 2026-08-31: The Host, The Initiate, The Interface, The Monstrous, The Mundane, The Pararomantic, The Professional.** All seven new; all clean two-page spreads (checked before trusting it, after the Hex).
+
+| Playbook | Ratings | Gear | Look | Improv | Moves (grant / req) | Bespoke |
+|---|---|---|---|---|---|---|
+| Host | 5 | 2 | 3 | 12 + 10 | 7 (3 / 1) | Symbiosis — 17; Defensive Adaptation (move-internal) — 6 |
+| Initiate | 5 | 3 | 2 | 10 + 8 | 9 (4 / 1) | Sect — 2 categories, 25 |
+| Interface | 5 | 5 | 3 | 10 + 11 | 6 (3 / 0) | Integration — 3 categories, 20 |
+| Monstrous | 5 | 1 | 3 | 10 + 9 | 12 (2 / 0) | Monster Breed (zero-option); Curses — 5 incl. a nested 1-of-11; Natural Attacks — 2 categories, 10 |
+| Mundane | 5 | 2 | 3 | 10 + 8 | 8 (3 / 0) | none — confirmed zero |
+| Pararomantic | 5 | 1 | 2 | 9 + 10 | 8 (3 / 1) | Guide's Gift — 4; Bond Abuse; Fate of Your Love; Relationship Status track |
+| Professional | 5 | 3 | 2 | 10 + 8 | 8 (4 / 1) | Agency — 3 categories, 20; Mobility (move-internal) — 2 categories, 22 |
+
+**806 automated checks across all twenty-one authored playbooks, all passing**, plus browser round-trips of the Pararomantic, Monstrous and Professional through the real admin form — all three byte-identical after a no-op save.
+
+**Two schema changes, both forced by the source rather than chosen** (migrations `MakeExtraTrackDescriptionNullable`, `WidenGearCategoryLabel`):
+- **`PlaybookExtraTrack.Description` is now nullable.** The Pararomantic's Relationship Status prints only a header and its box row; the catalogue had already specified `Description: null` for it, but the column was non-nullable, so the schema and the design doc simply disagreed. The alternatives were inventing text or duplicating the Luck trigger sentence into a second field.
+- **`PlaybookGearCategory.Label` widened 255 → 512.** The Initiate's Gear block opens with a 280-character conditional paragraph that is the only statement of what its two pick counts actually are — and those counts depend on the **Sect** bespoke ruleset, the first standard-section-depends-on-bespoke case in the corpus. Re-raised rather than dropped, because the Skill's own note from group 1 said a second instance of unhoused gear prose should be. Skyler chose the headroom over a separate `GearNotesText` field; the counts are stored as permissive maxima with the real rule in the label, the same prose-only resolution already accepted for Monstrous's Natural Attacks either/or.
+
+**A third category of stored text was formalised: `SYNTHESIZED`.** Group 3 landed three kinds of deliberately-not-from-the-page content at once — two Required moves the source never names (**"One of Us"**, **"Agency politics"**, both named by Skyler), category labels the source gives only as a full sentence (**"Origin"**) or not at all (**"Agency name:"**), and the Pararomantic's four **Guide's Gift** titles, whose options carry no delimiter of any kind to split on. Rather than loosen the content-fidelity check, each string is now declared in a cited `SYNTHESIZED` set in `verify.mjs`; anything not declared still has to trace to the page.
+
+**Two verifier defects found and fixed, both making it weaker or wronger than it looked:**
+- **The hyphen classifier's artifact test was circular.** It attested the joined form against a "healed" copy of the source — but healing `near-\ndeath` manufactures `neardeath`, so every line-break pair attested its own joined form and the test could never fire. Rebuilt to attest only against words the source prints *whole*, which is what actually separates `com-ponent` (because `component` appears elsewhere) from `near-death` (because `neardeath` appears nowhere).
+- **Bullet glyphs weren't stripped from the hyphen corpus**, so `bAim-assist` tokenised as `baim-assist` and the genuine compound `aim-assist` was reported unattested. The same strip already applied to the fidelity corpus now applies here too.
+
+The classifier now has **three** verdicts rather than two: genuine, artifact, or *unresolvable — check the page*. That third one is deliberate. A genuine compound whose line break landed exactly on its own hyphen is indistinguishable from an artifact by glyphs alone, and a check that fails on correct data trains the next author to ignore it. Negative-tested in both directions: 5 of 5 genuine compounds kept, 3 of 5 real artifacts failed outright, the remaining 2 surfaced as notes.
+
+**Ten notes, all confirmed source variation, none defects**: improvement counts of 9 (Gumshoe, Pararomantic), 11 (Covenant, Envoy, Forged, Hex) and 12 (Host); the Forged's missing beat; the Pararomantic's absent flavour text; and the Interface's `near-death`.
+
+**One catalogue correction**: the Interface's advanced improvements are 11, not the 7 recorded.
+
+**Group 4 complete, 2026-08-31: The Searcher, The Snoop, The Spell-Slinger, The Spooktacular, The Spooky, The Visitor, The Wronged. ALL 28 PLAYBOOKS ARE NOW AUTHORED.**
+
+| Playbook | Ratings | Gear | Look | Improv | Moves (grant / req) | Bespoke |
+|---|---|---|---|---|---|---|
+| Searcher | 5 | 3 | 2 | 10 + 9 | 8 (3 / 1) | none at playbook level; First Encounter — 7, Guardian — 5, Network (repeatable free text) — all move-internal |
+| Snoop | 5 | 4 | 2 | 10 + 8 | 7 (3 / 0) | Crew; Team Concept: Monster Revelations (both zero-option) |
+| Spell-Slinger | 5 | 1 | 2 | 9 + 9 | 11 (4 / 1) | Combat Magic — 2 categories, 10; Tools and Techniques — 4, Arcane Reputation (repeatable free text) — move-internal |
+| Spooktacular | 5 | 4 | 3 | 10 + 8 | 6 (2 / 0) | The Show — 5, incl. the numeric-leaf option |
+| Spooky | 5 | 2 | 3 | 10 + 8 | 8 (3 / 0) | The Dark Side — 16 |
+| Visitor | 5 | 4 | 3 | 11 + 8 | 7 (3 / 0) | Expatriation — 4 categories, 3 levels deep, 37 options; Something Strange — 5 move-internal |
+| Wronged | 5 | 4 | 2 | 10 + 9 | 8 (3 / 1) | Who You Lost — 3 categories, 14 |
+
+**1,076 automated checks across all twenty-eight playbooks, all passing**, plus browser round-trips of the Visitor, Spooktacular and Spell-Slinger — all byte-identical after a no-op save. 172 API and 336 Angular tests still pass. **No schema changes were needed for group 4** — the first group of the four to require none, which is the real signal that the model has converged.
+
+**Every schema feature designed across Phases 5–7 is now exercised by real data**, several for the first and only time: `BespokeSection.FreeTextLabel` (Gumshoe's Code, plus the Searcher's and Spell-Slinger's bounded-repeatable free text), `MinInstances`/`MaxInstances` (Hex's Rotes, and now those same two bounded-repeatable cases), `BespokeOption.NumericMin`/`NumericMax` (the Spooktacular's Infernal Favour — the only numeric leaf in the book), `PlaybookExtraTrack` including `StartLabel` (Curse-Eater's Corruption, Pararomantic's Relationship Status), `BespokeJournal` (Curse-Eater's Consumed Magic), `PlaybookMove.IsAdvanced` (the Hex), and `PlaybookLookCategory.GroupLabel` (the Forged).
+
+**The Visitor's Expatriation is the deepest structure in the corpus and the first real test of two predictions the design made in the abstract**: three levels of `BespokeOption` nesting (the adjacency list was only ever exercised two deep before), and a genuine *range* at the category level (`MinSelect=2, MaxSelect=3` — "at least two of the three lines", where every prior nested case was "all N of N"). Both held with no schema change.
+
+**Two verifier defects found, both of which had been hiding behind narrower data:**
+- **The nested-category check only looked one level deep**, so the Visitor's Lines — three levels down — were never checked at all. Now recursive.
+- **It also rejected uncapped minimums** (`MinSelect` set, `MaxSelect` null), which is the correct shape for every "pick one or more, no stated ceiling" list: Heat, the Visitor's Lines, and both of the Wronged's tag blocks. It only passed before because no such category had ever sat at depth 1.
+
+**Five more catalogue ordering corrections**, all the same class found in groups 1–3 — entries recorded row-major where the sheet prints a column-major grid: the Spooky's 16 Dark Side tags, two of the Visitor's Expatriation sub-blocks, and the Wronged's "Why couldn't you save them?". Plus two count corrections (the Searcher's investigation tools are 7 not 6; the Visitor has 11 regular improvements, not 10). **Across all four groups that is 11 ordering/count errors found in the catalogue by checking it against the page** — its structural decisions held up throughout, but its transcribed orderings and counts did not, and future work should treat those as needing verification rather than trusted.
+
+**Phase 8's authoring is done. What remains is its closing step**: the one-time production seed conversion described below — read the working database, produce `Data/Seed/hunter-playbooks.json`, commit it, and add the guarded `SeedPlaybooksAsync` step to `MotwDbInitializer`. That has not been started.
 
 Not designed this pass — the bespoke-section shape's actual EF Core implementation (Phase 5/7) needs to land first, and per Phase 6's own note above, so does Phase 6's Move-internal-pick schema if the 3 pilots demonstrate a need for it. **The reading prerequisite is now satisfied**: all 28 playbooks (not just Chosen/Crooked/Divine) have been read at full depth and catalogued for bespoke content (`bespoke-ruleset-catalogue.md`, complete 2026-08-29) — Phase 8's own authoring/seeding work is still unstarted, but it no longer needs to re-derive the bespoke model's shape playbook-by-playbook the way Phase 5's walkthrough did; it can author directly from the already-verified catalogue. (Phase 6's own equivalent full-playbook read for Move-internal structure is a separate, not-yet-done prerequisite — see Phase 6's note on the existing trap list being a seed, not a census.) Depends on Phases 2–7 having proven out against all 28, not just 3 — per the task brief's own framing, this is explicitly out of scope for this pass.
 
