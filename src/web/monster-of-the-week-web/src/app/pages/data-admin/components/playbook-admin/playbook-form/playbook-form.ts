@@ -15,6 +15,7 @@ import {
   UpsertBespokeSectionRequest,
   UpsertPlaybookExtraTrackRequest,
   BespokeOptionResponse,
+  BespokeSectionResponse,
 } from '../../../../../core/models';
 
 /** Mirrors the server's `[MinLength(2)]` on `UpsertPlaybookRequest.Name`. */
@@ -230,6 +231,7 @@ export class PlaybookFormComponent implements OnChanges {
           descriptionText: blankToNull(group.controls['descriptionText'].value),
           required: group.controls['required'].value,
           sortOrder: index,
+          bespokeSections: group.controls['bespokeSections'].value,
         })
       ),
       gearCategories: this.gearCategories.controls.map(
@@ -316,31 +318,7 @@ export class PlaybookFormComponent implements OnChanges {
    * rather than replacing them.
    */
   private captureBespoke(source: PlaybookDetailResponse | null): void {
-    const toOption = (o: BespokeOptionResponse): UpsertBespokeOptionRequest => ({
-      id: o.id,
-      title: o.title,
-      descriptionText: o.descriptionText,
-      minSelect: o.minSelect,
-      maxSelect: o.maxSelect,
-      numericMin: o.numericMin,
-      numericMax: o.numericMax,
-      sortOrder: o.sortOrder,
-      children: o.children.map(toOption),
-    });
-
-    this.bespokeSections = (source?.bespokeSections ?? []).map((s) => ({
-      id: s.id,
-      title: s.title,
-      description: s.description,
-      effectText: s.effectText,
-      freeTextLabel: s.freeTextLabel,
-      minSelect: s.minSelect,
-      maxSelect: s.maxSelect,
-      minInstances: s.minInstances,
-      maxInstances: s.maxInstances,
-      sortOrder: s.sortOrder,
-      options: s.options.map(toOption),
-    }));
+    this.bespokeSections = (source?.bespokeSections ?? []).map(toUpsertSection);
 
     this.bespokeJournals = (source?.bespokeJournals ?? []).map((j) => ({
       id: j.id,
@@ -365,8 +343,17 @@ export class PlaybookFormComponent implements OnChanges {
     const countOptions = (options: UpsertBespokeOptionRequest[]): number =>
       options.reduce((total, o) => total + 1 + countOptions(o.children), 0);
 
+    // Phase 6 sections live on their Move, not on the playbook, so they are summarised
+    // from the source rather than from this.bespokeSections — otherwise a move-embedded
+    // pick-structure would be carried invisibly, which is exactly what this list exists
+    // to prevent.
+    const moveSections = (source?.moves ?? []).flatMap((m) =>
+      m.bespokeSections.map((s) => `${s.title} — inside move "${m.name}", ${countOptions(s.options.map(toUpsertOption))} option(s)`)
+    );
+
     this.bespokeSummary.set([
       ...this.bespokeSections.map((s) => `${s.title} — ${countOptions(s.options)} option(s)`),
+      ...moveSections,
       ...this.bespokeJournals.map((j) => `${j.title} — journal, ${j.fields.length} field(s)`),
       ...this.extraTracks.map((t) => `${t.name} — track, ${t.boxCount} boxes`),
     ]);
@@ -383,9 +370,20 @@ export class PlaybookFormComponent implements OnChanges {
     });
   }
 
-  private buildMoveGroup(source: { id: string; name: string; descriptionText: string | null; required: boolean } | null): FormGroup {
+  private buildMoveGroup(
+    source: { id: string; name: string; descriptionText: string | null; required: boolean; bespokeSections?: BespokeSectionResponse[] } | null
+  ): FormGroup {
     return this.formBuilder.group({
       id: this.formBuilder.control<string | null>(source?.id ?? null),
+      /*
+       * Phase 6, and the same hazard as the playbook-level passthrough above: a Move can own
+       * an embedded pick-structure, and the upsert endpoint reads its absence as a delete.
+       * This form has no editor for it, so it is carried here verbatim and sent back
+       * unchanged. Not displayed per-move; the read-only summary counts it instead.
+       */
+      bespokeSections: this.formBuilder.nonNullable.control<UpsertBespokeSectionRequest[]>(
+        (source?.bespokeSections ?? []).map(toUpsertSection)
+      ),
       name: this.formBuilder.nonNullable.control(source?.name ?? '', [Validators.required]),
       descriptionText: this.formBuilder.nonNullable.control(source?.descriptionText ?? ''),
       required: this.formBuilder.nonNullable.control(source?.required ?? false),
@@ -458,4 +456,40 @@ function toNullableNumber(value: number | string | null): number | null {
   }
   const parsed = Number(value);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+/*
+ * Response -> request converters for bespoke content, shared by the playbook-level
+ * passthrough and each Move's own. The two shapes are structurally identical apart from
+ * `id` becoming nullable, and every id is preserved so the server's diff updates rows in
+ * place rather than replacing them.
+ */
+function toUpsertOption(o: BespokeOptionResponse): UpsertBespokeOptionRequest {
+  return {
+    id: o.id,
+    title: o.title,
+    descriptionText: o.descriptionText,
+    minSelect: o.minSelect,
+    maxSelect: o.maxSelect,
+    numericMin: o.numericMin,
+    numericMax: o.numericMax,
+    sortOrder: o.sortOrder,
+    children: o.children.map(toUpsertOption),
+  };
+}
+
+function toUpsertSection(s: BespokeSectionResponse): UpsertBespokeSectionRequest {
+  return {
+    id: s.id,
+    title: s.title,
+    description: s.description,
+    effectText: s.effectText,
+    freeTextLabel: s.freeTextLabel,
+    minSelect: s.minSelect,
+    maxSelect: s.maxSelect,
+    minInstances: s.minInstances,
+    maxInstances: s.maxInstances,
+    sortOrder: s.sortOrder,
+    options: s.options.map(toUpsertOption),
+  };
 }

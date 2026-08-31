@@ -471,6 +471,12 @@ export interface PlaybookMoveResponse {
   descriptionText: string | null;
   required: boolean;
   sortOrder: number;
+  /**
+   * Phase 6: pick-structure embedded in this move own text. Nested here rather than
+   * flattened with a playbookMoveId, which is what keeps PlaybookDetailResponse.
+   * bespokeSections unambiguously playbook-level. Almost always empty.
+   */
+  bespokeSections: BespokeSectionResponse[];
 }
 
 export interface PlaybookGearOptionResponse {
@@ -549,6 +555,7 @@ export interface UpsertPlaybookMoveRequest {
   descriptionText: string | null;
   required: boolean;
   sortOrder: number;
+  bespokeSections: UpsertBespokeSectionRequest[];
 }
 
 export interface UpsertPlaybookGearOptionRequest {

@@ -46,8 +46,21 @@ for (const [key, d] of Object.entries(detail)) {
   const blob = JSON.stringify(d);
   const leaked = BASIC_MOVES.filter((m) => blob.includes(m));
   check(leaked.length === 0, `${key}: no basic-move contamination${leaked.length ? ' — leaked: ' + leaked : ''}`);
-  check(d.moves.length === 0, `${key}: zero Moves rows (deferred to Phase 6, not silently authored)`);
-  check(d.moveGrantCount === 0, `${key}: moveGrantCount is 0 (Phase 6 populates it)`);
+  /*
+   * Moves consistency, not a scope check.
+   *
+   * This began as "zero Moves rows, moveGrantCount 0", which encoded Phase 4's scope
+   * boundary. Phase 6 legitimately crosses that boundary, so asserting it would now fail on
+   * correctly-authored data. What is worth asserting in either phase is that the two agree:
+   * a playbook is either Moves-unauthored (no rows, count 0) or Moves-authored (rows AND a
+   * real count). The mixed states are the actual bugs — rows with the count still at its
+   * placeholder 0, or a count claiming grants that no rows back.
+   */
+  const movesAuthored = d.moves.length > 0;
+  check(
+    movesAuthored ? d.moveGrantCount > 0 : d.moveGrantCount === 0,
+    `${key}: Moves rows and moveGrantCount agree (${d.moves.length} rows, grant ${d.moveGrantCount})`
+  );
 }
 
 // --- Artifact 2: page-bleed from the preceding playbook -------------------------------

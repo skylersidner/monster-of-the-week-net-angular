@@ -2,7 +2,7 @@
 
 Design docs for adding Monster of the Week "Hunter Playbooks" (player-character templates) and the "Hunter" instances created from them to this app.
 
-**Status: Phases 1–5 implemented 2026-08-30.** Data Admin tabs, the Playbook schema + migration, the full CRUD vertical slice, and the three pilot playbooks authored and verified. The authoring procedure is packaged as `.claude/skills/hunter-playbook-authoring/`. Phase 5's bespoke-ruleset tables are built and validated against real catalogued content; its Hunter-side tables wait for Phase 9/10. Phase 6 (Moves) is designed but not authored.
+**Status: Phases 1–6 implemented 2026-08-30.** Data Admin tabs, the Playbook schema + migration, the full CRUD vertical slice, and the three pilot playbooks authored and verified. The authoring procedure is packaged as `.claude/skills/hunter-playbook-authoring/`. Phase 5's bespoke-ruleset tables are built and validated against real catalogued content; its Hunter-side tables wait for Phase 9/10. Phase 6's Move-internal schema is built and validated on The Crooked; authoring the remaining playbooks' Moves is Phase 7/8.
 
 Everything dated before 2026-08-30 in this file was planning only, with no application code written — see the 2026-08-30 entry at the end of this section for what opening implementation changed across these docs. The rest of this paragraph is the original planning pass's own framing, kept as history: this is a from-scratch pass — a prior planning doc for this same feature (`hunter-playbooks-plan.md`, written 2026-08-24) was deleted by Skyler because it needed more consideration before committing to an approach. This doc supersedes it; see `architecture.md` Section 0 for what carried over and what changed.
 

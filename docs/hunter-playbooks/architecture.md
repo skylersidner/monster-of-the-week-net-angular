@@ -377,7 +377,9 @@ Some individual Moves (not `BespokeSection`s) embed their own fixed, enumerated 
 
 **What stays out of scope, decided by Skyler 2026-08-30 and not left ambiguous**: in-play menus (a list chosen fresh each time a move triggers — ~35 moves), computed option sets (options defined by reference to other playbooks' moves — 5 moves), and ordinary roll-outcome branching all remain **prose** in `PlaybookMove.DescriptionText` using the constrained HTML subset (6.3). Nothing about them is stored per Hunter. That's a deliberate scope decision, not an unresolved gap.
 
-### 6.8 Move-internal pick-structure — `BespokeSection.PlaybookMoveId` (Phase 6, settled 2026-08-30)
+### 6.8 Move-internal pick-structure — `BespokeSection.PlaybookMoveId` (Phase 6, settled and **implemented** 2026-08-30)
+
+**Implementation note.** Shipped as migration `AddMoveInternalBespokeSections` — the single nullable FK described below, nothing more. The "must filter `PlaybookMoveId IS NULL`" reading rule stated further down is **enforced structurally rather than by convention**: the API nests a Move's sections under the Move in both request and response, so `PlaybookDetailResponse.BespokeSections` is playbook-level by construction and a client cannot conflate the two. See `phases.md` Phase 6.
 
 Some individual Moves embed their own fixed, enumerated, **character-creation-time** pick-list inside their own text — e.g. The Host's Defensive Adaptation ("Your symbiote protects you. Pick one:" + 6 options), or The Forged's Partner ("pick two bonds and one burden" — two named categories, each with its own count). 14 such moves exist across 11 playbooks. **These are modeled with the exact apparatus defined in 6.1–6.6, attached one level lower**, via a single new nullable FK:
 

@@ -30,6 +30,28 @@ public sealed class BespokeSection
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid PlaybookId { get; set; }
+
+    /// <summary>
+    /// Phase 6 — the entire schema delta for Move-internal pick structure.
+    /// <para>
+    /// Null means a playbook-level bespoke ruleset (every Phase 5 row). Set means this
+    /// Section is the pick-structure printed inside that Move's own text.
+    /// </para>
+    /// <para>
+    /// PlaybookId stays populated either way, even though it is derivable through the Move:
+    /// keeping it makes "everything for this playbook" a single flat query, and matches how
+    /// HunterBespokeSectionInstance.SectionId is stored directly rather than derived.
+    /// </para>
+    /// <para>
+    /// The cost this introduces, stated plainly: BespokeSection is now polymorphic in its
+    /// owner, so any query for a playbook's top-level rulesets must exclude rows where this
+    /// is set. The API shape enforces that structurally rather than by convention — a Move's
+    /// sections are nested under the Move in both the request and the response, so a client
+    /// cannot mix the two by accident.
+    /// </para>
+    /// </summary>
+    public Guid? PlaybookMoveId { get; set; }
+
     public required string Title { get; set; }
 
     /// <summary>
@@ -76,6 +98,7 @@ public sealed class BespokeSection
     public int SortOrder { get; set; }
 
     public Playbook Playbook { get; set; } = null!;
+    public PlaybookMove? PlaybookMove { get; set; }
     public ICollection<BespokeOption> Options { get; set; } = [];
 }
 

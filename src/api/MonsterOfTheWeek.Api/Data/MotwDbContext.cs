@@ -647,6 +647,7 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
             entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.PlaybookMoveId).HasColumnName("playbook_move_id");
             entity.Property(e => e.Title).HasColumnName("title").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.EffectText).HasColumnName("effect_text");
@@ -658,7 +659,21 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
             entity.HasOne(e => e.Playbook).WithMany(e => e.BespokeSections).HasForeignKey(e => e.PlaybookId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            /*
+             * Phase 6. Cascade so that removing a Move takes its embedded pick-structure
+             * with it. This does create a diamond — a move-attached Section is reachable
+             * from playbooks both directly and via playbook_moves — which Postgres handles
+             * without complaint (unlike SQL Server, where it would be a multiple-cascade-
+             * path error). Both paths delete the same rows, so the outcome is identical
+             * whichever the planner takes.
+             */
+            entity.HasOne(e => e.PlaybookMove).WithMany(e => e.BespokeSections)
+                .HasForeignKey(e => e.PlaybookMoveId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_bespoke_sections_playbook_id");
+            entity.HasIndex(e => e.PlaybookMoveId).HasDatabaseName("idx_bespoke_sections_playbook_move_id");
         });
 
         modelBuilder.Entity<BespokeOption>(entity =>

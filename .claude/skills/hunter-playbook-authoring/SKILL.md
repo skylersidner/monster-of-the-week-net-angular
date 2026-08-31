@@ -43,13 +43,58 @@ Confirm three things:
 | Look | `lookCategories[]` → `options[]` |
 | Improvements + Advanced Improvements | `improvements[]` (one table, `isAdvanced` splits them) |
 
-**Out of scope — leave empty, do not author:**
+**Out of scope for a standard-sections pass — leave empty:**
 
-- **Moves.** Send `moves: []` and `moveGrantCount: 0`. The entire Moves section belongs to
-  Phase 6, including the grant count. Authoring it here means re-doing it later.
-- **Bespoke rulesets** (Background, Heat, Underworld, Fate, Mission, Corruption, …). Phase 5.
+- **Moves.** Send `moves: []` and `moveGrantCount: 0`. See "Authoring Moves" below — the
+  schema now exists, but it is a separate pass with its own tooling.
+- **Bespoke rulesets** (Background, Heat, Underworld, Fate, Mission, Corruption, …).
   Any section on the sheet that is not in the table above is almost certainly bespoke.
+  Author from `bespoke-ruleset-catalogue.md`, which already holds all 28 playbooks' content.
 - **Pronouns.** A blank line on every sheet with nothing to model at playbook level.
+
+## Authoring Moves (Phase 6 schema)
+
+Moves land through the same endpoint, as `moves[]` plus a real `moveGrantCount` read off the
+grant sentence ("You get all the basic moves, and **two** Crooked moves").
+
+**Use `tools/pdf-extract/extract-moves.mjs`, not `pdftotext`.** `PlaybookMove.DescriptionText`
+is the one standard field carrying the constrained HTML subset, and plain extraction cannot
+see bold or italic at all. Find the Moves column's x-range with `dump-page.mjs` first:
+
+```bash
+node dump-page.mjs "$PDF" <page> | grep -i "moves"          # read x off the heading
+node extract-moves.mjs "$PDF" <page> --minX N --maxX N --options --json > moves.json
+```
+
+**Take text from the `*Html` fields, never the plain ones.** Each option carries both `raw`
+and `rawHtml`, `descriptionText` and `descriptionHtml`. The plain variants have had the
+markup stripped. This cost real content once: The Crooked's "Imp stone" contains
+`<b>use magic</b>`, and authoring from `raw` dropped it silently — nothing failed, the text
+was just quietly poorer. Titles are the exception: use the plain `title`, because Section 6.1
+says titles never carry markup.
+
+**A move with an embedded creation-time pick becomes a `BespokeSection` nested under it**
+(`moves[].bespokeSections`), using the whole Section 6 apparatus. Only 14 such moves exist
+across all 28 playbooks — `custom-moves-ideation.md` §2.1 is the authoritative inventory, so
+check it rather than deciding case by case. `extract-moves.mjs --options` detects candidates
+and tells you how many it found, which is a useful cross-check against that list.
+
+When you model one:
+- The **Section title** is the move's own name; its `Description` stays **null** and the
+  printed instruction ("Pick one:") is **dropped entirely** — Section 6.1, redundant with
+  `MinSelect`/`MaxSelect`. Read the real counts off that instruction: "Pick one" is 1/1,
+  "Pick one or two things" is a genuine 1/2 range.
+- **Remove the enumerated run from the move's own `DescriptionText`**, keeping the lead-in
+  sentence. The options now live in the Section, and leaving them in both renders the list
+  twice.
+- **`titleProvenance: delimiter:paren` must be read every time, never auto-accepted.** The
+  same shape means opposite things: in Crooked's "Protective amulet (1-armour magic
+  recharge)" the parenthetical is the *description*; in Gumshoe's "Criminals (organised)" it
+  is part of the *name*.
+
+**In-play menus, computed option sets, and roll-outcome branching all stay prose** in
+`DescriptionText`. Only creation-time picks are modelled. That boundary is settled — see
+`custom-moves-ideation.md` §2.2 for the ~35 moves examined and deliberately ruled out.
 
 **Surface deviations; do not absorb them.** Where a section is expected to be near-identical
 across playbooks (the Luck track wording, Harm, Experience, the presence of Ratings), a

@@ -118,6 +118,13 @@ public sealed class PlaybookMove
     public int SortOrder { get; set; }
 
     public Playbook Playbook { get; set; } = null!;
+
+    /// <summary>
+    /// Phase 6 — pick-structure embedded inside this Move's own text, if any. Empty for the
+    /// large majority of moves: the census found only 14 such moves across 11 playbooks.
+    /// See <see cref="BespokeSection.PlaybookMoveId"/>.
+    /// </summary>
+    public ICollection<BespokeSection> BespokeSections { get; set; } = [];
 }
 
 /// <summary>

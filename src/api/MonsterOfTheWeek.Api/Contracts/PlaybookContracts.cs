@@ -43,7 +43,12 @@ public sealed record PlaybookMoveResponse(
     string Name,
     string? DescriptionText,
     bool Required,
-    int SortOrder);
+    int SortOrder,
+    // Phase 6. Nesting a Move's pick-structure here rather than exposing PlaybookMoveId on
+    // a flat list is what makes the "filter PlaybookMoveId IS NULL" reading rule structural:
+    // PlaybookDetailResponse.BespokeSections carries playbook-level rulesets only, and a
+    // client physically cannot confuse the two. Almost always empty.
+    IReadOnlyList<BespokeSectionResponse> BespokeSections);
 
 public sealed record PlaybookGearOptionResponse(
     Guid Id,
@@ -119,7 +124,8 @@ public sealed record UpsertPlaybookMoveRequest(
     [param: Required, MinLength(1)] string Name,
     string? DescriptionText,
     bool Required,
-    int SortOrder);
+    int SortOrder,
+    IReadOnlyList<UpsertBespokeSectionRequest>? BespokeSections);
 
 public sealed record UpsertPlaybookGearOptionRequest(
     Guid? Id,

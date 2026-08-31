@@ -118,6 +118,20 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             }
         }
 
+        // Phase 6: a Move's embedded pick-structure gets the identical rules. It is the same
+        // apparatus attached one level lower, so validating it differently would be a bug.
+        foreach (var move in request.Moves ?? [])
+        {
+            foreach (var section in move.BespokeSections ?? [])
+            {
+                var error = ValidateBespokeSection(section);
+                if (error is not null)
+                {
+                    return $"Move \"{move.Name}\": {error}";
+                }
+            }
+        }
+
         return null;
     }
 
@@ -256,6 +270,9 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
                 e.DescriptionText = Normalize(r.DescriptionText);
                 e.Required = r.Required;
                 e.SortOrder = r.SortOrder;
+
+                // Phase 6: this Move's own embedded pick-structure, if it has any.
+                ReconcileSections(playbook, e, r.BespokeSections);
             });
 
         Reconcile(
@@ -331,26 +348,9 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
 
     private static void ApplyBespoke(Playbook playbook, UpsertPlaybookRequest request)
     {
-        Reconcile(
-            playbook.BespokeSections,
-            request.BespokeSections,
-            r => r.Id,
-            e => e.Id,
-            r => new BespokeSection { Title = r.Title.Trim() },
-            (r, e) =>
-            {
-                e.Title = r.Title.Trim();
-                e.Description = Normalize(r.Description);
-                e.EffectText = Normalize(r.EffectText);
-                e.FreeTextLabel = Normalize(r.FreeTextLabel);
-                e.MinSelect = r.MinSelect;
-                e.MaxSelect = r.MaxSelect;
-                e.MinInstances = r.MinInstances;
-                e.MaxInstances = r.MaxInstances;
-                e.SortOrder = r.SortOrder;
-
-                ReconcileOptions(e, null, e.Options.Where(o => o.ParentOptionId is null), r.Options);
-            });
+        // Playbook-level rulesets only. A Move's own sections are reconciled while walking
+        // the Moves collection, against that Move's own subset — see ReconcileSections.
+        ReconcileSections(playbook, null, request.BespokeSections);
 
         Reconcile(
             playbook.BespokeJournals,
@@ -394,6 +394,68 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
                 e.EndLabel = r.EndLabel.Trim();
                 e.SortOrder = r.SortOrder;
             });
+    }
+
+    /*
+     * Reconciles the bespoke Sections belonging to one owner.
+     *
+     * `playbook.BespokeSections` is a single FK-backed collection holding BOTH kinds of row
+     * — playbook-level (PlaybookMoveId null) and Move-attached — because both carry
+     * PlaybookId. So this cannot use Reconcile directly: the "existing" set is a filtered
+     * view of that collection, while additions and removals must be applied to the
+     * collection itself.
+     *
+     * `owningMove` null reconciles the playbook-level rulesets; a Move reconciles that
+     * Move's own embedded pick-structure. Getting this filter wrong in either direction
+     * would silently delete the other kind, which is exactly why the API nests a Move's
+     * sections under the Move rather than leaving callers to remember the rule.
+     */
+    private static void ReconcileSections(
+        Playbook playbook,
+        PlaybookMove? owningMove,
+        IReadOnlyList<UpsertBespokeSectionRequest>? incoming)
+    {
+        var incomingItems = incoming ?? [];
+        var existing = playbook.BespokeSections
+            .Where(s => owningMove is null ? s.PlaybookMoveId is null : s.PlaybookMoveId == owningMove.Id)
+            .ToList();
+        var keptIds = new HashSet<Guid>();
+
+        foreach (var item in incomingItems)
+        {
+            BespokeSection target;
+
+            if (item.Id is { } id && existing.FirstOrDefault(s => s.Id == id) is { } matched)
+            {
+                target = matched;
+                keptIds.Add(id);
+            }
+            else
+            {
+                target = new BespokeSection { Title = item.Title.Trim() };
+                playbook.BespokeSections.Add(target);
+            }
+
+            target.PlaybookId = playbook.Id;
+            target.PlaybookMove = owningMove;
+            target.PlaybookMoveId = owningMove?.Id;
+            target.Title = item.Title.Trim();
+            target.Description = Normalize(item.Description);
+            target.EffectText = Normalize(item.EffectText);
+            target.FreeTextLabel = Normalize(item.FreeTextLabel);
+            target.MinSelect = item.MinSelect;
+            target.MaxSelect = item.MaxSelect;
+            target.MinInstances = item.MinInstances;
+            target.MaxInstances = item.MaxInstances;
+            target.SortOrder = item.SortOrder;
+
+            ReconcileOptions(target, null, target.Options.Where(o => o.ParentOptionId is null), item.Options);
+        }
+
+        foreach (var orphan in existing.Where(s => !keptIds.Contains(s.Id)))
+        {
+            playbook.BespokeSections.Remove(orphan);
+        }
     }
 
     /*
@@ -549,7 +611,16 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             .Select(x => new PlaybookStatArrayOptionResponse(x.Id, x.Charm, x.Cool, x.Sharp, x.Tough, x.Weird, x.SortOrder))],
         [.. playbook.Moves
             .OrderBy(x => x.SortOrder)
-            .Select(x => new PlaybookMoveResponse(x.Id, x.Name, x.DescriptionText, x.Required, x.SortOrder))],
+            .Select(x => new PlaybookMoveResponse(
+                x.Id,
+                x.Name,
+                x.DescriptionText,
+                x.Required,
+                x.SortOrder,
+                [.. playbook.BespokeSections
+                    .Where(s => s.PlaybookMoveId == x.Id)
+                    .OrderBy(s => s.SortOrder)
+                    .Select(ToSectionResponse)]))],
         [.. playbook.GearCategories
             .OrderBy(x => x.SortOrder)
             .Select(x => new PlaybookGearCategoryResponse(
@@ -573,21 +644,12 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
         [.. playbook.Improvements
             .OrderBy(x => x.IsAdvanced).ThenBy(x => x.SortOrder)
             .Select(x => new PlaybookImprovementResponse(x.Id, x.Text, x.IsAdvanced, x.SortOrder))],
+        // Phase 6: playbook-level rulesets only. Move-attached Sections are returned
+        // nested under their own Move instead, which is what keeps this filter honest.
         [.. playbook.BespokeSections
+            .Where(x => x.PlaybookMoveId is null)
             .OrderBy(x => x.SortOrder)
-            .Select(x => new BespokeSectionResponse(
-                x.Id,
-                x.Title,
-                x.Description,
-                x.EffectText,
-                x.FreeTextLabel,
-                x.MinSelect,
-                x.MaxSelect,
-                x.MinInstances,
-                x.MaxInstances,
-                x.SortOrder,
-                // Rebuild the tree from the flat, fully-loaded option list.
-                BuildOptionTree(x.Options, null)))],
+            .Select(ToSectionResponse)],
         [.. playbook.BespokeJournals
             .OrderBy(x => x.SortOrder)
             .Select(x => new BespokeJournalResponse(
@@ -610,6 +672,20 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
                 x.StartLabel,
                 x.EndLabel,
                 x.SortOrder))]);
+
+    private static BespokeSectionResponse ToSectionResponse(BespokeSection section) => new(
+        section.Id,
+        section.Title,
+        section.Description,
+        section.EffectText,
+        section.FreeTextLabel,
+        section.MinSelect,
+        section.MaxSelect,
+        section.MinInstances,
+        section.MaxInstances,
+        section.SortOrder,
+        // Rebuild the tree from the flat, fully-loaded option list.
+        BuildOptionTree(section.Options, null));
 
     /// <summary>
     /// Rebuilds the nested response shape from the flat option list the repository loads.
