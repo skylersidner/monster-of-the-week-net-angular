@@ -565,7 +565,32 @@ Skyler asked for a plan before implementation. This is it. Two questions were pu
 **Verified by driving the real app**, not just by compiling: a Crooked hunter saved with nothing but a name and a playbook; its detail page listed all four outstanding items in sheet order; filling every section in flipped it to a "Ready to play" badge; a hand-made `PUT` over-picking gear came back `400` naming the category; and — the case the whole decision turns on — growing the playbook's `MoveGrantCount` from 2 to 3 made the untouched hunter report "Moves: 2 of 3 picked." while an unrelated rename still saved. Both themes checked. 197 API tests (5 new) and 344 Angular tests (7 new, in the hunters feature's first spec file) pass. **All three new guards were negative-tested**, each failing exactly its own test and no neighbours; a fourth sabotage — putting `Validators.required` back on the rating control — failed exactly the three specs that assert the decision. The dev database is back to 28 playbooks and 0 hunters, and a seed re-export came back byte-identical to the committed file.
 
 
-## Testing — a deliberate cross-cutting step, not a numbered phase (decided 2026-08-30)
+## Testing — a deliberate cross-cutting step, not a numbered phase (decided 2026-08-30; **implemented 2026-08-31**)
+
+**Delivered**, matching each bullet of the shape specified below:
+
+| Specified | Shipped |
+|---|---|
+| Full CRUD unit tests with mocking, matching `MonsterServiceTests` | `PlaybookServiceTests` — 18 tests against a hand-written `FakePlaybookRepository` (this project has no mocking library; hand-rolled fakes *are* the convention) |
+| One full CRUD integration test, generic, including validation | `PlaybookIntegrationTests` — 6 tests, real service + repository + SQLite, over a synthetic graph containing one of every shape rather than any real playbook |
+| Angular specs, form reactivity only | `playbook-form.spec.ts` (13) and 7 added to `hunter-form.spec.ts` for the `playbookId` gating the bullet names |
+| **The `GET` → form → `PUT` Id round-trip** | Asserted on both sides — `A_get_edit_put_round_trip_preserves_every_untouched_child_id` and `carries every child row id through GET -> form -> PUT` |
+
+**229 API tests and 364 Angular tests pass.** The playbook form was the only form in the app without a spec; it now has one.
+
+**The Id round-trip is asserted at both layers deliberately**, because either alone would miss half the failure. The API test proves the reconciler preserves ids given a request that carries them; the form spec proves the form actually carries them. A form that dropped ids would pass the API test, and a reconciler that churned them would pass the form spec.
+
+**Every new guard was negative-tested**, and the sabotages were targeted rather than blanket:
+- Dropping the move `id` in `toRequest()` → failed exactly the 2 specs that assert identity.
+- Continuous `sortOrder` numbering → failed exactly the 2 partitioning specs. That bug shipped **twice** (improvements, then moves) and was caught by a browser round-trip both times; it now has a test.
+- Removing the client-side descendant walk in `isEngaged` → failed the nested-section spec only.
+- Keeping stale picks across a playbook switch → failed the pick-clearing spec only.
+
+**One deviation from the bullet list, stated rather than absorbed**: `playbook-admin.spec.ts` was **not** written. That component owns the service calls and navigation, which is the "integration concerns from that layer" the Angular bullet explicitly excludes. Everything reactive in the Playbooks tab lives in `playbook-form`, which is covered.
+
+**What this step did NOT cover, and why it is worth a decision**: the API bullet names `PlaybookServiceTests` and was written 2026-08-30, before `Hunter` existed. `HunterServiceTests` has 26 tests but they are trap-targeted — written alongside each phase to pin specific invariants — and there is no hand-rolled-fake CRUD suite for `HunterService` matching this convention. See the closing note on this in the session report.
+
+### Original specification (retained)
 
 **Skyler's call**: test coverage for the Playbook domain is written **after** Phases 1–4 are implemented and the kinks are ironed out, not incrementally within each phase. Exact reasoning, in Skyler's words: "I am inclined to make this a step that comes later, after we have implemented everything and ironed out the kinks, so we're not constantly fixing code in two+ places. If crafting the tests identifies some latent bug, then we're better for it."
 
