@@ -25,7 +25,14 @@ No other suspicious pairings were found in Chosen/Crooked/Divine.
 
 ## 2. Standard vs. bespoke — section by section
 
-Reading order follows Skyler's own list of standard-rule sections (Introductions and Leveling Up skipped per the brief — pure gameplay-flow prose, no data).
+Reading order follows Skyler's own list of standard-rule sections.
+
+**Revised 2026-08-30 — Getting Started, Introductions, and Leveling Up are now in scope, reversing this section's original exclusion.** The original pass skipped Introductions and Leveling Up per the brief ("pure gameplay-flow prose, no data") and never considered Getting Started at all. Skyler put all three in scope while re-scoping Phase 4, and the exclusion was wrong on the facts for at least two of them — verified directly against The Crooked's pages 11–12:
+
+- **Getting Started** genuinely varies per playbook, and not just in flavor: it names that playbook's own sections in order, bespoke ones included. Crooked's reads "To make your Crooked, pick a name. Then follow the instructions in this playbook to decide your look, ratings, background, heat, underworld, moves, and gear. Finally, introduce yourself and pick history." A playbook with different bespoke sections lists different words here. The catalogue had already noticed this independently and used it as a structural tell (see `bespoke-ruleset-catalogue.md`'s Spooky and Monstrous entries, which cite Getting Started's own wording as evidence for what counts as a peer section).
+- **Introductions** and **Leveling Up** are short, near-uniform prose blocks that name the playbook and restate its own numbers ("introduce your Crooked by name and look"; "When you have filled all five experience boxes, you level up"). Closer to the original "no data" read than Getting Started is — but they're still per-playbook strings that a Hunter sheet has to render, and there's no reason to treat them differently from `LuckSpecialText`, which is exactly the same shape.
+
+All three model as flat free-text scalars on `Playbook` — `GettingStartedText`, `IntroductionsText`, `LevelingUpText` — with no structure to decompose. See Section 3.
 
 ### Ability ratings — standard, verified fully uniform in shape
 
@@ -130,8 +137,11 @@ Playbook
   LuckBoxCount (int), LuckSpecialText (free text)
   HarmUnstableThreshold (int), HarmBoxCount (int)
   ExperienceBoxCount (int)
-  MoveGrantCount (int)
-  HistoryPromptsText (free text)
+  MoveGrantCount (int)                 -- non-nullable; stays 0 until Phase 6 authors Moves, see below
+  GettingStartedText (free text)       -- added 2026-08-30, see Section 2
+  IntroductionsText (free text)        -- added 2026-08-30, see Section 2
+  LevelingUpText (free text)           -- added 2026-08-30, see Section 2
+  HistoryPromptsText (free text)       -- includes the section's own intro sentence, not just the prompt list
 
 PlaybookStatArrayOption      (Id, PlaybookId, Charm, Cool, Sharp, Tough, Weird, SortOrder)
 PlaybookMove                 (Id, PlaybookId, Name, DescriptionText, Required, SortOrder)
@@ -151,6 +161,20 @@ BasicMove                    (Id, Name, DescriptionText)   -- real reference tab
 ```
 
 Every child table follows the existing `MonsterAttack`/`MonsterPower`-style shape (owning-entity FK, no further nesting beyond one level except gear category→option, which mirrors `MonsterAttack`→`MonsterAttackWeaponTag` in spirit though not in exact bridge-table form, since gear options aren't a shared reference vocabulary the way weapon tags are).
+
+**`MoveGrantCount` carries a known-wrong value between Phase 4 and Phase 6, deliberately (decided 2026-08-30).** Skyler re-scoped Phase 4 to exclude the entire Moves section, which leaves this column — a non-nullable `int` on `Playbook`, not on `PlaybookMove` — with no correct value to hold at authoring time. Three options were weighed (author just the integer; make the column nullable; leave it non-nullable at `0`); Skyler chose to leave it non-nullable and default to `0`. Stated plainly because it has a real consequence: between Phase 4 and Phase 6, `MoveGrantCount == 0` is **indistinguishable from a playbook that genuinely grants zero moves**, so nothing in that window should branch on it or treat it as authored data. Phase 6 populates it alongside the `PlaybookMove` rows themselves.
+
+### Persistence semantics for the upsert-the-graph endpoint (decided 2026-08-30)
+
+`PUT /api/playbooks/{id}` carries the entire nested graph in one request (Section 4, `phases.md` Phase 3). How child rows are reconciled against what's already stored was never specified and is load-bearing, because Section 3's own live-link decision makes child row **identity** the thing Hunters depend on: `HunterMove` points at a `PlaybookMove.Id`, `HunterGearSelection` at a `PlaybookGearOption.Id`, `Hunter.PlaybookStatArrayOptionId` at a `PlaybookStatArrayOption.Id`, and `HunterBespokeSelection` at a `BespokeOption.Id`.
+
+**Decided: Id-based diff.** Incoming children carry their `Id` when they already exist and omit it when new. The service updates matched rows in place, inserts unmatched ones, and deletes stored rows absent from the payload — all in one transaction. Direct requirement this places on Phase 3's frontend: the `GET` → form → `PUT` round-trip must preserve child `Id`s through the form model, not just their values. Creates and agent-authored payloads simply carry no `Id`s, which is the same code path as "all children are new."
+
+**Rejected: delete-all-and-reinsert.** It churns every child `Id` on every save, which breaks in both available FK configurations — cascade silently wipes an edited playbook's Hunters' picks with nothing surfacing the loss, restrict makes any playbook uneditable the moment one Hunter uses it. It also undercuts Section 4 step 5's "further changes ship as row-targeted EF Core migrations," which assumes stable `Id`s in the committed seed.
+
+**Implementation trap found while building this, 2026-08-30 — worth recording, because it fails loudly but for a misleading reason.** The Playbook entities populate `Id` inline (`= Guid.NewGuid()`), matching every other entity in this codebase. Under EF's default `ValueGeneratedOnAdd` for `Guid` keys, a *new* child added to an *already-tracked* parent graph carries a non-default key, which EF reads as "this row already exists" — so it classifies the entity `Modified` and emits an `UPDATE` matching zero rows. The surfaced symptom is `DbUpdateConcurrencyException: expected to affect 1 row(s), but actually affected 0`, which reads like a concurrency problem and is nothing of the sort. Fix: `ValueGeneratedNever()` on every key in `ConfigurePlaybooks`, which is simply the truth about these keys and makes EF decide Added-vs-Modified from whether the entity is tracked. Model-side metadata only — no DDL, no migration (`dotnet ef migrations has-pending-model-changes` confirms none). The pre-existing entities never hit this because none of them add children to a tracked graph; they all go through `Add()` on the root, which marks the whole graph Added regardless of key values. **Any future domain that adopts this upsert-the-graph pattern needs the same declaration.**
+
+**Deferred to Phase 9/10, not dropped**: rejecting (`409`) the deletion of a child row a Hunter still references, rather than letting the FK cascade it away. Under an Id-based diff this is a strict addition — a usage-count query per removed child plus an error path in the admin form — and no `Hunter` row can exist until Phase 9 creates the table, so it is unimplementable and untestable before then. `DELETE /api/playbooks/{id}` inherits the same question at the same time. Until then, the residual sharp edge is real and accepted: removing a child row from a playbook silently removes any Hunter selections pointing at it.
 
 `Hunter` (Phase 9/10, sketched here for completeness, not fully speced — see `phases.md` Phase 10):
 

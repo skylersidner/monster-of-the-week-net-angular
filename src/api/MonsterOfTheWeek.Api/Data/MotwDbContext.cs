@@ -39,6 +39,16 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<MinionWeakness> MinionWeaknesses => Set<MinionWeakness>();
     public DbSet<MinionCustomMove> MinionCustomMoves => Set<MinionCustomMove>();
 
+    public DbSet<Playbook> Playbooks => Set<Playbook>();
+    public DbSet<PlaybookStatArrayOption> PlaybookStatArrayOptions => Set<PlaybookStatArrayOption>();
+    public DbSet<PlaybookMove> PlaybookMoves => Set<PlaybookMove>();
+    public DbSet<PlaybookGearCategory> PlaybookGearCategories => Set<PlaybookGearCategory>();
+    public DbSet<PlaybookGearOption> PlaybookGearOptions => Set<PlaybookGearOption>();
+    public DbSet<PlaybookLookCategory> PlaybookLookCategories => Set<PlaybookLookCategory>();
+    public DbSet<PlaybookLookOption> PlaybookLookOptions => Set<PlaybookLookOption>();
+    public DbSet<PlaybookImprovement> PlaybookImprovements => Set<PlaybookImprovement>();
+    public DbSet<BasicMove> BasicMoves => Set<BasicMove>();
+
     // Named AppUsers, not Users: IdentityUserContext<TUser, ...> already declares a
     // DbSet<TUser> Users, so Users here would collide if this context ever derives from it.
     public DbSet<AppUser> AppUsers => Set<AppUser>();
@@ -447,6 +457,171 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.FriendlyName).HasColumnName("friendly_name");
             entity.Property(e => e.Xml).HasColumnName("xml");
+        });
+
+        ConfigurePlaybooks(modelBuilder);
+    }
+
+    /*
+     * Hunter Playbook template data — docs/hunter-playbooks/ Phase 2.
+     *
+     * Split into its own method rather than extending the already-long OnModelCreating
+     * inline: this domain adds nine entities now and four more when Phase 5 lands.
+     *
+     * Cascade delete throughout, matching the Minion child tables: a Playbook's stat
+     * arrays, moves, gear, looks and improvements have no meaning without it. Hunter
+     * instances are a separate concern — they live-link to these rows by FK (Phase 9/10),
+     * and guarding against deleting a row a Hunter still references is deferred to that
+     * point, since no Hunter table exists yet. See architecture.md Section 3,
+     * "Persistence semantics for the upsert-the-graph endpoint."
+     *
+     * ValueGeneratedNever() on every key here, unlike the entities above, and it is
+     * load-bearing rather than cosmetic. These entities populate Id inline
+     * (= Guid.NewGuid()), so a brand-new child already carries a non-default key. Under
+     * EF's default ValueGeneratedOnAdd for Guid keys, a non-default key on an entity
+     * discovered through a tracked parent's navigation is read as "this row already
+     * exists", so the new child is classified Modified and saved as an UPDATE that matches
+     * zero rows — surfacing as DbUpdateConcurrencyException at the end of an otherwise
+     * valid PUT. Declaring the keys app-generated (which is the truth) makes EF decide
+     * Added vs. Modified from whether the entity is tracked, which is what the Id-based
+     * diff in PlaybookService needs. The entities above never hit this because none of
+     * them add children to an already-tracked graph — they go through Add() on the root,
+     * which marks the whole graph Added regardless of key values.
+     *
+     * Model-side metadata only: it changes no column definition, so it produces no DDL.
+     */
+    private static void ConfigurePlaybooks(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Playbook>(entity =>
+        {
+            entity.ToTable("playbooks");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Tagline).HasColumnName("tagline").HasMaxLength(500);
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.LuckBoxCount).HasColumnName("luck_box_count");
+            entity.Property(e => e.LuckSpecialText).HasColumnName("luck_special_text");
+            entity.Property(e => e.HarmUnstableThreshold).HasColumnName("harm_unstable_threshold");
+            entity.Property(e => e.HarmBoxCount).HasColumnName("harm_box_count");
+            entity.Property(e => e.ExperienceBoxCount).HasColumnName("experience_box_count");
+            entity.Property(e => e.MoveGrantCount).HasColumnName("move_grant_count");
+            entity.Property(e => e.GettingStartedText).HasColumnName("getting_started_text");
+            entity.Property(e => e.IntroductionsText).HasColumnName("introductions_text");
+            entity.Property(e => e.LevelingUpText).HasColumnName("leveling_up_text");
+            entity.Property(e => e.HistoryPromptsText).HasColumnName("history_prompts_text");
+            entity.HasIndex(e => e.Name).IsUnique().HasDatabaseName("idx_playbooks_name");
+        });
+
+        modelBuilder.Entity<PlaybookStatArrayOption>(entity =>
+        {
+            entity.ToTable("playbook_stat_array_options");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Charm).HasColumnName("charm");
+            entity.Property(e => e.Cool).HasColumnName("cool");
+            entity.Property(e => e.Sharp).HasColumnName("sharp");
+            entity.Property(e => e.Tough).HasColumnName("tough");
+            entity.Property(e => e.Weird).HasColumnName("weird");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.StatArrayOptions).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_stat_array_options_playbook_id");
+        });
+
+        modelBuilder.Entity<PlaybookMove>(entity =>
+        {
+            entity.ToTable("playbook_moves");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.DescriptionText).HasColumnName("description_text");
+            entity.Property(e => e.Required).HasColumnName("required");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.Moves).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_moves_playbook_id");
+        });
+
+        modelBuilder.Entity<PlaybookGearCategory>(entity =>
+        {
+            entity.ToTable("playbook_gear_categories");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Label).HasColumnName("label").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.PickCount).HasColumnName("pick_count");
+            entity.Property(e => e.IsOptional).HasColumnName("is_optional");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.GearCategories).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_gear_categories_playbook_id");
+        });
+
+        modelBuilder.Entity<PlaybookGearOption>(entity =>
+        {
+            entity.ToTable("playbook_gear_options");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.CategoryId).HasColumnName("category_id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.MechanicalText).HasColumnName("mechanical_text");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Category).WithMany(e => e.Options).HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.CategoryId).HasDatabaseName("idx_playbook_gear_options_category_id");
+        });
+
+        modelBuilder.Entity<PlaybookLookCategory>(entity =>
+        {
+            entity.ToTable("playbook_look_categories");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.AllowsFreeform).HasColumnName("allows_freeform");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.LookCategories).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_look_categories_playbook_id");
+        });
+
+        modelBuilder.Entity<PlaybookLookOption>(entity =>
+        {
+            entity.ToTable("playbook_look_options");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.CategoryId).HasColumnName("category_id");
+            entity.Property(e => e.Text).HasColumnName("text").IsRequired();
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Category).WithMany(e => e.Options).HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.CategoryId).HasDatabaseName("idx_playbook_look_options_category_id");
+        });
+
+        modelBuilder.Entity<PlaybookImprovement>(entity =>
+        {
+            entity.ToTable("playbook_improvements");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Text).HasColumnName("text").IsRequired();
+            entity.Property(e => e.IsAdvanced).HasColumnName("is_advanced");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.Improvements).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_improvements_playbook_id");
+        });
+
+        modelBuilder.Entity<BasicMove>(entity =>
+        {
+            entity.ToTable("basic_moves");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.DescriptionText).HasColumnName("description_text").IsRequired();
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
         });
     }
 

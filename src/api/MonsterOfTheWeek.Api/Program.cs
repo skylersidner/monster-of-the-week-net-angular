@@ -46,6 +46,8 @@ builder.Services.AddScoped<ISearchProvider, LocationSearchProvider>();
 builder.Services.AddScoped<ISearchProvider, BystanderSearchProvider>();
 builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IPlaybookRepository, PlaybookRepository>();
+builder.Services.AddScoped<IPlaybookService, PlaybookService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

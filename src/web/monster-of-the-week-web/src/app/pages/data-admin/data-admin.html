@@ -1,10 +1,36 @@
 <section class="grid gap-4 text-primary">
   <header>
     <h1>Data Admin</h1>
-    <p class="text-muted m-0">Add new entries for reference type tables.</p>
+    <p class="text-muted m-0">Manage reference data and hunter playbook templates.</p>
   </header>
 
-  <article class="bg-surface border border-default rounded-lg p-4 max-w-[20rem]">
+  <div role="tablist" aria-label="Data Admin sections" class="flex gap-1 border-b border-default">
+    @for (tabOption of tabs; track tabOption.tab; let i = $index) {
+      <button
+        type="button"
+        role="tab"
+        [id]="'data-admin-tab-' + tabOption.tab"
+        [attr.aria-selected]="activeTab() === tabOption.tab"
+        [attr.aria-controls]="'data-admin-panel-' + tabOption.tab"
+        [attr.tabindex]="activeTab() === tabOption.tab ? 0 : -1"
+        (click)="selectTab(tabOption.tab)"
+        (keydown)="onTabKeydown($event, i)"
+        class="bg-transparent border-0 border-b-2 cursor-pointer font-[inherit] font-semibold -mb-px px-4 py-[0.6rem] focus:outline-none focus-visible:ring-focus"
+        [class.border-accent]="activeTab() === tabOption.tab"
+        [class.text-accent]="activeTab() === tabOption.tab"
+        [class.border-transparent]="activeTab() !== tabOption.tab"
+        [class.text-muted]="activeTab() !== tabOption.tab"
+      >
+        {{ tabOption.label }}
+      </button>
+    }
+  </div>
+
+  @if (activeTab() === 'types') {
+  <div role="tabpanel" id="data-admin-panel-types" aria-labelledby="data-admin-tab-types" class="grid gap-4">
+    <p class="text-muted m-0">Add new entries for reference type tables.</p>
+
+    <article class="bg-surface border border-default rounded-lg p-4 max-w-[20rem]">
     <label class="grid font-medium gap-[0.3rem]">
       Type Table
       <app-custom-select
@@ -71,5 +97,18 @@
         </table>
       }
     </article>
+  }
+  </div>
+  } @else {
+  <div
+    role="tabpanel"
+    id="data-admin-panel-playbooks"
+    aria-labelledby="data-admin-tab-playbooks"
+    class="grid gap-4"
+  >
+    <p class="text-muted m-0">Create and edit hunter playbook templates.</p>
+
+    <app-playbook-admin />
+  </div>
   }
 </section>

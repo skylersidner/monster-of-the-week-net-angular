@@ -435,3 +435,173 @@ export interface UpsertBystanderRequest {
   description: string | null;
   bystanderTypeId: string;
 }
+
+// ---------------------------------------------------------------------------------------
+// Hunter Playbooks
+//
+// Every child *request* carries a nullable `id`, and that nullable is load-bearing rather
+// than incidental: the server reconciles a PUT by matching child rows on it (present =
+// update that row in place, absent = insert, stored-but-missing = delete). Child ids must
+// therefore survive the GET -> form -> PUT round-trip, because a Hunter instance
+// live-links to the exact row id it picked. Dropping them would silently re-create every
+// child on each save. See docs/hunter-playbooks/architecture.md Section 3.
+// ---------------------------------------------------------------------------------------
+
+export interface PlaybookListItemResponse {
+  id: string;
+  name: string;
+  tagline: string | null;
+  statArrayOptionCount: number;
+  moveCount: number;
+}
+
+export interface PlaybookStatArrayOptionResponse {
+  id: string;
+  charm: number;
+  cool: number;
+  sharp: number;
+  tough: number;
+  weird: number;
+  sortOrder: number;
+}
+
+export interface PlaybookMoveResponse {
+  id: string;
+  name: string;
+  descriptionText: string | null;
+  required: boolean;
+  sortOrder: number;
+}
+
+export interface PlaybookGearOptionResponse {
+  id: string;
+  name: string;
+  mechanicalText: string | null;
+  sortOrder: number;
+}
+
+export interface PlaybookGearCategoryResponse {
+  id: string;
+  label: string;
+  pickCount: number | null;
+  isOptional: boolean;
+  sortOrder: number;
+  options: PlaybookGearOptionResponse[];
+}
+
+export interface PlaybookLookOptionResponse {
+  id: string;
+  text: string;
+  sortOrder: number;
+}
+
+export interface PlaybookLookCategoryResponse {
+  id: string;
+  allowsFreeform: boolean;
+  sortOrder: number;
+  options: PlaybookLookOptionResponse[];
+}
+
+export interface PlaybookImprovementResponse {
+  id: string;
+  text: string;
+  isAdvanced: boolean;
+  sortOrder: number;
+}
+
+export interface PlaybookDetailResponse {
+  id: string;
+  name: string;
+  tagline: string | null;
+  description: string | null;
+  luckBoxCount: number;
+  luckSpecialText: string | null;
+  harmUnstableThreshold: number;
+  harmBoxCount: number;
+  experienceBoxCount: number;
+  moveGrantCount: number;
+  gettingStartedText: string | null;
+  introductionsText: string | null;
+  levelingUpText: string | null;
+  historyPromptsText: string | null;
+  statArrayOptions: PlaybookStatArrayOptionResponse[];
+  moves: PlaybookMoveResponse[];
+  gearCategories: PlaybookGearCategoryResponse[];
+  lookCategories: PlaybookLookCategoryResponse[];
+  improvements: PlaybookImprovementResponse[];
+}
+
+export interface UpsertPlaybookStatArrayOptionRequest {
+  id: string | null;
+  charm: number;
+  cool: number;
+  sharp: number;
+  tough: number;
+  weird: number;
+  sortOrder: number;
+}
+
+export interface UpsertPlaybookMoveRequest {
+  id: string | null;
+  name: string;
+  descriptionText: string | null;
+  required: boolean;
+  sortOrder: number;
+}
+
+export interface UpsertPlaybookGearOptionRequest {
+  id: string | null;
+  name: string;
+  mechanicalText: string | null;
+  sortOrder: number;
+}
+
+export interface UpsertPlaybookGearCategoryRequest {
+  id: string | null;
+  label: string;
+  pickCount: number | null;
+  isOptional: boolean;
+  sortOrder: number;
+  options: UpsertPlaybookGearOptionRequest[];
+}
+
+export interface UpsertPlaybookLookOptionRequest {
+  id: string | null;
+  text: string;
+  sortOrder: number;
+}
+
+export interface UpsertPlaybookLookCategoryRequest {
+  id: string | null;
+  allowsFreeform: boolean;
+  sortOrder: number;
+  options: UpsertPlaybookLookOptionRequest[];
+}
+
+export interface UpsertPlaybookImprovementRequest {
+  id: string | null;
+  text: string;
+  isAdvanced: boolean;
+  sortOrder: number;
+}
+
+export interface UpsertPlaybookRequest {
+  name: string;
+  tagline: string | null;
+  description: string | null;
+  luckBoxCount: number;
+  luckSpecialText: string | null;
+  harmUnstableThreshold: number;
+  harmBoxCount: number;
+  experienceBoxCount: number;
+  moveGrantCount: number;
+  gettingStartedText: string | null;
+  introductionsText: string | null;
+  levelingUpText: string | null;
+  historyPromptsText: string | null;
+  statArrayOptions: UpsertPlaybookStatArrayOptionRequest[];
+  moves: UpsertPlaybookMoveRequest[];
+  gearCategories: UpsertPlaybookGearCategoryRequest[];
+  lookCategories: UpsertPlaybookLookCategoryRequest[];
+  improvements: UpsertPlaybookImprovementRequest[];
+}
