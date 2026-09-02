@@ -2,7 +2,7 @@ import { DestroyRef, Injectable, WritableSignal, computed, inject, signal } from
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Observable, forkJoin, of, startWith, switchMap } from 'rxjs';
+import { Observable, forkJoin, map, of, startWith, switchMap, tap } from 'rxjs';
 
 import { BystanderService } from '../../../../core/bystander';
 import { LocationService } from '../../../../core/location';
@@ -75,6 +75,39 @@ export interface BystanderDraft {
   bystanderTypeId: string;
 }
 
+/**
+ * The wizard's minion harm-capacity default. Single-sourced because `composerDirty()` treats
+ * "harm capacity is no longer the default" as evidence the user started a minion — see §1.3 of
+ * `docs/updates/multi-minion-support.md`. It deliberately differs from `MinionFormComponent`'s 0.
+ */
+export const MINION_DEFAULT_HARM_CAPACITY = 3;
+
+/** Error-band copy when the open composer holds work that cannot be committed yet (Rosalina §1.4). */
+const COMPOSER_BLOCKED_MESSAGE = "Finish or clear the minion you're editing before continuing.";
+
+/**
+ * One minion under the wizard's monster. Unlike `LocationDraft`/`BystanderDraft` — flat leaf
+ * entities where `id` was the whole story — a minion owns four sub-resource collections, so each
+ * draft carries its own collections *and* its own existing-sub-resource-ID baseline: `submitPhase1`
+ * runs an independent delete-all/recreate-all cycle per minion, not one shared cycle across all of them.
+ */
+export interface MinionDraft {
+  /** `null` until this draft has been saved at least once in this session (or hydrated from an existing mystery). */
+  id: string | null;
+  name: string;
+  description: string;
+  harmCapacity: number;
+  minionTypeId: string;
+  attacks: AttackDraft[];
+  powers: PowerDraft[];
+  weaknesses: WeaknessDraft[];
+  armors: ArmorDraft[];
+  existingAttackIds: string[];
+  existingPowerIds: string[];
+  existingWeaknessIds: string[];
+  existingArmorIds: string[];
+}
+
 export interface MysteryCreateDraftState {
   navigation: {
     currentPhase: number;
@@ -129,6 +162,15 @@ export interface MysteryCreateDraftState {
     minionArmors: ArmorDraft[];
     locations: LocationDraft[];
     bystanders: BystanderDraft[];
+    minionDrafts: MinionDraft[];
+  };
+  /**
+   * Where the minion composer is pointed. `forms.minion` + `collections.minionAttacks`/etc. are the
+   * composer's *contents*; these two are its position, and neither is derivable from the other.
+   */
+  composer: {
+    open: boolean;
+    editingDraftIndex: number | null;
   };
 }
 
@@ -237,15 +279,25 @@ export class MysteryCreateStore {
 
   readonly isEditMode = signal(false);
   readonly editingMonsterId = signal<string | null>(null);
-  readonly editingMinionId = signal<string | null>(null);
+
+  /** The roster. One entry per minion under the wizard's monster, in creation order (no reordering). */
+  readonly minionDrafts = signal<MinionDraft[]>([]);
+  /** Index into `minionDrafts()` the composer is editing, or `null` when composing a brand-new minion. */
+  readonly editingDraftIndex = signal<number | null>(null);
+  /**
+   * Whether the composer panel is rendered. This is NOT derivable from `editingDraftIndex`: "roster
+   * non-empty, nothing being edited, collapsed" and "roster non-empty, user clicked + Add Another
+   * Minion" both have `editingDraftIndex() === null`. Nor from "the composer is non-empty" — that
+   * would collapse the panel the user just opened. Invariant: `editingDraftIndex() !== null` implies
+   * `composerOpen()`; every method that writes one writes the other.
+   */
+  readonly composerOpen = signal(true);
   private readonly existingMonsterAttackIds = signal<string[]>([]);
   private readonly existingMonsterPowerIds = signal<string[]>([]);
   private readonly existingMonsterWeaknessIds = signal<string[]>([]);
   private readonly existingMonsterArmorIds = signal<string[]>([]);
-  private readonly existingMinionAttackIds = signal<string[]>([]);
-  private readonly existingMinionPowerIds = signal<string[]>([]);
-  private readonly existingMinionWeaknessIds = signal<string[]>([]);
-  private readonly existingMinionArmorIds = signal<string[]>([]);
+  /** Minion IDs on the server as of the last phase-1 save; anything missing from `minionDrafts()` gets hard-deleted. */
+  private readonly existingMinionIds = signal<string[]>([]);
   private readonly existingLocationIds = signal<string[]>([]);
   private readonly existingBystanderIds = signal<string[]>([]);
 
@@ -281,10 +333,10 @@ export class MysteryCreateStore {
   });
 
   readonly minionForm = this.fb.group({
-    name: this.fb.nonNullable.control(''),
+    name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
-    harmCapacity: this.fb.nonNullable.control(3, [Validators.required, Validators.min(0)]),
-    minionTypeId: this.fb.nonNullable.control(''),
+    harmCapacity: this.fb.nonNullable.control(MINION_DEFAULT_HARM_CAPACITY, [Validators.required, Validators.min(0)]),
+    minionTypeId: this.fb.nonNullable.control('', [Validators.required]),
   });
 
   readonly monsterAttackForm: AttackFormGroup = this.fb.group({
@@ -406,7 +458,10 @@ export class MysteryCreateStore {
       // Phase 1 — Monsters (monster, minion)
       [
         (this.monsterPreview()?.name ?? '').trim().length > 0 && (this.monsterValue()?.monsterArchetypeId ?? '').length > 0,
-        false, // minion is optional — never force-complete
+        // Lights when any minion is on the roster. Reads minionDrafts(), never the composer: an
+        // uncommitted composer would flicker the dot on the first keystroke and drop it again on Next.
+        // The step stays optional — an empty roster still advances.
+        this.minionDrafts().length > 0,
       ],
       // Phase 2 — Locations
       [this.locations().length > 0],
@@ -454,7 +509,7 @@ export class MysteryCreateStore {
     return {
       name: this.minionValue()?.name ?? '',
       description: this.minionValue()?.description ?? '',
-      harmCapacity: this.minionValue()?.harmCapacity ?? 3,
+      harmCapacity: this.minionValue()?.harmCapacity ?? MINION_DEFAULT_HARM_CAPACITY,
       typeName: type?.name ?? '',
       attacks: this.minionAttacks(),
       powers: this.minionPowers(),
@@ -463,25 +518,45 @@ export class MysteryCreateStore {
     };
   });
 
-  /** True once the user has put anything into the minion section other than its name. */
-  readonly minionSectionStarted = computed(() => {
+  /**
+   * True once there is anything in the composer worth blocking `Next` over. Deliberately wider than
+   * the `minionSectionStarted()` it replaces (§1.3, approved by Skyler 2026-09-01):
+   *
+   * - it includes **Name**, because the old computed's job was "is Name required?" and a name cannot
+   *   make itself required — under the draft-list model a name-only composer is simply not in
+   *   `minionDrafts()`, so `submitPhase1` would never see it and the typed name would vanish silently;
+   * - it includes the **four sub-resource signals**, so a composer holding two attacks and no name
+   *   blocks instead of discarding both;
+   * - it includes `harmCapacity !== MINION_DEFAULT_HARM_CAPACITY`. Accepted consequence: nudging harm
+   *   capacity alone marks the composer dirty and blocks `Next` until Name and Type are supplied.
+   */
+  readonly composerDirty = computed(() => {
     const value = this.minionValue();
     if (!value) {
       return false;
     }
 
     return (
+      (value.name ?? '').trim().length > 0 ||
       (value.description ?? '').trim().length > 0 ||
       (value.minionTypeId ?? '').length > 0 ||
-      (value.harmCapacity ?? 3) !== 3
+      (value.harmCapacity ?? MINION_DEFAULT_HARM_CAPACITY) !== MINION_DEFAULT_HARM_CAPACITY ||
+      this.minionAttacks().length > 0 ||
+      this.minionPowers().length > 0 ||
+      this.minionWeaknesses().length > 0 ||
+      this.minionArmors().length > 0
     );
   });
 
-  readonly minionNameRequired = computed(() => this.minionSectionStarted());
+  /** The two fields a minion cannot be saved without. Harm capacity carries its own control validators. */
+  readonly composerValid = computed(() => {
+    const value = this.minionValue();
+    if (!value) {
+      return false;
+    }
 
-  readonly minionNameMissing = computed(
-    () => this.minionNameRequired() && (this.minionValue()?.name ?? '').trim().length === 0
-  );
+    return (value.name ?? '').trim().length > 0 && (value.minionTypeId ?? '').length > 0;
+  });
 
   readonly stepTitle = computed(() => {
     const phase = this.currentPhase();
@@ -514,7 +589,7 @@ export class MysteryCreateStore {
       '1-0':
         'This is your primary antagonist—the creature, entity, or force causing the mystery. Give it a name, describe what it is and how it manifests, and define its harm capacity. Choose a monster type, and list its attacks, powers, and weaknesses. Make it dangerous but defeatable.',
       '1-1':
-        'Minions are lesser threats that support the main monster—cultists, possessed victims, summoned creatures, or loyal servants. Use the same structure as the monster. Minions are optional—leave the name blank to skip this step.',
+        'Minions are lesser threats that support the main monster—cultists, possessed victims, summoned creatures, or loyal servants. Use the same structure as the monster. Minions are optional — you can add as many as you need, or skip this step entirely.',
       '2-0':
         "Locations are the key places where clues, action, and danger converge—the abandoned asylum, the forest clearing, the victim's apartment, the monster's lair. Describe what hunters will find there and what makes it memorable. Most mysteries have 4–6 core locations.",
       '3-0':
@@ -553,6 +628,11 @@ export class MysteryCreateStore {
       minionArmors: [...this.minionArmors()],
       locations: [...this.locations()],
       bystanders: [...this.bystanders()],
+      minionDrafts: [...this.minionDrafts()],
+    },
+    composer: {
+      open: this.composerOpen(),
+      editingDraftIndex: this.editingDraftIndex(),
     },
   }));
 
@@ -664,16 +744,20 @@ export class MysteryCreateStore {
 
           return forkJoin({
             pureMonster: pureMonster ? this.monsterService.getById(pureMonster.id) : of(null),
-            minion: pureMonster
+            minions: pureMonster
               ? this.minionService.getByMonster(pureMonster.id).pipe(
-                  switchMap((minions) => (minions.length > 0 ? this.minionService.getById(minions[0].id) : of(null)))
+                  switchMap((minions) =>
+                    minions.length > 0
+                      ? forkJoin(minions.map((minion) => this.minionService.getById(minion.id)))
+                      : of<MinionDetailResponse[]>([])
+                  )
                 )
-              : of(null),
+              : of<MinionDetailResponse[]>([]),
           });
         }),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe(({ pureMonster, minion }: { pureMonster: import('../../../../core/models').MonsterDetailResponse | null; minion: MinionDetailResponse | null }) => {
+      .subscribe(({ pureMonster, minions }: { pureMonster: import('../../../../core/models').MonsterDetailResponse | null; minions: MinionDetailResponse[] }) => {
         if (pureMonster) {
           this.editingMonsterId.set(pureMonster.id);
           this.existingMonsterAttackIds.set(pureMonster.attacks.map((a) => a.id));
@@ -708,43 +792,52 @@ export class MysteryCreateStore {
           );
         }
 
-        if (minion) {
-          this.editingMinionId.set(minion.id);
-          this.existingMinionAttackIds.set(minion.attacks.map((a) => a.id));
-          this.existingMinionPowerIds.set(minion.powers.map((p) => p.id));
-          this.existingMinionWeaknessIds.set(minion.weaknesses.map((w) => w.id));
-          this.existingMinionArmorIds.set(minion.armors.map((a) => a.id));
-          this.minionForm.patchValue({
+        this.existingMinionIds.set(minions.map((minion) => minion.id));
+        this.minionDrafts.set(
+          minions.map((minion) => ({
+            id: minion.id,
             name: minion.name,
             description: minion.description ?? '',
             harmCapacity: minion.harmCapacity,
             minionTypeId: minion.minionType.id,
-          });
-          this.minionAttacks.set(
-            minion.attacks.map((a) => ({
+            attacks: minion.attacks.map((a) => ({
               name: a.name,
               harm: a.harm,
               description: a.description ?? '',
               weaponTagIds: a.weaponTags.map((t) => t.id),
-            }))
-          );
-          this.minionPowers.set(minion.powers.map((p) => ({ name: p.name, description: p.description ?? '' })));
-          this.minionWeaknesses.set(minion.weaknesses.map((w) => ({ name: w.name, description: w.description ?? '' })));
-          this.minionArmors.set(
-            minion.armors.map((a) => ({
+            })),
+            powers: minion.powers.map((power) => ({ name: power.name, description: power.description ?? '' })),
+            weaknesses: minion.weaknesses.map((w) => ({ name: w.name, description: w.description ?? '' })),
+            armors: minion.armors.map((a) => ({
               name: a.name,
               description: a.description ?? '',
               harmSoak: a.harmSoak,
               isSpecial: a.isSpecial,
               specialDescription: a.specialDescription ?? '',
-            }))
-          );
-        }
+            })),
+            existingAttackIds: minion.attacks.map((a) => a.id),
+            existingPowerIds: minion.powers.map((power) => power.id),
+            existingWeaknessIds: minion.weaknesses.map((w) => w.id),
+            existingArmorIds: minion.armors.map((a) => a.id),
+          }))
+        );
+        // A non-empty loaded roster is "nothing being edited" — composer collapsed (§1.2/§1.7).
+        this.editingDraftIndex.set(null);
+        this.composerOpen.set(minions.length === 0);
       });
   }
 
   next(): void {
     if (!this.validateCurrentStep()) {
+      return;
+    }
+
+    // Rosalina §1.4 / decision #13: an open composer is committed if it can be. This runs here —
+    // synchronously, before submitCurrentPhase() — and NOT inside submitPhase1's pipe, so the
+    // committed draft is in minionDrafts() by the time submitPhase1 reads it, in the same tick.
+    // Burying the mutation inside the rxjs chain would put it after monsterSave$ resolves, in a
+    // re-enterable async path — the exact shape of the Bug 2 defect class this file already fixed.
+    if (this.currentPhase() === 1 && this.currentStep() === 1 && !this.commitComposerIfValid()) {
       return;
     }
 
@@ -896,6 +989,170 @@ export class MysteryCreateStore {
     this.removeDraft(this.bystanders, index);
   }
 
+  // ---------------------------------------------------------------------------
+  // Minion roster + composer (§1.2, §1.4, §1.5 of docs/updates/multi-minion-support.md)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Commits whatever is open in the composer, if it can be committed. One primitive, three callers
+   * (`next()`, `editMinionDraft()`, `startNewMinionDraft()`), each of which must abort on `false`.
+   *
+   * @returns `true` when there was nothing to commit or the commit succeeded; `false` when the
+   *          composer holds work that cannot be saved yet, in which case the caller must do nothing.
+   */
+  commitComposerIfValid(): boolean {
+    if (!this.composerOpen() || !this.composerDirty()) {
+      return true;
+    }
+
+    if (!this.composerValid()) {
+      // Same message all three callers surface, so the pencil / + Add Another Minion clicks are not
+      // silent no-ops — they show the wizard's error band, not just the inline field errors.
+      this.minionForm.markAllAsTouched();
+      this.submitError.set(COMPOSER_BLOCKED_MESSAGE);
+      return false;
+    }
+
+    this.saveMinionDraftToList();
+    return true;
+  }
+
+  /** Commits the composer into the roster — replacing the edited slot, or appending a new minion. */
+  saveMinionDraftToList(): void {
+    if (!this.composerValid()) {
+      this.minionForm.markAllAsTouched();
+      return;
+    }
+
+    const index = this.editingDraftIndex();
+    const existing = index !== null ? this.minionDrafts()[index] ?? null : null;
+
+    const draft: MinionDraft = {
+      // Keep the server ID and the sub-resource baselines of the slot being edited: submitPhase1
+      // needs them to update rather than duplicate, and to delete the right children first.
+      id: existing?.id ?? null,
+      name: this.minionForm.controls.name.value.trim(),
+      description: this.minionForm.controls.description.value ?? '',
+      harmCapacity: this.minionForm.controls.harmCapacity.value,
+      minionTypeId: this.minionForm.controls.minionTypeId.value,
+      attacks: [...this.minionAttacks()],
+      powers: [...this.minionPowers()],
+      weaknesses: [...this.minionWeaknesses()],
+      armors: [...this.minionArmors()],
+      existingAttackIds: existing?.existingAttackIds ?? [],
+      existingPowerIds: existing?.existingPowerIds ?? [],
+      existingWeaknessIds: existing?.existingWeaknessIds ?? [],
+      existingArmorIds: existing?.existingArmorIds ?? [],
+    };
+
+    this.minionDrafts.update((drafts) =>
+      existing !== null ? drafts.map((item, itemIndex) => (itemIndex === index ? draft : item)) : [...drafts, draft]
+    );
+
+    this.resetComposer();
+    this.editingDraftIndex.set(null);
+    // Invariant: editingDraftIndex() !== null implies composerOpen(). Collapse to
+    // "+ Add Another Minion" now that the roster has something in it.
+    this.composerOpen.set(this.minionDrafts().length === 0);
+    this.submitError.set(null);
+  }
+
+  /** Loads a roster card back into the composer — core fields and all four sub-resource lists. */
+  editMinionDraft(index: number): void {
+    if (!this.commitComposerIfValid()) {
+      return;
+    }
+
+    // Read the draft *after* the commit: committing may have appended to the roster, which never
+    // shifts an existing index, but it can also have rewritten the slot we are about to load.
+    const draft = this.minionDrafts()[index];
+    if (!draft) {
+      return;
+    }
+
+    this.resetComposer();
+    this.minionForm.patchValue({
+      name: draft.name,
+      description: draft.description,
+      harmCapacity: draft.harmCapacity,
+      minionTypeId: draft.minionTypeId,
+    });
+    this.minionAttacks.set([...draft.attacks]);
+    this.minionPowers.set([...draft.powers]);
+    this.minionWeaknesses.set([...draft.weaknesses]);
+    this.minionArmors.set([...draft.armors]);
+
+    this.editingDraftIndex.set(index);
+    this.composerOpen.set(true);
+  }
+
+  /** "+ Add Another Minion" — same commit rule as `Next`, then a blank composer. */
+  startNewMinionDraft(): void {
+    if (!this.commitComposerIfValid()) {
+      return;
+    }
+
+    this.resetComposer();
+    this.editingDraftIndex.set(null);
+    this.composerOpen.set(true);
+  }
+
+  /** Abandons the composer's contents without touching the roster. */
+  cancelComposerEdit(): void {
+    this.resetComposer();
+    this.editingDraftIndex.set(null);
+    this.composerOpen.set(this.minionDrafts().length === 0);
+  }
+
+  /**
+   * Removes a roster card. The draft's `id` (if any) is NOT deleted here — the real
+   * `DELETE /api/minions/{id}` fires in `submitPhase1`'s diff, exactly like location/bystander
+   * unlinking. Consequence, recorded rather than rediscovered: removing a previously-saved minion
+   * and then abandoning the wizard leaves it on the server.
+   */
+  removeMinionDraft(index: number): void {
+    this.minionDrafts.update((drafts) => drafts.filter((_, itemIndex) => itemIndex !== index));
+
+    // editingDraftIndex is a positional reference into the array we just spliced, and removal is
+    // the only index-invalidating mutation (Skyler declined reordering). Leaving it stale is a
+    // silent wrong-minion overwrite: the next saveMinionDraftToList() would write the composer's
+    // contents over a bystanding draft.
+    const editing = this.editingDraftIndex();
+    if (editing === null) {
+      return;
+    }
+
+    if (editing === index) {
+      // The thing being edited no longer exists.
+      this.resetComposer();
+      this.editingDraftIndex.set(null);
+      this.composerOpen.set(this.minionDrafts().length === 0);
+      return;
+    }
+
+    if (editing > index) {
+      this.editingDraftIndex.set(editing - 1);
+    }
+  }
+
+  /** Clears the composer: core fields, the four sub-resource lists, and the four inline add-forms. */
+  private resetComposer(): void {
+    this.minionForm.reset({
+      name: '',
+      description: '',
+      harmCapacity: MINION_DEFAULT_HARM_CAPACITY,
+      minionTypeId: '',
+    });
+    this.minionAttacks.set([]);
+    this.minionPowers.set([]);
+    this.minionWeaknesses.set([]);
+    this.minionArmors.set([]);
+    this.minionAttackForm.reset({ name: '', harm: 0, description: '', weaponTagIds: [] });
+    this.minionPowerForm.reset({ name: '', description: '' });
+    this.minionWeaknessForm.reset({ name: '', description: '' });
+    this.minionArmorForm.reset({ name: '', description: '', harmSoak: 0, isSpecial: false, specialDescription: '' });
+  }
+
   private validateCurrentStep(): boolean {
     const phase = this.currentPhase();
     const step = this.currentStep();
@@ -910,9 +1167,16 @@ export class MysteryCreateStore {
       return false;
     }
 
-    if (phase === 1 && step === 1 && this.minionNameMissing()) {
-      this.minionForm.controls.name.markAsTouched();
-      return false;
+    if (phase === 1 && step === 1) {
+      // Three-way classification of the open composer: empty -> proceed; valid -> commit and
+      // proceed (see next()); started but invalid -> block, so the work isn't silently discarded.
+      if (this.composerOpen() && this.composerDirty() && !this.composerValid()) {
+        this.minionForm.markAllAsTouched();
+        this.submitError.set(COMPOSER_BLOCKED_MESSAGE);
+        return false;
+      }
+
+      this.submitError.set(null);
     }
 
     return true;
@@ -1024,59 +1288,7 @@ export class MysteryCreateStore {
               this.existingMonsterWeaknessIds.set(saved.weaknesses.map((w) => w.id));
               this.existingMonsterArmorIds.set(saved.armors.map((a) => a.id));
 
-              const minionName = this.minionForm.controls.name.value.trim();
-              const editingMinionId = this.editingMinionId();
-              if (!minionName) {
-                return of(null);
-              }
-
-              const minionTypeId = this.minionForm.controls.minionTypeId.value;
-              if (!minionTypeId) {
-                this.handleSubmitError('A minion type is required when adding a minion.');
-                return of(null);
-              }
-
-              const minionRequest: UpsertMinionRequest = {
-                name: minionName,
-                description: this.toNullable(this.minionForm.controls.description.value),
-                harmCapacity: this.minionForm.controls.harmCapacity.value,
-                minionTypeId: minionTypeId,
-              };
-
-              const minionSave$ = editingMinionId
-                ? this.minionService.update(editingMinionId, minionRequest)
-                : this.minionService.create(monster.id, minionRequest);
-
-              return minionSave$.pipe(
-                switchMap((minion) => {
-                  this.editingMinionId.set(minion.id);
-
-                  const deleteMinionOps: Observable<void>[] = [
-                    ...this.existingMinionAttackIds().map((id) => this.minionService.deleteAttack(minion.id, id)),
-                    ...this.existingMinionPowerIds().map((id) => this.minionService.deletePower(minion.id, id)),
-                    ...this.existingMinionWeaknessIds().map((id) => this.minionService.deleteWeakness(minion.id, id)),
-                    ...this.existingMinionArmorIds().map((id) => this.minionService.deleteArmor(minion.id, id)),
-                  ];
-                  return this.runBatch(deleteMinionOps).pipe(
-                    switchMap(() =>
-                      this.saveMinionCollections(
-                        minion.id,
-                        this.minionAttacks(),
-                        this.minionPowers(),
-                        this.minionWeaknesses(),
-                        this.minionArmors()
-                      )
-                    ),
-                    switchMap((savedMinion) => {
-                      this.existingMinionAttackIds.set(savedMinion.attacks.map((a) => a.id));
-                      this.existingMinionPowerIds.set(savedMinion.powers.map((p) => p.id));
-                      this.existingMinionWeaknessIds.set(savedMinion.weaknesses.map((w) => w.id));
-                      this.existingMinionArmorIds.set(savedMinion.armors.map((a) => a.id));
-                      return of(savedMinion);
-                    })
-                  );
-                })
-              );
+              return this.saveMinionDrafts(monster.id);
             })
           );
         }),
@@ -1104,7 +1316,7 @@ export class MysteryCreateStore {
 
     forkJoin({
       unlinked: this.runBatch(
-        this.idsToUnlink(this.existingLocationIds(), drafts).map((locationId) =>
+        this.idsToRemove(this.existingLocationIds(), drafts).map((locationId) =>
           this.locationService.unlinkFromMystery(mysteryId, locationId)
         )
       ),
@@ -1145,7 +1357,7 @@ export class MysteryCreateStore {
 
     forkJoin({
       unlinked: this.runBatch(
-        this.idsToUnlink(this.existingBystanderIds(), drafts).map((bystanderId) =>
+        this.idsToRemove(this.existingBystanderIds(), drafts).map((bystanderId) =>
           this.bystanderService.unlinkFromMystery(mysteryId, bystanderId)
         )
       ),
@@ -1175,9 +1387,73 @@ export class MysteryCreateStore {
       });
   }
 
-  /** IDs linked to the mystery as of the last save that are no longer present in the draft array. */
-  private idsToUnlink(linkedIds: string[], drafts: { id: string | null }[]): string[] {
-    return linkedIds.filter((linkedId) => !drafts.some((draft) => draft.id === linkedId));
+  /**
+   * Diffs `minionDrafts()` against the last-saved baseline and applies it (SS1.6):
+   * removed -> hard `DELETE /api/minions/{id}` (a minion belongs to exactly one monster, so there is
+   * nothing to unlink); `id !== null` -> update; `id === null` -> create. Each surviving minion then
+   * runs the existing delete-all/recreate-all sub-resource cycle against **its own** ID baseline —
+   * one cycle per minion, not one shared cycle across all of them.
+   */
+  private saveMinionDrafts(monsterId: string): Observable<unknown> {
+    const drafts = this.minionDrafts();
+    const toRequest = (draft: MinionDraft): UpsertMinionRequest => ({
+      name: draft.name,
+      description: this.toNullable(draft.description),
+      harmCapacity: draft.harmCapacity,
+      minionTypeId: draft.minionTypeId,
+    });
+
+    const removedIds = this.idsToRemove(this.existingMinionIds(), drafts);
+
+    return this.runBatch(removedIds.map((minionId) => this.minionService.delete(minionId))).pipe(
+      switchMap(() =>
+        this.runBatch(
+          drafts.map((draft, index) =>
+            (draft.id !== null
+              ? this.minionService.update(draft.id, toRequest(draft))
+              : this.minionService.create(monsterId, toRequest(draft))
+            ).pipe(
+              switchMap((minion) =>
+                this.runBatch<void>([
+                  ...draft.existingAttackIds.map((id) => this.minionService.deleteAttack(minion.id, id)),
+                  ...draft.existingPowerIds.map((id) => this.minionService.deletePower(minion.id, id)),
+                  ...draft.existingWeaknessIds.map((id) => this.minionService.deleteWeakness(minion.id, id)),
+                  ...draft.existingArmorIds.map((id) => this.minionService.deleteArmor(minion.id, id)),
+                ]).pipe(
+                  switchMap(() =>
+                    this.saveMinionCollections(minion.id, draft.attacks, draft.powers, draft.weaknesses, draft.armors)
+                  ),
+                  map((savedCollections) => ({ index, minionId: minion.id, savedCollections }))
+                )
+              )
+            )
+          )
+        )
+      ),
+      tap((results) => {
+        // Backfill server IDs and refresh each draft's own sub-resource baseline, so a revisit
+        // updates rather than duplicates (the Bug 2 shape) and deletes the right children.
+        const saved = [...drafts];
+        for (const { index, minionId, savedCollections } of results) {
+          saved[index] = {
+            ...saved[index],
+            id: minionId,
+            existingAttackIds: savedCollections.attacks.map((a) => a.id),
+            existingPowerIds: savedCollections.powers.map((power) => power.id),
+            existingWeaknessIds: savedCollections.weaknesses.map((w) => w.id),
+            existingArmorIds: savedCollections.armors.map((a) => a.id),
+          };
+        }
+
+        this.minionDrafts.set(saved);
+        this.existingMinionIds.set(this.savedDraftIds(saved));
+      })
+    );
+  }
+
+  /** IDs present as of the last save that are no longer present in the draft array. */
+  private idsToRemove(savedIds: string[], drafts: { id: string | null }[]): string[] {
+    return savedIds.filter((savedId) => !drafts.some((draft) => draft.id === savedId));
   }
 
   /**

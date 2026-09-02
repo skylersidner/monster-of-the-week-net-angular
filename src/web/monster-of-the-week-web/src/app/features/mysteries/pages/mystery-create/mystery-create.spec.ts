@@ -8,6 +8,39 @@ import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { MysteryCreateComponent } from './mystery-create';
+import { MinionDraft } from './mystery-create.store';
+
+function minionDraft(name: string, counts: Partial<Record<'attacks' | 'powers' | 'weaknesses' | 'armors', number>> = {}): MinionDraft {
+  const named = (prefix: string, count: number) =>
+    Array.from({ length: count }, (_, index) => ({ name: prefix + '-' + (index + 1), description: '' }));
+
+  return {
+    id: null,
+    name,
+    description: '',
+    harmCapacity: 3,
+    minionTypeId: 'minion-type-1',
+    attacks: Array.from({ length: counts.attacks ?? 0 }, (_, index) => ({
+      name: name + '-attack-' + (index + 1),
+      harm: 1,
+      description: '',
+      weaponTagIds: [],
+    })),
+    powers: named(name + '-power', counts.powers ?? 0),
+    weaknesses: named(name + '-weakness', counts.weaknesses ?? 0),
+    armors: Array.from({ length: counts.armors ?? 0 }, (_, index) => ({
+      name: name + '-armor-' + (index + 1),
+      description: '',
+      harmSoak: 1,
+      isSpecial: false,
+      specialDescription: '',
+    })),
+    existingAttackIds: [],
+    existingPowerIds: [],
+    existingWeaknessIds: [],
+    existingArmorIds: [],
+  };
+}
 
 class MockReferenceDataService {
   getAdventureTypes() {
@@ -177,5 +210,81 @@ describe('MysteryCreateComponent', () => {
 
     expect(phasePanel.querySelectorAll("em").length).toBe(1);
     expect(dossier.querySelector("em")?.textContent).toBe("Special:");
+  });
+
+  it("lists the removed minion's own sub-resources in the confirm modal, not the composer's", () => {
+    component.store.currentPhase.set(1);
+    component.store.currentStep.set(1);
+    component.store.minionDrafts.set([
+      minionDraft('Cultist', { attacks: 2, powers: 1 }),
+      minionDraft('Thrall', { weaknesses: 3 }),
+    ]);
+    // The composer is holding the *second* minion...
+    component.store.editMinionDraft(1);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const removeButtons = element.querySelectorAll<HTMLButtonElement>('button[title="Remove minion"]');
+    expect(removeButtons.length).toBe(2);
+
+    // ...but the user removes the first, so the modal must describe that one.
+    removeButtons[0].click();
+    fixture.detectChanges();
+
+    const modal = element.querySelector('[role="dialog"]')!;
+    expect(modal.textContent).toContain('Cultist');
+    expect(modal.textContent).toContain('2 attacks');
+    expect(modal.textContent).toContain('1 power');
+    expect(modal.textContent).not.toContain('3 weaknesses');
+
+    // Cancelling leaves the roster intact.
+    modal.querySelectorAll('button')[0].click();
+    fixture.detectChanges();
+    expect(component.store.minionDrafts().length).toBe(2);
+  });
+
+  it('shows one compact dossier entry per minion and expands only the one in the composer', () => {
+    component.store.currentPhase.set(1);
+    component.store.currentStep.set(1);
+    component.store.minionDrafts.set([
+      minionDraft('Cultist', { attacks: 2 }),
+      minionDraft('Thrall', { weaknesses: 1 }),
+      minionDraft('Acolyte', { powers: 4 }),
+    ]);
+    component.store.editMinionDraft(1);
+    fixture.detectChanges();
+
+    const dossier = (fixture.nativeElement as HTMLElement).querySelector('aside')!;
+    const text = dossier.textContent ?? '';
+
+    expect(text).toContain('Cultist');
+    expect(text).toContain('Thrall');
+    expect(text).toContain('Acolyte');
+
+    // "Harm Capacity" only appears in the expanded block, and exactly one entry is expanded.
+    expect(text.split('Harm Capacity').length - 1).toBe(1);
+
+    // The expanded block's weaknesses belong to the minion in the composer, nobody else's.
+    expect(text).toContain('Thrall-weakness-1');
+    expect(text).not.toContain('Cultist-attack-1');
+    expect(text).not.toContain('Acolyte-power-1');
+  });
+
+  it('keeps the minion dossier section visible after a saved minion resets the composer', () => {
+    component.store.currentPhase.set(1);
+    component.store.currentStep.set(1);
+    component.store.minionForm.setValue({
+      name: 'Choir Thrall',
+      description: '',
+      harmCapacity: 3,
+      minionTypeId: 'minion-type-1',
+    });
+    component.store.saveMinionDraftToList();
+    fixture.detectChanges();
+
+    const dossier = (fixture.nativeElement as HTMLElement).querySelector('aside')!;
+    expect(dossier.textContent).toContain('Choir Thrall');
+    // Composer is reset and collapsed, so nothing is expanded.
+    expect(dossier.textContent).not.toContain('Harm Capacity');
   });
 });

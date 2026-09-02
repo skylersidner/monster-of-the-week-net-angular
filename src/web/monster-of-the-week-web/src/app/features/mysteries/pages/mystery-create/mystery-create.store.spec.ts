@@ -36,7 +36,12 @@ describe('MysteryCreateStore', () => {
   let minionService: {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
     createAttack: ReturnType<typeof vi.fn>;
+    assignAttackWeaponTag: ReturnType<typeof vi.fn>;
+    createPower: ReturnType<typeof vi.fn>;
+    createWeakness: ReturnType<typeof vi.fn>;
+    createArmor: ReturnType<typeof vi.fn>;
     deleteAttack: ReturnType<typeof vi.fn>;
     deletePower: ReturnType<typeof vi.fn>;
     deleteWeakness: ReturnType<typeof vi.fn>;
@@ -77,7 +82,12 @@ describe('MysteryCreateStore', () => {
     minionService = {
       create: vi.fn(() => of({ id: 'minion-1' })),
       update: vi.fn(() => of({ id: 'minion-1' })),
+      delete: vi.fn(() => of(undefined)),
       createAttack: vi.fn(() => of({ id: 'minion-attack-1' })),
+      assignAttackWeaponTag: vi.fn(() => of({})),
+      createPower: vi.fn(() => of({ id: 'minion-power-1' })),
+      createWeakness: vi.fn(() => of({ id: 'minion-weakness-1' })),
+      createArmor: vi.fn(() => of({ id: 'minion-armor-1' })),
       deleteAttack: vi.fn(() => of(undefined)),
       deletePower: vi.fn(() => of(undefined)),
       deleteWeakness: vi.fn(() => of(undefined)),
@@ -122,6 +132,26 @@ describe('MysteryCreateStore', () => {
     store = TestBed.inject(MysteryCreateStore);
     store.init();
   });
+
+  /** Walks the wizard to phase 1 / step 1 (the minion step) with a saved mystery and a valid monster. */
+  function advanceToMinionStep(): void {
+    store.conceptForm.setValue({ name: 'The Hollow Choir', concept: '', adventureTypeId: 'adventure-type-1' });
+    store.currentStep.set(3);
+    store.next();
+
+    store.monsterForm.setValue({
+      name: 'Maestro Vey',
+      description: '',
+      harmCapacity: 8,
+      monsterTypeId: 'monster-type-1',
+      monsterArchetypeId: 'monster-archetype-1',
+    });
+    store.currentStep.set(1);
+  }
+
+  function fillComposer(name: string, minionTypeId = 'minion-type-1'): void {
+    store.minionForm.setValue({ name, description: '', harmCapacity: 3, minionTypeId });
+  }
 
   it('loads reference data on init', () => {
     expect(store.monsterTypes()).toEqual([{ id: 'monster-type-1', name: 'Beast', motivation: '' }]);
@@ -332,29 +362,275 @@ describe('MysteryCreateStore', () => {
     expect(locationService.create).toHaveBeenCalledTimes(1);
   });
 
-  it('requires a minion name only once the minion section has been started', () => {
-    store.currentPhase.set(1);
-    store.currentStep.set(1);
+  it('advances past the minion step with an empty composer and creates nothing', () => {
+    advanceToMinionStep();
 
-    expect(store.minionSectionStarted()).toBe(false);
-    expect(store.minionNameRequired()).toBe(false);
-    expect(store.minionNameMissing()).toBe(false);
+    expect(store.composerDirty()).toBe(false);
 
-    store.minionForm.controls.minionTypeId.setValue('minion-type-1');
+    store.next();
 
-    expect(store.minionSectionStarted()).toBe(true);
-    expect(store.minionNameMissing()).toBe(true);
+    expect(store.currentPhase()).toBe(2);
+    expect(store.minionDrafts()).toEqual([]);
+    expect(minionService.create).not.toHaveBeenCalled();
+  });
+
+  it('auto-commits a valid open composer on Next and submits it in the same tick', () => {
+    advanceToMinionStep();
+    fillComposer('Choir Thrall');
+
+    expect(store.minionDrafts()).toHaveLength(0);
+
+    store.next();
+
+    // The commit must be visible to submitPhase1 synchronously, not deferred into its pipe.
+    expect(store.minionDrafts()).toHaveLength(1);
+    expect(store.minionDrafts()[0].id).toBe('minion-1');
+    expect(minionService.create).toHaveBeenCalledWith('monster-1', {
+      name: 'Choir Thrall',
+      description: null,
+      harmCapacity: 3,
+      minionTypeId: 'minion-type-1',
+    });
+    expect(store.currentPhase()).toBe(2);
+  });
+
+  it('blocks Next when the composer has a name but no type', () => {
+    advanceToMinionStep();
+    store.minionForm.controls.name.setValue('Choir Thrall');
+
+    expect(store.composerDirty()).toBe(true);
+    expect(store.composerValid()).toBe(false);
 
     store.next();
 
     expect(store.currentPhase()).toBe(1);
     expect(store.currentStep()).toBe(1);
     expect(store.minionForm.controls.name.touched).toBe(true);
+    expect(store.submitError()).toBe("Finish or clear the minion you're editing before continuing.");
     expect(minionService.create).not.toHaveBeenCalled();
+  });
 
-    store.minionForm.controls.name.setValue('Choir Thrall');
+  it('blocks Next when the composer holds sub-resources but no name', () => {
+    advanceToMinionStep();
+    store.minionAttackForm.setValue({ name: 'Jagged Hymn', harm: 1, description: '', weaponTagIds: [] });
+    store.addMinionAttack();
 
-    expect(store.minionNameMissing()).toBe(false);
+    expect(store.composerDirty()).toBe(true);
+    expect(store.composerValid()).toBe(false);
+
+    store.next();
+
+    expect(store.currentPhase()).toBe(1);
+    expect(store.minionAttacks()).toHaveLength(1);
+    expect(minionService.create).not.toHaveBeenCalled();
+  });
+
+  it('blocks Next when only harm capacity was touched', () => {
+    // The widened dirty-check (SS1.3, approved 2026-09-01) is deliberately stricter than the old
+    // one: harm capacity defaults to 3, so moving it off the default alone counts as started work.
+    advanceToMinionStep();
+    store.minionForm.controls.harmCapacity.setValue(5);
+
+    expect(store.composerDirty()).toBe(true);
+
+    store.next();
+
+    expect(store.currentPhase()).toBe(1);
+    expect(minionService.create).not.toHaveBeenCalled();
+  });
+
+  it('lights the minion step-tracker dot from the roster, not the composer', () => {
+    advanceToMinionStep();
+
+    fillComposer('Choir Thrall');
+    expect(store.phaseStepComplete()[1][1]).toBe(false);
+
+    store.saveMinionDraftToList();
+    expect(store.phaseStepComplete()[1][1]).toBe(true);
+  });
+
+  it('opens the composer only when the roster is empty or the user asks for it', () => {
+    advanceToMinionStep();
+
+    expect(store.composerOpen()).toBe(true);
+
+    fillComposer('Alpha');
+    store.saveMinionDraftToList();
+    expect(store.composerOpen()).toBe(false);
+    expect(store.editingDraftIndex()).toBeNull();
+
+    // "Collapsed" and "open on a blank new draft" both have editingDraftIndex() === null.
+    store.startNewMinionDraft();
+    expect(store.composerOpen()).toBe(true);
+    expect(store.editingDraftIndex()).toBeNull();
+
+    store.editMinionDraft(0);
+    expect(store.composerOpen()).toBe(true);
+    expect(store.editingDraftIndex()).toBe(0);
+
+    store.cancelComposerEdit();
+    expect(store.composerOpen()).toBe(false);
+  });
+
+  it('round-trips a roster draft through the composer, sub-resources included', () => {
+    advanceToMinionStep();
+
+    fillComposer('Choir Thrall');
+    store.minionAttackForm.setValue({ name: 'Jagged Hymn', harm: 1, description: '', weaponTagIds: [] });
+    store.addMinionAttack();
+    store.minionArmorForm.setValue({
+      name: 'Robes',
+      description: '',
+      harmSoak: 1,
+      isSpecial: false,
+      specialDescription: '',
+    });
+    store.addMinionArmor();
+    store.saveMinionDraftToList();
+
+    expect(store.minionAttacks()).toEqual([]);
+
+    store.editMinionDraft(0);
+
+    expect(store.minionForm.controls.name.value).toBe('Choir Thrall');
+    expect(store.minionForm.controls.minionTypeId.value).toBe('minion-type-1');
+    expect(store.minionAttacks()).toEqual([{ name: 'Jagged Hymn', harm: 1, description: '', weaponTagIds: [] }]);
+    expect(store.minionArmors()).toHaveLength(1);
+
+    store.minionForm.controls.description.setValue('Possessed singer');
+    store.saveMinionDraftToList();
+
+    expect(store.minionDrafts()).toHaveLength(1);
+    expect(store.minionDrafts()[0].description).toBe('Possessed singer');
+    expect(store.minionDrafts()[0].attacks).toHaveLength(1);
+  });
+
+  it('creates every roster minion with its own sub-resources', () => {
+    minionService.create = vi.fn((_monsterId: string, request: { name: string }) =>
+      of({ id: 'minion-' + request.name.toLowerCase() })
+    );
+
+    advanceToMinionStep();
+
+    fillComposer('Alpha');
+    store.minionPowerForm.setValue({ name: 'Howl', description: '' });
+    store.addMinionPower();
+    store.saveMinionDraftToList();
+
+    store.startNewMinionDraft();
+    fillComposer('Beta');
+    store.minionWeaknessForm.setValue({ name: 'Salt', description: '' });
+    store.addMinionWeakness();
+    store.saveMinionDraftToList();
+
+    expect(store.minionDrafts().map((draft) => draft.name)).toEqual(['Alpha', 'Beta']);
+
+    store.next();
+
+    expect(minionService.create).toHaveBeenCalledTimes(2);
+    expect(minionService.createPower).toHaveBeenCalledTimes(1);
+    expect(minionService.createPower).toHaveBeenCalledWith('minion-alpha', { name: 'Howl', description: null });
+    expect(minionService.createWeakness).toHaveBeenCalledTimes(1);
+    expect(minionService.createWeakness).toHaveBeenCalledWith('minion-beta', { name: 'Salt', description: null });
+    expect(store.minionDrafts().map((draft) => draft.id)).toEqual(['minion-alpha', 'minion-beta']);
+  });
+
+  it('hard-deletes a previously saved minion that was removed before the next submit', () => {
+    advanceToMinionStep();
+    fillComposer('Choir Thrall');
+    store.next();
+
+    expect(minionService.create).toHaveBeenCalledTimes(1);
+
+    store.jumpToPhase(1);
+    store.currentStep.set(1);
+    store.removeMinionDraft(0);
+    store.next();
+
+    expect(minionService.delete).toHaveBeenCalledWith('minion-1');
+    expect(minionService.update).not.toHaveBeenCalled();
+    expect(minionService.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the composer pointed at the same minion when an earlier roster card is removed', () => {
+    // SS1.5(2): editingDraftIndex is a positional reference into the array removal mutates. If it
+    // is not decremented, the next save silently overwrites a bystanding draft.
+    advanceToMinionStep();
+
+    for (const name of ['Alpha', 'Beta', 'Gamma']) {
+      store.startNewMinionDraft();
+      fillComposer(name);
+      store.saveMinionDraftToList();
+    }
+
+    store.editMinionDraft(2);
+    expect(store.editingDraftIndex()).toBe(2);
+
+    store.removeMinionDraft(0);
+
+    expect(store.editingDraftIndex()).toBe(1);
+    expect(store.minionDrafts().map((draft) => draft.name)).toEqual(['Beta', 'Gamma']);
+
+    store.minionForm.controls.description.setValue('Edited in place');
+    store.saveMinionDraftToList();
+
+    expect(store.minionDrafts().map((draft) => draft.name)).toEqual(['Beta', 'Gamma']);
+    expect(store.minionDrafts()[1].description).toBe('Edited in place');
+    expect(store.minionDrafts()[0].description).toBe('');
+  });
+
+  it('makes the pencil and + Add Another Minion no-ops while the composer is invalid', () => {
+    // commitComposerIfValid() has three call sites, and all three must abort the same way.
+    advanceToMinionStep();
+    fillComposer('Alpha');
+    store.saveMinionDraftToList();
+
+    store.startNewMinionDraft();
+    store.minionForm.controls.description.setValue('Half-typed second minion');
+
+    store.editMinionDraft(0);
+    expect(store.editingDraftIndex()).toBeNull();
+    expect(store.minionForm.controls.description.value).toBe('Half-typed second minion');
+    expect(store.submitError()).toBe("Finish or clear the minion you're editing before continuing.");
+
+    store.startNewMinionDraft();
+    expect(store.minionForm.controls.description.value).toBe('Half-typed second minion');
+    expect(store.minionDrafts()).toHaveLength(1);
+  });
+
+  it('clears the composer when the roster card being edited is removed', () => {
+    advanceToMinionStep();
+
+    for (const name of ['Alpha', 'Beta']) {
+      store.startNewMinionDraft();
+      fillComposer(name);
+      store.saveMinionDraftToList();
+    }
+
+    store.editMinionDraft(1);
+    store.removeMinionDraft(1);
+
+    expect(store.editingDraftIndex()).toBeNull();
+    expect(store.minionForm.controls.name.value).toBe('');
+    expect(store.minionForm.controls.harmCapacity.value).toBe(3);
+    expect(store.composerOpen()).toBe(false);
+    expect(store.minionDrafts().map((draft) => draft.name)).toEqual(['Alpha']);
+  });
+
+  it('leaves a later editing index alone when a card after it is removed', () => {
+    advanceToMinionStep();
+
+    for (const name of ['Alpha', 'Beta', 'Gamma']) {
+      store.startNewMinionDraft();
+      fillComposer(name);
+      store.saveMinionDraftToList();
+    }
+
+    store.editMinionDraft(0);
+    store.removeMinionDraft(2);
+
+    expect(store.editingDraftIndex()).toBe(0);
+    expect(store.minionDrafts().map((draft) => draft.name)).toEqual(['Alpha', 'Beta']);
   });
 
   it('adds and removes armor drafts independently for monster and minion', () => {
@@ -417,5 +693,7 @@ describe('MysteryCreateStore', () => {
     expect(draftState.collections.minionArmors).toEqual([
       { name: 'Leather Vest', description: '', harmSoak: 1, isSpecial: true, specialDescription: 'Only vital organs' },
     ]);
+    expect(draftState.collections.minionDrafts).toEqual([]);
+    expect(draftState.composer).toEqual({ open: true, editingDraftIndex: null });
   });
 });

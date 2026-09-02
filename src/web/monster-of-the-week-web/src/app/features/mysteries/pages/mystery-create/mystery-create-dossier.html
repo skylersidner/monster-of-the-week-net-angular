@@ -122,7 +122,7 @@
   </section>
 }
 
-@if (store.currentPhase() >= 1 && store.minionPreview().name) {
+@if (store.currentPhase() >= 1 && (store.minionDrafts().length > 0 || store.minionPreview().name)) {
   <section class="dossier-section bg-surface border border-default rounded-lg mb-5 p-5">
     <h3 class="border-b border-default text-accent text-[0.8rem] font-bold tracking-[0.06em] m-0 mb-[0.85rem] pb-2 uppercase">
       <span class="inline-flex items-center gap-[0.45rem]">
@@ -130,6 +130,35 @@
         <span>Minions</span>
       </span>
     </h3>
+    @for (draft of store.minionDrafts(); track $index) {
+      @if (store.editingDraftIndex() === $index) {
+        <ng-container [ngTemplateOutlet]="composerEntry" />
+      } @else {
+        <div class="border-b border-default last:border-b-0 mb-2 pb-2 last:mb-0 last:pb-0">
+          <p class="text-primary text-[0.9rem] leading-[1.5] mb-1">{{ draft.name }}</p>
+          @if (minionTypeName(draft.minionTypeId); as typeName) {
+            <span class="inline-block rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-minion text-on-badge-minion">{{ typeName }}</span>
+          }
+          <small class="text-muted block mt-1">
+            Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
+            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }}
+          </small>
+        </div>
+      }
+    }
+    @if (store.composerOpen() && store.editingDraftIndex() === null && store.minionPreview().name) {
+      <ng-container [ngTemplateOutlet]="composerEntry" />
+    }
+  </section>
+}
+
+<!--
+  The one expanded entry: whichever minion is loaded in the composer. Every read below is
+  store.minionPreview() — the composer's own state — never a raw store.minion*() signal, which under
+  a roster model would leak one minion's sub-resources into another's block.
+-->
+<ng-template #composerEntry>
+  <div class="border-b border-default last:border-b-0 mb-2 pb-2 last:mb-0 last:pb-0">
     <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Name</span> {{ store.minionPreview().name }}</p>
     @if (store.minionPreview().typeName) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Type</span> {{ store.minionPreview().typeName }}</p>
@@ -162,7 +191,7 @@
     @if (store.minionPreview().weaknesses.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Weaknesses</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (weakness of store.minionWeaknesses(); track $index) {
+        @for (weakness of store.minionPreview().weaknesses; track $index) {
           <li>
             <span>{{ weakness.name }}</span>
             @if (weakness.description) {
@@ -188,8 +217,8 @@
         }
       </ul>
     }
-  </section>
-}
+  </div>
+</ng-template>
 
 @if ((store.phaseComplete()[2] || store.currentPhase() >= 2) && store.locations().length > 0) {
   <section class="dossier-section bg-surface border border-default rounded-lg mb-5 p-5">

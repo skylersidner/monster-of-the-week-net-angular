@@ -1259,3 +1259,51 @@ Added `w-full min-w-0` to every number input living inside one of these fixed-wi
 
 ### Files
 Modified: `src/app/pages/data-admin/components/playbook-admin/playbook-form/playbook-form.html` (Tracks/Ratings/Gear pickCount width-overflow fix), `src/app/pages/data-admin/components/playbook-admin/playbook-admin.ts` and `.html` (delete-confirmation modal wiring). Not committed.
+
+---
+
+## 2026-09-01 — Multi-Minion MM-0 (dossier signal fix) + MM-5 ("Belongs to {monster}" on mystery-detail)
+
+### Task
+First slice of Yoshi's multi-minion plan (`docs/updates/multi-minion-support.md`), scoped to MM-0 and MM-5 only — explicitly told to stay out of MM-2/3/4 (blocked on a pending decision, another agent's turf).
+
+### MM-0 — genuinely a no-op, audit held up
+`mystery-create-dossier.html:165` read the raw `store.minionWeaknesses()` signal inside a block otherwise reading `store.minionPreview()`. Re-verified Yoshi's audit myself rather than trusting it: grepped every `store.minion*()`/`store.monster*()` read in the file — monster block (`:56-109`) uses `monsterPreview()` at all 15 reads, minions block used `minionPreview()` everywhere except the one reported line. Confirmed at the source (`mystery-create.store.ts:461`) that `minionPreview()`'s `weaknesses` field is literally `weaknesses: this.minionWeaknesses()` — same signal call, so the repoint is provably behavior-identical today. Fix was the one-line swap Yoshi specified, nothing more.
+
+### MM-5 — data was already there, template-only as scoped
+`mystery-detail.ts:31` holds `minions: signal<MinionListItemResponse[]>`, and `MinionListItemResponse` (`core/models.ts:293-306`) already carries `monsterName`/`monsterId` — confirmed before touching the template, per the brief's "stop and report if it isn't available" instruction. Added a `Belongs to: {{ minion.monsterName }}` `<p>` styled to match `minions-list.html:22` (`text-muted text-[0.82rem] mt-[0.15rem]`), but plain text rather than a link — `minions-list.html`'s version links to the global `/monsters/:id` route, but `mystery-detail` scopes its own monster links as `['/mysteries', mystery.id, 'monsters', monster.id]` (line 88), and Skyler's exact instruction ("add a 'Belongs to {monster}' line") didn't ask for a link or specify which route shape to use — treated picking one as an unrequested scope decision and left it as text to stay literal to the ask.
+
+### Reusable fact
+`ng test`'s Vitest-based unit-test builder does not accept a bare `--reporter` flag (errors "Unknown argument") and running `npx vitest run <spec paths>` directly bypasses Angular's TestBed/zone.js setup entirely (`ReferenceError: describe is not defined`) — the builder injects its own setup invisibly. To run a subset of specs with real output, use `ng test --watch=false --reporters=verbose --include "<path>"` (repeatable `--include`), not raw `vitest run`.
+
+### Verification
+`npx ng build`: clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`). `npm run test -- --watch=false`: 44 files / 364 tests green. Additionally ran the three specs named in the brief in isolation via `ng test --include`: `mystery-create.spec.ts`, `mystery-create.store.spec.ts`, `mystery-detail.spec.ts` — 3 files / 15 tests, all green.
+
+### Files
+Modified: `src/app/features/mysteries/pages/mystery-create/mystery-create-dossier.html` (line 165, MM-0), `src/app/features/mysteries/pages/mystery-detail/mystery-detail.html` (minions `<li>`, MM-5). Not committed.
+
+---
+
+## 2026-09-01 — Multi-Minion MM-2 + MM-3 + MM-4 (wizard roster + composer, store draft-list, dossier)
+
+### Task
+The main body of Yoshi's multi-minion plan, landed as one unit because the intermediate state doesn't compile. Built on top of MM-0/MM-5 already sitting uncommitted.
+
+### Reusable technical facts
+- **`toSignal(form.valueChanges)` updates synchronously inside `setValue`/`patchValue`.** `composerDirty()`/`composerValid()` read `minionValue()` (a `toSignal` over `minionForm.valueChanges`) and are consulted by `next()` in the same statement sequence as the `setValue` that populated the form. This works with no `detectChanges`/tick — verified across 21 store-spec tests. Relevant any time a store gates navigation on a computed derived from a form.
+- **`editingDraftIndex` + `composerOpen` genuinely cannot be collapsed into one signal.** Four visible states, three of which share `editingDraftIndex() === null`. Deriving `composerOpen` from "composer is non-empty" collapses the panel the user just opened via `+ Add Another Minion`. Two signals, invariant `editingDraftIndex() !== null ⇒ composerOpen()` maintained in each of the five methods that write either.
+- **Positional identity into a spliceable array is a latent silent-overwrite bug.** `removeMinionDraft(i)` has to clear `editingDraftIndex` when `=== i` and decrement when `> i`. Confirmed by negative control: deleting the decrement branch failed exactly one test ("keeps the composer pointed at the same minion when an earlier roster card is removed") and nothing else — so that test is the only thing standing between this codebase and that bug. Safe only because reordering was declined; if reordering is ever added, switch to a client-side `key` first.
+- **The confirm-modal `[items]` defect class is real and the wrong code looks right.** Reading `store.minionAttacks()` for the counts compiles, renders, and is wrong the moment the user removes a card they aren't editing. Second negative control: repointing two of the four count reads at the live composer signals failed exactly the one component test written for it.
+- **`ng test --include` takes repeatable globs and is the fast loop here** (~1s for one spec file vs ~2.6s full suite + ~4s build). Reconfirmed the earlier note: no bare `--reporter`, use `--reporters=verbose`.
+- **`git diff --stat` is the CRLF canary.** Any scripted edit that emits LF shows up as a whole-file rewrite. All eight touched files stayed at targeted hunk counts. Pattern that works: read → `replace(/\r\n/g,'\n')` → edit → `replace(/\n/g,'\r\n')` → write.
+- **Heredocs into the Bash tool choke on long multi-line JS containing template literals** ("unexpected EOF while looking for matching `''`") even with a quoted delimiter. Write the script with the Write tool into the scratchpad and `node <path> <target>` instead — that path never failed.
+- **`ng build` writes to `src/api/MonsterOfTheWeek.Api/wwwroot` by default.** Used `--output-path` into the scratchpad for the intermediate checks and only ran the real `npm run build` at the end.
+
+### Judgment calls (filed in full at `.squad/decisions/inbox/luigi-multi-minion-wizard-implementation.md`)
+`draftState` keeps `forms.minion` + the four `collections.minion*` (MM-2's "drop them" contradicts §1.1's "keep them as the composer"); the `next()` auto-commit is scoped to `phase 1 / step 1`; `commitComposerIfValid()` sets the wizard error band so the pencil and `+ Add Another Minion` aren't silent no-ops; `saveMinionDrafts()` writes IDs + the four per-draft baselines by index instead of reusing `backfillDraftIds` (which can't carry baselines); confirm-modal state in the phase component, matching every other list page; the dossier's expanded entry renders *in place of* its compact roster entry via `ngTemplateOutlet` rather than in addition to it.
+
+### Verification
+`npm run build`: clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`). `npm run test -- --watch=false`: 44 files / 380 tests green, up from the 44/364 baseline (+16, no deletions beyond rewriting the one obsolete `minionNameMissing` test). Two negative controls run and reverted, described above. No live browser pass.
+
+### Files
+Modified: `features/mysteries/pages/mystery-create/mystery-create.store.ts`, `mystery-create-monster-phase.{ts,html}`, `mystery-create-dossier.{ts,html}`, `mystery-create.store.spec.ts`, `mystery-create.spec.ts`. Not committed.

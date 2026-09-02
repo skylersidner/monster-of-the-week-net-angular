@@ -106,6 +106,7 @@
             @for (minion of minions(); track minion.id) {
               <li class="my-[0.4rem]">
                 <a [routerLink]="['/mysteries', mystery()!.id, 'minions', minion.id]">{{ minion.name }}</a>
+                <p class="text-muted text-[0.82rem] mt-[0.15rem] mb-0">Belongs to: {{ minion.monsterName }}</p>
               </li>
             }
           </ul>

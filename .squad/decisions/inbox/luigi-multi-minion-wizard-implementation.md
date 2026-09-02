@@ -1,0 +1,21 @@
+### 2026-09-01: Multi-Minion Wizard (MM-2/MM-3/MM-4) — Three Implementation Calls the Plans Left Open
+**By:** Luigi (Frontend Developer)
+
+**What:** Implemented `docs/updates/multi-minion-support.md` MM-2/MM-3/MM-4 and `docs/updates/multi-minion-wizard-design.md` §1-§2 as one change. Three points where the two documents were underspecified or self-contradictory against real code, resolved as follows rather than silently improvised.
+
+**1. `MysteryCreateDraftState` keeps `forms.minion` and the four `collections.minion*` entries; it does not drop them.**
+MM-2 says to "drop `forms.minion` and `collections.minionAttacks`/`minionPowers`/`minionWeaknesses`/`minionArmors`; add `collections.minionDrafts` plus the composer's own state." Those two halves contradict each other under the model that actually shipped: §1.1 explicitly *keeps* `minionForm` and the four sub-resource signals, reinterpreted as the composer. They **are** "the composer's own state," so dropping them would make `draftState` an incomplete snapshot — it would restore a roster but lose whatever the user had half-typed. Shipped shape: `collections` gains `minionDrafts`, and a new top-level `composer: { open, editingDraftIndex }` records the composer's *position*, which is the one thing the old shape genuinely could not express. Re-verified on this pass that `draftState` still has no consumer outside `mystery-create.store.spec.ts`.
+
+**2. The auto-commit in `next()` is scoped to `phase === 1 && step === 1`, not run unconditionally.**
+§1.4 says "after `validateCurrentStep()` passes, before `submitCurrentPhase()`" without qualification. Unconditionally, that commits the composer when the user presses Next on phase 0 or on phase 1 *step 0* — states where the minion step is not on screen and the user has no idea a commit happened. The block condition in `validateCurrentStep()` is already scoped to `phase === 1 && step === 1`, so an unscoped commit would also be asymmetric with the check that guards it. Scoping loses nothing: the composer can only be filled from the minion step, and the only route out of phase 1 that submits runs through step 1.
+
+**3. `commitComposerIfValid()` sets the wizard error band, not just the field-level errors.**
+§1.4's table says the pencil and `+ Add Another Minion` clicks are "a no-op with the error shown," but only `next()` had a specified path to `submitError`. Without it those two clicks show inline `Name is required` text somewhere below the fold of a 42%-wide scrolling column and nothing else — indistinguishable from a dead button. The message (`COMPOSER_BLOCKED_MESSAGE`) is now set inside `commitComposerIfValid()`'s failure branch, so all three call sites surface the same band, and cleared in `saveMinionDraftToList()` on success.
+
+**Also worth recording, decided but small:**
+
+- **`submitPhase1` does not reuse `backfillDraftIds`.** §1.6 suggests it. It cannot carry the per-draft sub-resource ID baselines, which is the whole reason `MinionDraft` differs from `LocationDraft`. `saveMinionDrafts()` instead tags each per-minion result with its draft index and writes `id` + all four `existing*Ids` back in one pass. `idsToUnlink` → `idsToRemove` as specified; `savedDraftIds` reused unchanged.
+- **The confirm-modal state lives in `MysteryCreateMonsterPhaseComponent`, not the store.** MM-3 left this open. It is pure view state, and `minions-list`, `bystanders-list` and `playbook-admin` all keep their `pendingDelete` in the component. `pendingRemoveItems` is a `computed` over `store.minionDrafts()[index]` with a comment naming why it must never read `store.minionAttacks()`.
+- **The dossier's one expanded entry is an `ng-template` + `ngTemplateOutlet`, rendered in the roster slot of the minion being edited.** Rosalina's §2 asks for "one compact entry per minion" *and* "expand exactly one." Read literally that duplicates the edited minion (once compact, once expanded). Rendering the expanded block *in place of* that minion's compact entry gives exactly N entries with exactly one expanded. `NgTemplateOutlet` is already house vocabulary (`hunter-form.html:96`).
+
+**Why:** Each of these is a place where following the letter of the plan would have shipped a defect or an obviously worse UI, and each was cheap to resolve in the plan's own direction. None of them touches a decision Skyler settled.
