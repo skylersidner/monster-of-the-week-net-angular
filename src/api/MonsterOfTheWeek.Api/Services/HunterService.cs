@@ -337,6 +337,14 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
             {
                 return $"\"{instanceSection.Title}\" is not a repeatable section, so it cannot have entries.";
             }
+
+            // The per-selection move check below never sees an entry sent with no selections (a
+            // name and a blank free-text box), so the entry itself has to be checked here.
+            if (instanceSection.PlaybookMoveId is { } moveId && !takenMoveIds.Contains(moveId))
+            {
+                var move = playbook.Moves.FirstOrDefault(m => m.Id == moveId);
+                return $"\"{instanceSection.Title}\" belongs to the move \"{move?.Name}\", which this hunter has not taken.";
+            }
         }
 
         foreach (var group in (request.BespokeInstances ?? []).GroupBy(i => i.SectionId))

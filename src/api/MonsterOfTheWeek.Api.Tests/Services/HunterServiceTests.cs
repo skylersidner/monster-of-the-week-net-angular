@@ -37,8 +37,9 @@ public sealed class HunterServiceTests
     private static readonly Guid OtherLookOptionId = Guid.Parse("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
     private static readonly Guid ExtraTrackId = Guid.Parse("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee");
 
-    // Bespoke fixture. Shapes chosen to match the four that real data actually exercises:
-    // a nested category tree, a free-text section, a repeatable section, and one owned by a move.
+    // Bespoke fixture. Shapes chosen to match the five that real data actually exercises:
+    // a nested category tree, a free-text section, a repeatable section, one owned by a move,
+    // and a repeatable one owned by a move with no options at all (the Searcher's Network).
     private static readonly Guid NestedSectionId = Guid.Parse("10000000-0000-4000-8000-000000000001");
     private static readonly Guid CategoryAId = Guid.Parse("10000000-0000-4000-8000-00000000000a");
     private static readonly Guid LeafA1Id = Guid.Parse("10000000-0000-4000-8000-0000000000a1");
@@ -51,6 +52,7 @@ public sealed class HunterServiceTests
     private static readonly Guid RoteOptionBId = Guid.Parse("30000000-0000-4000-8000-0000000000b0");
     private static readonly Guid MoveSectionId = Guid.Parse("40000000-0000-4000-8000-000000000004");
     private static readonly Guid MoveOptionId = Guid.Parse("40000000-0000-4000-8000-0000000000a4");
+    private static readonly Guid MoveRepeatableSectionId = Guid.Parse("60000000-0000-4000-8000-000000000006");
     private static readonly Guid JournalId = Guid.Parse("50000000-0000-4000-8000-000000000005");
     private static readonly Guid JournalFieldId = Guid.Parse("50000000-0000-4000-8000-0000000000a5");
 
@@ -651,6 +653,49 @@ public sealed class HunterServiceTests
     }
 
     [Fact]
+    public async Task Entries_for_a_moves_repeatable_section_are_refused_unless_the_move_is_taken()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        /*
+         * The move check above runs per *selection*, and this section has no options, so an
+         * entry with only a name carries none — exactly what the form sends when the member's
+         * "Details" box is left blank. A different move is taken on purpose: the hunter holding
+         * *some* move must not be mistaken for holding *this* one.
+         */
+        var refused = await harness.Service.CreateAsync(
+            Request() with
+            {
+                PlaybookMoveIds = [PickableMoveId],
+                BespokeInstances = [new HunterBespokeInstanceModel(null, MoveRepeatableSectionId, "Dr. Okafor", 0, [])],
+            },
+            default);
+
+        Assert.False(refused.IsSuccess);
+        Assert.Equal(ServiceErrorType.Validation, refused.Error!.Type);
+    }
+
+    [Fact]
+    public async Task Entries_for_a_moves_repeatable_section_are_accepted_once_the_move_is_taken()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        // The same entry as above with the owning move held: the move check must not over-refuse.
+        var accepted = await harness.Service.CreateAsync(
+            Request() with
+            {
+                PlaybookMoveIds = [OtherMoveId],
+                BespokeInstances = [new HunterBespokeInstanceModel(null, MoveRepeatableSectionId, "Dr. Okafor", 0, [])],
+            },
+            default);
+
+        Assert.True(accepted.IsSuccess, accepted.Error?.Message);
+        var entry = Assert.Single(accepted.Value!.BespokeInstances);
+        Assert.Equal(MoveRepeatableSectionId, entry.SectionId);
+        Assert.Equal("Dr. Okafor", entry.Name);
+    }
+
+    [Fact]
     public async Task A_numeric_leaf_is_bounded_and_a_blank_fill_needs_a_blank_to_fill()
     {
         await using var harness = await Harness.StartAsync();
@@ -866,6 +911,15 @@ public sealed class HunterServiceTests
                 [
                     new BespokeOption { Id = MoveOptionId, SectionId = MoveSectionId, Title = "{{blank}}", DescriptionText = "It is {{blank}}.", SortOrder = 0 },
                 ],
+            },
+            // The Searcher's Network: repeatable, owned by a non-required move, and with no
+            // options, so an entry can arrive carrying no selections at all. Owned by OtherMove
+            // rather than PickableMove so the "fully answered" cases, which take PickableMove,
+            // are not handed a new section to answer.
+            new BespokeSection
+            {
+                Id = MoveRepeatableSectionId, PlaybookMoveId = OtherMoveId, Title = "Network", FreeTextLabel = "Member",
+                MinInstances = 0, MaxInstances = 5, SortOrder = 0,
             },
         ],
         BespokeJournals =

@@ -301,6 +301,73 @@ describe('HunterFormComponent', () => {
     expect(emitted[0].bespokeInstances[0].selections.map((s) => s.bespokeOptionId)).toEqual(['rote-b']);
   });
 
+  it('drops a move-internal section entry and its answers when the move is unticked, leaving a different taken move untouched', () => {
+    const withMoveSections: PlaybookDetailResponse = {
+      ...playbook,
+      moves: [
+        playbook.moves[0],
+        {
+          ...playbook.moves[1],
+          bespokeSections: [
+            {
+              id: 'bs-network', title: 'Network', description: null, effectText: null, freeTextLabel: 'Contact',
+              minSelect: null, maxSelect: null, minInstances: 0, maxInstances: 5, sortOrder: 0,
+              options: [{ id: 'bo-net', title: 'A favor', descriptionText: null, minSelect: null, maxSelect: null, numericMin: null, numericMax: null, sortOrder: 0, children: [] }],
+            },
+          ],
+        },
+        {
+          ...playbook.moves[2],
+          bespokeSections: [
+            {
+              id: 'bs-other', title: 'Other Section', description: null, effectText: null, freeTextLabel: 'Note',
+              minSelect: null, maxSelect: null, minInstances: 0, maxInstances: null, sortOrder: 0,
+              options: [{ id: 'bo-other', title: 'A pick', descriptionText: null, minSelect: null, maxSelect: null, numericMin: null, numericMax: null, sortOrder: 0, children: [] }],
+            },
+          ],
+        },
+      ],
+    };
+    TestBed.inject(PlaybookService).getById = () => of(withMoveSections);
+    chooseThePlaybook();
+    component.hunterForm.controls.name.setValue('Networked Hunter');
+
+    component.toggleMove('mv1');
+    component.toggleMove('mv2');
+    fixture.detectChanges();
+
+    const [networkSection] = withMoveSections.moves[1].bespokeSections;
+    const [otherSection] = withMoveSections.moves[2].bespokeSections;
+
+    component.addInstance(networkSection);
+    component.addInstance(otherSection);
+    const [networkInstance] = component.instancesFor(networkSection);
+    const [otherInstance] = component.instancesFor(otherSection);
+
+    component.toggleBespoke(networkInstance.key, 'bo-net');
+    component.setBespokeAnswer(networkInstance.key, { optionId: 'bo-net', field: 'text', value: 'A useful contact' });
+    component.setFreeText(networkInstance.key, 'A rumor');
+
+    component.toggleBespoke(otherInstance.key, 'bo-other');
+    component.setBespokeAnswer(otherInstance.key, { optionId: 'bo-other', field: 'text', value: 'Kept' });
+
+    // Unticking Network's own move drops its entry and answers entirely, the same as removing
+    // them by hand — the save must never send state the server now refuses.
+    component.toggleMove('mv1');
+    fixture.detectChanges();
+
+    component.onSubmit();
+    const instances = emitted[0].bespokeInstances;
+
+    expect(instances).toHaveLength(1);
+    expect(instances[0].sectionId).toBe('bs-other');
+    expect(instances[0].selections.map((s) => s.bespokeOptionId)).toEqual(['bo-other']);
+
+    // Control: a different taken move's section entry and its picks survive the untick.
+    expect(component.picksFor(otherInstance.key).has('bo-other')).toBe(true);
+    expect(component.picksFor(networkInstance.key).has('bo-net')).toBe(false);
+  });
+
   it('submits a hunter with nothing but a name and a playbook chosen', () => {
     chooseThePlaybook();
     component.hunterForm.controls.name.setValue('Half A Hunter');

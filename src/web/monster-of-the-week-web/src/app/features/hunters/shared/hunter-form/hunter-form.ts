@@ -173,7 +173,15 @@ export class HunterFormComponent implements OnInit, OnChanges {
   }
 
   toggleMove(moveId: string): void {
+    const wasSelected = this.selectedMoveIds().has(moveId);
     this.selectedMoveIds.update((current) => toggle(current, moveId));
+    if (wasSelected) {
+      // Unticking a move drops its bespoke section state so the save never sends it — the
+      // server refuses an entry or answer under a section whose move the hunter hasn't taken.
+      // Re-ticking starts empty; there is no restore.
+      const move = this.playbook()?.moves.find((m) => m.id === moveId);
+      this.clearBespokeSections(move?.bespokeSections ?? []);
+    }
   }
 
   toggleGear(optionId: string): void {
@@ -301,9 +309,9 @@ export class HunterFormComponent implements OnInit, OnChanges {
 
   removeInstance(key: string): void {
     this.bespokeInstances.update((current) => current.filter((i) => i.key !== key));
-    this.bespokePicks.update((current) => omit(current, key));
-    this.bespokeAnswers.update((current) => omit(current, key));
-    this.bespokeFreeText.update((current) => omit(current, key));
+    this.bespokePicks.update((current) => omit(current, [key]));
+    this.bespokeAnswers.update((current) => omit(current, [key]));
+    this.bespokeFreeText.update((current) => omit(current, [key]));
   }
 
   setInstanceName(key: string, name: string): void {
@@ -476,6 +484,28 @@ export class HunterFormComponent implements OnInit, OnChanges {
           .map(([journalFieldId, text]) => ({ journalFieldId, text: text.trim() })),
       })),
     });
+  }
+
+  /**
+   * Clears every scope's state for a set of bespoke sections — instances filed under them, plus
+   * the picks/answers/freeText keyed by those section ids and by the removed instances' own
+   * keys. Same shape as `removeInstance`'s per-instance clear, generalized to "every instance
+   * under these sections" for `toggleMove`'s untick case.
+   */
+  private clearBespokeSections(sections: readonly BespokeSectionResponse[]): void {
+    const sectionIds = new Set(sections.map((s) => s.id));
+    if (sectionIds.size === 0) {
+      return;
+    }
+    const instanceKeys = this.bespokeInstances()
+      .filter((instance) => sectionIds.has(instance.sectionId))
+      .map((instance) => instance.key);
+    this.bespokeInstances.update((current) => current.filter((instance) => !sectionIds.has(instance.sectionId)));
+
+    const deadScopes = new Set([...sectionIds, ...instanceKeys]);
+    this.bespokePicks.update((current) => omit(current, deadScopes));
+    this.bespokeAnswers.update((current) => omit(current, deadScopes));
+    this.bespokeFreeText.update((current) => omit(current, deadScopes));
   }
 
   /** Section ids whose answers live at the top level rather than inside an instance. */
@@ -743,9 +773,11 @@ function nextLocalKey(): string {
   return `${++localKeyCounter}`;
 }
 
-function omit<T>(map: ReadonlyMap<string, T>, key: string): ReadonlyMap<string, T> {
+function omit<T>(map: ReadonlyMap<string, T>, keys: Iterable<string>): ReadonlyMap<string, T> {
   const next = new Map(map);
-  next.delete(key);
+  for (const key of keys) {
+    next.delete(key);
+  }
   return next;
 }
 
