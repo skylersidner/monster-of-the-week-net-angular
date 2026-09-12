@@ -1307,3 +1307,22 @@ The main body of Yoshi's multi-minion plan, landed as one unit because the inter
 
 ### Files
 Modified: `features/mysteries/pages/mystery-create/mystery-create.store.ts`, `mystery-create-monster-phase.{ts,html}`, `mystery-create-dossier.{ts,html}`, `mystery-create.store.spec.ts`, `mystery-create.spec.ts`. Not committed.
+
+---
+
+## 2026-09-11 — Hunter Form: Untick-a-Move Drops Its Bespoke Section State
+
+### Task
+Server-side `HunterService.ValidateBespoke` was tightened same-day to refuse a bespoke entry/answer under a section whose owning move the hunter hasn't taken. Frontend never dropped that state on untick, so a Searcher hunter with Network entries who unticks Network and saves got refused. Skyler's chosen fix: unticking a move clears its `bespokeSections`' state client-side so the save never sends it — no restore on re-tick, no confirm dialog.
+
+### Reusable technical facts
+- **`toggleMove` reads `selectedMoveIds()` for the pre-toggle state before calling `.update()`**, then only clears on the untick transition (`wasSelected === true`). Required moves never call `toggleMove` (rendered checked+disabled), so no special-casing was needed there.
+- **Generalized `omit<T>(map, key)` → `omit<T>(map, keys: Iterable<string>)`** rather than adding a parallel bulk-delete helper. `removeInstance`'s three call sites became `omit(current, [key])` — one-line change, no behavior difference — so the new `clearBespokeSections` could reuse the exact same function for a multi-key clear. This is the "small shared helper" the brief asked for; didn't touch `dropSelectionsOutside`'s playbook-change prune, which filters the *inverse* direction (keep valid) and reads fine as its own thing.
+- **New private `clearBespokeSections(sections)`**: computes `sectionIds`, finds `bespokeInstances` under them, removes those instances, then unions `sectionIds` with the removed instances' own `key`s into one `deadScopes` set before clearing `bespokePicks`/`bespokeAnswers`/`bespokeFreeText`. Necessary because non-repeatable sections key state by section id directly, but repeatable sections (instances) key by `instance.key` — both had to be covered or a repeatable section's answers would survive as orphans.
+- **`bespokeInstances`/`picksFor`/etc. are populated and readable regardless of `moveSectionsFor`'s visibility gate** — that method only controls template rendering. Tests can call `addInstance`/`toggleBespoke` directly on a move's section without ticking the UI through the DOM, which is how the existing repeatable-section spec already worked.
+
+### Verification
+`ng test --watch=false --reporters=verbose --include hunter-form.spec.ts`: 15/15 green (14 existing + 1 new, covering both the drop-on-untick case and a control where a second taken move's section survives). `npm run test -- --watch=false` (full suite): 44 files / 381 tests green (+1 over the 380 baseline recorded 2026-09-01). `ng build --configuration production` (output redirected to scratchpad, not wwwroot): clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`).
+
+### Files
+Modified: `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.spec.ts`. Not committed. Decision filed at `.squad/decisions/inbox/luigi-hunter-form-untick-move-drops-bespoke-state.md`.
