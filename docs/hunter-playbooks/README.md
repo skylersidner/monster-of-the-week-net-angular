@@ -41,6 +41,8 @@ Everything dated before 2026-08-30 in this file was planning only, with no appli
 - **`bespoke-ruleset-catalogue.md`** — the complete catalogue of concrete per-playbook bespoke-ruleset definitions, organized by playbook, all 28 processed. **This is the real source of truth content gets authored from later, not a shape-only reference** — see its own intro for the reconciliation.
 - **`custom-moves-ideation.md`** — Phase 6's census and decision history (2026-08-30, **settled**): all 28 playbooks' Moves read in full, the 14-move worklist, the categories examined and ruled out of scope, and the reasoning behind the model. The schema itself lives in `architecture.md` Section 6.8 — same division of labour as `phase5-bespoke-ideation.md` has with Section 6.
 - **`pdf-extraction-pipeline.md`** — Bowser's formatting-preserving PDF extraction writeup (approved, standing process). Scripts: `tools/pdf-extract/`.
+- **`hunter-creation-wizard.md`** — the Hunter creation wizard design (2026-09-12 to 2026-09-14, **decided**, not yet implemented): Rosalina's UX design, Bowser's backend review, Luigi's frontend review, Yoshi's architecture review, and every decision behind them. The detailed spec; it replaces Phase 10's single-page create form with a wizard.
+- **`hunter-creation-wizard-phases.md`** — Yoshi's phased implementation plan for the wizard (2026-09-14): Phases 0–7, one per release, each summarising its work, risk, owners and exit criteria, with pointers into `hunter-creation-wizard.md` for detail.
 
 ## Source material
 
