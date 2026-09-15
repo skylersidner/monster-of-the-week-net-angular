@@ -31,6 +31,13 @@ namespace MonsterOfTheWeek.Api.Services;
 /// </para>
 ///
 /// <para>
+/// <b>Pick rules replace the minimums they govern</b> (hunter-creation-wizard.md 12.9, R6). A
+/// governed gear list or bespoke section reports through <see cref="PickRules"/> instead of its own
+/// PickCount or MinSelect line, in the same position, and reports nothing once some alternative of
+/// its rule is met.
+/// </para>
+///
+/// <para>
 /// <b>The order is total and never depends on collection order</b> (Y8). The same hunter gives
 /// the same list whether its rows came from a request, the database, or picks sent in any order.
 /// That is what lets Evaluate and Create return identical lists, and keeps the wizard's card from
@@ -77,8 +84,26 @@ public static class HunterCompleteness
         }
 
         var selectedGear = hunter.GearSelections.Select(x => x.PlaybookGearOptionId).ToHashSet();
+
+        // Pick rules (hunter-creation-wizard.md 12.9) resolve from gear picks and section-level
+        // bespoke picks together, so The Initiate's weapons lists can follow its Sect.
+        var rules = PickRules.Evaluate(
+            playbook,
+            selectedGear,
+            hunter.BespokeSelections
+                .Where(s => s.SectionInstanceId == null && s.BespokeOptionId is not null)
+                .Select(s => s.BespokeOptionId!.Value));
+
         foreach (var category in playbook.GearCategories.OrderBy(c => c.SortOrder).ThenBy(c => c.Id))
         {
+            // A list a pick rule governs reports against its effective range instead, in this same
+            // position (12.9 step 4), and says nothing once the rule is met.
+            if (rules.GovernsGearCategory(category.Id))
+            {
+                outstanding.AddRange(rules.GearItemsAt(category));
+                continue;
+            }
+
             /*
              * Two categories ask nothing. A null PickCount means every listed option is granted
              * outright rather than picked (PlaybookGearCategory.PickCount) — there is no choice
@@ -89,8 +114,6 @@ public static class HunterCompleteness
                 continue;
             }
 
-            // Phase 6 seam (12.9 step 4): a category governed by a pick rule reports against its
-            // effective minimum here instead, in this same position.
             var picked = category.Options.Count(o => selectedGear.Contains(o.Id));
             if (picked < pickCount)
             {
@@ -111,7 +134,7 @@ public static class HunterCompleteness
                 $"Look: {unanswered} of {playbook.LookCategories.Count} {(unanswered == 1 ? "line is" : "lines are")} unanswered."));
         }
 
-        outstanding.AddRange(EvaluateBespoke(hunter, playbook));
+        outstanding.AddRange(EvaluateBespoke(hunter, playbook, rules));
 
         /*
          * Extra tracks are deliberately absent, and that is a decision rather than an omission.
@@ -135,7 +158,7 @@ public static class HunterCompleteness
     /// <c>moves</c>; a playbook-level one is <c>rules</c>.
     /// </para>
     /// </summary>
-    private static IEnumerable<HunterOutstandingItem> EvaluateBespoke(Hunter hunter, Playbook playbook)
+    private static IEnumerable<HunterOutstandingItem> EvaluateBespoke(Hunter hunter, Playbook playbook, PickRuleEvaluation rules)
     {
         var takenMoveIds = hunter.Moves.Select(m => m.PlaybookMoveId).ToHashSet();
         var optionsById = playbook.BespokeSections.SelectMany(s => s.Options).ToDictionary(o => o.Id);
@@ -193,7 +216,8 @@ public static class HunterCompleteness
                 // separately rather than against a total across all of them.
                 foreach (var instance in instances)
                 {
-                    foreach (var line in Shortfalls(section, hunter.BespokeSelections.Where(s => s.SectionInstanceId == instance.Id), optionsById))
+                    // No pick rules here: a rule never governs a repeatable section.
+                    foreach (var line in Shortfalls(section, hunter.BespokeSelections.Where(s => s.SectionInstanceId == instance.Id), optionsById, null))
                     {
                         yield return Line($"{section.Title} ({instance.Name ?? "entry"}): {line}");
                     }
@@ -214,7 +238,7 @@ public static class HunterCompleteness
                 continue;
             }
 
-            foreach (var line in Shortfalls(section, sectionSelections, optionsById))
+            foreach (var line in Shortfalls(section, sectionSelections, optionsById, rules))
             {
                 yield return Line($"{section.Title}: {line}");
             }
@@ -229,16 +253,25 @@ public static class HunterCompleteness
     private static IEnumerable<string> Shortfalls(
         BespokeSection section,
         IEnumerable<HunterBespokeSelection> selections,
-        Dictionary<Guid, BespokeOption> optionsById)
+        Dictionary<Guid, BespokeOption> optionsById,
+        PickRuleEvaluation? rules)
     {
         var picked = selections.Where(s => s.BespokeOptionId is not null)
             .Select(s => s.BespokeOptionId!.Value)
             .ToHashSet();
         var engaged = BespokeEngagement.Engaged(picked, optionsById);
 
-        // Phase 6 seam (12.9 step 4, S8): a section governed by a bespoke pick rule skips this
-        // MinSelect line and reports the rule's own line in its place.
-        if (section.MinSelect is { } minSelect)
+        if (rules is not null && rules.GovernsSection(section.Id))
+        {
+            // A section a pick rule governs (12.9 step 4, S8): its stored MinSelect is not
+            // consulted, since no single number is right for every legal build, and the rule's own
+            // line takes its place at the top of the section.
+            foreach (var line in rules.SectionLines(section))
+            {
+                yield return line;
+            }
+        }
+        else if (section.MinSelect is { } minSelect)
         {
             var count = BespokeEngagement.CountUnder(null, section.Id, engaged, optionsById);
             if (count < minSelect)
@@ -259,7 +292,8 @@ public static class HunterCompleteness
          */
         foreach (var parent in engaged.Select(id => optionsById[id]).OrderBy(o => TreePosition(o, optionsById), TreePositionComparer.Instance))
         {
-            if (parent.MinSelect is not { } parentMin)
+            // A category a pick rule counts drops its own minimum too; the rule reports for it.
+            if (parent.MinSelect is not { } parentMin || rules?.GovernsOption(parent.Id) == true)
             {
                 continue;
             }

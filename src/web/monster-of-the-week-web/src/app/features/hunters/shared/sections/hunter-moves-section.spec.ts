@@ -32,7 +32,7 @@ const playbook: PlaybookDetailResponse = {
     { id: 'mv3', name: 'Third Move', descriptionText: null, required: false, isAdvanced: false, sortOrder: 3, bespokeSections: [] },
     { id: 'mv-adv', name: 'Advanced Move', descriptionText: null, required: false, isAdvanced: true, sortOrder: 4, bespokeSections: [] },
   ],
-  gearCategories: [], lookCategories: [], improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [],
+  gearCategories: [], lookCategories: [], improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [], pickRules: [],
 };
 
 describe('HunterMovesSectionComponent (13.6)', () => {

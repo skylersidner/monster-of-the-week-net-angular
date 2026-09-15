@@ -104,7 +104,7 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
      * so two new repeatable entries stay two entries whether or not they are ever saved: an
      * entry's answers are keyed to its own id in ApplyBespoke.
      *
-     * Phase 6 plugs its pick-rule ceilings into Validate, so they reach both callers from here.
+     * Pick-rule ceilings (12.9) live in Validate, so they reach both callers from here.
      */
     private async Task<NewHunterBuild> BuildNewHunterAsync(UpsertHunterRequest request, CancellationToken cancellationToken)
     {
@@ -298,10 +298,32 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
             return lookError;
         }
 
-        var bespokeError = ValidateBespoke(request, playbook);
+        /*
+         * Pick rules (hunter-creation-wizard.md 12.9 step 3): the ceilings no single stored count
+         * can state. The stored caps above stay in force (S8). A rule refuses only picks that fit
+         * none of its alternatives, so it is fixable by removing picks like every rule here.
+         *
+         * Per Q10 this applies on every save, including a levelled-up hunter recording an extra
+         * Natural Attacks or Combat Magic pick: correctness is judged against the limits a new
+         * hunter starts with, exactly as extra moves already are, until hunters record improvements.
+         */
+        var pickRules = PickRules.Evaluate(
+            playbook,
+            gearIds,
+            (request.BespokeSelections ?? []).Where(s => s.BespokeOptionId is not null).Select(s => s.BespokeOptionId!.Value));
+
+        var bespokeError = ValidateBespoke(request, playbook, pickRules);
         if (bespokeError is not null)
         {
             return bespokeError;
+        }
+
+        // Gear rules after the bespoke checks, since their triggers are bespoke options and have to
+        // be known to be this playbook's own first.
+        var gearRuleError = pickRules.GearRefusal();
+        if (gearRuleError is not null)
+        {
+            return gearRuleError;
         }
 
         var extraTrackError = ValidateExtraTracks(request.ExtraTracks ?? [], playbook);
@@ -368,7 +390,7 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
      * an unfinished section asserts nothing false, so under Section 9's rule it is reported
      * rather than rejected. Everything here would make the stored row a lie.
      */
-    private static string? ValidateBespoke(UpsertHunterRequest request, Playbook playbook)
+    private static string? ValidateBespoke(UpsertHunterRequest request, Playbook playbook, PickRuleEvaluation pickRules)
     {
         var sectionsById = playbook.BespokeSections.ToDictionary(x => x.Id);
         var optionsById = playbook.BespokeSections.SelectMany(s => s.Options).ToDictionary(x => x.Id);
@@ -419,12 +441,23 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
         };
         scopes.AddRange((request.BespokeInstances ?? []).Select(i => ((Guid?)i.SectionId, i.Selections ?? [])));
 
-        foreach (var (_, selections) in scopes)
+        foreach (var (instanceSectionId, selections) in scopes)
         {
             var error = ValidateSelectionScope(selections, sectionsById, optionsById, takenMoveIds, playbook);
             if (error is not null)
             {
                 return error;
+            }
+
+            // Bespoke pick rules run in the section-level scope, once its own checks have passed
+            // (12.9 step 3). A rule never governs a repeatable section, so entries have none.
+            if (instanceSectionId is null)
+            {
+                var ruleError = pickRules.BespokeRefusal();
+                if (ruleError is not null)
+                {
+                    return ruleError;
+                }
             }
         }
 

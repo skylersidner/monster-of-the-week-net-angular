@@ -63,6 +63,10 @@ public sealed class HunterRepository(MotwDbContext dbContext) : IHunterRepositor
             .Include(x => x.ExtraTracks)
             .Include(x => x.BespokeSections).ThenInclude(s => s.Options)
             .Include(x => x.BespokeJournals).ThenInclude(j => j.Fields)
+            // Pick rules (hunter-creation-wizard.md 12.9): Validate and HunterCompleteness both
+            // read them from this one graph. The seed-driven check tests are what catch this
+            // include going missing (14.3.1).
+            .Include(x => x.PickRules).ThenInclude(r => r.Alternatives).ThenInclude(a => a.Counts).ThenInclude(c => c.Triggers)
             .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.Id == playbookId, cancellationToken);
 

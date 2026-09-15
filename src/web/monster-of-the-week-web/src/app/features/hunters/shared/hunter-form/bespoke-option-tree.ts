@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, forwardRef } from '@angular/core';
 import { BespokeOptionResponse } from '../../../../core/models';
+import { engagedChildCount } from '../hunter-pick-rules';
 
 /** One recorded answer against a single option, as the form holds it before submit. */
 export interface BespokeOptionAnswer {
@@ -47,6 +48,12 @@ export class BespokeOptionTreeComponent {
    * `HunterBespokeSectionComponent`'s `'create'` mode sets it, for the Phase 7 wizard (L14).
    */
   @Input() numericReadOnly = false;
+  /**
+   * Dividers a pick rule governs (Natural Attacks' Base and Extra, Combat Magic's Bases and Effects).
+   * Their own stored "pick n–m" hint contradicts the rule, so it is replaced by "n picked" under the
+   * rule's instruction (L25, L31). Their locks still arrive through `lockedScopes`.
+   */
+  @Input() governedIds: ReadonlySet<string> = new Set();
 
   @Output() readonly toggled = new EventEmitter<string>();
   @Output() readonly answerChanged = new EventEmitter<{
@@ -88,6 +95,11 @@ export class BespokeOptionTreeComponent {
 
   isDisabled(option: BespokeOptionResponse): boolean {
     return this.lockedScopes.has(this.parentKey) && !this.picked.has(option.id);
+  }
+
+  /** A governed divider's count: its engaged direct children, as the rule counts them. */
+  pickedUnder(option: BespokeOptionResponse): number {
+    return engagedChildCount(option, this.picked);
   }
 
   /** Pick-count hint for a category divider, e.g. "pick 2" or "pick 2–3". */

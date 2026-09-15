@@ -232,6 +232,39 @@ public static class PlaybookSeed
             EndLabel = t.EndLabel,
             SortOrder = t.SortOrder,
         })],
+
+        /*
+         * Pick rules (hunter-creation-wizard.md 12.9). Rule and alternative ids come from the
+         * file, and they are the same fixed ids the AddPickRules migration inserts, so a migrated
+         * database and a freshly seeded one hold the same rules. Counts have no id on the wire, so
+         * each environment mints its own; nothing references them.
+         *
+         * A file exported before the rules existed has no pickRules key at all, which
+         * deserializes as null and means no rules.
+         */
+        PickRules = [.. (source.PickRules ?? []).Select(r => new PlaybookPickRule
+        {
+            Id = r.Id,
+            Label = r.Label,
+            SortOrder = r.SortOrder,
+            Alternatives = [.. r.Alternatives.Select(a => new PlaybookPickRuleAlternative
+            {
+                Id = a.Id,
+                Label = a.Label,
+                SortOrder = a.SortOrder,
+                Counts = [.. a.Counts.Select(c => new PlaybookPickRuleCount
+                {
+                    GearCategoryId = c.GearCategoryId,
+                    BespokeOptionId = c.BespokeOptionId,
+                    MinCount = c.MinCount,
+                    MaxCount = c.MaxCount,
+                    AdjustedMinCount = c.Adjustment?.MinCount,
+                    AdjustedMaxCount = c.Adjustment?.MaxCount,
+                    Triggers = [.. (c.Adjustment?.TriggerOptionIds ?? [])
+                        .Select(id => new PlaybookPickRuleCountTrigger { BespokeOptionId = id })],
+                })],
+            })],
+        })],
     };
 
     private static BespokeSection ToSectionEntity(BespokeSectionResponse source, Guid? playbookMoveId) => new()

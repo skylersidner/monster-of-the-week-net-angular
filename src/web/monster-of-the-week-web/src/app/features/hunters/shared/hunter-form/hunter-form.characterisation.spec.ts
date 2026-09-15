@@ -153,6 +153,7 @@ const charPlaybook: PlaybookDetailResponse = {
     { id: 'tr-corruption', name: 'Corruption', description: null, effectText: null, boxCount: 6, startLabel: null, endLabel: 'lost', sortOrder: 0 },
     { id: 'tr-glory', name: 'Glory', description: null, effectText: null, boxCount: 3, startLabel: null, endLabel: 'legend', sortOrder: 1 },
   ],
+  pickRules: [],
 };
 
 /** Shares a few ids with `charPlaybook`, so prune's keep-what-is-valid filtering is visible. */

@@ -19,7 +19,7 @@ const playbook: PlaybookDetailResponse = {
     { id: 'sa-1', charm: 1, cool: 0, sharp: 2, tough: -1, weird: 1, sortOrder: 0 },
     { id: 'sa-2', charm: -1, cool: 2, sharp: 1, tough: 0, weird: 1, sortOrder: 1 },
   ],
-  moves: [], gearCategories: [], lookCategories: [], improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [],
+  moves: [], gearCategories: [], lookCategories: [], improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [], pickRules: [],
 };
 
 describe('HunterRatingsSectionComponent (13.6, L16)', () => {

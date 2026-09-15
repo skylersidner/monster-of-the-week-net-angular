@@ -76,6 +76,9 @@ public sealed class Playbook
     public ICollection<BespokeSection> BespokeSections { get; set; } = [];
     public ICollection<BespokeJournal> BespokeJournals { get; set; } = [];
     public ICollection<PlaybookExtraTrack> ExtraTracks { get; set; } = [];
+
+    // Hunter creation wizard Phase 6 (R6) — see PickRuleEntities.cs
+    public ICollection<PlaybookPickRule> PickRules { get; set; } = [];
 }
 
 /// <summary>

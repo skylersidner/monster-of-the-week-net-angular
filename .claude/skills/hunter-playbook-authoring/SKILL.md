@@ -213,6 +213,53 @@ When you model one:
 `DescriptionText`. Only creation-time picks are modelled. That boundary is settled — see
 `custom-moves-ideation.md` §2.2 for the ~35 moves examined and deliberately ruled out.
 
+## Authoring pick rules (hunter creation wizard R6)
+
+A **pick rule** states a limit no stored count can: The Initiate's Sect-dependent weapons, and the
+either/or picks in The Monstrous's Natural Attacks and The Spell-Slinger's Combat Magic. Those three
+are the whole corpus: a sweep of all 28 found no others (`hunter-creation-wizard.md` 12.9). Schema,
+meaning and graph checks are in `architecture.md` Section 6.10. Keep the stored `PickCount`,
+`MinSelect` and `MaxSelect` exactly as printed; a rule overrides only the minimums, and the stored
+numbers stay as ceilings.
+
+**Only add one when a printed limit genuinely can't be a single count**: a total shared across
+categories, an either/or between whole combinations, or a count that depends on another section.
+Surface a fourth case rather than modelling it silently.
+
+**A rule points at saved rows by id, so it takes a second save.** Create or update the playbook
+first, then read it back and `PUT` it again with `pickRules`, using the real ids of the gear
+categories, dividers and trigger options. A `POST` carrying rules is refused.
+
+```json
+"pickRules": [{
+  "id": null, "label": "Pick a Base and add an extra to it, or two Bases.", "sortOrder": 0,
+  "alternatives": [
+    { "id": null, "label": null, "sortOrder": 0, "counts": [
+      { "gearCategoryId": null, "bespokeOptionId": "<Base id>",  "minCount": 1, "maxCount": 1, "adjustment": null },
+      { "gearCategoryId": null, "bespokeOptionId": "<Extra id>", "minCount": 1, "maxCount": 1, "adjustment": null } ] },
+    { "id": null, "label": null, "sortOrder": 1, "counts": [ ... Base 2, Extra 0 ... ] } ] }]
+```
+
+- **Targets** are all gear categories, or all the top-level category dividers of one playbook-level,
+  non-repeatable section, and they must cover every top-level option of that section. Gear targets
+  need a non-null `pickCount` and must not be optional.
+- **Every alternative counts every target exactly once.** Each range and adjusted range runs from 0
+  upward, with its maximum within that target's `pickCount` or `maxSelect`.
+- **An adjustment** is the range that applies when any of its triggers is picked. The Initiate's
+  old-fashioned weapons are 2–2, adjusted to 3–3 by Fighting arts or Obsolete gear. Triggers are
+  leaf options in a playbook-level, non-repeatable section the same rule doesn't govern.
+- **Labels are printed plain text.** Use the governed section's own instruction where it has one,
+  and null where the targets' own headings already say it, as on The Initiate.
+- **`pickRules` omitted leaves the stored rules alone; `[]` deletes them.** Correcting a playbook's
+  other sections never needs `pickRules` in the request. But an edit that breaks a kept rule is
+  refused with a **409 naming the rule**: removing or re-creating a target or trigger, lowering a
+  governed cap, and so on. Keep those rows' ids when you re-author.
+- **A canonical rule change also needs the seed and a migration.** Existing databases get rules
+  from a guarded data migration with fixed ids (`AddPickRules` is the model), and fresh ones from
+  the re-exported seed, in the same commit (Y12).
+
+`scripts/verify.mjs` checks the three known rules by name, and that no other playbook carries one.
+
 **Surface deviations; do not absorb them.** Where a section is expected to be near-identical
 across playbooks (the Luck track wording, Harm, Experience, the presence of Ratings), a
 playbook that differs is a finding to report, not a variation to quietly normalise away.
@@ -428,6 +475,9 @@ Common `400`s, all real rules and not to be worked around:
 - Playbook names are unique — a duplicate means it is already authored. Use `PUT` to correct
   an existing one, and include each child's real `id` so the diff updates rows in place
   instead of replacing them.
+- A `POST` carrying `pickRules`, or a rule that breaks a graph check, is a `400`. A `PUT` without
+  `pickRules` that breaks a rule the playbook keeps is a `409` naming the rule. See "Authoring
+  pick rules".
 
 ## Step 5 — Self-verify
 
@@ -580,6 +630,8 @@ than improvising.
   first standard-section-depends-on-bespoke case in the corpus. Skyler's call was the
   headroom over a separate notes field. Store the permissive maxima and let the label carry
   the real rule, the same prose-only resolution as Monstrous's Natural Attacks either/or.
+  *Updated 2026-09-15:* both are now enforced by pick rules (see "Authoring pick rules"). The
+  label and the permissive maxima stay exactly as described here.
 - **Declare synthesized text in the verifier's `SYNTHESIZED` set.** Some stored strings are
   legitimately not on the page: two Required moves the source never names ("One of Us",
   "Agency politics"), category labels the source gives only as a sentence ("Origin") or not

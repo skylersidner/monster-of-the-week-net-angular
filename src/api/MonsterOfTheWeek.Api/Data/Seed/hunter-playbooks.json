@@ -553,7 +553,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "f44db871-6040-4068-acfd-9ac0a4aac20b",
@@ -1021,7 +1022,8 @@
     ],
     "bespokeSections": [],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "871c1bd6-4fd9-4fdf-855b-237364be81e3",
@@ -1803,7 +1805,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "10942370-a03d-4bbb-b5ca-f7cc44ae4ccb",
@@ -2727,7 +2730,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "daf96976-bad3-4dd7-ae0c-c513841e4cb6",
@@ -3364,7 +3368,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "9a57b2c8-0f73-4370-9b25-c7b4f9ed1de9",
@@ -4279,7 +4284,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "293ede71-560c-49de-a9b0-f275a5628b04",
@@ -4879,7 +4885,8 @@
         "endLabel": "Lost",
         "sortOrder": 0
       }
-    ]
+    ],
+    "pickRules": []
   },
   {
     "id": "1bf2bb6d-4eb9-4e94-8c19-41b8dfdfb3cf",
@@ -5346,7 +5353,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "dcbc401b-f0f0-45ef-bd99-8a6758949122",
@@ -6113,7 +6121,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "02b840bd-dd25-492a-822d-b63cf58047a4",
@@ -6609,7 +6618,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "a51a8ed1-c3f8-4f80-be3e-22c2eb0c8611",
@@ -7027,7 +7037,8 @@
     ],
     "bespokeSections": [],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "3bb4c5f1-2539-4265-87da-bb7e21b2947d",
@@ -8167,7 +8178,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "a9fc8052-c7f4-4881-a5c3-ffa9c650f83b",
@@ -9065,7 +9077,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "7086a36e-583d-47ad-a37f-4d2aa709d359",
@@ -9702,7 +9715,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "72244f14-ef13-493c-b1fe-01ea439057b4",
@@ -10495,7 +10509,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "a0c2b1dd-75e9-4c62-913a-e652e5f23df2",
@@ -11264,7 +11279,51 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": [
+      {
+        "id": "c7e553b8-71fe-48ce-87ee-7ec38b129171",
+        "label": null,
+        "sortOrder": 0,
+        "alternatives": [
+          {
+            "id": "d633b0d9-4b82-4101-b6d5-e201c38ee923",
+            "label": null,
+            "sortOrder": 0,
+            "counts": [
+              {
+                "gearCategoryId": "4740273a-f878-4719-8c0e-2626cac2566f",
+                "bespokeOptionId": null,
+                "minCount": 2,
+                "maxCount": 2,
+                "adjustment": {
+                  "triggerOptionIds": [
+                    "ceecaf7f-c871-422b-afa1-68ce91229274",
+                    "86965ce9-cbb5-479b-985a-5a7bda562de2"
+                  ],
+                  "minCount": 3,
+                  "maxCount": 3
+                }
+              },
+              {
+                "gearCategoryId": "524d08ca-da76-4d4e-8353-2317ab30419a",
+                "bespokeOptionId": null,
+                "minCount": 1,
+                "maxCount": 1,
+                "adjustment": {
+                  "triggerOptionIds": [
+                    "ad188960-40d2-48f3-8782-3a8caded1ae2",
+                    "9e5b2d72-c55b-45d0-9e91-2f89ce29e798"
+                  ],
+                  "minCount": 1,
+                  "maxCount": 2
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "26ff65c7-6536-4479-8a5f-3524726ecc8a",
@@ -12075,7 +12134,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "2a1efd73-1c2d-4472-9ace-3c30d9ec9300",
@@ -12889,7 +12949,58 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": [
+      {
+        "id": "7922cc30-48c5-4bb9-a427-52e70f51b022",
+        "label": "Pick a Base and add an extra to it, or two Bases.",
+        "sortOrder": 0,
+        "alternatives": [
+          {
+            "id": "268a7083-87ed-4199-aa1b-1667a6dcca55",
+            "label": null,
+            "sortOrder": 0,
+            "counts": [
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "a6f63a15-cd9d-405d-a0a5-c25dab5ff742",
+                "minCount": 1,
+                "maxCount": 1,
+                "adjustment": null
+              },
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "acbda577-8524-4905-8f0b-f53d74034cb8",
+                "minCount": 1,
+                "maxCount": 1,
+                "adjustment": null
+              }
+            ]
+          },
+          {
+            "id": "39042040-31a4-4bb4-96f0-871ff9fc1317",
+            "label": null,
+            "sortOrder": 1,
+            "counts": [
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "a6f63a15-cd9d-405d-a0a5-c25dab5ff742",
+                "minCount": 2,
+                "maxCount": 2,
+                "adjustment": null
+              },
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "acbda577-8524-4905-8f0b-f53d74034cb8",
+                "minCount": 0,
+                "maxCount": 0,
+                "adjustment": null
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "c999d2b9-3d5d-405e-be89-c8c346619a7d",
@@ -13346,7 +13457,8 @@
     ],
     "bespokeSections": [],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "c70c35a5-65b5-4de6-9e15-7cdfcd8e7f6d",
@@ -13827,7 +13939,8 @@
         "endLabel": "Broken",
         "sortOrder": 0
       }
-    ]
+    ],
+    "pickRules": []
   },
   {
     "id": "89f7ed68-95c8-4794-9c60-a2d6b2a8c2d3",
@@ -14817,7 +14930,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "3494d99d-64a9-48d8-aa61-a97fa771d411",
@@ -15447,7 +15561,8 @@
     ],
     "bespokeSections": [],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "ecaa23dd-c06b-4701-afeb-0b907c2a0495",
@@ -16033,7 +16148,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "6bd4946f-05aa-4c5b-a8d9-a634f95a1033",
@@ -16618,7 +16734,79 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": [
+      {
+        "id": "4a2b3fe5-4232-4b5f-ad85-ba7f3f5d833e",
+        "label": "Pick three (with at least one base).",
+        "sortOrder": 0,
+        "alternatives": [
+          {
+            "id": "443699a9-8052-408d-a501-4d9adfa98728",
+            "label": null,
+            "sortOrder": 0,
+            "counts": [
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "37b4d08c-d079-4c71-a4d1-3e84eebad8b1",
+                "minCount": 3,
+                "maxCount": 3,
+                "adjustment": null
+              },
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "22e7c964-efe0-4f2b-af92-986fb1184aed",
+                "minCount": 0,
+                "maxCount": 0,
+                "adjustment": null
+              }
+            ]
+          },
+          {
+            "id": "49db7cf4-9ef9-414a-b365-170fdf700f74",
+            "label": null,
+            "sortOrder": 1,
+            "counts": [
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "37b4d08c-d079-4c71-a4d1-3e84eebad8b1",
+                "minCount": 2,
+                "maxCount": 2,
+                "adjustment": null
+              },
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "22e7c964-efe0-4f2b-af92-986fb1184aed",
+                "minCount": 1,
+                "maxCount": 1,
+                "adjustment": null
+              }
+            ]
+          },
+          {
+            "id": "a2df5d97-2f1c-4cc7-bafc-67adf911bf71",
+            "label": null,
+            "sortOrder": 2,
+            "counts": [
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "37b4d08c-d079-4c71-a4d1-3e84eebad8b1",
+                "minCount": 1,
+                "maxCount": 1,
+                "adjustment": null
+              },
+              {
+                "gearCategoryId": null,
+                "bespokeOptionId": "22e7c964-efe0-4f2b-af92-986fb1184aed",
+                "minCount": 2,
+                "maxCount": 2,
+                "adjustment": null
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "2cb58edc-d462-4d82-914b-5732c9e65285",
@@ -17198,7 +17386,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "3d4c4974-c04f-4539-9637-478a5da93170",
@@ -17805,7 +17994,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "258806be-cc30-48d5-9b25-7ae1e4ebf787",
@@ -18941,7 +19131,8 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   },
   {
     "id": "b9287212-e4c4-4d9f-b42c-33a92fc9c2d6",
@@ -19636,6 +19827,7 @@
       }
     ],
     "bespokeJournals": [],
-    "extraTracks": []
+    "extraTracks": [],
+    "pickRules": []
   }
 ]

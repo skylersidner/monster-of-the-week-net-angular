@@ -769,6 +769,8 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_extra_tracks_playbook_id");
         });
 
+        ConfigurePickRules(modelBuilder);
+
         modelBuilder.Entity<Hunter>(entity =>
         {
             entity.ToTable("hunters");
@@ -936,6 +938,104 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.EntryId).HasDatabaseName("idx_hunter_journal_field_values_entry_id");
             entity.HasIndex(e => e.JournalFieldId).HasDatabaseName("idx_hunter_journal_field_values_field_id");
+        });
+    }
+
+    /*
+     * Pick rules — hunter-creation-wizard.md 12.9, architecture.md Section 6.10.
+     *
+     * Every FK is Cascade, like every other playbook child. That includes the three that point
+     * into template rows (count -> gear category, count -> bespoke option, trigger -> bespoke
+     * option), so a playbook delete, which reaches those rows both through its rules and through
+     * its categories and options in one statement, can't trip on the order the two routes run in
+     * (14.3.2). What stops an ordinary edit from silently deleting part of a rule is
+     * PlaybookService's check on the rules a save keeps, not these FKs.
+     *
+     * The three check constraints and two unique indexes are plain SQL both Postgres and SQLite
+     * accept, so the test suite's EnsureCreatedAsync builds them too. Both providers treat NULLs
+     * as distinct in a unique index, so neither index needs a filter (Y5).
+     *
+     * ValueGeneratedNever() for the same reason as ConfigurePlaybooks: a sent rule's rows are
+     * added to an already-tracked playbook graph.
+     */
+    private static void ConfigurePickRules(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<PlaybookPickRule>(entity =>
+        {
+            entity.ToTable("playbook_pick_rules");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.PlaybookId).HasColumnName("playbook_id");
+            entity.Property(e => e.Label).HasColumnName("label");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Playbook).WithMany(e => e.PickRules).HasForeignKey(e => e.PlaybookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.PlaybookId).HasDatabaseName("idx_playbook_pick_rules_playbook_id");
+        });
+
+        modelBuilder.Entity<PlaybookPickRuleAlternative>(entity =>
+        {
+            entity.ToTable("playbook_pick_rule_alternatives");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.RuleId).HasColumnName("rule_id");
+            entity.Property(e => e.Label).HasColumnName("label");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.HasOne(e => e.Rule).WithMany(e => e.Alternatives).HasForeignKey(e => e.RuleId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.RuleId).HasDatabaseName("idx_playbook_pick_rule_alternatives_rule_id");
+        });
+
+        modelBuilder.Entity<PlaybookPickRuleCount>(entity =>
+        {
+            entity.ToTable("playbook_pick_rule_counts", table =>
+            {
+                table.HasCheckConstraint(
+                    "ck_playbook_pick_rule_counts_one_target",
+                    "(\"gear_category_id\" IS NULL) <> (\"bespoke_option_id\" IS NULL)");
+                table.HasCheckConstraint(
+                    "ck_playbook_pick_rule_counts_range",
+                    "\"min_count\" <= \"max_count\"");
+                table.HasCheckConstraint(
+                    "ck_playbook_pick_rule_counts_adjustment_pair",
+                    "(\"adjusted_min_count\" IS NULL) = (\"adjusted_max_count\" IS NULL)");
+            });
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedNever();
+            entity.Property(e => e.AlternativeId).HasColumnName("alternative_id");
+            entity.Property(e => e.GearCategoryId).HasColumnName("gear_category_id");
+            entity.Property(e => e.BespokeOptionId).HasColumnName("bespoke_option_id");
+            entity.Property(e => e.MinCount).HasColumnName("min_count");
+            entity.Property(e => e.MaxCount).HasColumnName("max_count");
+            entity.Property(e => e.AdjustedMinCount).HasColumnName("adjusted_min_count");
+            entity.Property(e => e.AdjustedMaxCount).HasColumnName("adjusted_max_count");
+            entity.HasOne(e => e.Alternative).WithMany(e => e.Counts).HasForeignKey(e => e.AlternativeId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // No navigations into template rows: nothing reads a count through them, and the
+            // playbook graph is loaded untracked, where they would stay unpopulated anyway.
+            entity.HasOne<PlaybookGearCategory>().WithMany().HasForeignKey(e => e.GearCategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<BespokeOption>().WithMany().HasForeignKey(e => e.BespokeOptionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.AlternativeId, e.GearCategoryId }).IsUnique()
+                .HasDatabaseName("idx_playbook_pick_rule_counts_alternative_gear_category");
+            entity.HasIndex(e => new { e.AlternativeId, e.BespokeOptionId }).IsUnique()
+                .HasDatabaseName("idx_playbook_pick_rule_counts_alternative_bespoke_option");
+            entity.HasIndex(e => e.GearCategoryId).HasDatabaseName("idx_playbook_pick_rule_counts_gear_category_id");
+            entity.HasIndex(e => e.BespokeOptionId).HasDatabaseName("idx_playbook_pick_rule_counts_bespoke_option_id");
+        });
+
+        modelBuilder.Entity<PlaybookPickRuleCountTrigger>(entity =>
+        {
+            entity.ToTable("playbook_pick_rule_count_triggers");
+            entity.HasKey(e => new { e.CountId, e.BespokeOptionId });
+            entity.Property(e => e.CountId).HasColumnName("count_id");
+            entity.Property(e => e.BespokeOptionId).HasColumnName("bespoke_option_id");
+            entity.HasOne(e => e.Count).WithMany(e => e.Triggers).HasForeignKey(e => e.CountId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<BespokeOption>().WithMany().HasForeignKey(e => e.BespokeOptionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.BespokeOptionId).HasDatabaseName("idx_playbook_pick_rule_count_triggers_bespoke_option_id");
         });
     }
 

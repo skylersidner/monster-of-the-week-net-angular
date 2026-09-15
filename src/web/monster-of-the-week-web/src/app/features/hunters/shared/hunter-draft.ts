@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, Validators } from '@angular/forms';
 import { map, startWith } from 'rxjs';
 import { BespokeOptionAnswer } from './hunter-form/bespoke-option-tree';
+import { IndexedPickRule, TargetPicks, engagedChildCount, hasRoomFor, indexPickRules, isEngaged } from './hunter-pick-rules';
 import {
   BespokeJournalResponse,
   BespokeOptionResponse,
@@ -209,6 +210,69 @@ export class HunterDraft {
     );
   }
 
+  // ---------------------------------------------------------------------------------------
+  // Pick rules (hunter-creation-wizard.md 12.9, 13.5; Phase 6)
+  // ---------------------------------------------------------------------------------------
+
+  /** The loaded playbook's pick rules, indexed once per playbook. Locks and hints only, never marks. */
+  readonly pickRules = computed(() => indexPickRules(this.playbook()));
+
+  /**
+   * The input to trigger matching (12.9 step 1). Triggers are leaf options in playbook-level,
+   * non-repeatable sections (S2), so this is the union of those sections' picks. Repeatable entries
+   * and move-internal sections are never read.
+   */
+  readonly sectionLevelPickedOptionIds = computed<ReadonlySet<string>>(() => {
+    const picks = this.bespokePicks();
+    const ids = new Set<string>();
+    for (const section of this.playbook()?.bespokeSections ?? []) {
+      if (!this.isRepeatable(section)) {
+        picks.get(section.id)?.forEach((id) => ids.add(id));
+      }
+    }
+    return ids;
+  });
+
+  /**
+   * What each of a rule's targets counts (12.9): picked options in a gear category, or a bespoke
+   * divider's engaged direct children in its section's own scope, write-your-own slots included.
+   */
+  targetPicks(indexed: IndexedPickRule): TargetPicks {
+    const playbook = this.playbook();
+    const counts = new Map<string, number>();
+    for (const targetId of indexed.targetIds) {
+      if (indexed.kind === 'gear') {
+        const category = playbook?.gearCategories.find((c) => c.id === targetId);
+        counts.set(targetId, category ? this.pickedInCategory(category) : 0);
+      } else {
+        const divider = indexed.section?.options.find((o) => o.id === targetId);
+        counts.set(targetId, divider && indexed.section ? engagedChildCount(divider, this.picksFor(indexed.section.id)) : 0);
+      }
+    }
+    return counts;
+  }
+
+  gearRuleFor(category: PlaybookGearCategoryResponse): IndexedPickRule | null {
+    const indexed = this.pickRules().byTarget.get(category.id);
+    return indexed?.kind === 'gear' ? indexed : null;
+  }
+
+  /**
+   * Whether an unpicked option in this category can still be ticked. Under a pick rule that is
+   * `hasRoomFor` against the effective range (13.5); the stored `pickCount` stays as a ceiling too,
+   * as it does on the server (S8), though every range fits under it. Otherwise, the stored cap.
+   */
+  gearHasRoom(category: PlaybookGearCategoryResponse): boolean {
+    const indexed = this.gearRuleFor(category);
+    if (!indexed) {
+      return !this.isGearLimitReached(category);
+    }
+    return (
+      !this.isGearLimitReached(category) &&
+      hasRoomFor(indexed.rule, category.id, this.targetPicks(indexed), this.sectionLevelPickedOptionIds())
+    );
+  }
+
   /**
    * A move's own pick-structure, shown only once the hunter has the move. Required moves count
    * as taken from the start even though they are not in the picked set — the server adds them on
@@ -380,6 +444,20 @@ export class HunterDraft {
       }
     };
     walk(section.options);
+
+    // A pick rule's divider with no room for one more pick in any alternative (13.5; Q10 on the edit
+    // page). Rules only govern playbook-level, non-repeatable sections, so only the section's own
+    // scope is ever affected, and every other section's locks are exactly as before.
+    const indexed = this.pickRules().bySection.get(section.id);
+    if (indexed && scopeKey === section.id) {
+      const picks = this.targetPicks(indexed);
+      const triggers = this.sectionLevelPickedOptionIds();
+      for (const targetId of indexed.targetIds) {
+        if (!hasRoomFor(indexed.rule, targetId, picks, triggers)) {
+          locked.add(targetId);
+        }
+      }
+    }
 
     return locked;
   }
@@ -772,16 +850,6 @@ function omit<T>(map: ReadonlyMap<string, T>, keys: Iterable<string>): ReadonlyM
 function toIntOrNull(raw: string): number | null {
   const parsed = Number.parseInt(raw, 10);
   return Number.isNaN(parsed) ? null : parsed;
-}
-
-/**
- * architecture.md 6.4's rule, client-side: a leaf is engaged when it is ticked, and a category
- * divider is engaged when anything beneath it is. Dividers are never ticked themselves.
- */
-function isEngaged(option: BespokeOptionResponse, picked: ReadonlySet<string>): boolean {
-  return option.children.length === 0
-    ? picked.has(option.id)
-    : option.children.some((child) => isEngaged(child, picked));
 }
 
 function toggle(current: ReadonlySet<string>, id: string): ReadonlySet<string> {

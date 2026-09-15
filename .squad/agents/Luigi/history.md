@@ -1453,3 +1453,31 @@ New: `features/hunters/shared/hunter-draft.{ts,spec.ts}`, `shared/hunter-form/hu
 
 ### Files
 New: `features/hunters/shared/sections/hunter-{ratings,moves,gear,look,bespoke,history}-section.{ts,html,spec.ts}`. Modified: `hunter-form.{ts,html,spec.ts}`, `hunter-form.characterisation.spec.ts` (receivers only), `hunter-draft.spec.ts` (receivers only), `bespoke-option-tree.{ts,html}`. Not committed.
+
+---
+
+## 2026-09-15 — Hunter Wizard Phase 6 (R6, F8a/F8b/F8c): pick rules, frontend half
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 6, frontend only, coded against 12.9's pinned `pickRules` shape while Bowser built the backend in parallel. Admin form lists rules read-only and omits `pickRules`; pure `hunter-pick-rules.ts`; the Initiate's weapons in the gear section; Natural Attacks and Combat Magic in the bespoke section; both hunter surfaces. No wizard band links or marks (Phase 7).
+
+### Reusable technical facts
+- **`pickRules` is required on `PlaybookDetailResponse`, optional on `UpsertPlaybookRequest`.** 10 typed fixture literals needed `pickRules: []`, not 13.2's two, because Phase 4 and 5 added more. `tsc -p tsconfig.spec.json --noEmit` lists them in seconds. The characterisation spec gained that one input line; no expected value moved (checked with `git diff`).
+- **Omit, don't echo (S3):** the spec asserts `Object.keys(request)` has no `pickRules`, since `[]` or `null` would mean something else to the server.
+- **Real interceptor, real service, one toast:** `provideHttpClient(withInterceptors([httpErrorInterceptor]))` + `provideHttpClientTesting()` + real `NotificationService`, flush a 409, assert `notifications()` has exactly one entry. Removing the token from `update` fails it with two.
+- **Negative-control gotcha:** `if (false && indexed && …)` breaks TypeScript narrowing and the build fails, so nothing runs. Use a never-true trailing conjunct (`&& Date.now() < 0`) instead.
+- **The stored caps mask the lock merge on over-limit builds.** With the `lockedScopes` rule merge disabled, the 2 Bases + Extra spec still passed (the dividers' own `maxSelect` locks them). The 1 + 1, write-your-own and three-spell cases, including both Q10 edit-page cases, are the ones that prove the merge (5 failed).
+- Angular 22 exports `DOCUMENT` from `@angular/core`. jsdom has no `scrollIntoView`: call it optionally, and stub it on the target element in a spec.
+- `tsconfig.app.json` compiles every non-spec `.ts`, so the shared fixture module `features/hunters/shared/testing/pick-rule-playbooks.ts` is type-checked by the build, but never bundled.
+- `isShort` with no fitting alternative falls back to all alternatives, so an over-limit old-fashioned list doesn't mute the modern counter.
+- Built 13.7 and L25's edit-page "scrolls to" as small `Go to Gear` / `Go to {section title}` buttons (`sections/section-anchors.ts`); the wizard's step links stay F6. The L24 notice is state-derived, not tied to the click, so an over-limit hunter also shows it on load.
+- Admin summary extends L26 with each alternative's ranges and adjustments, so a reload shows whether an adjustment survived a save.
+
+### Verification
+- Full suite: 59 files / 539 tests, up from a 56 / 465 baseline (new: pick-rules spec, sections spec, admin page spec; 3 admin form cases).
+- `ng build --configuration production --output-path` into scratchpad: clean, same 2 budget warnings.
+- Two negative controls, both reverted.
+- No browser pass. Bowser's in-progress `PlaybookContracts.cs` matched the pinned shape.
+
+### Files
+New: `shared/hunter-pick-rules.{ts,spec.ts}`, `shared/testing/pick-rule-playbooks.ts`, `shared/sections/section-anchors.ts`, `shared/sections/hunter-pick-rule-sections.spec.ts`, `playbook-admin/playbook-admin.spec.ts`. Modified: `core/models.ts`, `hunter-draft.ts`, `bespoke-option-tree.{ts,html}`, `hunter-{gear,bespoke}-section.{ts,html}`, `playbook-form.{ts,html,spec.ts}`; `pickRules: []` in 9 other spec fixtures. Not committed.

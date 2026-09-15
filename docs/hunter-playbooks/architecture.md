@@ -441,6 +441,87 @@ BespokeSection
 - **`bespoke-ruleset-catalogue.md`** — the complete, per-playbook instantiation of everything above: every one of the 28 playbooks' actual bespoke content (real titles, real descriptions with real markup, real `MinSelect`/`MaxSelect` values), organized by playbook. This is where an authoring agent gets the actual data to write, not the shape.
 - **`phase5-bespoke-ideation.md`** — the full reasoning history: candidate approaches considered (a generic EAV model, per-shape tables) and why this shape won, every alternative considered and declined for each field above, and the chronological order each piece was discovered in. Consult only if the *why* behind a field matters, not to re-derive the *what* — that's fully captured here.
 - **`custom-moves-ideation.md`** — the same division of labour for 6.8: the full 28-playbook Moves census (including the ~35 in-play menus examined and ruled out of scope), the per-move inventory Phase 6 authors from, and the reasoning behind the Section-level attachment point. Consult it for *which moves* and *why*; 6.8 above is the *what*.
+- **`hunter-creation-wizard.md` 12.9 and 14.3** — the reasoning record for the pick rules in 6.10 below: the PDF readings, Q3, Q5 and Q12, the shapes considered, and the build tables the tests are driven from. 6.10 is the schema; 12.9 stays the *why* (Y15).
+
+### 6.10 Pick rules — `PlaybookPickRule` (hunter creation wizard R6, **implemented 2026-09-15**)
+
+**What they're for.** Some limits can't be stated by any one stored count, so before R6 they lived in prose and were reported wrongly. There are three in the corpus, and a sweep of all 28 found no others (12.9):
+- The Initiate's two weapons lists depend on its Sect's traditions. That's the only pick count in the 28 that depends on another section.
+- The Monstrous's Natural Attacks: "Pick a Base and add an extra to it, or two Bases."
+- The Spell-Slinger's Combat Magic: "Combat magic, pick three (with at least one base):"
+
+A pick rule states the real limit as data. The stored `PickCount`, `MinSelect` and `MaxSelect` values it governs are unchanged and stay in force as ceilings; the rule replaces only the minimums they would report (S8).
+
+**Schema.** Migration `AddPickRules`. Four additive tables, all playbook-owned template data, all FKs Cascade:
+
+```
+PlaybookPickRule              playbook_pick_rules
+  Id, PlaybookId -> Playbook, Label (text, nullable), SortOrder
+PlaybookPickRuleAlternative   playbook_pick_rule_alternatives
+  Id, RuleId -> PlaybookPickRule, Label (text, nullable), SortOrder
+PlaybookPickRuleCount         playbook_pick_rule_counts
+  Id (storage-only), AlternativeId -> PlaybookPickRuleAlternative,
+  GearCategoryId (nullable) -> PlaybookGearCategory, BespokeOptionId (nullable) -> BespokeOption,
+  MinCount, MaxCount, AdjustedMinCount (nullable), AdjustedMaxCount (nullable)
+PlaybookPickRuleCountTrigger  playbook_pick_rule_count_triggers
+  (CountId -> PlaybookPickRuleCount, BespokeOptionId -> BespokeOption)   -- composite key
+```
+
+- **Check constraints** on counts, in plain SQL that Postgres and SQLite both accept, so `EnsureCreatedAsync` builds them in the test suite too:
+  - `ck_playbook_pick_rule_counts_one_target`: `("gear_category_id" IS NULL) <> ("bespoke_option_id" IS NULL)`;
+  - `ck_playbook_pick_rule_counts_range`: `"min_count" <= "max_count"`;
+  - `ck_playbook_pick_rule_counts_adjustment_pair`: `("adjusted_min_count" IS NULL) = ("adjusted_max_count" IS NULL)`.
+- **Unique indexes** `(alternative_id, gear_category_id)` and `(alternative_id, bespoke_option_id)` stop a target appearing twice in one alternative. Both providers treat NULLs as distinct, so neither needs a filter (Y5).
+- **All Cascade, including the three FKs into template rows** (count to gear category, count to option, trigger to option). A playbook delete reaches those rows by two routes in one statement, and Cascade doesn't depend on the order they run in (14.3.2). What stops an ordinary edit from silently deleting part of a rule is `PlaybookService`'s check on the rules a save keeps, below.
+- **No hunter-side table or column.** The gear picks and section-level bespoke selections a hunter already stores are the whole input.
+
+**What a rule means.**
+- A rule is a set of **alternatives**. Picks satisfy the rule when they fit at least one.
+- An alternative has one **count** per **target**. A target is a gear category (it counts the category's picked options), or a top-level category divider of a bespoke section (it counts the divider's engaged direct children, so write-your-own slots count too). A rule's targets are all gear categories, or all the top-level dividers of one section.
+- A count is a range, plus at most one **adjustment**: another range that applies when any of its **triggers** is among the hunter's section-level picks. So each count's effective range comes straight from picked option ids, with no priority rules and no "undecided" state (S1).
+- **Refused** (`HunterService.Validate`) when the picks fit no alternative: no alternative has every target at or below its effective maximum. Partial picks with room pass, and zero picks fits every rule, so a refusal is always fixable by removing picks (Section 9).
+- **Reported** (`HunterCompleteness`) when no alternative is met, meaning every target within its effective range. A governed target drops its own minimum line, and a governed section drops its `MinSelect` line.
+
+**Where it lives.** `Data/Entities/PickRuleEntities.cs`; `Services/PickRules.cs` (evaluation, shared by both tiers, like `BespokeEngagement`); `Services/PickRuleChecks.cs` (the playbook-side graph checks).
+
+**Graph checks** (`PlaybookService`). Each is refused with a readable message:
+- a rule has at least one alternative and at least one target;
+- each count names exactly one target, and every alternative counts every target of its rule exactly once;
+- targets and triggers are this playbook's own rows, as the save will leave them;
+- gear targets have a non-null `PickCount` and aren't `IsOptional` (Y6);
+- bespoke targets are top-level dividers of one playbook-level, non-repeatable section, and cover all of its top-level options;
+- `0 ≤ min ≤ max` for every range and adjusted range, with each maximum within its target's `PickCount` or `MaxSelect`;
+- an adjustment has at least one trigger, and no trigger twice;
+- a trigger is a leaf option in a playbook-level, non-repeatable section other than the one its rule governs (S2);
+- a target is counted by at most one rule.
+
+**The playbook contract.** `PlaybookDetailResponse.PickRules` and `UpsertPlaybookRequest.PickRules`, each the last parameter, share the shape pinned in 12.9:
+
+```
+pickRules: [{ id, label, sortOrder,
+  alternatives: [{ id, label, sortOrder,
+    counts: [{ gearCategoryId, bespokeOptionId, minCount, maxCount,
+               adjustment: { triggerOptionIds, minCount, maxCount } | null }] }] }]
+```
+
+- **Fixed order (Y7):** rules and alternatives by `SortOrder`, then id; counts by their target's `SortOrder`, then target id; `triggerOptionIds` by option `SortOrder`, then id. Without it the seed re-export would follow database row order.
+- **Omitted means unchanged (S9).** A null or absent `pickRules` leaves the stored rules alone; `[]` removes them; a list goes through the Id-based diff for rules and alternatives. Counts carry no id and are replaced within their alternative, matched by target so a no-op save rewrites nothing. This is the one child collection where null does not mean empty. The admin form has no rule editor and omits the key (S3).
+- **Rules point at saved rows**, so a rule is added in a second save. A create request carrying rules is refused.
+- **Two passes, two status codes (S11, Y3).** Sent rules are checked in `ValidateGraph` against the request, and a problem is a **400**. After the stored playbook loads, the rules that will exist are checked again against the children the save keeps, since a child only keeps its id when the diff will match it. With `pickRules` sent, a problem is still a 400. With `pickRules` omitted, the stored rules are kept, and an edit that breaks one is a **409 naming the rule**. That covers removing a target or trigger, lowering a governed cap below a range, turning a trigger into a category, moving it into a repeatable or move section, or adding a top-level option a rule no longer covers.
+
+**Data.** The three canonical rules, as `hunter-playbooks.json` and the migration both carry them:
+
+| Playbook | Label | Alternatives (target: range, with adjustment) |
+|---|---|---|
+| The Initiate | null | one: Old-fashioned weapons 2, or 3 with Fighting arts or Obsolete gear; Modern weapons 1, or 1–2 with Modernised or Nifty gadgets |
+| The Monstrous | "Pick a Base and add an extra to it, or two Bases." | Base 1 + Extra 1; Base 2 + Extra 0 |
+| The Spell-Slinger | "Pick three (with at least one base)." | Bases 3 + Effects 0; 2 + 1; 1 + 2 |
+
+**Delivery.** `AddPickRules` creates the tables, then inserts the three rules with guarded, Postgres-only `INSERT … SELECT` statements keyed on the seed's stable ids. Rule and alternative ids are fixed and shared with the seed; count ids are storage-only.
+- **Guards:** one per playbook. A rule goes in only when its playbook has no rule yet and every row it points at still exists with a shape the rule fits. So a playbook edited or deleted through the admin screen skips its own rule, and the other two still land.
+- **Fresh databases:** the guards find nothing, because migrations run before the seed, and `PlaybookSeed` then inserts the same rules from the file.
+- **No automated test runs the guarded SQL.** It was checked by hand on Postgres: all three playbooks present, one removed, a fresh database, `Down` and `Up` again, and a second seed export coming back byte-identical.
+- **After a deploy, run the release note's query:** each of the three playbooks that exists should show exactly one rule.
 
 ## 7. Hunter list UI (Phase 9, **implemented 2026-08-31**)
 
@@ -504,7 +585,7 @@ Two tiers, and the line between them is *what the stored row asserts*:
 | | Refused (`400`) | Reported |
 |---|---|---|
 | **Rule** | The row would assert something **false** about the playbook | The row is merely **unfinished** |
-| **Examples** | a pick that isn't this playbook's; a duplicate; an advanced move; more move picks than the pick budget (`MoveGrantCount` minus the Required moves, since 2026-09-14) or more gear picks than `PickCount` allows; a track value past its last box; a look line with both an option and custom text, or neither | no rating array chosen; fewer move picks than that budget; a gear category short of its `PickCount`; unanswered look lines |
+| **Examples** | a pick that isn't this playbook's; a duplicate; an advanced move; more move picks than the pick budget (`MoveGrantCount` minus the Required moves, since 2026-09-14) or more gear picks than `PickCount` allows; picks that fit none of a pick rule's alternatives (since 2026-09-15, 6.10); a track value past its last box; a look line with both an option and custom text, or neither | no rating array chosen; fewer move picks than that budget; a gear category short of its `PickCount`, or a pick rule not yet met in place of the lines it governs (6.10); unanswered look lines |
 | **Lives in** | `HunterService.Validate` | `HunterCompleteness.Evaluate` |
 | **Can it lock a hunter out of being saved?** | No — every violation is fixable by *removing* something | Never — it does not block |
 
@@ -536,6 +617,7 @@ Three reasons, in order of weight:
 - **A gear category with a null `PickCount` owes nothing**, because null means every option is granted outright rather than picked (`PlaybookGearCategory.PickCount`) — there is no choice to leave unmade. Neither does an `IsOptional` category.
 - **`Outstanding` is not on `HunterListItemResponse`.** Computing it per row would need the full template graph for every distinct playbook in the list, to answer a question the user acts on only after opening the hunter. If a "which of my hunters are unfinished" view is wanted later, that is a deliberate addition with a known cost, not an oversight.
 - **`GetByIdAsync` makes two round trips**, reusing `GetPlaybookForValidationAsync` rather than widening the hunter query's includes. That keeps completeness and validation reading the *same* graph, which is what stops them drifting apart.
+- **Correctness is judged against the limits a new hunter starts with** (Q10, 2026-09-13; enforced with pick rules 2026-09-15). The app doesn't record improvements yet, so a levelled-up hunter's extra picks are refused like any other over-limit pick: a third natural attack from "Take a natural attacks pick", a fourth combat spell from "Take another Combat Magic pick", and extra moves from "Take another … move", as before. This describes what the app can do today, not a design for improvements.
 
 ### What this changed in shipped Phase 10 behaviour
 
@@ -570,4 +652,25 @@ Decided by Yoshi in `hunter-creation-wizard.md` 12.8, with 12.8.1 (O1–O4) and 
   - Repeatable entries go by `SortOrder`, then id.
 - **Boundaries.**
   - The edit page doesn't call the check; its card still refreshes on save (Y14).
-  - Pick rules (R6) will replace the gear and section lines they govern, in the same positions (12.9 step 4).
+  - Pick rules replace the gear and section lines they govern, in the same positions (12.9 step 4). See below.
+
+### Pick rules in both tiers (hunter creation wizard Phase 6, R6, implemented 2026-09-15)
+
+Schema and graph rules: Section 6.10. Reasoning and build tables: `hunter-creation-wizard.md` 12.9. One helper, `PickRules`, resolves each count's effective range from the hunter's gear picks and section-level bespoke picks, and both tiers ask it.
+
+- **Refused**, in `Validate`, when the picks fit none of a rule's alternatives. The stored caps are still checked first, with their own messages (S8).
+  - Bespoke rules run in the section-level selection scope, once that scope's own checks pass.
+  - Gear rules run after the bespoke checks, because their triggers are bespoke options.
+  - Messages are built from data (S12, Y9):
+    - one alternative (the Initiate): the existing ceiling message at the effective maximum, plus an unfired adjustment's triggers, e.g. `"Old-fashioned weapons (pick either two or three, as above)" allows 2 picks, but 3 were made. Fighting arts or Obsolete gear (Sect) allow 3.`;
+    - several alternatives: `"Natural Attacks" allows: Pick a Base and add an extra to it, or two Bases. 2 Base and 1 Extra were picked.`
+- **Reported**, in `HunterCompleteness`, when no alternative is met. The items take the place of the lines they replace, so Y8's order holds:
+  - **The Initiate** (one alternative): one `gear` item per list below its effective minimum, with that list's `GearCategoryId`, e.g. `Gear — Modern weapons (pick either one or two, as above): 0 of 1 picked.` It adds `This depends on your Sect picks.` when the adjustment hasn't fired and the trigger section has no section-level picks at all (Y16, the same condition as the client's L25 hint).
+  - **Natural Attacks and Combat Magic** (several alternatives): one `rules` item with the section's id, `{section title}: {rule label}`.
+  - A met rule reports nothing. A governed section's `MinSelect` line and its targets' own minimum lines never appear.
+- **What this corrected.**
+  - A Monstrous with two Bases, and a Spell-Slinger with three Bases, are finished; before, they were reported unfinished forever.
+  - A Spell-Slinger with one Base and one Effect is reported; before, it was called finished.
+  - 2 Bases + 1 Extra, and any Combat Magic build over three spells, are refused; before, they saved.
+  - The Initiate's weapons follow its Sect (Q12); before, only 3 + 2 was reported finished, whatever the Sect.
+- **The Q10 boundary** is in "Deliberate boundaries" above.

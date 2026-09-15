@@ -129,11 +129,16 @@ public sealed class PlaybookSeedTests
                     if (elements.Count > 0)
                     {
                         populated.Add(key);
-                        // One element is enough: siblings share a type, so a single fully
-                        // populated entry covers the shape. Inspecting all of them would
-                        // wrongly demand that every entry populate every field, which real
-                        // data never does — a title-only tag sits beside a titled option.
-                        Inspect(elements[0], seen, populated, depth + 1);
+                        // Every element, not just the first. Coverage is a union: a property
+                        // counts as populated once any instance sets it, so walking siblings never
+                        // demands that each one populate every field. It does let two siblings
+                        // share the work, which a pick rule's counts need: a count names a gear
+                        // category or a bespoke option, never both (a check constraint enforces
+                        // it), so no single count can cover both columns.
+                        foreach (var element in elements)
+                        {
+                            Inspect(element, seen, populated, depth + 1);
+                        }
                     }
                     break;
 
@@ -206,6 +211,29 @@ public sealed class PlaybookSeedTests
         }
 
         Assert.Equal(PlaybookSeed.Serialize(playbooks), PlaybookSeed.Serialize(reread));
+    }
+
+    [Fact]
+    public void Committed_seed_file_carries_exactly_the_three_pick_rules_from_12_9()
+    {
+        var playbooks = PlaybookSeed.Deserialize(File.ReadAllText(Path.Combine(ApiProjectRoot(), PlaybookSeed.RelativePath)));
+
+        // The rule and alternative ids are the ones the AddPickRules migration inserts, so a migrated
+        // database and a freshly seeded one hold the same rules (hunter-creation-wizard.md 12.9, Y12).
+        var expected = new Dictionary<Guid, PlaybookPickRuleResponse>
+        {
+            [Services.PickRuleTable.Initiate] = Services.PickRuleTable.InitiateRule,
+            [Services.PickRuleTable.Monstrous] = Services.PickRuleTable.NaturalAttacksRule,
+            [Services.PickRuleTable.SpellSlinger] = Services.PickRuleTable.CombatMagicRule,
+        };
+
+        Assert.Equal(expected.Keys.Order(), playbooks.Where(p => p.PickRules.Count > 0).Select(p => p.Id).Order());
+        foreach (var (playbookId, rule) in expected)
+        {
+            Assert.Equal(
+                System.Text.Json.JsonSerializer.Serialize(new[] { rule }, PlaybookSeed.JsonOptions),
+                System.Text.Json.JsonSerializer.Serialize(playbooks.Single(p => p.Id == playbookId).PickRules, PlaybookSeed.JsonOptions));
+        }
     }
 
     // ---------------------------------------------------------------------------------
@@ -390,6 +418,47 @@ public sealed class PlaybookSeedTests
                     StartLabel: "Start",
                     EndLabel: "End",
                     SortOrder: 1),
+            ],
+            PickRules:
+            [
+                new PlaybookPickRuleResponse(
+                    Guid.Parse("30303030-3030-4030-8030-303030303030"),
+                    Label: "Fixture rule label.",
+                    SortOrder: 1,
+                    Alternatives:
+                    [
+                        new PlaybookPickRuleAlternativeResponse(
+                            Guid.Parse("40404040-4040-4040-8040-404040404040"),
+                            Label: "Fixture alternative label.",
+                            SortOrder: 1,
+                            // Both target kinds, which no real rule mixes and PlaybookService would
+                            // refuse, so that every column round-trips. Listed in wire order: both
+                            // targets have SortOrder 1, so target id decides, and 7777… sorts first.
+                            // The triggers are one move-internal and one playbook-level option, also
+                            // tied at SortOrder 1 and so ordered by id.
+                            Counts:
+                            [
+                                new PlaybookPickRuleCountResponse(
+                                    GearCategoryId: Guid.Parse("77777777-7777-4777-8777-777777777777"),
+                                    BespokeOptionId: null,
+                                    MinCount: 1,
+                                    MaxCount: 1,
+                                    Adjustment: new PlaybookPickRuleAdjustmentResponse(
+                                        TriggerOptionIds:
+                                        [
+                                            Guid.Parse("66666666-6666-4666-8666-666666666666"),
+                                            Guid.Parse("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"),
+                                        ],
+                                        MinCount: 1,
+                                        MaxCount: 1)),
+                                new PlaybookPickRuleCountResponse(
+                                    GearCategoryId: null,
+                                    BespokeOptionId: Guid.Parse("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+                                    MinCount: 1,
+                                    MaxCount: 2,
+                                    Adjustment: null),
+                            ]),
+                    ]),
             ]);
     }
 

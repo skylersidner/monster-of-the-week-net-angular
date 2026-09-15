@@ -21,6 +21,17 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
     {
         var name = request.Name.Trim();
 
+        // A pick rule points at saved gear categories and options by id, and every child of a new
+        // playbook is new, so rules can only be added in a second save (hunter-creation-wizard.md 12.9).
+        // Checked before ValidateGraph, whose rule checks would otherwise answer first with a
+        // less useful "not in the playbook" message about the same request.
+        if (request.PickRules is { Count: > 0 })
+        {
+            return ServiceResult<PlaybookDetailResponse>.Validation(
+                "Pick rules can only be added to a playbook that is already saved, because they point at its saved "
+                + "gear categories and options by id. Save the playbook first, then add its rules.");
+        }
+
         var validationError = ValidateGraph(request);
         if (validationError is not null)
         {
@@ -75,6 +86,14 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             return ServiceResult<PlaybookDetailResponse>.Conflict(inUseError);
         }
 
+        var ruleError = CheckPickRulesAfterLoad(playbook, request);
+        if (ruleError is { } rule)
+        {
+            return rule.IsConflict
+                ? ServiceResult<PlaybookDetailResponse>.Conflict(rule.Message)
+                : ServiceResult<PlaybookDetailResponse>.Validation(rule.Message);
+        }
+
         playbook.Name = name;
         ApplyScalars(playbook, request);
         ApplyChildren(playbook, request);
@@ -127,10 +146,10 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
     ///
     /// <para>
     /// Runs <em>before</em> any mutation, so a rejected edit leaves the tracked graph untouched.
-    /// Every kind a Hunter can currently point at is checked — rating arrays, moves, gear
-    /// options, look lines, look options, extra tracks. Improvements, bespoke rows and journals
-    /// stay freely removable because they still have no instance-side table; this method is the
-    /// place to extend when they get one.
+    /// Every kind a Hunter can currently point at is checked: rating arrays, moves, gear options,
+    /// look lines and options, extra tracks, bespoke sections and options, journals and journal
+    /// fields. Improvements stay freely removable, because no hunter-side table points at them yet.
+    /// Rows a pick rule points at are guarded separately, by <see cref="CheckPickRulesAfterLoad"/>.
     /// </para>
     /// </summary>
     private async Task<string?> CheckRemovedChildrenAreUnusedAsync(
@@ -250,6 +269,41 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
     }
 
     /// <summary>
+    /// Checks the pick rules that will exist after this save against the children the save keeps
+    /// (hunter-creation-wizard.md 12.9 and 14.3.1; S11, Y3).
+    ///
+    /// <para>
+    /// <c>ValidateGraph</c> already checked any rules the request sends, but it runs before the load,
+    /// so it can't see the rules a save keeps, or which of the request's ids the diff will really
+    /// match. This pass can:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>With <c>pickRules</c> sent, those are the rules that will exist, and a problem is still
+    /// a 400.</item>
+    /// <item>With <c>pickRules</c> omitted, the stored rules are kept (S9). An edit that breaks one,
+    /// by removing a target or trigger, lowering a governed cap, or anything else in
+    /// <see cref="PickRuleChecks"/>, is a 409 naming the rule. Every rule FK cascades, so without this
+    /// the save would silently delete part of the rule (14.3.2).</item>
+    /// </list>
+    ///
+    /// <para>Runs before any mutation, like <see cref="CheckRemovedChildrenAreUnusedAsync"/>.</para>
+    /// </summary>
+    private static (bool IsConflict, string Message)? CheckPickRulesAfterLoad(Playbook stored, UpsertPlaybookRequest request)
+    {
+        var graph = PickRuleChecks.GraphFromRequest(request, stored);
+        var names = PickRuleChecks.Names.From(stored);
+
+        if (request.PickRules is { } sent)
+        {
+            var sentError = PickRuleChecks.Check(PickRuleChecks.FromRequest(sent), graph, names);
+            return sentError is null ? null : (false, sentError);
+        }
+
+        var keptError = PickRuleChecks.Check(PickRuleChecks.FromStored(stored), graph, names);
+        return keptError is null ? null : (true, $"This edit would break a pick rule the playbook keeps. {keptError}");
+    }
+
+    /// <summary>
     /// Every option id in a request's nested option tree, at any depth — the wire format nests
     /// children, so a flat "which ids did the client keep" set needs the walk.
     /// </summary>
@@ -328,6 +382,20 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
                 {
                     return $"Move \"{move.Name}\": {error}";
                 }
+            }
+        }
+
+        // Pick rules the request sends, against the request's own children (12.9). The rules a
+        // save keeps can't be seen from here; CheckPickRulesAfterLoad covers those.
+        if (request.PickRules is { } sentRules)
+        {
+            var ruleError = PickRuleChecks.Check(
+                PickRuleChecks.FromRequest(sentRules),
+                PickRuleChecks.GraphFromRequest(request, stored: null),
+                PickRuleChecks.Names.From(null));
+            if (ruleError is not null)
+            {
+                return ruleError;
             }
         }
 
@@ -541,6 +609,89 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             });
 
         ApplyBespoke(playbook, request);
+        ApplyPickRules(playbook, request.PickRules);
+    }
+
+    /*
+     * Pick rules (hunter-creation-wizard.md 12.9). Null leaves the stored rules exactly as they
+     * are (S9). A list goes through the same Id-based diff as every other child, for rules and
+     * alternatives.
+     *
+     * Counts carry no id, so within an alternative each one is matched by its target instead, and
+     * a count whose target the request no longer lists is removed. That is "replaced wholesale" as
+     * far as the wire can tell, but a no-op save rewrites nothing and never has a new count sharing
+     * a unique index with the one it replaces. Triggers are a plain set per count.
+     */
+    private static void ApplyPickRules(Playbook playbook, IReadOnlyList<UpsertPlaybookPickRuleRequest>? incoming)
+    {
+        if (incoming is null)
+        {
+            return;
+        }
+
+        Reconcile(
+            playbook.PickRules,
+            incoming,
+            r => r.Id,
+            e => e.Id,
+            _ => new PlaybookPickRule(),
+            (r, rule) =>
+            {
+                rule.Label = Normalize(r.Label);
+                rule.SortOrder = r.SortOrder;
+
+                Reconcile(
+                    rule.Alternatives,
+                    r.Alternatives,
+                    a => a.Id,
+                    a => a.Id,
+                    _ => new PlaybookPickRuleAlternative(),
+                    (a, alternative) =>
+                    {
+                        alternative.Label = Normalize(a.Label);
+                        alternative.SortOrder = a.SortOrder;
+                        ApplyPickRuleCounts(alternative, a.Counts);
+                    });
+            });
+    }
+
+    private static void ApplyPickRuleCounts(
+        PlaybookPickRuleAlternative alternative,
+        IReadOnlyList<UpsertPlaybookPickRuleCountRequest>? incoming)
+    {
+        var existing = alternative.Counts.ToDictionary(c => (c.GearCategoryId, c.BespokeOptionId));
+        var kept = new HashSet<PlaybookPickRuleCount>();
+
+        foreach (var item in incoming ?? [])
+        {
+            if (!existing.TryGetValue((item.GearCategoryId, item.BespokeOptionId), out var count) || kept.Contains(count))
+            {
+                count = new PlaybookPickRuleCount { GearCategoryId = item.GearCategoryId, BespokeOptionId = item.BespokeOptionId };
+                alternative.Counts.Add(count);
+            }
+
+            kept.Add(count);
+            count.MinCount = item.MinCount;
+            count.MaxCount = item.MaxCount;
+            count.AdjustedMinCount = item.Adjustment?.MinCount;
+            count.AdjustedMaxCount = item.Adjustment?.MaxCount;
+
+            HashSet<Guid> triggers = [.. item.Adjustment?.TriggerOptionIds ?? []];
+            foreach (var stale in count.Triggers.Where(t => !triggers.Contains(t.BespokeOptionId)).ToList())
+            {
+                count.Triggers.Remove(stale);
+            }
+
+            foreach (var triggerId in triggers.Where(id => count.Triggers.All(t => t.BespokeOptionId != id)))
+            {
+                count.Triggers.Add(new PlaybookPickRuleCountTrigger { BespokeOptionId = triggerId });
+            }
+        }
+
+        foreach (var stale in alternative.Counts.Where(c => !kept.Contains(c)).ToList())
+        {
+            alternative.Counts.Remove(stale);
+        }
     }
 
     // -----------------------------------------------------------------------------------
@@ -877,7 +1028,64 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
                 x.BoxCount,
                 x.StartLabel,
                 x.EndLabel,
-                x.SortOrder))]);
+                x.SortOrder))],
+        ToPickRuleResponses(playbook));
+
+    /*
+     * Pick rules in a fixed wire order (Y7): rules and alternatives by SortOrder then id, counts
+     * by their target's own SortOrder then target id, triggers by option SortOrder then id. Counts
+     * have no SortOrder and triggers are a set, so without this the admin summary, the web
+     * client's lookup and the committed seed file would all follow database row order, and a
+     * second seed re-export would not come back byte-identical.
+     */
+    private static IReadOnlyList<PlaybookPickRuleResponse> ToPickRuleResponses(Playbook playbook)
+    {
+        var categorySortOrder = playbook.GearCategories.ToDictionary(c => c.Id, c => c.SortOrder);
+        var optionSortOrder = playbook.BespokeSections.SelectMany(s => s.Options).ToDictionary(o => o.Id, o => o.SortOrder);
+
+        int TargetSortOrder(PlaybookPickRuleCount count) =>
+            count.GearCategoryId is { } categoryId ? categorySortOrder.GetValueOrDefault(categoryId)
+            : count.BespokeOptionId is { } optionId ? optionSortOrder.GetValueOrDefault(optionId)
+            : 0;
+
+        return
+        [
+            .. playbook.PickRules
+                .OrderBy(r => r.SortOrder).ThenBy(r => r.Id)
+                .Select(r => new PlaybookPickRuleResponse(
+                    r.Id,
+                    r.Label,
+                    r.SortOrder,
+                    [
+                        .. r.Alternatives
+                            .OrderBy(a => a.SortOrder).ThenBy(a => a.Id)
+                            .Select(a => new PlaybookPickRuleAlternativeResponse(
+                                a.Id,
+                                a.Label,
+                                a.SortOrder,
+                                [
+                                    .. a.Counts
+                                        .OrderBy(TargetSortOrder).ThenBy(c => c.GearCategoryId ?? c.BespokeOptionId ?? Guid.Empty)
+                                        .Select(c => new PlaybookPickRuleCountResponse(
+                                            c.GearCategoryId,
+                                            c.BespokeOptionId,
+                                            c.MinCount,
+                                            c.MaxCount,
+                                            c.AdjustedMinCount is { } adjustedMin && c.AdjustedMaxCount is { } adjustedMax
+                                                ? new PlaybookPickRuleAdjustmentResponse(
+                                                    [
+                                                        .. c.Triggers
+                                                            .Select(t => t.BespokeOptionId)
+                                                            .OrderBy(id => optionSortOrder.GetValueOrDefault(id))
+                                                            .ThenBy(id => id),
+                                                    ],
+                                                    adjustedMin,
+                                                    adjustedMax)
+                                                : null)),
+                                ])),
+                    ])),
+        ];
+    }
 
     private static BespokeSectionResponse ToSectionResponse(BespokeSection section) => new(
         section.Id,

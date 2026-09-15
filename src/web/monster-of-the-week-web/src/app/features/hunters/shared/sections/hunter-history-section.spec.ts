@@ -16,7 +16,7 @@ const playbook: PlaybookDetailResponse = {
   harmUnstableThreshold: 4, harmBoxCount: 7, experienceBoxCount: 5, moveGrantCount: 0,
   gettingStartedText: null, introductionsText: null, levelingUpText: null,
   historyPromptsText: 'Go around the group.\n- <b>One</b> of them saved you.\n- One owes you.',
-  statArrayOptions: [], moves: [], gearCategories: [], lookCategories: [], improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [],
+  statArrayOptions: [], moves: [], gearCategories: [], lookCategories: [], improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [], pickRules: [],
 };
 
 describe('HunterHistorySectionComponent (13.6, L16)', () => {

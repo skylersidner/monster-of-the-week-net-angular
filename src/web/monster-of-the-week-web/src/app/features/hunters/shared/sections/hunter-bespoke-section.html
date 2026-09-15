@@ -1,6 +1,12 @@
+@let rule = governingRule();
 <div class="flex flex-wrap items-baseline gap-3">
   <span class="font-semibold">{{ section.title }}</span>
-  @if (draft.sectionProgress(section, section.id); as progress) {
+  @if (rule) {
+    <!-- Under a pick rule the stored "n of 2" contradicts the rule, so its instruction shows instead (L25, L31). -->
+    @if (rule.rule.label) {
+      <small class="text-muted">{{ rule.rule.label }}</small>
+    }
+  } @else if (draft.sectionProgress(section, section.id); as progress) {
     @if (!draft.isRepeatable(section)) {
       <small class="text-muted">{{ progress }}</small>
     }
@@ -15,6 +21,11 @@
     </button>
   }
 </div>
+
+@if (doesNotFitNotice(); as notice) {
+  <!-- L30: never auto-cleared. Picked options stay enabled so they can be unticked. -->
+  <p class="m-0 text-[0.85rem] text-danger">{{ notice }}</p>
+}
 
 @if (section.description) {
   <span class="text-[0.85rem]" [innerHTML]="section.description"></span>
@@ -94,6 +105,7 @@
       parentKey=""
       [lockedScopes]="draft.lockedScopes(section, section.id)"
       [numericReadOnly]="mode === 'create'"
+      [governedIds]="governedIds()"
       (toggled)="draft.toggleBespoke(section.id, $event)"
       (answerChanged)="draft.setBespokeAnswer(section.id, $event)"
     />
@@ -102,4 +114,16 @@
 
 @if (section.effectText) {
   <span class="text-[0.85rem] text-muted" [innerHTML]="section.effectText"></span>
+}
+
+@for (stranded of strandedLists(); track stranded.targetId) {
+  <!-- L24 / 13.7: removing a trigger left a gear list over its limit. Nothing is cleared (S5). -->
+  <p class="m-0 text-[0.85rem] text-danger">
+    {{ stranded.message }}
+    <button
+      type="button"
+      class="bg-transparent border-0 p-0 text-accent underline cursor-pointer font-[inherit] text-[inherit]"
+      (click)="goToGear(stranded.targetId)"
+    >Go to Gear</button>
+  </p>
 }

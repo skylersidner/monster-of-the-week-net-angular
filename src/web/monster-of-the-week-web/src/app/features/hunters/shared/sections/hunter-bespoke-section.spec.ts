@@ -38,7 +38,7 @@ const playbook: PlaybookDetailResponse = {
   harmUnstableThreshold: 4, harmBoxCount: 7, experienceBoxCount: 5, moveGrantCount: 0,
   gettingStartedText: null, introductionsText: null, levelingUpText: null, historyPromptsText: null,
   statArrayOptions: [], moves: [], gearCategories: [], lookCategories: [], improvements: [],
-  bespokeSections: [fixedGrant, fate, rotes, code, show], bespokeJournals: [], extraTracks: [],
+  bespokeSections: [fixedGrant, fate, rotes, code, show], bespokeJournals: [], extraTracks: [], pickRules: [],
 };
 
 describe('HunterBespokeSectionComponent (13.6)', () => {

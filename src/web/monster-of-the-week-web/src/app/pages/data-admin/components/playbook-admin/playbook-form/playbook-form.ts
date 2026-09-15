@@ -279,6 +279,12 @@ export class PlaybookFormComponent implements OnChanges {
       bespokeSections: this.bespokeSections,
       bespokeJournals: this.bespokeJournals,
       extraTracks: this.extraTracks,
+      // Deliberately NO `pickRules` key, unlike the passthroughs above (hunter-creation-wizard.md
+      // 12.9 S3, L32). The server reads an absent `pickRules` as "leave the stored rules unchanged"
+      // (S9). Echoing them would be worse than omitting them: counts and adjustments carry no ids and
+      // are replaced wholesale, so an echo that dropped one would silently rewrite a rule into data
+      // that is still valid. A save that clashes with a kept rule comes back as a 409 naming it,
+      // which `PlaybookAdminComponent` shows once. When a rule editor exists, it sends them again.
       // sortOrder restarts at 0 for each of the two lists rather than running continuously
       // across the combined array, because isAdvanced is what actually groups them — the
       // regular and advanced lists are printed and read as two separate sequences. Using the
@@ -374,6 +380,7 @@ export class PlaybookFormComponent implements OnChanges {
       ...moveSections,
       ...this.bespokeJournals.map((j) => `${j.title} — journal, ${j.fields.length} field(s)`),
       ...this.extraTracks.map((t) => `${t.name} — track, ${t.boxCount} boxes`),
+      ...pickRuleSummaries(source),
     ]);
   }
 
@@ -496,6 +503,50 @@ function toUpsertOption(o: BespokeOptionResponse): UpsertBespokeOptionRequest {
     sortOrder: o.sortOrder,
     children: o.children.map(toUpsertOption),
   };
+}
+
+/**
+ * One read-only summary line per pick rule (hunter-creation-wizard.md 12.9 S3, L26): where it
+ * applies, its label, and each alternative's ranges with any adjustment, e.g.
+ * `Natural Attacks — pick rule "Pick a Base…", 2 alternative(s): Base 1, Extra 1 | Base 2, Extra 0`.
+ * Listed so the rules are visibly present; the form never sends them back.
+ */
+function pickRuleSummaries(source: PlaybookDetailResponse | null): string[] {
+  if (!source) {
+    return [];
+  }
+  const gearLabels = new Map(source.gearCategories.map((c) => [c.id, c.label]));
+  const options = new Map<string, { title: string; sectionTitle: string }>();
+  const walk = (sectionTitle: string, list: BespokeOptionResponse[]): void => {
+    for (const o of list) {
+      options.set(o.id, { title: (o.title ?? '').replace(/\{\{blank\}\}/g, '______'), sectionTitle });
+      walk(sectionTitle, o.children);
+    }
+  };
+  source.bespokeSections.forEach((s) => walk(s.title, s.options));
+  const range = (min: number, max: number): string => (min === max ? `${max}` : `${min}–${max}`);
+
+  return (source.pickRules ?? []).map((rule) => {
+    const bespokeTarget = rule.alternatives.flatMap((a) => a.counts).find((c) => c.bespokeOptionId !== null)?.bespokeOptionId;
+    const where = bespokeTarget ? (options.get(bespokeTarget)?.sectionTitle ?? 'Bespoke') : 'Gear';
+    const label = rule.label ? ` "${rule.label}"` : '';
+    const alternatives = rule.alternatives
+      .map((alternative) =>
+        alternative.counts
+          .map((c) => {
+            const name = c.gearCategoryId !== null ? gearLabels.get(c.gearCategoryId) : options.get(c.bespokeOptionId ?? '')?.title;
+            const adjustment = c.adjustment
+              ? ` (${range(c.adjustment.minCount, c.adjustment.maxCount)} with ${c.adjustment.triggerOptionIds
+                  .map((id) => options.get(id)?.title ?? '?')
+                  .join(' or ')})`
+              : '';
+            return `${name ?? '?'} ${range(c.minCount, c.maxCount)}${adjustment}`;
+          })
+          .join(', ')
+      )
+      .join(' | ');
+    return `${where} — pick rule${label}, ${rule.alternatives.length} alternative(s): ${alternatives}`;
+  });
 }
 
 function toUpsertSection(s: BespokeSectionResponse): UpsertBespokeSectionRequest {

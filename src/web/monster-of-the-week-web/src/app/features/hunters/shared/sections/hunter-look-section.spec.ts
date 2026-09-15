@@ -27,7 +27,7 @@ const playbook: PlaybookDetailResponse = {
     look('lc-blade', 'Weapon look', ['notched blade']),
     look('lc-eyes', 'Human look', ['cold eyes']),
   ],
-  improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [],
+  improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [], pickRules: [],
 };
 
 describe('HunterLookSectionComponent (13.6)', () => {

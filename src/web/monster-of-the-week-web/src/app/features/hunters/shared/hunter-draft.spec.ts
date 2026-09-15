@@ -76,6 +76,7 @@ const playbook: PlaybookDetailResponse = {
   bespokeSections: [numericSection, rotes],
   bespokeJournals: [{ id: 'j1', title: 'Journal', description: null, effectText: null, sortOrder: 0, fields: [{ id: 'jf1', label: 'What', sortOrder: 0 }] }],
   extraTracks: [{ id: 'tr1', name: 'Corruption', description: null, effectText: null, boxCount: 5, startLabel: null, endLabel: 'lost', sortOrder: 0 }],
+  pickRules: [],
 };
 
 const hunter: HunterDetailResponse = {

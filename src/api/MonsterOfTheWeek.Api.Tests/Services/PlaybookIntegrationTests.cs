@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data;
+using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
 
@@ -181,9 +182,93 @@ public sealed class PlaybookIntegrationTests
         Assert.Equal(2, list[0].MoveCount);
     }
 
+    /// <summary>
+    /// Pick rules through the real path (hunter-creation-wizard.md 12.9): a rule points at saved
+    /// rows, so it arrives in a second save, and then survives the same GET → PUT round trip every
+    /// other child does, with its rule and alternative ids intact.
+    /// </summary>
+    [Fact]
+    public async Task Pick_rules_are_added_in_a_second_save_and_survive_the_round_trip()
+    {
+        await using var harness = await Harness.StartAsync();
+        var before = (await harness.Service.CreateAsync(SeedRequest(), CancellationToken.None)).Value!;
+        Assert.Empty(before.PickRules);
+
+        var weapons = before.GearCategories.Single();
+        var fate = before.BespokeSections.Single(s => s.Title == "Fate");
+        var doom = fate.Options.Single(o => o.Title == "Doom");
+        var destiny = fate.Options.Single(o => o.Title == "Destiny");
+        var betrayed = doom.Children.Single(o => o.Title == "Betrayed");
+
+        // A gear rule with an adjustment triggered from Fate, and a two-alternative rule on Fate
+        // itself: both target kinds, and a trigger in a section another rule governs, which is allowed.
+        UpsertPlaybookPickRuleRequest[] rules =
+        [
+            new(null, null, 0,
+            [
+                new(null, null, 0, [new(weapons.Id, null, 0, 0, new UpsertPlaybookPickRuleAdjustmentRequest([betrayed.Id], 1, 1))]),
+            ]),
+            new(null, "Doom or Destiny, not both.", 1,
+            [
+                new(null, null, 0, [new(null, doom.Id, 1, 1, null), new(null, destiny.Id, 0, 0, null)]),
+                new(null, null, 1, [new(null, doom.Id, 0, 0, null), new(null, destiny.Id, 1, 1, null)]),
+            ]),
+        ];
+
+        var added = await harness.Service.UpdateAsync(before.Id, ToUpsert(before) with { PickRules = rules }, CancellationToken.None);
+        Assert.True(added.IsSuccess, added.Error?.Message);
+        var withRules = added.Value!;
+        Assert.Equal(2, withRules.PickRules.Count);
+        Assert.Equal([betrayed.Id], withRules.PickRules[0].Alternatives.Single().Counts.Single().Adjustment!.TriggerOptionIds);
+
+        // Echoed back with their ids, exactly as a future rule editor would send them.
+        var echoed = await harness.Service.UpdateAsync(
+            before.Id,
+            ToUpsert(withRules) with { PickRules = ToUpsertRules(withRules) },
+            CancellationToken.None);
+        Assert.True(echoed.IsSuccess, echoed.Error?.Message);
+        Assert.Equal(PlaybookJson(withRules.PickRules), PlaybookJson(echoed.Value!.PickRules));
+
+        await using (var verify = harness.NewContext())
+        {
+            Assert.Equal(2, await verify.Set<PlaybookPickRule>().CountAsync());
+            Assert.Equal(3, await verify.Set<PlaybookPickRuleAlternative>().CountAsync());
+            Assert.Equal(5, await verify.Set<PlaybookPickRuleCount>().CountAsync());
+            Assert.Equal(1, await verify.Set<PlaybookPickRuleCountTrigger>().CountAsync());
+        }
+
+        // Omitted: what the admin form sends. The rules stay.
+        var omitted = await harness.Service.UpdateAsync(before.Id, ToUpsert(withRules) with { Description = "Admin edit." }, CancellationToken.None);
+        Assert.True(omitted.IsSuccess, omitted.Error?.Message);
+        Assert.Equal(PlaybookJson(withRules.PickRules), PlaybookJson(omitted.Value!.PickRules));
+
+        // []: gone, and so is everything under them.
+        var cleared = await harness.Service.UpdateAsync(before.Id, ToUpsert(withRules) with { PickRules = [] }, CancellationToken.None);
+        Assert.True(cleared.IsSuccess, cleared.Error?.Message);
+        await using var afterClear = harness.NewContext();
+        Assert.Equal(0, await afterClear.Set<PlaybookPickRuleCountTrigger>().CountAsync());
+        Assert.Equal(0, await afterClear.Set<PlaybookPickRule>().CountAsync());
+    }
+
     // ---------------------------------------------------------------------------------
     // Fixtures
     // ---------------------------------------------------------------------------------
+
+    private static string PlaybookJson(object value) => System.Text.Json.JsonSerializer.Serialize(value);
+
+    private static IReadOnlyList<UpsertPlaybookPickRuleRequest> ToUpsertRules(PlaybookDetailResponse p) =>
+    [
+        .. p.PickRules.Select(r => new UpsertPlaybookPickRuleRequest(r.Id, r.Label, r.SortOrder,
+        [
+            .. r.Alternatives.Select(a => new UpsertPlaybookPickRuleAlternativeRequest(a.Id, a.Label, a.SortOrder,
+            [
+                .. a.Counts.Select(c => new UpsertPlaybookPickRuleCountRequest(c.GearCategoryId, c.BespokeOptionId, c.MinCount, c.MaxCount,
+                    c.Adjustment is { } adjustment
+                        ? new UpsertPlaybookPickRuleAdjustmentRequest([.. adjustment.TriggerOptionIds], adjustment.MinCount, adjustment.MaxCount)
+                        : null)),
+            ])),
+        ])),
+    ];
 
     /// <summary>
     /// One of every shape, none of them from a real playbook: two stat arrays, two moves (one

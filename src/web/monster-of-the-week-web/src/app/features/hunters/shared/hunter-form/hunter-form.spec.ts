@@ -73,6 +73,7 @@ const playbook: PlaybookDetailResponse = {
   bespokeSections: [],
   bespokeJournals: [],
   extraTracks: [],
+  pickRules: [],
 };
 
 function buildHunter(overrides: Partial<HunterDetailResponse> = {}): HunterDetailResponse {

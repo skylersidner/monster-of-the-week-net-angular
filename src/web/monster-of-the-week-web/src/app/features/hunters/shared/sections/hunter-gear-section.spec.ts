@@ -32,7 +32,7 @@ const playbook: PlaybookDetailResponse = {
     },
     { id: 'gc-extra', label: 'Extras', pickCount: 1, isOptional: true, sortOrder: 2, options: [{ id: 'go4', name: 'First aid kit', mechanicalText: null, sortOrder: 0 }] },
   ],
-  lookCategories: [], improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [],
+  lookCategories: [], improvements: [], bespokeSections: [], bespokeJournals: [], extraTracks: [], pickRules: [],
 };
 
 describe('HunterGearSectionComponent (13.6, L15)', () => {

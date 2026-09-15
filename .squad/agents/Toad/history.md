@@ -58,3 +58,17 @@
 - `POST /api/hunters/evaluate`: 401 anon; 200 `{refusal, outstanding:[{area, sectionId, gearCategoryId, message}]}`; messages == GET `outstanding` in order. A move-owned section item (area "moves") lists after Look, so areas aren't contiguous
 - Searcher untick check without saving: `page.route` the PUT, capture `postData()`, `route.abort()`; then GET to prove unchanged
 - Fixture added: "Toad Phase 5 create check" `aca2aaa9-bff1-4411-908d-d948247541c3` (The Searcher, rating index 2, background "Toad Phase 5 create note"). Searcher rating/history changed and restored (start vs end capture 0 diffs; instance id unchanged)
+
+## 2026-09-15 — Hunter wizard Phase 6: pick rules, running-app verify (uncommitted, main tree)
+
+- `motw` went from `AddHunterBespokeAnswers` to `20260915093931_AddPickRules` at API startup. The post-deploy SQL gives ok 1/1/2/4, 1/2/4/0 and 1/3/6/0 with 0 other rules, and it's the same after the admin saves. The 5 older hunters re-save with 0 diffs (Phase 4 `capture.mjs` unchanged, plus `phase6-verify/capture-one.mjs`)
+- Scripts: session scratchpad `phase6-verify/` (`lib6.mjs` has the governed ids; `checks6.mjs <part>`; `probe-evaluate.mjs` saves nothing; `shots-extra.mjs`). Parts that count hunters can't run alongside parts that create them, and `admin` must run alone
+- Locators: gear category root `#hunter-gear-<categoryId>`, bespoke section host `#hunter-section-<sectionId>`. Natural Attacks Base/Extra leaves have null titles, and their text is `descriptionText` ("Base: teeth …"). Write-your-own slots are indexes 4–5 (Base) and 3 (Extra)
+- The hunter pages scroll in `MAIN.flex-1 min-h-0 overflow-auto`, not `main section.overflow-y-auto`. Playwright element screenshots of a tall block at 375 hide its top under the fixed top bar, so set the container's `scrollTop` instead
+- Toasts: MutationObserver on root `aside[aria-live=polite]`. Keep the node refs, because `[class.bg-toast-error]` isn't applied yet at insertion
+- `psql -c` inside `sh -c '…'`: `$$` expands to the PID. Pipe the SQL on stdin instead
+- A playwright `click({force:true})` on a disabled checkbox never toggles it. That makes a cheap proof the lock holds
+- Every over-limit build refuses through evaluate (200 + refusal, `outstanding: []`). The server suffix says "allow 2" (adjusted max) while the client hint says "allow 1–2" (range), as 12.9/L25 specify. Messages copy titles verbatim ("1 Effects", "2 Base")
+- Cosmetic: the Natural Attacks section description is the same sentence as the rule label, so the create and edit pages print it twice
+- Admin 409 for old-fashioned pickCount 3→2 names the rule by its two target labels (the Initiate rule has no label). One toast, the form stays open, and the GET shows 0 diffs
+- Fixtures added: "Toad Phase 6 Initiate" `55aab040-5d17-4dab-916e-06b5c2629a28` (ends 3+2, Knowledgable + Modernised + Obsolete gear), "Toad Phase 6 Monstrous" `be1a4d01-2585-4a4e-a9e9-89da9b7b3b66` (ends 2+0 teeth + claws), "Toad Phase 6 Spell-Slinger" `074db0d1-c995-47ee-a8a4-188eebacdd21` (ends 2+1 Blast, Ball, Fire). Bowser's over-limit fixture `f9d5e47b-847a-4cd0-949e-2b4c1a1effcd` was inserted and left in place (its SQL header says "never against motw", but the brief allowed local `motw`)
