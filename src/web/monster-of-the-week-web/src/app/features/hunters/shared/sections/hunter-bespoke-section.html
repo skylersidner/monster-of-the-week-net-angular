@@ -1,0 +1,105 @@
+<div class="flex flex-wrap items-baseline gap-3">
+  <span class="font-semibold">{{ section.title }}</span>
+  @if (draft.sectionProgress(section, section.id); as progress) {
+    @if (!draft.isRepeatable(section)) {
+      <small class="text-muted">{{ progress }}</small>
+    }
+  }
+  @if (draft.isRepeatable(section) && draft.canAddInstance(section)) {
+    <button
+      type="button"
+      class="bg-transparent border border-default rounded-lg text-[0.8rem] cursor-pointer font-[inherit] px-2 py-1"
+      (click)="draft.addInstance(section)"
+    >
+      + Add
+    </button>
+  }
+</div>
+
+@if (section.description) {
+  <span class="text-[0.85rem]" [innerHTML]="section.description"></span>
+}
+
+@if (isFixedGrant(section)) {
+  <!--
+    Zero options and no free-text label: a fixed, always-active grant. Rendered read-only
+    rather than hidden — it is rules the hunter has, and hiding it would drop text the
+    player needs from the sheet. Seven sections are like this, and none produces a stored row.
+  -->
+  <span class="text-[0.8rem] text-muted italic">Always active — nothing to choose.</span>
+} @else if (draft.isRepeatable(section)) {
+  @for (instance of draft.instancesFor(section); track instance.key) {
+    <div class="bg-surface border border-default rounded-lg grid gap-2 p-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 flex-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+          [placeholder]="section.freeTextLabel ?? 'Name'"
+          [value]="instance.name"
+          maxlength="255"
+          (input)="draft.setInstanceName(instance.key, $any($event.target).value)"
+        />
+        <button
+          type="button"
+          class="bg-transparent border-0 text-danger text-[0.8rem] cursor-pointer font-[inherit] p-0"
+          (click)="draft.removeInstance(instance.key)"
+        >
+          Remove
+        </button>
+      </div>
+      @if (section.freeTextLabel) {
+        <input
+          type="text"
+          class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+          placeholder="Details..."
+          [value]="draft.freeTextFor(instance.key)"
+          (input)="draft.setFreeText(instance.key, $any($event.target).value)"
+        />
+      }
+      @if (section.options.length > 0) {
+        <div class="grid gap-2">
+          <app-bespoke-option-tree
+            [options]="section.options"
+            [picked]="draft.picksFor(instance.key)"
+            [answers]="draft.answersFor(instance.key)"
+            parentKey=""
+            [lockedScopes]="draft.lockedScopes(section, instance.key)"
+            [numericReadOnly]="mode === 'create'"
+            (toggled)="draft.toggleBespoke(instance.key, $event)"
+            (answerChanged)="draft.setBespokeAnswer(instance.key, $event)"
+          />
+        </div>
+      }
+    </div>
+  }
+  @if (draft.instancesFor(section).length === 0) {
+    <span class="text-[0.8rem] text-muted">None yet.</span>
+  }
+} @else if (section.freeTextLabel) {
+  <label class="grid font-medium gap-1 text-[0.85rem]">
+    {{ section.freeTextLabel }}
+    <textarea
+      class="border border-strong rounded-lg px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+      rows="3"
+      [value]="draft.freeTextFor(section.id)"
+      (input)="draft.setFreeText(section.id, $any($event.target).value)"
+    ></textarea>
+  </label>
+} @else {
+  <div class="grid gap-2">
+    <app-bespoke-option-tree
+      [options]="section.options"
+      [picked]="draft.picksFor(section.id)"
+      [answers]="draft.answersFor(section.id)"
+      parentKey=""
+      [lockedScopes]="draft.lockedScopes(section, section.id)"
+      [numericReadOnly]="mode === 'create'"
+      (toggled)="draft.toggleBespoke(section.id, $event)"
+      (answerChanged)="draft.setBespokeAnswer(section.id, $event)"
+    />
+  </div>
+}
+
+@if (section.effectText) {
+  <span class="text-[0.85rem] text-muted" [innerHTML]="section.effectText"></span>
+}

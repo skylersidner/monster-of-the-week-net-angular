@@ -1,0 +1,25 @@
+<h3>Ratings</h3>
+@if (draft.playbook(); as book) {
+  @if (book.statArrayOptions.length === 0) {
+    <p class="text-muted">This playbook has no rating arrays yet.</p>
+  } @else {
+    <div class="grid gap-2">
+      @for (option of book.statArrayOptions; track option.id) {
+        <label class="flex items-center gap-3 bg-surface border border-default rounded-lg cursor-pointer p-3">
+          <input type="radio" [formControl]="draft.form.controls.playbookStatArrayOptionId" [value]="option.id" />
+          <span class="grid grid-cols-5 flex-1 gap-2">
+            @for (stat of stats; track stat.key) {
+              <span class="grid gap-[0.1rem]">
+                <span class="text-muted text-[0.75rem]">{{ stat.label }}</span>
+                <span class="font-medium">{{ formatStat(option[stat.key]) }}</span>
+              </span>
+            }
+          </span>
+        </label>
+      }
+    </div>
+    @if (draft.isRatingUnchosen()) {
+      <small class="text-muted">Not chosen yet — you can pick this later.</small>
+    }
+  }
+}

@@ -504,7 +504,7 @@ Two tiers, and the line between them is *what the stored row asserts*:
 | | Refused (`400`) | Reported |
 |---|---|---|
 | **Rule** | The row would assert something **false** about the playbook | The row is merely **unfinished** |
-| **Examples** | a pick that isn't this playbook's; a duplicate; an advanced move; more picks than `MoveGrantCount`/`PickCount` allows; a track value past its last box; a look line with both an option and custom text, or neither | no rating array chosen; fewer move picks than `MoveGrantCount`; a gear category short of its `PickCount`; unanswered look lines |
+| **Examples** | a pick that isn't this playbook's; a duplicate; an advanced move; more move picks than the pick budget (`MoveGrantCount` minus the Required moves, since 2026-09-14) or more gear picks than `PickCount` allows; a track value past its last box; a look line with both an option and custom text, or neither | no rating array chosen; fewer move picks than that budget; a gear category short of its `PickCount`; unanswered look lines |
 | **Lives in** | `HunterService.Validate` | `HunterCompleteness.Evaluate` |
 | **Can it lock a hunter out of being saved?** | No — every violation is fixable by *removing* something | Never — it does not block |
 
@@ -543,3 +543,31 @@ Three reasons, in order of weight:
 - **The rating array is no longer required by the form.** The API always allowed null (Phase 10's own judgement call, for Path B playbooks); the form contradicted it. It is now a reported shortfall, which is the consistent reading.
 - **Move picks are unchanged** — the ceiling stays, the minimum was never enforced and now has somewhere to be reported.
 - **Follow-on 10b's "minimums *and* maximums, enforced recursively" is superseded**: its maximums land in the first tier and its 39 minimums in the second. Nothing about the four instance-side tables changes.
+
+### The check endpoint and structured items (hunter creation wizard Phase 5, R5, implemented 2026-09-14)
+
+Decided by Yoshi in `hunter-creation-wizard.md` 12.8, with 12.8.1 (O1–O4) and 14.4. It lets a client ask both tiers' questions about a hunter that hasn't been saved. Neither tier changes.
+
+- **`POST /api/hunters/evaluate`** takes the same `UpsertHunterRequest` as `POST /api/hunters`, saves nothing, and sits behind the app-wide sign-in requirement like every other action.
+  - **200** whenever the body binds, with `HunterEvaluationResponse(string? Refusal, IReadOnlyList<HunterOutstandingItem> Outstanding)`.
+  - `Refusal` is the message Create would refuse the same request with, including a missing playbook. `Outstanding` is then empty, because a draft that states something false has no "unfinished" list.
+  - **400** only when model binding refuses the body: a blank name, an id that isn't a GUID, or the 255-character limits. It uses the usual ProblemDetails shape.
+  - It takes the request cancellation token and logs nothing per call (O3). The wizard calls it on each step change, and after a pause in edits on its last step (Q8).
+- **One build step.** Create and Evaluate share `HunterService.BuildNewHunterAsync`: it loads the playbook, runs `Validate`, then builds a new `Hunter` with `ApplyScalars` and `ApplyPicks`.
+  - Create adds and saves the result. Evaluate passes it to `HunterCompleteness.Evaluate`.
+  - So the check reports what Create would by construction, the missing-playbook wording included.
+  - Child rows mint their own ids, so an unsaved draft's repeatable entries stay separate.
+- **Structured items.** `HunterCompleteness.Evaluate` returns `HunterOutstandingItem(string Area, Guid? SectionId, Guid? GearCategoryId, string Message)`.
+  - `Area` is one of `ratings`, `rules`, `moves`, `gear`, `look`, sent as strings, because `Program.cs` has no string-enum converter.
+  - The server assigns it. A bespoke section with a `PlaybookMoveId` is `moves`, otherwise `rules`, and the move-count line is `moves` too.
+  - Every bespoke line carries its section's id, including a repeatable entry's lines. Gear lines carry their category's id.
+  - `HunterDetailResponse.Outstanding` stays a list of strings built from the items' messages, with the same wording. The detail response carries no structured items.
+- **A total order (Y8).** The list never depends on request order, database order, or the order picks arrived in:
+  - the rating line, the move-count line, gear categories (`SortOrder`, then id), then the look line;
+  - playbook-level sections by `SortOrder`, then id;
+  - a move's sections by the move's order (`IsAdvanced`, then `SortOrder`), then the move's id, then section `SortOrder`, then id. The seed puts every move-owned section at 0.
+  - Within a section, its own minimum line comes first, then short categories in tree order, with siblings by option `SortOrder`, then id.
+  - Repeatable entries go by `SortOrder`, then id.
+- **Boundaries.**
+  - The edit page doesn't call the check; its card still refreshes on save (Y14).
+  - Pick rules (R6) will replace the gear and section lines they govern, in the same positions (12.9 step 4).

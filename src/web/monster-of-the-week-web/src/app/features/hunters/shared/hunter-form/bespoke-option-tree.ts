@@ -42,6 +42,11 @@ export class BespokeOptionTreeComponent {
   @Input({ required: true }) parentKey = '';
   /** Scopes whose maximum is already met, so their unticked options render disabled. */
   @Input() lockedScopes: ReadonlySet<string> = new Set();
+  /**
+   * Shows a picked numeric leaf's value as read-only text ("3 of 3") instead of an input. Only
+   * `HunterBespokeSectionComponent`'s `'create'` mode sets it, for the Phase 7 wizard (L14).
+   */
+  @Input() numericReadOnly = false;
 
   @Output() readonly toggled = new EventEmitter<string>();
   @Output() readonly answerChanged = new EventEmitter<{

@@ -51,6 +51,24 @@ Three supporting facts, measured against the dev database:
 - **Follow-on 10b's "minimums *and* maximums, enforced recursively" is superseded** — maximums to tier one, minimums to tier two. No schema change to the four instance-side tables.
 - **A `computed()` reading a reactive form control's `.value` never recomputes**, because a form control is not a signal. `HunterFormComponent.isRatingUnchosen` was written that way and shipped stale until a spec caught it; it is now a plain method with the reason stated inline. The neighbouring computeds are safe only because every input they read *is* a signal.
 
+## Update 2026-09-14: the check endpoint and structured items (hunter creation wizard Phase 5, R5)
+
+**By:** Bowser (Backend), implementing Yoshi's design in `hunter-creation-wizard.md` 12.8, 12.8.1 and 14.4.
+
+The decision above stands. Completeness is still derived and never enforced. It can now also be asked about a hunter that hasn't been saved:
+- **`POST /api/hunters/evaluate`** takes Create's request and saves nothing.
+  - It returns **200** with either a `Refusal` (Create's own message, including a missing playbook) and an empty list, or `Refusal: null` and the outstanding items.
+  - **400** means only a malformed body.
+- **Create and Evaluate share one build step** (load the playbook, `Validate`, build the `Hunter`), so they return identical messages.
+- **`HunterCompleteness.Evaluate` returns structured items:** area (`ratings | rules | moves | gear | look`), section id, gear category id, and message.
+  - They come in a total order (Y8) that doesn't depend on request or database order.
+  - `HunterDetailResponse.Outstanding` is still strings, with unchanged wording.
+- **Two corrections to the record above:**
+  - Its table's "fewer move picks than `MoveGrantCount`" is now the pick budget, `MoveGrantCount` minus the Required moves (12.3, shipped in R1).
+  - Pick rules, the third item 14.8 lists for this update, land with R6, not here.
+
+Full record: `docs/hunter-playbooks/architecture.md` Section 9, "The check endpoint and structured items".
+
 ## Verification
 
 197 API tests (5 new) and 344 Angular tests (7 new, the hunters feature's first spec file). All three new API guards negative-tested individually, each failing exactly its own test and no neighbours; a fourth sabotage — restoring `Validators.required` on the rating control — failed exactly the three specs that assert the decision. Driven in a real browser in both themes, including the playbook-grows-a-requirement case above. Dev database restored to 28 playbooks / 0 hunters; a seed re-export came back byte-identical to the committed file.

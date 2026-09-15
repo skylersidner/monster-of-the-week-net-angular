@@ -1,3 +1,4 @@
+using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 
 namespace MonsterOfTheWeek.Api.Services;
@@ -23,9 +24,17 @@ namespace MonsterOfTheWeek.Api.Services;
 /// </para>
 ///
 /// <para>
-/// <b>This is the extension point for Follow-on 10b.</b> All 39 pick-bearing bespoke sections
-/// carry <c>MinSelect &gt; 0</c>; every one of them becomes another line added here, not another
-/// save-time guard.
+/// <b>Two callers, one answer</b> (hunter-creation-wizard.md 12.8, 2026-09-14). The detail
+/// response lists the items' messages as <c>Outstanding</c>. <c>POST /api/hunters/evaluate</c>
+/// runs the same code over an unsaved hunter built by the same step Create uses, and returns the
+/// items themselves, tagged with a sheet area and the section or gear category they belong to.
+/// </para>
+///
+/// <para>
+/// <b>The order is total and never depends on collection order</b> (Y8). The same hunter gives
+/// the same list whether its rows came from a request, the database, or picks sent in any order.
+/// That is what lets Evaluate and Create return identical lists, and keeps the wizard's card from
+/// reshuffling between checks.
 /// </para>
 /// </summary>
 public static class HunterCompleteness
@@ -34,15 +43,15 @@ public static class HunterCompleteness
     /// Outstanding items in the order the sheet prints them, so the list reads as a walk down
     /// the page. Empty means the hunter is ready to play.
     /// </summary>
-    public static IReadOnlyList<string> Evaluate(Hunter hunter, Playbook playbook)
+    public static IReadOnlyList<HunterOutstandingItem> Evaluate(Hunter hunter, Playbook playbook)
     {
-        var outstanding = new List<string>();
+        var outstanding = new List<HunterOutstandingItem>();
 
         // A playbook whose rating arrays have not been authored yet (Section 4, Path B) asks
         // nothing here — which is also why Hunter.PlaybookStatArrayOptionId is nullable.
         if (playbook.StatArrayOptions.Count > 0 && hunter.PlaybookStatArrayOptionId is null)
         {
-            outstanding.Add("Choose a rating array.");
+            outstanding.Add(new(HunterOutstandingArea.Ratings, null, null, "Choose a rating array."));
         }
 
         /*
@@ -63,12 +72,12 @@ public static class HunterCompleteness
             var chosen = pickedIds.Count(id => !required.Contains(id));
             if (chosen < budget)
             {
-                outstanding.Add($"Moves: {chosen} of {budget} picked.");
+                outstanding.Add(new(HunterOutstandingArea.Moves, null, null, $"Moves: {chosen} of {budget} picked."));
             }
         }
 
         var selectedGear = hunter.GearSelections.Select(x => x.PlaybookGearOptionId).ToHashSet();
-        foreach (var category in playbook.GearCategories.OrderBy(c => c.SortOrder))
+        foreach (var category in playbook.GearCategories.OrderBy(c => c.SortOrder).ThenBy(c => c.Id))
         {
             /*
              * Two categories ask nothing. A null PickCount means every listed option is granted
@@ -80,10 +89,14 @@ public static class HunterCompleteness
                 continue;
             }
 
+            // Phase 6 seam (12.9 step 4): a category governed by a pick rule reports against its
+            // effective minimum here instead, in this same position.
             var picked = category.Options.Count(o => selectedGear.Contains(o.Id));
             if (picked < pickCount)
             {
-                outstanding.Add($"Gear \u2014 {category.Label}: {picked} of {pickCount} picked.");
+                outstanding.Add(new(
+                    HunterOutstandingArea.Gear, null, category.Id,
+                    $"Gear — {category.Label}: {picked} of {pickCount} picked."));
             }
         }
 
@@ -93,7 +106,9 @@ public static class HunterCompleteness
         var unanswered = playbook.LookCategories.Count(c => !answered.Contains(c.Id));
         if (unanswered > 0)
         {
-            outstanding.Add($"Look: {unanswered} of {playbook.LookCategories.Count} {(unanswered == 1 ? "line is" : "lines are")} unanswered.");
+            outstanding.Add(new(
+                HunterOutstandingArea.Look, null, null,
+                $"Look: {unanswered} of {playbook.LookCategories.Count} {(unanswered == 1 ? "line is" : "lines are")} unanswered."));
         }
 
         outstanding.AddRange(EvaluateBespoke(hunter, playbook));
@@ -114,13 +129,40 @@ public static class HunterCompleteness
     /// Every bespoke minimum, in sheet order. All 39 pick-bearing sections across the 28
     /// playbooks carry <c>MinSelect &gt; 0</c>, so this is the bulk of what a half-built hunter
     /// still owes — which is exactly why refusing on it would have been so costly.
+    ///
+    /// <para>
+    /// Every line carries its section's id. A section that belongs to a move is area
+    /// <c>moves</c>; a playbook-level one is <c>rules</c>.
+    /// </para>
     /// </summary>
-    private static IEnumerable<string> EvaluateBespoke(Hunter hunter, Playbook playbook)
+    private static IEnumerable<HunterOutstandingItem> EvaluateBespoke(Hunter hunter, Playbook playbook)
     {
         var takenMoveIds = hunter.Moves.Select(m => m.PlaybookMoveId).ToHashSet();
         var optionsById = playbook.BespokeSections.SelectMany(s => s.Options).ToDictionary(o => o.Id);
+        var movesById = playbook.Moves.ToDictionary(m => m.Id);
 
-        foreach (var section in playbook.BespokeSections.OrderBy(s => s.PlaybookMoveId is null ? 0 : 1).ThenBy(s => s.SortOrder))
+        PlaybookMove? MoveOf(BespokeSection section) =>
+            section.PlaybookMoveId is { } id && movesById.TryGetValue(id, out var move) ? move : null;
+
+        /*
+         * Y8's total order. Playbook-level sections first, by SortOrder then id. Then a move's
+         * own sections, in the order the playbook lists its moves (IsAdvanced, then SortOrder,
+         * as PlaybookService.ToDetailResponse does), then section SortOrder, then id. The move's
+         * id sits between the two so one move's sections stay together if two moves ever tie.
+         *
+         * SortOrder alone is not enough: the seed puts every move-owned section at 0, so The
+         * Crooked, The Searcher and The Spell-Slinger each have two or three sections that
+         * would otherwise come out in whatever order the database returned them.
+         */
+        var sections = playbook.BespokeSections
+            .OrderBy(s => s.PlaybookMoveId is null ? 0 : 1)
+            .ThenBy(s => MoveOf(s)?.IsAdvanced ?? false)
+            .ThenBy(s => MoveOf(s)?.SortOrder ?? 0)
+            .ThenBy(s => s.PlaybookMoveId ?? Guid.Empty)
+            .ThenBy(s => s.SortOrder)
+            .ThenBy(s => s.Id);
+
+        foreach (var section in sections)
         {
             // A move's own pick-structure asks nothing until the hunter takes the move.
             if (section.PlaybookMoveId is { } moveId && !takenMoveIds.Contains(moveId))
@@ -128,14 +170,23 @@ public static class HunterCompleteness
                 continue;
             }
 
-            var instances = hunter.BespokeSectionInstances.Where(i => i.SectionId == section.Id).ToList();
+            var area = section.PlaybookMoveId is null ? HunterOutstandingArea.Rules : HunterOutstandingArea.Moves;
+            HunterOutstandingItem Line(string message) => new(area, section.Id, null, message);
+
+            // By SortOrder then id, never collection order: an unsaved draft holds its entries in
+            // request order, and a saved hunter in whatever order the database returned (O2).
+            var instances = hunter.BespokeSectionInstances
+                .Where(i => i.SectionId == section.Id)
+                .OrderBy(i => i.SortOrder)
+                .ThenBy(i => i.Id)
+                .ToList();
             var isRepeatable = section.MinInstances is not null || section.MaxInstances is not null;
 
             if (isRepeatable)
             {
                 if (section.MinInstances is { } minInstances && instances.Count < minInstances)
                 {
-                    yield return $"{section.Title}: {instances.Count} of {minInstances} added.";
+                    yield return Line($"{section.Title}: {instances.Count} of {minInstances} added.");
                 }
 
                 // Each instance is its own independent copy of the tree, so each is checked
@@ -144,7 +195,7 @@ public static class HunterCompleteness
                 {
                     foreach (var line in Shortfalls(section, hunter.BespokeSelections.Where(s => s.SectionInstanceId == instance.Id), optionsById))
                     {
-                        yield return $"{section.Title} ({instance.Name ?? "entry"}): {line}";
+                        yield return Line($"{section.Title} ({instance.Name ?? "entry"}): {line}");
                     }
                 }
 
@@ -157,7 +208,7 @@ public static class HunterCompleteness
             {
                 if (sectionSelections.Count == 0)
                 {
-                    yield return $"{section.Title}: not filled in.";
+                    yield return Line($"{section.Title}: not filled in.");
                 }
 
                 continue;
@@ -165,13 +216,15 @@ public static class HunterCompleteness
 
             foreach (var line in Shortfalls(section, sectionSelections, optionsById))
             {
-                yield return $"{section.Title}: {line}";
+                yield return Line($"{section.Title}: {line}");
             }
         }
     }
 
     /// <summary>
-    /// Unmet minimums for one scope — a whole Section, or one instance of a repeatable one.
+    /// Unmet minimums for one scope — a whole Section, or one instance of a repeatable one. The
+    /// section's own line comes first, then each short category in the order the sheet prints
+    /// the option tree.
     /// </summary>
     private static IEnumerable<string> Shortfalls(
         BespokeSection section,
@@ -183,6 +236,8 @@ public static class HunterCompleteness
             .ToHashSet();
         var engaged = BespokeEngagement.Engaged(picked, optionsById);
 
+        // Phase 6 seam (12.9 step 4, S8): a section governed by a bespoke pick rule skips this
+        // MinSelect line and reports the rule's own line in its place.
         if (section.MinSelect is { } minSelect)
         {
             var count = BespokeEngagement.CountUnder(null, section.Id, engaged, optionsById);
@@ -192,11 +247,18 @@ public static class HunterCompleteness
             }
         }
 
-        // Only an *engaged* category can be short of its own minimum — an untouched one is not
-        // half-answered, it simply was not chosen.
-        foreach (var parentId in engaged)
+        /*
+         * Only an *engaged* category can be short of its own minimum — an untouched one is not
+         * half-answered, it simply was not chosen.
+         *
+         * Walked in tree order (Y8: option SortOrder, then id, among siblings), never in the
+         * engaged set's own order, which follows the order the picks arrived in. Tree order rather
+         * than one flat sort by SortOrder, because categories nest: The Visitor's Home Culture
+         * (SortOrder 0) holds Line 1 (also 0), and a flat sort would put Line 1 ahead of "Why did
+         * you leave?" (SortOrder 1), splitting a category from its own parent on the list.
+         */
+        foreach (var parent in engaged.Select(id => optionsById[id]).OrderBy(o => TreePosition(o, optionsById), TreePositionComparer.Instance))
         {
-            var parent = optionsById[parentId];
             if (parent.MinSelect is not { } parentMin)
             {
                 continue;
@@ -207,6 +269,50 @@ public static class HunterCompleteness
             {
                 yield return $"{parent.Title} — {children} of {parentMin} picked.";
             }
+        }
+    }
+
+    /// <summary>An option's (SortOrder, id) at each level from the top of its section down to itself.</summary>
+    private static List<(int SortOrder, Guid Id)> TreePosition(BespokeOption option, Dictionary<Guid, BespokeOption> optionsById)
+    {
+        var path = new List<(int SortOrder, Guid Id)>();
+        var seen = new HashSet<Guid>();
+        for (BespokeOption? current = option; current is not null && seen.Add(current.Id);)
+        {
+            path.Add((current.SortOrder, current.Id));
+            current = current.ParentOptionId is { } parentId && optionsById.TryGetValue(parentId, out var parent) ? parent : null;
+        }
+
+        path.Reverse();
+        return path;
+    }
+
+    /// <summary>Depth-first order: siblings by SortOrder then id, and a parent before its children.</summary>
+    private sealed class TreePositionComparer : IComparer<List<(int SortOrder, Guid Id)>>
+    {
+        public static readonly TreePositionComparer Instance = new();
+
+        public int Compare(List<(int SortOrder, Guid Id)>? x, List<(int SortOrder, Guid Id)>? y)
+        {
+            ArgumentNullException.ThrowIfNull(x);
+            ArgumentNullException.ThrowIfNull(y);
+
+            for (var i = 0; i < Math.Min(x.Count, y.Count); i++)
+            {
+                var bySortOrder = x[i].SortOrder.CompareTo(y[i].SortOrder);
+                if (bySortOrder != 0)
+                {
+                    return bySortOrder;
+                }
+
+                var byId = x[i].Id.CompareTo(y[i].Id);
+                if (byId != 0)
+                {
+                    return byId;
+                }
+            }
+
+            return x.Count.CompareTo(y.Count);
         }
     }
 }

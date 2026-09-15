@@ -1,0 +1,47 @@
+<div class="flex flex-wrap items-baseline gap-3">
+  <h3>Look</h3>
+  @if (draft.unansweredLookCount() > 0) {
+    <span class="text-[0.8rem] font-semibold text-muted">
+      {{ draft.unansweredLookCount() }} of {{ draft.playbook()?.lookCategories?.length ?? 0 }} unanswered
+    </span>
+  }
+</div>
+<!--
+  One answer per line, matching the sheet, where each Look category is a row of
+  alternatives with one circled. Every category allows freeform (verified across all 28
+  playbooks), so each line also offers a write-your-own field.
+-->
+@for (group of lookGroups(); track $index) {
+  <div class="grid gap-3">
+    @if (group.label) {
+      <span class="font-semibold">{{ group.label }}</span>
+    }
+    @for (category of group.categories; track category.id) {
+      <div class="flex flex-wrap items-center gap-2">
+        @for (option of category.options; track option.id) {
+          <button
+            type="button"
+            class="rounded-full border cursor-pointer text-[0.85rem] px-3 py-1 transition-colors"
+            [class.bg-accent]="draft.lookOptionFor(category.id) === option.id"
+            [class.text-on-accent]="draft.lookOptionFor(category.id) === option.id"
+            [class.border-accent]="draft.lookOptionFor(category.id) === option.id"
+            [class.bg-surface]="draft.lookOptionFor(category.id) !== option.id"
+            [class.border-default]="draft.lookOptionFor(category.id) !== option.id"
+            (click)="draft.setLookOption(category.id, option.id)"
+          >
+            {{ option.text }}
+          </button>
+        }
+        @if (category.allowsFreeform) {
+          <input
+            type="text"
+            class="border border-strong rounded-lg text-[0.85rem] px-3 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+            placeholder="or your own..."
+            [value]="draft.lookFreeformFor(category.id)"
+            (input)="draft.setLookFreeform(category.id, $any($event.target).value)"
+          />
+        }
+      </div>
+    }
+  </div>
+}

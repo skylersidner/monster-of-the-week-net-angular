@@ -779,6 +779,205 @@ public sealed class HunterServiceTests
     }
 
     // ---------------------------------------------------------------------------------
+    // The check-only endpoint (hunter-creation-wizard.md 12.8, Phase 5). Evaluate shares
+    // Create's build step and saves nothing; its items are Create's messages, tagged.
+    // The seed-driven parity builds are in HunterEvaluationSeedTests.
+    // ---------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Evaluate_writes_no_rows_and_stages_nothing_even_for_a_request_that_touches_every_table()
+    {
+        await using var harness = await Harness.StartAsync();
+        await using var context = harness.NewContext();
+        var service = new HunterService(new HunterRepository(context));
+
+        var result = await service.EvaluateAsync(EveryTableRequest(), default);
+
+        Assert.Null(result.Refusal);
+        Assert.Empty(context.ChangeTracker.Entries());
+
+        await using var verify = harness.NewContext();
+        Assert.Equal(0, await verify.Hunters.CountAsync());
+        Assert.Equal(0, await verify.HunterMoves.CountAsync());
+        Assert.Equal(0, await verify.HunterGearSelections.CountAsync());
+        Assert.Equal(0, await verify.HunterLookSelections.CountAsync());
+        Assert.Equal(0, await verify.HunterExtraTrackValues.CountAsync());
+        Assert.Equal(0, await verify.HunterBespokeSelections.CountAsync());
+        Assert.Equal(0, await verify.HunterBespokeSectionInstances.CountAsync());
+        Assert.Equal(0, await verify.HunterJournalEntries.CountAsync());
+        Assert.Equal(0, await verify.HunterJournalEntryFieldValues.CountAsync());
+
+        // The same request does write through Create, so the zeros above are Evaluate's doing.
+        // Two unsaved entries became two rows, not one: their ids were minted separately.
+        var created = await service.CreateAsync(EveryTableRequest(), default);
+        Assert.True(created.IsSuccess, created.Error?.Message);
+        await using var after = harness.NewContext();
+        Assert.Equal(1, await after.Hunters.CountAsync());
+        Assert.Equal(2, await after.HunterBespokeSectionInstances.CountAsync());
+    }
+
+    [Fact]
+    public async Task Evaluate_tags_each_item_with_its_area_and_the_section_or_gear_category_it_belongs_to()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        var result = await harness.Service.EvaluateAsync(
+            Request() with
+            {
+                PlaybookStatArrayOptionId = null,
+                PlaybookMoveIds = [PickableMoveId],
+                BespokeInstances = [new HunterBespokeInstanceModel(null, RepeatableSectionId, "Fire", 0, [])],
+            },
+            default);
+
+        Assert.Null(result.Refusal);
+        Assert.Equal(
+            [
+                new HunterOutstandingItem("ratings", null, null, "Choose a rating array."),
+                new HunterOutstandingItem("gear", null, Guid.Parse("88888888-8888-4888-8888-888888888888"), "Gear — Weapons: 0 of 1 picked."),
+                new HunterOutstandingItem("look", null, null, "Look: 2 of 2 lines are unanswered."),
+                new HunterOutstandingItem("rules", NestedSectionId, null, "Fate: 0 of 1 picked."),
+                new HunterOutstandingItem("rules", FreeTextSectionId, null, "Gumshoe Code: not filled in."),
+                // A repeatable entry's line carries its section's id.
+                new HunterOutstandingItem("rules", RepeatableSectionId, null, "Rotes (Fire): 0 of 1 picked."),
+                // A section that belongs to a move is "moves", not "rules".
+                new HunterOutstandingItem("moves", MoveSectionId, null, "Artifact: 0 of 1 picked."),
+            ],
+            result.Outstanding);
+
+        // The move-count line is "moves" too, with no section.
+        var noMoves = await harness.Service.EvaluateAsync(Request(), default);
+        Assert.Contains(new HunterOutstandingItem("moves", null, null, "Moves: 0 of 1 picked."), noMoves.Outstanding);
+    }
+
+    [Fact]
+    public async Task A_refusal_comes_back_with_no_outstanding_list_in_Creates_own_words()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        var overPicked = Request() with { PlaybookGearOptionIds = [GearOptionId, SecondGearOptionId] };
+        var evaluated = await harness.Service.EvaluateAsync(overPicked, default);
+        var created = await harness.Service.CreateAsync(overPicked, default);
+
+        Assert.False(created.IsSuccess);
+        Assert.Equal(created.Error!.Message, evaluated.Refusal);
+        Assert.Empty(evaluated.Outstanding);
+
+        // A playbook that doesn't exist is a refusal too, not an error of its own.
+        var missingId = Guid.Parse("99999999-9999-4999-8999-999999999999");
+        var noPlaybook = Request() with { PlaybookId = missingId };
+        var evaluatedMissing = await harness.Service.EvaluateAsync(noPlaybook, default);
+        var createdMissing = await harness.Service.CreateAsync(noPlaybook, default);
+
+        Assert.Equal($"Playbook {missingId} does not exist.", evaluatedMissing.Refusal);
+        Assert.Equal(createdMissing.Error!.Message, evaluatedMissing.Refusal);
+        Assert.Empty(evaluatedMissing.Outstanding);
+    }
+
+    [Theory]
+    [InlineData("nothing answered")]
+    [InlineData("everything answered")]
+    [InlineData("every table touched")]
+    [InlineData("two short entries sent out of order")]
+    public async Task Evaluate_and_Create_return_the_same_messages_for_the_same_request(string build)
+    {
+        await using var harness = await Harness.StartAsync();
+        var request = build switch
+        {
+            "nothing answered" => new UpsertHunterRequest("Half A Hunter", null, PlaybookId, null, 0, 0, 0, null, [], [], [], [], [], [], []),
+            "everything answered" => Request() with
+            {
+                PlaybookMoveIds = [PickableMoveId],
+                PlaybookGearOptionIds = [GearOptionId],
+                Looks =
+                [
+                    new HunterLookSelectionModel(LookCategoryId, LookOptionId, null),
+                    new HunterLookSelectionModel(OtherLookCategoryId, null, "in a borrowed coat"),
+                ],
+                BespokeSelections =
+                [
+                    new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, null, null),
+                    new HunterBespokeSelectionModel(FreeTextSectionId, null, null, "my code", null),
+                    new HunterBespokeSelectionModel(MoveSectionId, MoveOptionId, "Sword", "old and cold", null),
+                ],
+            },
+            "every table touched" => EveryTableRequest(),
+            _ => TwoShortEntriesOutOfOrder(),
+        };
+
+        var evaluated = await harness.Service.EvaluateAsync(request, default);
+        var created = await harness.Service.CreateAsync(request, default);
+
+        Assert.Null(evaluated.Refusal);
+        Assert.True(created.IsSuccess, created.Error?.Message);
+        Assert.Equal(evaluated.Outstanding.Select(i => i.Message), created.Value!.Outstanding);
+    }
+
+    [Fact]
+    public async Task The_order_is_fixed_whatever_order_entries_were_sent_in_and_however_often_it_is_asked()
+    {
+        await using var harness = await Harness.StartAsync();
+
+        var outOfOrder = TwoShortEntriesOutOfOrder();
+        var inOrder = outOfOrder with
+        {
+            BespokeInstances =
+            [
+                new HunterBespokeInstanceModel(null, RepeatableSectionId, "Fire", 0, []),
+                new HunterBespokeInstanceModel(null, RepeatableSectionId, "Ice", 1, []),
+            ],
+        };
+
+        var first = await harness.Service.EvaluateAsync(outOfOrder, default);
+        Assert.Equal(
+            ["Rotes (Fire): 0 of 1 picked.", "Rotes (Ice): 0 of 1 picked."],
+            first.Outstanding.Select(i => i.Message).Where(m => m.StartsWith("Rotes", StringComparison.Ordinal)));
+
+        foreach (var request in new[] { inOrder, outOfOrder, inOrder })
+        {
+            var repeat = await harness.Service.EvaluateAsync(request, default);
+            Assert.Equal(first.Outstanding, repeat.Outstanding);
+        }
+
+        var created = await harness.Service.CreateAsync(outOfOrder, default);
+        Assert.Equal(first.Outstanding.Select(i => i.Message), created.Value!.Outstanding);
+        var reread = await harness.Service.GetByIdAsync(created.Value.Id, default);
+        Assert.Equal(first.Outstanding.Select(i => i.Message), reread!.Outstanding);
+    }
+
+    /// <summary>Two Rotes entries with nothing picked, Ice (SortOrder 1) sent before Fire (SortOrder 0).</summary>
+    private static UpsertHunterRequest TwoShortEntriesOutOfOrder() => Request() with
+    {
+        BespokeInstances =
+        [
+            new HunterBespokeInstanceModel(null, RepeatableSectionId, "Ice", 1, []),
+            new HunterBespokeInstanceModel(null, RepeatableSectionId, "Fire", 0, []),
+        ],
+    };
+
+    /// <summary>A request that would write a row into every hunter-side table.</summary>
+    private static UpsertHunterRequest EveryTableRequest() => Request() with
+    {
+        PlaybookMoveIds = [PickableMoveId],
+        PlaybookGearOptionIds = [GearOptionId],
+        Looks = [new HunterLookSelectionModel(LookCategoryId, LookOptionId, null)],
+        ExtraTracks = [new HunterExtraTrackValueModel(ExtraTrackId, 2)],
+        BespokeSelections =
+        [
+            new HunterBespokeSelectionModel(NestedSectionId, LeafA1Id, null, null, null),
+            new HunterBespokeSelectionModel(FreeTextSectionId, null, null, "my code", null),
+            new HunterBespokeSelectionModel(MoveSectionId, MoveOptionId, "Sword", "old and cold", null),
+        ],
+        BespokeInstances =
+        [
+            new HunterBespokeInstanceModel(null, RepeatableSectionId, "Fire", 0,
+                [new HunterBespokeSelectionModel(RepeatableSectionId, RoteOptionAId, null, null, null)]),
+            new HunterBespokeInstanceModel(null, RepeatableSectionId, "Ice", 1, []),
+        ],
+        JournalEntries = [new HunterJournalEntryModel(null, JournalId, 0, [new HunterJournalFieldValueModel(JournalFieldId, "Fly")])],
+    };
+
+    // ---------------------------------------------------------------------------------
     // Fixtures
     // ---------------------------------------------------------------------------------
 

@@ -47,3 +47,14 @@
 - Refill proof that can't pass by accident: pad the name with spaces (builder trims, input shows trimmed only if repopulated), and add a repeatable entry then save twice. Save 2 must echo save 1's server instance id
 - Every playbook has 5 stat arrays with its own ids, so any create-page playbook switch clears the rating
 - Fixture added: "Toad Phase 4 Searcher" `3c4a77c8-d3e9-41f6-bd36-96480fe2cd2f`. Created via the UI with no rating and Network + 2 entries; the POST omitted First Encounter and the server added it. Final state: rating index 3, Network ticked, one entry "Toad contact C" (`3c23b24e-1c5b-40a3-9252-564f4c5a79f3`)
+
+## 2026-09-14 — Hunter wizard Phase 5: shared sections + evaluate, running-app verify (uncommitted, main tree)
+
+- Scripts + evidence: session scratchpad `phase5-verify/` (`lib5.mjs` re-exports `phase4-diff/lib.mjs`; `capture-searcher.mjs --tag`, `checks5.mjs <part>`, `evaluate.mjs`, `probe-network.mjs`, `timing-probe.mjs`). Phase 4 `capture.mjs`/`compare.mjs` ran unchanged (`--out ../phase5-verify/capture`)
+- Hex/Curse-Eater/Forged vs Phase 4 `after/`: PUT body, PUT response, GET, pre all 0 strict + 0 order-insensitive. Searcher unchanged re-save: pre == PUT response == GET, and its PUT body == Phase 4 build's body for the same state
+- Section components are attribute components on the page's own `<section>`/`<div>`, so `app-hunter-form form > section` + h3 scoping still works. Rating radios and History textarea have no `formcontrolname` attr (and no DOM `name` in either build: RadioControlValueAccessor sets `name` as a JS property only)
+- App is zoneless (no zone.js). Every click renders at the next setTimeout(0)/rAF tick, page template and child sections alike. Playwright `click(+ Add)` then `.last().fill()` races and fills the PREVIOUS row. Phase 4's checks.mjs hit it too (POST had "contact B" in row 0 + empty row 1). Wait for the row count to change before filling/reading
+- Computed colours are `oklch(...)`: regex-parsing numbers gives nonsense contrast. Convert through a 1x1 canvas `fillStyle` -> `getImageData`. Ratings label `text-muted` 12px: 4.76:1 light, 6.78:1 dark
+- `POST /api/hunters/evaluate`: 401 anon; 200 `{refusal, outstanding:[{area, sectionId, gearCategoryId, message}]}`; messages == GET `outstanding` in order. A move-owned section item (area "moves") lists after Look, so areas aren't contiguous
+- Searcher untick check without saving: `page.route` the PUT, capture `postData()`, `route.abort()`; then GET to prove unchanged
+- Fixture added: "Toad Phase 5 create check" `aca2aaa9-bff1-4411-908d-d948247541c3` (The Searcher, rating index 2, background "Toad Phase 5 create note"). Searcher rating/history changed and restored (start vs end capture 0 diffs; instance id unchanged)

@@ -1,0 +1,51 @@
+<h3>Gear</h3>
+@for (category of draft.playbook()?.gearCategories ?? []; track category.id) {
+  <div class="grid gap-2">
+    <div class="flex flex-wrap items-baseline gap-2">
+      <span class="font-semibold">{{ category.label }}</span>
+      @if (category.pickCount !== null) {
+        <small class="text-muted">{{ gearCategoryHint(category) }}</small>
+        <!-- Progress only. Falling short is unfinished, not invalid, and never blocks a save. -->
+        <small class="text-[0.8rem] font-semibold" [class.text-muted]="draft.isGearPickShort(category)">
+          {{ draft.pickedInCategory(category) }} of {{ category.pickCount }} picked
+        </small>
+      } @else {
+        <small class="text-muted">You get</small>
+      }
+    </div>
+    @if (category.pickCount !== null) {
+      @for (option of category.options; track option.id) {
+        <label
+          class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3"
+          [class.opacity-60]="draft.isGearLimitReached(category) && !draft.isGearSelected(option.id)"
+        >
+          <input
+            type="checkbox"
+            class="mt-1"
+            [checked]="draft.isGearSelected(option.id)"
+            [disabled]="draft.isGearLimitReached(category) && !draft.isGearSelected(option.id)"
+            (change)="draft.toggleGear(option.id)"
+          />
+          <span>
+            <span class="font-medium">{{ option.name }}</span>
+            @if (option.mechanicalText) {
+              <span class="block text-[0.85rem] text-muted mt-1">{{ option.mechanicalText }}</span>
+            }
+          </span>
+        </label>
+      }
+    } @else {
+      <!-- Granted outright — read-only, no checkbox. No id for these is ever sent (B6). -->
+      @for (option of category.options; track option.id) {
+        <div class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3">
+          <span>
+            <span class="font-medium">{{ option.name }}</span>
+            @if (option.mechanicalText) {
+              <span class="block text-[0.85rem] text-muted mt-1">{{ option.mechanicalText }}</span>
+            }
+          </span>
+        </div>
+      }
+    }
+  </div>
+}

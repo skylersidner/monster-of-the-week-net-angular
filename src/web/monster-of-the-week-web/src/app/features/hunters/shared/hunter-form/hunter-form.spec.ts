@@ -9,6 +9,8 @@ import {
 } from '../../../../core/models';
 import { PlaybookService } from '../../../../core/playbook';
 import { HunterFormComponent } from './hunter-form';
+import { By } from '@angular/platform-browser';
+import { HunterMovesSectionComponent } from '../sections/hunter-moves-section';
 
 /**
  * Covers the partial-save posture decided 2026-08-31 (docs/hunter-playbooks/architecture.md
@@ -121,7 +123,7 @@ describe('HunterFormComponent', () => {
   });
 
   function chooseThePlaybook(): void {
-    component.hunterForm.controls.playbookId.setValue('pb1');
+    component.draft.form.controls.playbookId.setValue('pb1');
     fixture.detectChanges();
   }
 
@@ -136,7 +138,7 @@ describe('HunterFormComponent', () => {
   it('renders nothing but the playbook picker until a playbook is chosen', () => {
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(component.playbook()).toBeNull();
+    expect(component.draft.playbook()).toBeNull();
     expect(element.querySelector('app-custom-select')).toBeTruthy();
     // Every other section is a property of *which* playbook, so none of it can render yet.
     // This is the whole reason architecture.md Section 8 had to argue against a wizard.
@@ -149,7 +151,7 @@ describe('HunterFormComponent', () => {
     chooseThePlaybook();
 
     const element = fixture.nativeElement as HTMLElement;
-    expect(component.playbook()?.id).toBe('pb1');
+    expect(component.draft.playbook()?.id).toBe('pb1');
     expect(element.textContent).toContain('Ratings');
     expect(element.textContent).toContain('Moves');
     expect(element.querySelector('input[formcontrolname="name"]')).toBeTruthy();
@@ -157,20 +159,20 @@ describe('HunterFormComponent', () => {
 
   it('drops picks that do not belong to a newly chosen playbook', () => {
     chooseThePlaybook();
-    component.toggleMove('mv1');
-    component.toggleGear('gear1');
-    expect(component.isMoveSelected('mv1')).toBe(true);
+    component.draft.toggleMove('mv1');
+    component.draft.toggleGear('gear1');
+    expect(component.draft.isMoveSelected('mv1')).toBe(true);
 
     // Switching playbooks mid-create: the previous playbook's ids would otherwise stay in the
     // sets, invisible because nothing renders them, and be rejected by the server on submit
     // with an error naming a move the user can no longer see.
     const other: PlaybookDetailResponse = { ...playbook, id: 'pb2', moves: [], gearCategories: [], lookCategories: [] };
     TestBed.inject(PlaybookService).getById = () => of(other);
-    component.hunterForm.controls.playbookId.setValue('pb2');
+    component.draft.form.controls.playbookId.setValue('pb2');
     fixture.detectChanges();
 
-    expect(component.isMoveSelected('mv1')).toBe(false);
-    expect(component.isGearSelected('gear1')).toBe(false);
+    expect(component.draft.isMoveSelected('mv1')).toBe(false);
+    expect(component.draft.isGearSelected('gear1')).toBe(false);
   });
 
   it('locks the playbook control when editing an existing hunter', () => {
@@ -179,7 +181,7 @@ describe('HunterFormComponent', () => {
 
     // Changing a hunter's playbook would discard every pick it has; the API still allows it for
     // a deliberate client, so the lock is a UI decision and lives only here.
-    expect(component.hunterForm.controls.playbookId.disabled).toBe(true);
+    expect(component.draft.form.controls.playbookId.disabled).toBe(true);
     // getRawValue(), not .value: a disabled control is omitted from .value entirely, which
     // would send an empty playbookId and fail server-side validation.
     component.onSubmit();
@@ -211,15 +213,15 @@ describe('HunterFormComponent', () => {
     TestBed.inject(PlaybookService).getById = () => of(withMoveSection);
     chooseThePlaybook();
 
-    expect(component.moveSectionsFor(withMoveSection.moves[1])).toHaveLength(0);
+    expect(component.draft.moveSectionsFor(withMoveSection.moves[1])).toHaveLength(0);
 
-    component.toggleMove('mv1');
+    component.draft.toggleMove('mv1');
     fixture.detectChanges();
-    expect(component.moveSectionsFor(withMoveSection.moves[1])).toHaveLength(1);
+    expect(component.draft.moveSectionsFor(withMoveSection.moves[1])).toHaveLength(1);
 
     // A Required move counts as taken from the start — it is never in the picked set, but the
     // server adds it on save regardless, and five real move-internal sections hang off one.
-    expect(component.moveSectionsFor({ ...withMoveSection.moves[0], required: true, bespokeSections: withMoveSection.moves[1].bespokeSections })).toHaveLength(1);
+    expect(component.draft.moveSectionsFor({ ...withMoveSection.moves[0], required: true, bespokeSections: withMoveSection.moves[1].bespokeSections })).toHaveLength(1);
   });
 
   it('counts an engaged category rather than selection rows for a nested section', () => {
@@ -245,16 +247,16 @@ describe('HunterFormComponent', () => {
     TestBed.inject(PlaybookService).getById = () => of(nested);
     chooseThePlaybook();
 
-    expect(component.sectionProgress(nested.bespokeSections[0], 'bs1')).toBe('0 of 1 picked');
+    expect(component.draft.sectionProgress(nested.bespokeSections[0], 'bs1')).toBe('0 of 1 picked');
 
     // Ticking a LEAF engages its category, and the section's own count is over categories.
     // Counting rows instead reads every nested section as zero no matter what is filled in.
-    component.toggleBespoke('bs1', 'leaf-a1');
+    component.draft.toggleBespoke('bs1', 'leaf-a1');
     fixture.detectChanges();
-    expect(component.sectionProgress(nested.bespokeSections[0], 'bs1')).toBe('1 of 1 picked');
+    expect(component.draft.sectionProgress(nested.bespokeSections[0], 'bs1')).toBe('1 of 1 picked');
 
     // The category's own maximum of 1 is now met, so its remaining sibling locks.
-    expect(component.lockedScopes(nested.bespokeSections[0], 'bs1').has('cat-a')).toBe(true);
+    expect(component.draft.lockedScopes(nested.bespokeSections[0], 'bs1').has('cat-a')).toBe(true);
   });
 
   it('keeps two entries of a repeatable section from sharing answers', () => {
@@ -273,20 +275,20 @@ describe('HunterFormComponent', () => {
     };
     TestBed.inject(PlaybookService).getById = () => of(repeatable);
     chooseThePlaybook();
-    component.hunterForm.controls.name.setValue('Rote Keeper');
+    component.draft.form.controls.name.setValue('Rote Keeper');
 
-    component.addInstance(repeatable.bespokeSections[0]);
-    component.addInstance(repeatable.bespokeSections[0]);
-    const [first, second] = component.instancesFor(repeatable.bespokeSections[0]);
+    component.draft.addInstance(repeatable.bespokeSections[0]);
+    component.draft.addInstance(repeatable.bespokeSections[0]);
+    const [first, second] = component.draft.instancesFor(repeatable.bespokeSections[0]);
 
-    component.toggleBespoke(first.key, 'rote-a');
-    component.toggleBespoke(second.key, 'rote-b');
+    component.draft.toggleBespoke(first.key, 'rote-a');
+    component.draft.toggleBespoke(second.key, 'rote-b');
 
     // Answers are keyed by scope, not by option id — otherwise the same option ticked in two
     // entries would collapse into one.
-    expect(component.picksFor(first.key).has('rote-a')).toBe(true);
-    expect(component.picksFor(first.key).has('rote-b')).toBe(false);
-    expect(component.picksFor(second.key).has('rote-b')).toBe(true);
+    expect(component.draft.picksFor(first.key).has('rote-a')).toBe(true);
+    expect(component.draft.picksFor(first.key).has('rote-b')).toBe(false);
+    expect(component.draft.picksFor(second.key).has('rote-b')).toBe(true);
 
     component.onSubmit();
     const instances = emitted[0].bespokeInstances;
@@ -294,7 +296,7 @@ describe('HunterFormComponent', () => {
     expect(instances.map((i) => i.selections.map((s) => s.bespokeOptionId))).toEqual([['rote-a'], ['rote-b']]);
 
     // Removing an entry takes its answers with it rather than orphaning them.
-    component.removeInstance(first.key);
+    component.draft.removeInstance(first.key);
     emitted.length = 0;
     component.onSubmit();
     expect(emitted[0].bespokeInstances).toHaveLength(1);
@@ -330,30 +332,30 @@ describe('HunterFormComponent', () => {
     };
     TestBed.inject(PlaybookService).getById = () => of(withMoveSections);
     chooseThePlaybook();
-    component.hunterForm.controls.name.setValue('Networked Hunter');
+    component.draft.form.controls.name.setValue('Networked Hunter');
 
-    component.toggleMove('mv1');
-    component.toggleMove('mv2');
+    component.draft.toggleMove('mv1');
+    component.draft.toggleMove('mv2');
     fixture.detectChanges();
 
     const [networkSection] = withMoveSections.moves[1].bespokeSections;
     const [otherSection] = withMoveSections.moves[2].bespokeSections;
 
-    component.addInstance(networkSection);
-    component.addInstance(otherSection);
-    const [networkInstance] = component.instancesFor(networkSection);
-    const [otherInstance] = component.instancesFor(otherSection);
+    component.draft.addInstance(networkSection);
+    component.draft.addInstance(otherSection);
+    const [networkInstance] = component.draft.instancesFor(networkSection);
+    const [otherInstance] = component.draft.instancesFor(otherSection);
 
-    component.toggleBespoke(networkInstance.key, 'bo-net');
-    component.setBespokeAnswer(networkInstance.key, { optionId: 'bo-net', field: 'text', value: 'A useful contact' });
-    component.setFreeText(networkInstance.key, 'A rumor');
+    component.draft.toggleBespoke(networkInstance.key, 'bo-net');
+    component.draft.setBespokeAnswer(networkInstance.key, { optionId: 'bo-net', field: 'text', value: 'A useful contact' });
+    component.draft.setFreeText(networkInstance.key, 'A rumor');
 
-    component.toggleBespoke(otherInstance.key, 'bo-other');
-    component.setBespokeAnswer(otherInstance.key, { optionId: 'bo-other', field: 'text', value: 'Kept' });
+    component.draft.toggleBespoke(otherInstance.key, 'bo-other');
+    component.draft.setBespokeAnswer(otherInstance.key, { optionId: 'bo-other', field: 'text', value: 'Kept' });
 
     // Unticking Network's own move drops its entry and answers entirely, the same as removing
     // them by hand — the save must never send state the server now refuses.
-    component.toggleMove('mv1');
+    component.draft.toggleMove('mv1');
     fixture.detectChanges();
 
     component.onSubmit();
@@ -364,13 +366,13 @@ describe('HunterFormComponent', () => {
     expect(instances[0].selections.map((s) => s.bespokeOptionId)).toEqual(['bo-other']);
 
     // Control: a different taken move's section entry and its picks survive the untick.
-    expect(component.picksFor(otherInstance.key).has('bo-other')).toBe(true);
-    expect(component.picksFor(networkInstance.key).has('bo-net')).toBe(false);
+    expect(component.draft.picksFor(otherInstance.key).has('bo-other')).toBe(true);
+    expect(component.draft.picksFor(networkInstance.key).has('bo-net')).toBe(false);
   });
 
   it('submits a hunter with nothing but a name and a playbook chosen', () => {
     chooseThePlaybook();
-    component.hunterForm.controls.name.setValue('Half A Hunter');
+    component.draft.form.controls.name.setValue('Half A Hunter');
     fixture.detectChanges();
 
     component.onSubmit();
@@ -389,41 +391,41 @@ describe('HunterFormComponent', () => {
     component.onSubmit();
 
     expect(emitted.length).toBe(0);
-    expect(component.hunterForm.controls.name.touched).toBe(true);
+    expect(component.draft.form.controls.name.touched).toBe(true);
   });
 
   it('leaves an unchosen rating array valid, and says so without calling it an error', () => {
     chooseThePlaybook();
 
-    expect(component.hunterForm.controls.playbookStatArrayOptionId.valid).toBe(true);
-    expect(component.isRatingUnchosen()).toBe(true);
+    expect(component.draft.form.controls.playbookStatArrayOptionId.valid).toBe(true);
+    expect(component.draft.isRatingUnchosen()).toBe(true);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('you can pick this later');
 
-    component.hunterForm.controls.playbookStatArrayOptionId.setValue('sa1');
+    component.draft.form.controls.playbookStatArrayOptionId.setValue('sa1');
     fixture.detectChanges();
-    expect(component.isRatingUnchosen()).toBe(false);
+    expect(component.draft.isRatingUnchosen()).toBe(false);
   });
 
   it('reports per-section progress for moves, gear and looks', () => {
     chooseThePlaybook();
 
-    expect(component.isMovePickShort()).toBe(true);
-    expect(component.isGearPickShort(playbook.gearCategories[0])).toBe(true);
+    expect(component.draft.isMovePickShort()).toBe(true);
+    expect(component.draft.isGearPickShort(playbook.gearCategories[0])).toBe(true);
     // Granted outright, not picked, so it can never be short.
-    expect(component.isGearPickShort(playbook.gearCategories[1])).toBe(false);
-    expect(component.unansweredLookCount()).toBe(2);
+    expect(component.draft.isGearPickShort(playbook.gearCategories[1])).toBe(false);
+    expect(component.draft.unansweredLookCount()).toBe(2);
 
-    component.toggleMove('mv1');
-    component.toggleMove('mv2');
-    component.toggleGear('go1');
-    component.toggleGear('go2');
-    component.setLookOption('lc1', 'lo1');
-    component.setLookFreeform('lc2', 'in a borrowed coat');
+    component.draft.toggleMove('mv1');
+    component.draft.toggleMove('mv2');
+    component.draft.toggleGear('go1');
+    component.draft.toggleGear('go2');
+    component.draft.setLookOption('lc1', 'lo1');
+    component.draft.setLookFreeform('lc2', 'in a borrowed coat');
     fixture.detectChanges();
 
-    expect(component.isMovePickShort()).toBe(false);
-    expect(component.isGearPickShort(playbook.gearCategories[0])).toBe(false);
-    expect(component.unansweredLookCount()).toBe(0);
+    expect(component.draft.isMovePickShort()).toBe(false);
+    expect(component.draft.isGearPickShort(playbook.gearCategories[0])).toBe(false);
+    expect(component.draft.unansweredLookCount()).toBe(0);
   });
 
   it('reaches the move limit at the budget, not the printed grant total', () => {
@@ -432,13 +434,13 @@ describe('HunterFormComponent', () => {
     // moveGrantCount itself.
     chooseThePlaybook();
 
-    expect(component.isMoveLimitReached()).toBe(false);
+    expect(component.draft.isMoveLimitReached()).toBe(false);
 
-    component.toggleMove('mv1');
-    component.toggleMove('mv2');
+    component.draft.toggleMove('mv1');
+    component.draft.toggleMove('mv2');
     fixture.detectChanges();
 
-    expect(component.isMoveLimitReached()).toBe(true);
+    expect(component.draft.isMoveLimitReached()).toBe(true);
   });
 
   it('imposes no ceiling and no minimum when moveGrantCount is 0 (unspecified)', () => {
@@ -447,33 +449,33 @@ describe('HunterFormComponent', () => {
     chooseThePlaybook();
 
     // No picks yet: still not "short", because there is no printed total to fall short of.
-    expect(component.isMovePickShort()).toBe(false);
-    expect(component.isMoveLimitReached()).toBe(false);
+    expect(component.draft.isMovePickShort()).toBe(false);
+    expect(component.draft.isMoveLimitReached()).toBe(false);
 
-    component.toggleMove('mv1');
-    component.toggleMove('mv2');
+    component.draft.toggleMove('mv1');
+    component.draft.toggleMove('mv2');
     fixture.detectChanges();
 
     // Both pickable moves taken: still no ceiling.
-    expect(component.isMoveLimitReached()).toBe(false);
+    expect(component.draft.isMoveLimitReached()).toBe(false);
   });
 
   it('keeps the gear ceiling the server also enforces', () => {
     chooseThePlaybook();
-    component.toggleGear('go1');
-    component.toggleGear('go2');
+    component.draft.toggleGear('go1');
+    component.draft.toggleGear('go2');
     fixture.detectChanges();
 
     // Short is allowed; over is not — the same asymmetry HunterService.Validate applies.
-    expect(component.isGearLimitReached(playbook.gearCategories[0])).toBe(true);
+    expect(component.draft.isGearLimitReached(playbook.gearCategories[0])).toBe(true);
   });
 
   it('repopulates from an existing hunter without its unanswered sections blocking a save', () => {
     fixture.componentRef.setInput('hunter', buildHunter());
     fixture.detectChanges();
 
-    expect(component.hunterForm.controls.playbookId.disabled).toBe(true);
-    expect(component.hunterForm.valid).toBe(true);
+    expect(component.draft.form.controls.playbookId.disabled).toBe(true);
+    expect(component.draft.form.valid).toBe(true);
 
     component.onSubmit();
     expect(emitted.length).toBe(1);
@@ -520,7 +522,7 @@ describe('HunterFormComponent', () => {
     fixture.componentRef.setInput('hunter', buildHunter({ playbookGearOptionIds: ['go4'] }));
     fixture.detectChanges();
 
-    expect(component.isGearSelected('go4')).toBe(true);
+    expect(component.draft.isGearSelected('go4')).toBe(true);
     component.onSubmit();
     expect(emitted[0].playbookGearOptionIds).toContain('go4');
   });
@@ -543,8 +545,8 @@ describe('HunterFormComponent', () => {
     TestBed.inject(PlaybookService).getById = (id: string) => (id === 'pb-slow' ? slow$ : fast$);
 
     // Two picker changes in quick succession, the way a user clicking around the list produces.
-    component.hunterForm.controls.playbookId.setValue('pb-slow');
-    component.hunterForm.controls.playbookId.setValue('pb-fast');
+    component.draft.form.controls.playbookId.setValue('pb-slow');
+    component.draft.form.controls.playbookId.setValue('pb-fast');
 
     // The fast request resolves first...
     fast$.next(fast);
@@ -554,7 +556,7 @@ describe('HunterFormComponent', () => {
     slow$.next(slow);
     slow$.complete();
 
-    expect(component.playbook()?.id).toBe('pb-fast');
+    expect(component.draft.playbook()?.id).toBe('pb-fast');
   });
 
   it('starts a ticked numeric leaf at NumericMax instead of sending null (item 6, L14)', () => {
@@ -572,9 +574,9 @@ describe('HunterFormComponent', () => {
     };
     TestBed.inject(PlaybookService).getById = () => of(withNumeric);
     chooseThePlaybook();
-    component.hunterForm.controls.name.setValue('Numeric Tester');
+    component.draft.form.controls.name.setValue('Numeric Tester');
 
-    component.toggleBespoke('bs-numeric', 'opt-favour');
+    component.draft.toggleBespoke('bs-numeric', 'opt-favour');
     fixture.detectChanges();
     component.onSubmit();
 
@@ -597,12 +599,12 @@ describe('HunterFormComponent', () => {
     };
     TestBed.inject(PlaybookService).getById = () => of(withNumeric);
     chooseThePlaybook();
-    component.hunterForm.controls.name.setValue('Numeric Tester');
+    component.draft.form.controls.name.setValue('Numeric Tester');
 
-    component.toggleBespoke('bs-numeric', 'opt-favour'); // ticked -> starts at 3
-    component.setBespokeAnswer('bs-numeric', { optionId: 'opt-favour', field: 'numeric', value: '1' });
-    component.toggleBespoke('bs-numeric', 'opt-favour'); // unticked
-    component.toggleBespoke('bs-numeric', 'opt-favour'); // reticked
+    component.draft.toggleBespoke('bs-numeric', 'opt-favour'); // ticked -> starts at 3
+    component.draft.setBespokeAnswer('bs-numeric', { optionId: 'opt-favour', field: 'numeric', value: '1' });
+    component.draft.toggleBespoke('bs-numeric', 'opt-favour'); // unticked
+    component.draft.toggleBespoke('bs-numeric', 'opt-favour'); // reticked
 
     component.onSubmit();
     const selection = emitted[0].bespokeSelections.find((s) => s.bespokeOptionId === 'opt-favour');
@@ -626,6 +628,43 @@ describe('HunterFormComponent', () => {
 
     freshFixture.detectChanges(); // first CD: ngOnChanges(hunter) fires before ngOnInit
 
-    expect(freshFixture.componentInstance.playbook()?.id).toBe('pb1');
+    expect(freshFixture.componentInstance.draft.playbook()?.id).toBe('pb1');
+  });
+
+  // -------------------------------------------------------------------------------------
+  // Phase 5 (13.6): the page is composed of the shared sections
+  // -------------------------------------------------------------------------------------
+
+  it('composes the shared sections in the page\'s existing order, as direct sections of the form, on the form\'s own draft', () => {
+    const everything: PlaybookDetailResponse = {
+      ...playbook,
+      bespokeSections: [
+        {
+          id: 'bs-code', title: 'Code', description: null, effectText: null, freeTextLabel: 'Your code',
+          minSelect: null, maxSelect: null, minInstances: null, maxInstances: null, sortOrder: 0, options: [],
+        },
+      ],
+      bespokeJournals: [{ id: 'j1', title: 'Kills', description: null, effectText: null, sortOrder: 0, fields: [] }],
+      extraTracks: [{ id: 'tr1', name: 'Corruption', description: null, effectText: null, boxCount: 5, startLabel: null, endLabel: 'lost', sortOrder: 0 }],
+      historyPromptsText: 'Prompts',
+    };
+    TestBed.inject(PlaybookService).getById = () => of(everything);
+    chooseThePlaybook();
+    const element = fixture.nativeElement as HTMLElement;
+
+    // No wrapper elements: every block, shared or edit-only, is still a direct <section> of the form.
+    const headings = Array.from(element.querySelectorAll('form > section')).map(
+      (s) => s.querySelector('h3')?.textContent?.trim()
+    );
+    expect(headings).toEqual([
+      'Playbook', 'Details', 'Ratings', 'Moves', 'Gear', 'Look',
+      'The Test Subject tracks', 'Tracks', 'The Test Subject rules', 'Kills', 'History',
+    ]);
+    expect(element.querySelector('form > section[apphunterratingssection]')).toBeTruthy();
+    expect(element.querySelector('form > section[apphunterhistorysection]')).toBeTruthy();
+    expect(element.querySelector('form > section > [apphunterbespokesection]')).toBeTruthy();
+
+    const moves = fixture.debugElement.query(By.directive(HunterMovesSectionComponent)).componentInstance as HunterMovesSectionComponent;
+    expect(moves.draft).toBe(component.draft);
   });
 });

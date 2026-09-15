@@ -1428,3 +1428,28 @@ New: `shared/wizard/wizard-tracker.{ts,html,scss,spec.ts}`, `shared/wizard/wizar
 
 ### Files
 New: `features/hunters/shared/hunter-draft.{ts,spec.ts}`, `shared/hunter-form/hunter-form.characterisation.spec.ts`. Modified: `hunter-form.ts`; comments only in `bespoke-option-tree.ts` and `hunter-detail.ts`. Not committed.
+
+---
+
+## 2026-09-14 — Hunter Wizard Phase 5 (R5, F3): shared sections
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 5, frontend only. 13.6's six shared sections, each injecting `HunterDraft`: ratings, moves, gear, look, bespoke, History. `HunterFormComponent` now composes them and keeps only the picker, name and pronouns, the edit-only blocks (extra tracks, Luck / Harm / Experience, journals), the playbook load and the submit gate. Both hunter pages get the sections through the form, so the page files didn't change. Pass-throughs removed. Bowser did the evaluate endpoint at the same time; `src/api/` untouched.
+
+### Reusable technical facts
+- **Attribute-selector components keep a recomposition DOM-identical.** Sections use `selector: '[appHunterRatingsSection]'` on the page's own `<section>` or `<div>`, and `host: { class }` carries the classes. No wrapper element, so the surrounding grid gaps are unchanged, and Toad's `app-hunter-form form > section` locators still match. This is the first attribute-selector component in the app, and there is no lint rule against it.
+- **`formControlName` can't cross a component boundary.** `FormControlName` looks up its `ControlContainer` with `@Host`. Sections bind `[formControl]="draft.form.controls.x"` instead, so they don't need an ancestor `[formGroup]` (the wizard may have none).
+- **Radios on `[formControl]`:** `RadioControlRegistry` groups by `_parent` (undefined for `FormControlDirective`) plus the `name` input. `formControlName` never writes a DOM `name`, so leaving `name` off keeps the DOM and keyboard behaviour identical. This is the only radio in the app. If a second nameless `[formControl]` radio set ever shares a page, the two sets will uncheck each other, so give both a `name`.
+- **Removing pass-throughs without moving a spec's expectations:** a receiver-only script (`component.X` → `component.draft.X`, `hunterForm` → `form`; `save`, `onSubmit` and `draft` excluded; CRLF kept). Proof: run the same script on `git show HEAD:` of the characterisation spec and diff it against the working copy. The diff was empty.
+- Negative controls, both reverted and checked with `cmp`: dropping the radio's `[formControl]` failed the characterisation DOM case and the ratings two-way test; wrapping the ratings section in a `div` failed the new composition test.
+- Built 13.6's `mode: 'create' | 'edit'` on the bespoke section, with `numericReadOnly` on the tree ("3 of 3" and no input). The default is `'edit'`, and today's single-page create page uses it too. Phase 6 and 7 seams are comments on the gear and bespoke sections.
+- The only visible change is the ratings grid (L16). The History retitle was already live from Phase 2.
+
+### Verification
+- Hunter specs: 9 files / 69 tests, up from 3 / 43. That's 25 section tests plus 1 composition test.
+- Full suite: 56 files / 465 tests, up from a 50 / 439 baseline taken before any edit.
+- `ng build --configuration production --output-path` into the scratchpad: clean, with the same 2 budget warnings (`wizard-tracker.scss`, `custom-select`). `grid-cols-5`, `gap-[0.1rem]` and `text-[0.75rem]` are emitted. wwwroot untouched.
+- No browser pass.
+
+### Files
+New: `features/hunters/shared/sections/hunter-{ratings,moves,gear,look,bespoke,history}-section.{ts,html,spec.ts}`. Modified: `hunter-form.{ts,html,spec.ts}`, `hunter-form.characterisation.spec.ts` (receivers only), `hunter-draft.spec.ts` (receivers only), `bespoke-option-tree.{ts,html}`. Not committed.

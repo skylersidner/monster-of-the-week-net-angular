@@ -321,7 +321,7 @@ describe('HunterFormComponent request characterisation (13.15 item 1)', () => {
   }
 
   function choosePlaybook(playbookId: string): void {
-    component.hunterForm.controls.playbookId.setValue(playbookId);
+    component.draft.form.controls.playbookId.setValue(playbookId);
     fixture.detectChanges();
   }
 
@@ -341,8 +341,8 @@ describe('HunterFormComponent request characterisation (13.15 item 1)', () => {
   it('create page: a minimal hunter sends nulls and empty lists, never undefined', () => {
     createCreatePage();
     choosePlaybook('pb-char');
-    component.hunterForm.controls.name.setValue('Minimal');
-    component.hunterForm.controls.pronouns.setValue('   ');
+    component.draft.form.controls.name.setValue('Minimal');
+    component.draft.form.controls.pronouns.setValue('   ');
 
     expect(submitAndCapture()).toStrictEqual({
       name: 'Minimal',
@@ -366,7 +366,7 @@ describe('HunterFormComponent request characterisation (13.15 item 1)', () => {
   it('create page: a fully populated hunter', () => {
     createCreatePage();
     choosePlaybook('pb-char');
-    const controls = component.hunterForm.controls;
+    const controls = component.draft.form.controls;
 
     // Scalars: free text is trimmed.
     controls.name.setValue('  Dana Scully  ');
@@ -378,80 +378,80 @@ describe('HunterFormComponent request characterisation (13.15 item 1)', () => {
     controls.background.setValue('  Grew up on a naval base.  ');
 
     // Moves: ticked in order; Move C ticked then unticked. The Required move is never toggled.
-    component.toggleMove('mv-a');
-    component.toggleMove('mv-b');
-    component.toggleMove('mv-c');
-    component.toggleMove('mv-c');
+    component.draft.toggleMove('mv-a');
+    component.draft.toggleMove('mv-b');
+    component.draft.toggleMove('mv-c');
+    component.draft.toggleMove('mv-c');
 
     // Gear: two weapons and the optional extra. Granted gear has no toggle.
-    component.toggleGear('go-shotgun');
-    component.toggleGear('go-pistol');
-    component.toggleGear('go-kit');
+    component.draft.toggleGear('go-shotgun');
+    component.draft.toggleGear('go-pistol');
+    component.draft.toggleGear('go-kit');
 
     // Looks.
-    component.setLookOption('lc-face', 'lo-face-haggard');
-    component.setLookFreeform('lc-clothes', '  a borrowed coat ');
-    component.setLookFreeform('lc-eyes', 'tired');
-    component.setLookOption('lc-eyes', 'lo-eyes-cold'); // replaces the freeform, keeps its place
-    component.setLookOption('lc-hands', 'lo-hands-scarred');
-    component.setLookOption('lc-hands', 'lo-hands-scarred'); // clicked again: cleared
-    component.setLookFreeform('lc-hands', 'scar');
-    component.setLookFreeform('lc-hands', '   '); // whitespace: cleared
+    component.draft.setLookOption('lc-face', 'lo-face-haggard');
+    component.draft.setLookFreeform('lc-clothes', '  a borrowed coat ');
+    component.draft.setLookFreeform('lc-eyes', 'tired');
+    component.draft.setLookOption('lc-eyes', 'lo-eyes-cold'); // replaces the freeform, keeps its place
+    component.draft.setLookOption('lc-hands', 'lo-hands-scarred');
+    component.draft.setLookOption('lc-hands', 'lo-hands-scarred'); // clicked again: cleared
+    component.draft.setLookFreeform('lc-hands', 'scar');
+    component.draft.setLookFreeform('lc-hands', '   '); // whitespace: cleared
 
     // Extra tracks: clamped to the box count; unparseable becomes 0.
-    component.setTrackValue('tr-corruption', '9', 6);
-    component.setTrackValue('tr-glory', 'abc', 3);
+    component.draft.setTrackValue('tr-corruption', '9', 6);
+    component.draft.setTrackValue('tr-glory', 'abc', 3);
 
     // Playbook-level bespoke: a nested leaf, and numeric leaves.
-    component.toggleBespoke('bs-fate', 'leaf-doom-forgotten');
-    component.toggleBespoke('bs-fate', 'bo-favour'); // starts at its NumericMax, 3
-    component.toggleBespoke('bs-fate', 'bo-debt'); // starts at 4 ...
-    component.setBespokeAnswer('bs-fate', { optionId: 'bo-debt', field: 'numeric', value: '2' }); // ... set to 2
-    component.toggleBespoke('bs-fate', 'bo-marks'); // starts at 5 ...
-    component.setBespokeAnswer('bs-fate', { optionId: 'bo-marks', field: 'numeric', value: '' }); // ... input cleared
+    component.draft.toggleBespoke('bs-fate', 'leaf-doom-forgotten');
+    component.draft.toggleBespoke('bs-fate', 'bo-favour'); // starts at its NumericMax, 3
+    component.draft.toggleBespoke('bs-fate', 'bo-debt'); // starts at 4 ...
+    component.draft.setBespokeAnswer('bs-fate', { optionId: 'bo-debt', field: 'numeric', value: '2' }); // ... set to 2
+    component.draft.toggleBespoke('bs-fate', 'bo-marks'); // starts at 5 ...
+    component.draft.setBespokeAnswer('bs-fate', { optionId: 'bo-marks', field: 'numeric', value: '' }); // ... input cleared
     // An answer against an option that is not ticked is never sent.
-    component.setBespokeAnswer('bs-fate', { optionId: 'leaf-doom-betrayed', field: 'text', value: 'orphan' });
-    component.setFreeText('bs-notes', '  Owes the Keeper a favour.  ');
+    component.draft.setBespokeAnswer('bs-fate', { optionId: 'leaf-doom-betrayed', field: 'text', value: 'orphan' });
+    component.draft.setFreeText('bs-notes', '  Owes the Keeper a favour.  ');
 
     // Move-internal bespoke: under the Required move, and under a picked move.
-    component.setFreeText('bs-req-encounter', '  The lights went out.  ');
-    component.toggleBespoke('bs-mva-artifact', 'bo-artifact-blade');
-    component.setBespokeAnswer('bs-mva-artifact', { optionId: 'bo-artifact-blade', field: 'title', value: '  Silver  ' });
+    component.draft.setFreeText('bs-req-encounter', '  The lights went out.  ');
+    component.draft.toggleBespoke('bs-mva-artifact', 'bo-artifact-blade');
+    component.draft.setBespokeAnswer('bs-mva-artifact', { optionId: 'bo-artifact-blade', field: 'title', value: '  Silver  ' });
 
     // Repeatable entries, across two sections, with one removed from the middle.
-    component.addInstance(rotesSection);
-    const rote1 = component.instancesFor(rotesSection).at(-1)!;
-    component.addInstance(rotesSection);
-    const temp = component.instancesFor(rotesSection).at(-1)!;
-    component.addInstance(networkSection);
-    const contact = component.instancesFor(networkSection).at(-1)!;
-    component.addInstance(rotesSection);
-    const rote2 = component.instancesFor(rotesSection).at(-1)!;
+    component.draft.addInstance(rotesSection);
+    const rote1 = component.draft.instancesFor(rotesSection).at(-1)!;
+    component.draft.addInstance(rotesSection);
+    const temp = component.draft.instancesFor(rotesSection).at(-1)!;
+    component.draft.addInstance(networkSection);
+    const contact = component.draft.instancesFor(networkSection).at(-1)!;
+    component.draft.addInstance(rotesSection);
+    const rote2 = component.draft.instancesFor(rotesSection).at(-1)!;
 
-    component.setInstanceName(rote1.key, '  Ward  ');
-    component.toggleBespoke(rote1.key, 'leaf-req-words');
-    component.toggleBespoke(rote1.key, 'rote-named');
-    component.setBespokeAnswer(rote1.key, { optionId: 'rote-named', field: 'title', value: '  Circle of salt ' });
+    component.draft.setInstanceName(rote1.key, '  Ward  ');
+    component.draft.toggleBespoke(rote1.key, 'leaf-req-words');
+    component.draft.toggleBespoke(rote1.key, 'rote-named');
+    component.draft.setBespokeAnswer(rote1.key, { optionId: 'rote-named', field: 'title', value: '  Circle of salt ' });
 
-    component.toggleBespoke(temp.key, 'leaf-req-gestures');
-    component.removeInstance(temp.key);
+    component.draft.toggleBespoke(temp.key, 'leaf-req-gestures');
+    component.draft.removeInstance(temp.key);
 
-    component.setInstanceName(contact.key, 'Frohike');
-    component.setFreeText(contact.key, '  Knows a guy  ');
-    component.toggleBespoke(contact.key, 'bo-net-favour');
-    component.setBespokeAnswer(contact.key, { optionId: 'bo-net-favour', field: 'text', value: '   ' });
+    component.draft.setInstanceName(contact.key, 'Frohike');
+    component.draft.setFreeText(contact.key, '  Knows a guy  ');
+    component.draft.toggleBespoke(contact.key, 'bo-net-favour');
+    component.draft.setBespokeAnswer(contact.key, { optionId: 'bo-net-favour', field: 'text', value: '   ' });
 
-    component.setInstanceName(rote2.key, '   ');
-    component.toggleBespoke(rote2.key, 'leaf-req-words'); // same option as rote1, its own scope
-    component.toggleBespoke(rote2.key, 'leaf-req-gestures');
+    component.draft.setInstanceName(rote2.key, '   ');
+    component.draft.toggleBespoke(rote2.key, 'leaf-req-words'); // same option as rote1, its own scope
+    component.draft.toggleBespoke(rote2.key, 'leaf-req-gestures');
 
     // Journal entries: fields in typed order, blanks dropped, an all-blank entry still sent.
-    component.addJournalEntry(killsJournal);
-    component.addJournalEntry(killsJournal);
-    const [entry1, entry2] = component.entriesFor(killsJournal);
-    component.setJournalField(entry1.key, 'jf-where', '  The docks ');
-    component.setJournalField(entry1.key, 'jf-what', 'A ghoul');
-    component.setJournalField(entry2.key, 'jf-what', '   ');
+    component.draft.addJournalEntry(killsJournal);
+    component.draft.addJournalEntry(killsJournal);
+    const [entry1, entry2] = component.draft.entriesFor(killsJournal);
+    component.draft.setJournalField(entry1.key, 'jf-where', '  The docks ');
+    component.draft.setJournalField(entry1.key, 'jf-what', 'A ghoul');
+    component.draft.setJournalField(entry2.key, 'jf-what', '   ');
 
     fixture.detectChanges();
 
@@ -594,25 +594,25 @@ describe('HunterFormComponent request characterisation (13.15 item 1)', () => {
   it('edit page: a saved hunter round-trips with no edits (ids echoed, stale ids pruned, locked playbookId sent)', () => {
     createEditPage(savedHunter);
 
-    expect(component.hunterForm.controls.playbookId.disabled).toBe(true);
+    expect(component.draft.form.controls.playbookId.disabled).toBe(true);
     expect(submitAndCapture()).toStrictEqual(EDIT_ROUND_TRIP);
   });
 
   it('edit page: edits on a saved hunter, then a re-set hunter input (as after a save) repopulates', () => {
     createEditPage(savedHunter);
 
-    component.hunterForm.controls.name.setValue('Fox William Mulder ');
-    component.addInstance(rotesSection);
-    const newRote = component.instancesFor(rotesSection).at(-1)!;
-    component.toggleBespoke(newRote.key, 'leaf-req-words');
-    component.addJournalEntry(killsJournal);
-    const newEntry = component.entriesFor(killsJournal).at(-1)!;
-    component.setJournalField(newEntry.key, 'jf-what', 'Tooms');
-    component.setJournalField('je-1', 'jf-where', '');
-    component.toggleMove('mv-a'); // untick: the Artifact answer goes with it
-    component.setTrackValue('tr-glory', '1', 3);
-    component.setLookFreeform('lc-face', 'grey at the temples');
-    component.toggleGear('go-shotgun');
+    component.draft.form.controls.name.setValue('Fox William Mulder ');
+    component.draft.addInstance(rotesSection);
+    const newRote = component.draft.instancesFor(rotesSection).at(-1)!;
+    component.draft.toggleBespoke(newRote.key, 'leaf-req-words');
+    component.draft.addJournalEntry(killsJournal);
+    const newEntry = component.draft.entriesFor(killsJournal).at(-1)!;
+    component.draft.setJournalField(newEntry.key, 'jf-what', 'Tooms');
+    component.draft.setJournalField('je-1', 'jf-where', '');
+    component.draft.toggleMove('mv-a'); // untick: the Artifact answer goes with it
+    component.draft.setTrackValue('tr-glory', '1', 3);
+    component.draft.setLookFreeform('lc-face', 'grey at the temples');
+    component.draft.toggleGear('go-shotgun');
     fixture.detectChanges();
 
     expect(submitAndCapture()).toStrictEqual({
@@ -677,24 +677,24 @@ describe('HunterFormComponent request characterisation (13.15 item 1)', () => {
   it('untick clear: unticking a move drops its sections\' entries and answers; re-ticking starts empty', () => {
     createCreatePage();
     choosePlaybook('pb-char');
-    component.hunterForm.controls.name.setValue('Untick Tester');
+    component.draft.form.controls.name.setValue('Untick Tester');
 
-    component.toggleMove('mv-a');
-    component.toggleMove('mv-b');
-    component.toggleBespoke('bs-mva-artifact', 'bo-artifact-blade');
-    component.setBespokeAnswer('bs-mva-artifact', { optionId: 'bo-artifact-blade', field: 'title', value: 'Gold' });
-    component.addInstance(networkSection);
-    const contact = component.instancesFor(networkSection).at(-1)!;
-    component.setFreeText(contact.key, 'Byers');
-    component.toggleBespoke(contact.key, 'bo-net-favour');
-    component.addInstance(rotesSection);
-    const rote = component.instancesFor(rotesSection).at(-1)!;
-    component.toggleBespoke(rote.key, 'leaf-req-words');
+    component.draft.toggleMove('mv-a');
+    component.draft.toggleMove('mv-b');
+    component.draft.toggleBespoke('bs-mva-artifact', 'bo-artifact-blade');
+    component.draft.setBespokeAnswer('bs-mva-artifact', { optionId: 'bo-artifact-blade', field: 'title', value: 'Gold' });
+    component.draft.addInstance(networkSection);
+    const contact = component.draft.instancesFor(networkSection).at(-1)!;
+    component.draft.setFreeText(contact.key, 'Byers');
+    component.draft.toggleBespoke(contact.key, 'bo-net-favour');
+    component.draft.addInstance(rotesSection);
+    const rote = component.draft.instancesFor(rotesSection).at(-1)!;
+    component.draft.toggleBespoke(rote.key, 'leaf-req-words');
 
-    component.toggleMove('mv-b');
-    component.toggleMove('mv-a');
-    component.toggleMove('mv-a');
-    component.toggleBespoke('bs-mva-artifact', 'bo-artifact-blade');
+    component.draft.toggleMove('mv-b');
+    component.draft.toggleMove('mv-a');
+    component.draft.toggleMove('mv-a');
+    component.draft.toggleBespoke('bs-mva-artifact', 'bo-artifact-blade');
     fixture.detectChanges();
 
     expect(submitAndCapture()).toStrictEqual({
@@ -731,31 +731,31 @@ describe('HunterFormComponent request characterisation (13.15 item 1)', () => {
   it('prune: switching playbooks keeps only what the new playbook has, and every scalar but an invalid rating', () => {
     createCreatePage();
     choosePlaybook('pb-char');
-    const controls = component.hunterForm.controls;
+    const controls = component.draft.form.controls;
     controls.name.setValue('Switcher');
     controls.pronouns.setValue('they/them');
     controls.background.setValue('Kept history');
     controls.playbookStatArrayOptionId.setValue('sa-1');
     controls.luck.setValue(1);
 
-    component.toggleMove('mv-a');
-    component.toggleMove('mv-b');
-    component.toggleGear('go-shotgun');
-    component.toggleGear('go-pistol');
-    component.setLookOption('lc-face', 'lo-face-haggard');
-    component.setLookFreeform('lc-clothes', 'a borrowed coat');
-    component.setTrackValue('tr-corruption', '3', 6);
-    component.setTrackValue('tr-glory', '2', 3);
-    component.toggleBespoke('bs-fate', 'bo-favour');
-    component.setFreeText('bs-notes', 'Kept note');
-    component.toggleBespoke('bs-mva-artifact', 'bo-artifact-blade');
-    component.setBespokeAnswer('bs-mva-artifact', { optionId: 'bo-artifact-blade', field: 'title', value: 'Gold' });
-    component.addInstance(networkSection);
-    component.setFreeText(component.instancesFor(networkSection).at(-1)!.key, 'Langly');
-    component.addInstance(rotesSection);
-    component.toggleBespoke(component.instancesFor(rotesSection).at(-1)!.key, 'leaf-req-words');
-    component.addJournalEntry(killsJournal);
-    component.setJournalField(component.entriesFor(killsJournal).at(-1)!.key, 'jf-what', 'A ghoul');
+    component.draft.toggleMove('mv-a');
+    component.draft.toggleMove('mv-b');
+    component.draft.toggleGear('go-shotgun');
+    component.draft.toggleGear('go-pistol');
+    component.draft.setLookOption('lc-face', 'lo-face-haggard');
+    component.draft.setLookFreeform('lc-clothes', 'a borrowed coat');
+    component.draft.setTrackValue('tr-corruption', '3', 6);
+    component.draft.setTrackValue('tr-glory', '2', 3);
+    component.draft.toggleBespoke('bs-fate', 'bo-favour');
+    component.draft.setFreeText('bs-notes', 'Kept note');
+    component.draft.toggleBespoke('bs-mva-artifact', 'bo-artifact-blade');
+    component.draft.setBespokeAnswer('bs-mva-artifact', { optionId: 'bo-artifact-blade', field: 'title', value: 'Gold' });
+    component.draft.addInstance(networkSection);
+    component.draft.setFreeText(component.draft.instancesFor(networkSection).at(-1)!.key, 'Langly');
+    component.draft.addInstance(rotesSection);
+    component.draft.toggleBespoke(component.draft.instancesFor(rotesSection).at(-1)!.key, 'leaf-req-words');
+    component.draft.addJournalEntry(killsJournal);
+    component.draft.setJournalField(component.draft.entriesFor(killsJournal).at(-1)!.key, 'jf-what', 'A ghoul');
 
     choosePlaybook('pb-other');
 

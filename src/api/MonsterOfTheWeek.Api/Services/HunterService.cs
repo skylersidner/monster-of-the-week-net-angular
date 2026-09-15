@@ -59,30 +59,77 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
         UpsertHunterRequest request,
         CancellationToken cancellationToken)
     {
+        var build = await BuildNewHunterAsync(request, cancellationToken);
+        if (build.Refusal is not null)
+        {
+            return ServiceResult<HunterDetailResponse>.Validation(build.Refusal);
+        }
+
+        await hunterRepository.AddHunterAsync(build.Hunter!, cancellationToken);
+        await hunterRepository.SaveChangesAsync(cancellationToken);
+
+        // Re-read rather than mapping the tracked graph: the entity's Playbook navigation was
+        // never populated on this path, and the response carries PlaybookName.
+        var response = await GetByIdAsync(build.Hunter!.Id, cancellationToken);
+        return ServiceResult<HunterDetailResponse>.Success(response!);
+    }
+
+    /// <summary>
+    /// <c>POST /api/hunters/evaluate</c> (hunter-creation-wizard.md 12.8): what Create would say
+    /// about this request, without saving anything.
+    ///
+    /// <para>
+    /// <b>Nothing can be written.</b> The hunter is built in memory and never handed to the
+    /// repository's <c>AddHunterAsync</c>, the playbook is read untracked, and there is no
+    /// <c>SaveChangesAsync</c> on this path. It is one playbook read and nothing else.
+    /// </para>
+    /// </summary>
+    public async Task<HunterEvaluationResponse> EvaluateAsync(
+        UpsertHunterRequest request,
+        CancellationToken cancellationToken)
+    {
+        var build = await BuildNewHunterAsync(request, cancellationToken);
+        return build.Refusal is not null
+            ? new HunterEvaluationResponse(build.Refusal, [])
+            : new HunterEvaluationResponse(null, HunterCompleteness.Evaluate(build.Hunter!, build.Playbook!));
+    }
+
+    /*
+     * The one build step Create and Evaluate share (12.8, 14.4): load the playbook, Validate,
+     * then a new Hunter with scalars and picks applied. Sharing it is what makes "Evaluate
+     * reports what Create would" true by construction rather than by two copies kept in step,
+     * and the missing-playbook refusal lives here so the two can't word it differently.
+     *
+     * The built hunter's child rows mint their own ids (Guid.NewGuid() in HunterEntities.cs),
+     * so two new repeatable entries stay two entries whether or not they are ever saved: an
+     * entry's answers are keyed to its own id in ApplyBespoke.
+     *
+     * Phase 6 plugs its pick-rule ceilings into Validate, so they reach both callers from here.
+     */
+    private async Task<NewHunterBuild> BuildNewHunterAsync(UpsertHunterRequest request, CancellationToken cancellationToken)
+    {
         var playbook = await hunterRepository.GetPlaybookForValidationAsync(request.PlaybookId, cancellationToken);
         if (playbook is null)
         {
-            return ServiceResult<HunterDetailResponse>.Validation($"Playbook {request.PlaybookId} does not exist.");
+            return new NewHunterBuild(PlaybookMissing(request.PlaybookId), null, null);
         }
 
         var validationError = Validate(request, playbook);
         if (validationError is not null)
         {
-            return ServiceResult<HunterDetailResponse>.Validation(validationError);
+            return new NewHunterBuild(validationError, null, null);
         }
 
         var hunter = new Hunter { Name = request.Name.Trim(), PlaybookId = playbook.Id };
         ApplyScalars(hunter, request);
         ApplyPicks(hunter, request, playbook);
-
-        await hunterRepository.AddHunterAsync(hunter, cancellationToken);
-        await hunterRepository.SaveChangesAsync(cancellationToken);
-
-        // Re-read rather than mapping the tracked graph: the entity's Playbook navigation was
-        // never populated on this path, and the response carries PlaybookName.
-        var response = await GetByIdAsync(hunter.Id, cancellationToken);
-        return ServiceResult<HunterDetailResponse>.Success(response!);
+        return new NewHunterBuild(null, hunter, playbook);
     }
+
+    /// <summary>Either a refusal, or the unsaved hunter and the playbook it was checked against.</summary>
+    private sealed record NewHunterBuild(string? Refusal, Hunter? Hunter, Playbook? Playbook);
+
+    private static string PlaybookMissing(Guid playbookId) => $"Playbook {playbookId} does not exist.";
 
     public async Task<ServiceResult<HunterDetailResponse>> UpdateAsync(
         Guid id,
@@ -98,7 +145,7 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
         var playbook = await hunterRepository.GetPlaybookForValidationAsync(request.PlaybookId, cancellationToken);
         if (playbook is null)
         {
-            return ServiceResult<HunterDetailResponse>.Validation($"Playbook {request.PlaybookId} does not exist.");
+            return ServiceResult<HunterDetailResponse>.Validation(PlaybookMissing(request.PlaybookId));
         }
 
         var validationError = Validate(request, playbook);
@@ -885,7 +932,10 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
         // A null playbook is unreachable in practice — the FK is Restrict and a hunter cannot
         // outlive its template — so an empty list is the honest answer rather than a fallback
         // worth a code path: nothing is known to be outstanding.
-        playbook is null ? [] : HunterCompleteness.Evaluate(hunter, playbook),
+        //
+        // Strings only, by decision (12.8): the structured items go out on the evaluate endpoint,
+        // not here, and these are exactly their messages in the same order.
+        playbook is null ? [] : [.. HunterCompleteness.Evaluate(hunter, playbook).Select(x => x.Message)],
         hunter.CreatedAt);
 
     private static string? Normalize(string? value)

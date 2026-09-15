@@ -1,0 +1,14 @@
+<h3>History</h3>
+<label class="grid font-medium gap-1">
+  <span class="font-normal text-muted text-[0.85rem]">History notes</span>
+  <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" [formControl]="draft.form.controls.background" rows="8"></textarea>
+</label>
+@if (draft.playbook(); as book) {
+  @if (book.historyPromptsText) {
+    <details class="bg-surface border border-default rounded-lg p-3">
+      <summary class="cursor-pointer font-medium">History prompts for {{ book.name }}</summary>
+      <!-- Text interpolation, not [innerHTML]: the seed has no HTML in this field (13.2). -->
+      <div class="text-[0.85rem] mt-2 whitespace-pre-line">{{ book.historyPromptsText }}</div>
+    </details>
+  }
+}

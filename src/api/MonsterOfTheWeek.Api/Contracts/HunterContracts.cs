@@ -142,7 +142,56 @@ public sealed record HunterDetailResponse(
     DateTimeOffset CreatedAt);
 
 /// <summary>
-/// <c>POST /api/hunters</c> and <c>PUT /api/hunters/{id}</c>.
+/// The sheet areas an <see cref="HunterOutstandingItem"/> can belong to. Plain strings rather than
+/// a C# enum: <c>Program.cs</c> has no string-enum converter, so an enum would go out as a number
+/// (hunter-creation-wizard.md 12.8).
+/// </summary>
+public static class HunterOutstandingArea
+{
+    public const string Ratings = "ratings";
+
+    /// <summary>A playbook-level bespoke section (no <c>PlaybookMoveId</c>).</summary>
+    public const string Rules = "rules";
+
+    /// <summary>The move pick count, or a section that belongs to a move.</summary>
+    public const string Moves = "moves";
+
+    public const string Gear = "gear";
+    public const string Look = "look";
+}
+
+/// <summary>
+/// One thing a hunter still owes its playbook. <c>Message</c> is exactly the string
+/// <see cref="HunterDetailResponse.Outstanding"/> carries for the same gap.
+///
+/// <para>
+/// <c>SectionId</c> is set on every bespoke line, a repeatable entry's lines included.
+/// <c>GearCategoryId</c> is set on gear lines. Both are null on the rating, move-count and look
+/// lines.
+/// </para>
+/// </summary>
+public sealed record HunterOutstandingItem(
+    string Area,
+    Guid? SectionId,
+    Guid? GearCategoryId,
+    string Message);
+
+/// <summary>
+/// <c>POST /api/hunters/evaluate</c> (hunter-creation-wizard.md 12.8). Nothing is saved.
+///
+/// <para>
+/// <b>Exactly one of the two is meaningful.</b> <c>Refusal</c> is the message Create would refuse
+/// the same request with, a missing playbook included, and <c>Outstanding</c> is then empty: a
+/// draft that states something false has no "unfinished" list. Otherwise <c>Refusal</c> is null
+/// and <c>Outstanding</c> is what Create's response would list, in the same order.
+/// </para>
+/// </summary>
+public sealed record HunterEvaluationResponse(
+    string? Refusal,
+    IReadOnlyList<HunterOutstandingItem> Outstanding);
+
+/// <summary>
+/// <c>POST /api/hunters</c>, <c>PUT /api/hunters/{id}</c> and <c>POST /api/hunters/evaluate</c>.
 ///
 /// <para>
 /// The ranges below are only a sanity ceiling — the real bound is the selected Playbook's own

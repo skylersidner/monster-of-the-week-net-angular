@@ -339,7 +339,7 @@ describe('HunterDraft provisioning', () => {
     expect(firstDraft).toBe(first.componentInstance.draft);
     expect(firstDraft).not.toBe(second.debugElement.injector.get(HunterDraft));
 
-    first.componentInstance.hunterForm.controls.name.setValue('Only here');
-    expect(second.componentInstance.hunterForm.controls.name.value).toBe('');
+    first.componentInstance.draft.form.controls.name.setValue('Only here');
+    expect(second.componentInstance.draft.form.controls.name.value).toBe('');
   });
 });

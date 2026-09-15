@@ -1,17 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using MonsterOfTheWeek.Api.Contracts;
-using MonsterOfTheWeek.Api.Controllers;
-using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
-using MonsterOfTheWeek.Api.Repositories;
-using MonsterOfTheWeek.Api.Services;
 
 namespace MonsterOfTheWeek.Api.Tests.Controllers;
 
@@ -26,18 +18,8 @@ namespace MonsterOfTheWeek.Api.Tests.Controllers;
 /// <c>HunterService</c> runs. A service-level test would happily save the long name, because
 /// SQLite does not enforce <c>varchar</c> lengths, and the reflection checks the 2026-08-06
 /// validation passes used cannot show that an attribute on a record nested inside a list is
-/// actually validated. So each test starts a real Kestrel host on a loopback port, with the real
-/// controller, model binding, validation, service, repository and an in-memory SQLite database,
-/// and sends JSON the way the Angular client does.
-/// </para>
-///
-/// <para>
-/// <b>Not <c>Program.cs</c> itself.</b> It needs Postgres, migrates and seeds on startup, and
-/// this project has no <c>Mvc.Testing</c> package. The host below repeats the
-/// <c>Program.cs</c> calls that shape an error response (<c>AddProblemDetails</c>,
-/// <c>AddControllers</c>, <c>UseExceptionHandler</c>) and leaves out cookie auth. The
-/// fallback policy runs before model binding and does not change the body of a request it lets
-/// through.
+/// actually validated. So each test starts a <see cref="HunterApiHarness"/> and sends JSON the
+/// way the Angular client does.
 /// </para>
 /// </summary>
 public sealed class HunterRequestLengthTests
@@ -51,7 +33,7 @@ public sealed class HunterRequestLengthTests
     [Fact]
     public async Task A_256_character_name_is_a_400_not_a_500()
     {
-        await using var harness = await Harness.StartAsync();
+        await using var harness = await HunterApiHarness.StartAsync(SeedPlaybook());
 
         var response = await harness.Client.PostAsJsonAsync("/api/hunters", Request() with { Name = TooLong });
 
@@ -63,7 +45,7 @@ public sealed class HunterRequestLengthTests
     [Fact]
     public async Task A_256_character_pronouns_is_a_400_not_a_500()
     {
-        await using var harness = await Harness.StartAsync();
+        await using var harness = await HunterApiHarness.StartAsync(SeedPlaybook());
 
         var response = await harness.Client.PostAsJsonAsync("/api/hunters", Request() with { Pronouns = TooLong });
 
@@ -75,7 +57,7 @@ public sealed class HunterRequestLengthTests
     [Fact]
     public async Task A_256_character_repeatable_entry_name_is_a_400_not_a_500()
     {
-        await using var harness = await Harness.StartAsync();
+        await using var harness = await HunterApiHarness.StartAsync(SeedPlaybook());
 
         var response = await harness.Client.PostAsJsonAsync("/api/hunters", Request() with { BespokeInstances = [Entry(TooLong)] });
 
@@ -87,7 +69,7 @@ public sealed class HunterRequestLengthTests
     [Fact]
     public async Task An_update_with_a_256_character_name_is_refused_the_same_way_and_changes_nothing()
     {
-        await using var harness = await Harness.StartAsync();
+        await using var harness = await HunterApiHarness.StartAsync(SeedPlaybook());
         var created = await harness.Client.PostAsJsonAsync("/api/hunters", Request());
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var hunterId = (await created.Content.ReadFromJsonAsync<HunterDetailResponse>())!.Id;
@@ -102,7 +84,7 @@ public sealed class HunterRequestLengthTests
     [Fact]
     public async Task Name_pronouns_and_entry_name_at_255_characters_still_save()
     {
-        await using var harness = await Harness.StartAsync();
+        await using var harness = await HunterApiHarness.StartAsync(SeedPlaybook());
 
         var response = await harness.Client.PostAsJsonAsync(
             "/api/hunters",
@@ -162,59 +144,4 @@ public sealed class HunterRequestLengthTests
             },
         ],
     };
-
-    private sealed class Harness : IAsyncDisposable
-    {
-        private SqliteConnection connection = null!;
-        private DbContextOptions<MotwDbContext> options = null!;
-        private WebApplication app = null!;
-
-        public HttpClient Client { get; private set; } = null!;
-
-        public static async Task<Harness> StartAsync()
-        {
-            var harness = new Harness();
-            harness.connection = new SqliteConnection("DataSource=:memory:");
-            await harness.connection.OpenAsync();
-            harness.options = new DbContextOptionsBuilder<MotwDbContext>().UseSqlite(harness.connection).Options;
-
-            await using (var setup = harness.NewContext())
-            {
-                await setup.Database.EnsureCreatedAsync();
-                setup.Playbooks.Add(SeedPlaybook());
-                await setup.SaveChangesAsync();
-            }
-
-            // Not "Development": WebApplication adds the developer exception page there, which
-            // would change what a 500 looks like.
-            var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
-            builder.Logging.ClearProviders();
-            builder.Services.AddProblemDetails();
-            builder.Services.AddControllers().AddApplicationPart(typeof(HuntersController).Assembly);
-            builder.Services.AddDbContext<MotwDbContext>(o => o.UseSqlite(harness.connection));
-            builder.Services.AddScoped<IHunterRepository, HunterRepository>();
-            builder.Services.AddScoped<IHunterService, HunterService>();
-
-            harness.app = builder.Build();
-            harness.app.Urls.Add("http://127.0.0.1:0");
-            harness.app.UseExceptionHandler();
-            harness.app.UseRouting();
-            harness.app.MapControllers();
-            await harness.app.StartAsync();
-
-            // Port 0 asks the OS for a free port; after start, Urls holds the one Kestrel bound.
-            harness.Client = new HttpClient { BaseAddress = new Uri(harness.app.Urls.Single()) };
-            return harness;
-        }
-
-        public MotwDbContext NewContext() => new(options);
-
-        public async ValueTask DisposeAsync()
-        {
-            Client.Dispose();
-            await app.StopAsync();
-            await app.DisposeAsync();
-            await connection.DisposeAsync();
-        }
-    }
 }

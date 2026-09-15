@@ -1,21 +1,20 @@
-import { Component, DestroyRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule } from '@angular/forms';
-import { NgTemplateOutlet } from '@angular/common';
 import { Subject, catchError, map, of, switchMap } from 'rxjs';
 import { CustomSelectComponent } from '../../../../shared/custom-select.component';
-import { BespokeOptionAnswer, BespokeOptionTreeComponent } from './bespoke-option-tree';
 import { PlaybookService } from '../../../../core/playbook';
-import { BespokeAnswerChange, BespokeInstanceState, HunterDraft, JournalEntryState } from '../hunter-draft';
+import { HunterDraft } from '../hunter-draft';
+import { HunterBespokeSectionComponent } from '../sections/hunter-bespoke-section';
+import { HunterGearSectionComponent } from '../sections/hunter-gear-section';
+import { HunterHistorySectionComponent } from '../sections/hunter-history-section';
+import { HunterLookSectionComponent } from '../sections/hunter-look-section';
+import { HunterMovesSectionComponent } from '../sections/hunter-moves-section';
+import { HunterRatingsSectionComponent } from '../sections/hunter-ratings-section';
 import {
   HunterDetailResponse,
   PlaybookDetailResponse,
-  BespokeJournalResponse,
-  BespokeSectionResponse,
-  PlaybookGearCategoryResponse,
-  PlaybookLookCategoryResponse,
   PlaybookListItemResponse,
-  PlaybookMoveResponse,
   UpsertHunterRequest,
 } from '../../../../core/models';
 
@@ -36,14 +35,25 @@ import {
  * `HunterDetailResponse.outstanding`, so the rule lives in exactly one place.
  *
  * All hunter state, prune, the untick clear and the request builder live in `HunterDraft`
- * (hunter-creation-wizard.md 13.5), which this component provides for itself. What stays here is
- * the playbook load, the submit gate, and display-only helpers. The pass-through members below
- * keep the template unchanged for Phase 4; Phase 5's section components inject the draft directly.
+ * (hunter-creation-wizard.md 13.5), which this component provides for itself. The page is composed
+ * of the shared sections in `../sections/` (13.6): ratings, moves, gear, look, bespoke sections and
+ * History. They inject this form's draft. What stays here is the playbook picker, name and pronouns,
+ * the edit-only blocks (extra tracks, Luck / Harm / Experience, journals, which the wizard shows
+ * read-only instead), the playbook load and the submit gate.
  */
 @Component({
   selector: 'app-hunter-form',
   standalone: true,
-  imports: [ReactiveFormsModule, NgTemplateOutlet, CustomSelectComponent, BespokeOptionTreeComponent],
+  imports: [
+    ReactiveFormsModule,
+    CustomSelectComponent,
+    HunterRatingsSectionComponent,
+    HunterMovesSectionComponent,
+    HunterGearSectionComponent,
+    HunterLookSectionComponent,
+    HunterBespokeSectionComponent,
+    HunterHistorySectionComponent,
+  ],
   templateUrl: './hunter-form.html',
   host: { class: 'block' },
   providers: [HunterDraft],
@@ -52,7 +62,7 @@ export class HunterFormComponent implements OnChanges {
   private readonly playbookService = inject(PlaybookService);
   private readonly destroyRef = inject(DestroyRef);
 
-  /** This form's own draft: provided above, so every form instance gets a fresh one. */
+  /** This form's own draft: provided above, so every form instance, and its sections, share a fresh one. */
   readonly draft = inject(HunterDraft);
 
   @Input() playbooks: PlaybookListItemResponse[] = [];
@@ -75,39 +85,6 @@ export class HunterFormComponent implements OnChanges {
    */
   private readonly playbookIdRequests = new Subject<string>();
 
-  // ---- Draft state the template reads, passed through unchanged.
-  readonly hunterForm = this.draft.form;
-  readonly playbook = this.draft.playbook;
-  readonly requiredMoves = this.draft.requiredMoves;
-  readonly pickableMoves = this.draft.pickableMoves;
-  readonly moveGrantCount = this.draft.moveGrantCount;
-  readonly pickedMoveCount = this.draft.pickedMoveCount;
-  readonly moveBudget = this.draft.moveBudget;
-  readonly isMoveLimitReached = this.draft.isMoveLimitReached;
-  readonly isMovePickShort = this.draft.isMovePickShort;
-  readonly isRatingUnchosen = this.draft.isRatingUnchosen;
-  readonly unansweredLookCount = this.draft.unansweredLookCount;
-
-  /**
-   * Look categories in sort order, with consecutive runs that share a `groupLabel` collapsed
-   * into one group. Only The Forged uses this (its "Human look" / "Weapon look" split), and
-   * grouping by consecutive run rather than by distinct label keeps the sheet's own ordering
-   * intact instead of reordering lines to gather labels together.
-   */
-  readonly lookGroups = computed<LookGroup[]>(() => {
-    const groups: LookGroup[] = [];
-    for (const category of this.playbook()?.lookCategories ?? []) {
-      const label = category.groupLabel ?? null;
-      const open = groups.at(-1);
-      if (open && open.label === label) {
-        open.categories.push(category);
-      } else {
-        groups.push({ label, categories: [category] });
-      }
-    }
-    return groups;
-  });
-
   /**
    * Wires the playbook-loading pipeline here, in the constructor, rather than in ngOnInit —
    * load-bearing, not stylistic. `hunter-detail.html` only creates this component once its
@@ -122,7 +99,7 @@ export class HunterFormComponent implements OnChanges {
    * initializer, so its form exists before this body runs.
    */
   constructor() {
-    this.hunterForm.controls.playbookId.valueChanges
+    this.draft.form.controls.playbookId.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((playbookId) => this.loadPlaybook(playbookId));
 
@@ -143,71 +120,13 @@ export class HunterFormComponent implements OnChanges {
   }
 
   onSubmit(): void {
-    if (this.hunterForm.invalid) {
-      this.hunterForm.markAllAsTouched();
+    if (this.draft.form.invalid) {
+      this.draft.form.markAllAsTouched();
       return;
     }
 
     this.save.emit(this.draft.toRequest());
   }
-
-  // ---- Display-only helpers
-
-  /** A section with no options and no free-text label is a fixed grant — rules, not a choice. */
-  isFixedGrant(section: BespokeSectionResponse): boolean {
-    return section.options.length === 0 && section.freeTextLabel === null;
-  }
-
-  /** Ratings are always written signed on a playbook sheet, including `+0`. */
-  formatStat(value: number): string {
-    return value < 0 ? `${value}` : `+${value}`;
-  }
-
-  gearCategoryHint(category: PlaybookGearCategoryResponse): string {
-    const limit = category.pickCount === null ? 'any number' : `${category.pickCount}`;
-    return category.isOptional ? `Optional — pick ${limit}` : `Pick ${limit}`;
-  }
-
-  // ---- Pass-throughs to HunterDraft
-
-  isMoveSelected(moveId: string): boolean { return this.draft.isMoveSelected(moveId); }
-  toggleMove(moveId: string): void { this.draft.toggleMove(moveId); }
-  moveSectionsFor(move: PlaybookMoveResponse): BespokeSectionResponse[] { return this.draft.moveSectionsFor(move); }
-
-  isGearSelected(optionId: string): boolean { return this.draft.isGearSelected(optionId); }
-  toggleGear(optionId: string): void { this.draft.toggleGear(optionId); }
-  pickedInCategory(category: PlaybookGearCategoryResponse): number { return this.draft.pickedInCategory(category); }
-  isGearLimitReached(category: PlaybookGearCategoryResponse): boolean { return this.draft.isGearLimitReached(category); }
-  isGearPickShort(category: PlaybookGearCategoryResponse): boolean { return this.draft.isGearPickShort(category); }
-
-  lookOptionFor(categoryId: string): string | null { return this.draft.lookOptionFor(categoryId); }
-  lookFreeformFor(categoryId: string): string { return this.draft.lookFreeformFor(categoryId); }
-  setLookOption(categoryId: string, optionId: string): void { this.draft.setLookOption(categoryId, optionId); }
-  setLookFreeform(categoryId: string, text: string): void { this.draft.setLookFreeform(categoryId, text); }
-
-  trackValueFor(trackId: string): number { return this.draft.trackValueFor(trackId); }
-  setTrackValue(trackId: string, raw: string, boxCount: number): void { this.draft.setTrackValue(trackId, raw, boxCount); }
-
-  isRepeatable(section: BespokeSectionResponse): boolean { return this.draft.isRepeatable(section); }
-  instancesFor(section: BespokeSectionResponse): BespokeInstanceState[] { return this.draft.instancesFor(section); }
-  canAddInstance(section: BespokeSectionResponse): boolean { return this.draft.canAddInstance(section); }
-  addInstance(section: BespokeSectionResponse): void { this.draft.addInstance(section); }
-  removeInstance(key: string): void { this.draft.removeInstance(key); }
-  setInstanceName(key: string, name: string): void { this.draft.setInstanceName(key, name); }
-  picksFor(scopeKey: string): ReadonlySet<string> { return this.draft.picksFor(scopeKey); }
-  answersFor(scopeKey: string): ReadonlyMap<string, BespokeOptionAnswer> { return this.draft.answersFor(scopeKey); }
-  toggleBespoke(scopeKey: string, optionId: string): void { this.draft.toggleBespoke(scopeKey, optionId); }
-  setBespokeAnswer(scopeKey: string, change: BespokeAnswerChange): void { this.draft.setBespokeAnswer(scopeKey, change); }
-  freeTextFor(scopeKey: string): string { return this.draft.freeTextFor(scopeKey); }
-  setFreeText(scopeKey: string, value: string): void { this.draft.setFreeText(scopeKey, value); }
-  lockedScopes(section: BespokeSectionResponse, scopeKey: string): ReadonlySet<string> { return this.draft.lockedScopes(section, scopeKey); }
-  sectionProgress(section: BespokeSectionResponse, scopeKey: string): string | null { return this.draft.sectionProgress(section, scopeKey); }
-
-  entriesFor(journal: BespokeJournalResponse): JournalEntryState[] { return this.draft.entriesFor(journal); }
-  addJournalEntry(journal: BespokeJournalResponse): void { this.draft.addJournalEntry(journal); }
-  removeJournalEntry(key: string): void { this.draft.removeJournalEntry(key); }
-  journalFieldValue(entryKey: string, fieldId: string): string { return this.draft.journalFieldValue(entryKey, fieldId); }
-  setJournalField(entryKey: string, fieldId: string, value: string): void { this.draft.setJournalField(entryKey, fieldId, value); }
 
   // ---- Playbook loading
 
@@ -238,27 +157,22 @@ export class HunterFormComponent implements OnChanges {
 
   private applyPlaybookOutcome(outcome: PlaybookLoadOutcome): void {
     if (outcome.kind === 'empty') {
-      this.playbook.set(null);
+      this.draft.playbook.set(null);
       this.playbookError.set(null);
       this.isLoadingPlaybook.set(false);
       return;
     }
     if (outcome.kind === 'error') {
-      this.playbook.set(null);
+      this.draft.playbook.set(null);
       this.playbookError.set('Unable to load that playbook.');
       this.isLoadingPlaybook.set(false);
       return;
     }
-    this.playbook.set(outcome.playbook);
+    this.draft.playbook.set(outcome.playbook);
     this.playbookError.set(null);
     this.isLoadingPlaybook.set(false);
     this.draft.prune(outcome.playbook);
   }
-}
-
-interface LookGroup {
-  readonly label: string | null;
-  readonly categories: PlaybookLookCategoryResponse[];
 }
 
 /** The switchMap pipeline's result shape — see fetchPlaybook/applyPlaybookOutcome. */
