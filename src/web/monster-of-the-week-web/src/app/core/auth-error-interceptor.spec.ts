@@ -1,4 +1,4 @@
-import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, HttpContext, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -7,6 +7,7 @@ import { AuthService } from './auth';
 import { authErrorInterceptor } from './auth-error-interceptor';
 import { credentialsInterceptor } from './credentials-interceptor';
 import { httpErrorInterceptor } from './http-error-interceptor';
+import { SUPPRESS_ERROR_TOAST } from './http-context-tokens';
 import { NotificationService } from './notifications';
 
 describe('authErrorInterceptor', () => {
@@ -133,6 +134,25 @@ describe('authErrorInterceptor', () => {
     expect(caught?.error?.code).toBe('invalid_credentials');
     expect(notificationService.notifications()).toHaveLength(0);
     expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  // 13.11 item 4 / L9: SUPPRESS_ERROR_TOAST is a narrower opt-out than isSelfHandledRequest — it
+  // silences httpErrorInterceptor's generic toast only, and the 401 bounce still has to fire for
+  // a hunter save or admin playbook save/delete whose session has expired mid-request.
+  it('still bounces a 401 to /login when SUPPRESS_ERROR_TOAST is set on the request', () => {
+    signIn();
+
+    httpClient
+      .put('/api/hunters/h1', {}, { context: new HttpContext().set(SUPPRESS_ERROR_TOAST, true) })
+      .subscribe({ error: () => {} });
+    httpTestingController
+      .expectOne('/api/hunters/h1')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    expect(notificationService.notifications()).toHaveLength(0);
+    expect(authService.user()).toBeNull();
+    expect(router.navigate).toHaveBeenCalledTimes(1);
+    expect(router.navigate).toHaveBeenCalledWith(['/login'], expect.anything());
   });
 
   it('leaves the health probe alone, so a failed liveness check never bounces to /login', () => {

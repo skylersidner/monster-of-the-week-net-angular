@@ -1,7 +1,8 @@
-import { Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
+import { Subject, catchError, map, of, switchMap } from 'rxjs';
 import { CustomSelectComponent } from '../../../../shared/custom-select.component';
 import { BespokeOptionAnswer, BespokeOptionTreeComponent } from './bespoke-option-tree';
 import { PlaybookService } from '../../../../core/playbook';
@@ -48,7 +49,7 @@ import {
   templateUrl: './hunter-form.html',
   host: { class: 'block' },
 })
-export class HunterFormComponent implements OnInit, OnChanges {
+export class HunterFormComponent implements OnChanges {
   private readonly formBuilder = inject(FormBuilder);
   private readonly playbookService = inject(PlaybookService);
   private readonly destroyRef = inject(DestroyRef);
@@ -64,6 +65,15 @@ export class HunterFormComponent implements OnInit, OnChanges {
   readonly playbook = signal<PlaybookDetailResponse | null>(null);
   readonly isLoadingPlaybook = signal(false);
   readonly playbookError = signal<string | null>(null);
+
+  /**
+   * Every playbookId, from the picker's own valueChanges and from populate()'s direct call on
+   * edit-mode load, funnels through this one Subject into one switchMap (below). Both used to
+   * call loadPlaybook() independently, each opening its own subscription to the HTTP call — so a
+   * slow response for a playbook the user has since navigated away from could still land after,
+   * and overwrite, a faster response for the one now showing (13.11 item 5).
+   */
+  private readonly playbookIdRequests = new Subject<string>();
 
   readonly selectedMoveIds = signal<ReadonlySet<string>>(new Set());
   readonly selectedGearIds = signal<ReadonlySet<string>>(new Set());
@@ -161,10 +171,31 @@ export class HunterFormComponent implements OnInit, OnChanges {
     );
   }
 
-  ngOnInit(): void {
+  /**
+   * Wires the playbook-loading pipeline here, in the constructor, rather than in ngOnInit —
+   * load-bearing, not stylistic. `hunter-detail.html` only creates this component once its
+   * `hunter()` signal is already truthy (`@if (hunter(); as current) { <app-hunter-form
+   * [hunter]="current" ...> }`), so on the edit page the very FIRST `ngOnChanges` this component
+   * ever receives already carries a non-null hunter, and Angular calls ngOnChanges *before*
+   * ngOnInit on that first change-detection pass. `populate()` (called from ngOnChanges) ends by
+   * pushing into `playbookIdRequests`; a subscription set up in ngOnInit would not exist yet on
+   * that first push, and — being a plain Subject, not a ReplaySubject — would silently drop it,
+   * so the edit page's playbook would never load. Constructing the subscription here means it
+   * exists before any lifecycle hook can possibly fire.
+   */
+  constructor() {
     this.hunterForm.controls.playbookId.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((playbookId) => this.loadPlaybook(playbookId));
+
+    // switchMap: a new playbookId cancels whatever fetch is still in flight for the previous
+    // one, so a slow response can never arrive after, and overwrite, a later one's.
+    this.playbookIdRequests
+      .pipe(
+        switchMap((playbookId) => this.fetchPlaybook(playbookId)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((outcome) => this.applyPlaybookOutcome(outcome));
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -338,11 +369,25 @@ export class HunterFormComponent implements OnInit, OnChanges {
   }
 
   toggleBespoke(scopeKey: string, optionId: string): void {
+    const wasPicked = this.picksFor(scopeKey).has(optionId);
     this.bespokePicks.update((current) => {
       const next = new Map(current);
       next.set(scopeKey, toggle(current.get(scopeKey) ?? EMPTY_SET, optionId));
       return next;
     });
+
+    // A numeric leaf with no stored answer starts at its maximum, not null (13.11 item 6, L14) —
+    // ticking it without ever touching the number input used to send numericValue: null.
+    if (!wasPicked && !this.answersFor(scopeKey).has(optionId)) {
+      const option = this.findBespokeOption(optionId);
+      if (option?.numericMax !== null && option?.numericMax !== undefined) {
+        this.bespokeAnswers.update((current) => {
+          const scope = new Map(current.get(scopeKey) ?? EMPTY_ANSWERS);
+          scope.set(optionId, { freeformTitle: '', freeformText: '', numericValue: option.numericMax });
+          return new Map(current).set(scopeKey, scope);
+        });
+      }
+    }
   }
 
   setBespokeAnswer(scopeKey: string, change: { optionId: string; field: 'title' | 'text' | 'numeric'; value: string }): void {
@@ -553,6 +598,29 @@ export class HunterFormComponent implements OnInit, OnChanges {
     return out;
   }
 
+  /** Finds a bespoke option by id anywhere in the currently loaded playbook's option trees. */
+  private findBespokeOption(optionId: string): BespokeOptionResponse | undefined {
+    const search = (options: BespokeOptionResponse[]): BespokeOptionResponse | undefined => {
+      for (const option of options) {
+        if (option.id === optionId) {
+          return option;
+        }
+        const found = search(option.children);
+        if (found) {
+          return found;
+        }
+      }
+      return undefined;
+    };
+    for (const section of this.allSections()) {
+      const found = search(section.options);
+      if (found) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+
   /** Playbook-level sections plus the ones nested inside taken moves. */
   private allSections(): BespokeSectionResponse[] {
     const playbook = this.playbook();
@@ -675,29 +743,39 @@ export class HunterFormComponent implements OnInit, OnChanges {
   }
 
   private loadPlaybook(playbookId: string): void {
+    this.playbookIdRequests.next(playbookId);
+  }
+
+  /** The switchMap's projection. Sets isLoadingPlaybook as a side effect before the request goes out. */
+  private fetchPlaybook(playbookId: string) {
     if (!playbookId) {
-      this.playbook.set(null);
-      this.playbookError.set(null);
-      return;
+      return of<PlaybookLoadOutcome>({ kind: 'empty' });
     }
 
     this.isLoadingPlaybook.set(true);
-    this.playbookService
-      .getById(playbookId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (playbook) => {
-          this.playbook.set(playbook);
-          this.playbookError.set(null);
-          this.isLoadingPlaybook.set(false);
-          this.dropSelectionsOutside(playbook);
-        },
-        error: () => {
-          this.playbook.set(null);
-          this.playbookError.set('Unable to load that playbook.');
-          this.isLoadingPlaybook.set(false);
-        },
-      });
+    return this.playbookService.getById(playbookId).pipe(
+      map((playbook): PlaybookLoadOutcome => ({ kind: 'loaded', playbook })),
+      catchError(() => of<PlaybookLoadOutcome>({ kind: 'error' }))
+    );
+  }
+
+  private applyPlaybookOutcome(outcome: PlaybookLoadOutcome): void {
+    if (outcome.kind === 'empty') {
+      this.playbook.set(null);
+      this.playbookError.set(null);
+      this.isLoadingPlaybook.set(false);
+      return;
+    }
+    if (outcome.kind === 'error') {
+      this.playbook.set(null);
+      this.playbookError.set('Unable to load that playbook.');
+      this.isLoadingPlaybook.set(false);
+      return;
+    }
+    this.playbook.set(outcome.playbook);
+    this.playbookError.set(null);
+    this.isLoadingPlaybook.set(false);
+    this.dropSelectionsOutside(outcome.playbook);
   }
 
   /**
@@ -772,6 +850,12 @@ interface LookGroup {
   readonly label: string | null;
   readonly categories: PlaybookLookCategoryResponse[];
 }
+
+/** The switchMap pipeline's result shape — see fetchPlaybook/applyPlaybookOutcome. */
+type PlaybookLoadOutcome =
+  | { readonly kind: 'empty' }
+  | { readonly kind: 'error' }
+  | { readonly kind: 'loaded'; readonly playbook: PlaybookDetailResponse };
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
 const EMPTY_ANSWERS: ReadonlyMap<string, BespokeOptionAnswer> = new Map();

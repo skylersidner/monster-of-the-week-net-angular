@@ -1,6 +1,7 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
+import { SUPPRESS_ERROR_TOAST } from './http-context-tokens';
 import { NotificationService } from './notifications';
 import { isSelfHandledRequest } from './self-handled-request';
 
@@ -11,7 +12,11 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
   // used to carry, and adds the /api/auth/ exemption: without it the login page would render its
   // own inline "wrong email or password" message *and* a generic
   // "Request failed (400) for POST /api/auth/login" toast underneath it.
-  const isSelfHandled = isSelfHandledRequest(req);
+  //
+  // SUPPRESS_ERROR_TOAST (http-context-tokens.ts) is a narrower opt-out than isSelfHandledRequest:
+  // it silences only this generic toast, not authErrorInterceptor's 401 bounce, for callers (a
+  // hunter save, an admin playbook save/delete) that already show the server's own message.
+  const isSelfHandled = isSelfHandledRequest(req) || req.context.get(SUPPRESS_ERROR_TOAST);
 
   return next(req).pipe(
     catchError((error: unknown) => {

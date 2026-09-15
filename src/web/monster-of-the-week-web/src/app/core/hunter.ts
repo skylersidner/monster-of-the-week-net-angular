@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
+import { HttpContext } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiService } from './api';
+import { SUPPRESS_ERROR_TOAST } from './http-context-tokens';
 import { HunterDetailResponse, HunterListItemResponse, UpsertHunterRequest } from './models';
 
 /**
@@ -28,11 +30,21 @@ export class HunterService {
   }
 
   create(request: UpsertHunterRequest): Observable<HunterDetailResponse> {
-    return this.apiService.post<UpsertHunterRequest, HunterDetailResponse>('/api/hunters', request);
+    // SUPPRESS_ERROR_TOAST: the create/detail page already shows the server's message on a
+    // refusal (13.11 item 4, L9); without this a rejected save doubles as a generic toast too.
+    return this.apiService.post<UpsertHunterRequest, HunterDetailResponse>(
+      '/api/hunters',
+      request,
+      new HttpContext().set(SUPPRESS_ERROR_TOAST, true)
+    );
   }
 
   update(hunterId: string, request: UpsertHunterRequest): Observable<HunterDetailResponse> {
-    return this.apiService.put<UpsertHunterRequest, HunterDetailResponse>(`/api/hunters/${hunterId}`, request);
+    return this.apiService.put<UpsertHunterRequest, HunterDetailResponse>(
+      `/api/hunters/${hunterId}`,
+      request,
+      new HttpContext().set(SUPPRESS_ERROR_TOAST, true)
+    );
   }
 
   delete(hunterId: string): Observable<void> {

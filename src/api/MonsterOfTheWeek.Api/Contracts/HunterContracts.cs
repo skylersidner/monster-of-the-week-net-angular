@@ -93,7 +93,7 @@ public sealed record HunterBespokeSelectionModel(
 public sealed record HunterBespokeInstanceModel(
     Guid? Id,
     Guid SectionId,
-    string? Name,
+    [param: MaxLength(255)] string? Name,
     int SortOrder,
     IReadOnlyList<HunterBespokeSelectionModel>? Selections);
 
@@ -158,8 +158,8 @@ public sealed record HunterDetailResponse(
 /// </para>
 /// </summary>
 public sealed record UpsertHunterRequest(
-    [param: Required, MinLength(1)] string Name,
-    string? Pronouns,
+    [param: Required, MinLength(1), MaxLength(255)] string Name,
+    [param: MaxLength(255)] string? Pronouns,
     [param: Required] Guid PlaybookId,
     Guid? PlaybookStatArrayOptionId,
     [param: Range(0, 100)] int Luck,

@@ -90,10 +90,16 @@ public sealed class Hunter : ITimestamped
     public int Experience { get; set; }
 
     /// <summary>
-    /// The deliberate placeholder catch-all for history and bespoke-pick answers, per
-    /// architecture.md Section 3 and Skyler's confirmation recorded in phases.md Phase 10.
-    /// Looks no longer land here — they got structured capture of their own in the follow-on
-    /// pass. What remains in this box is exactly what the bespoke-ruleset pass will replace.
+    /// The hunter's History as flat prose, and nothing else. architecture.md Section 2 models
+    /// History that way on purpose, because the brief ruled out modelling hunter-to-hunter
+    /// relationships. Looks (Follow-on 10a) and bespoke answers (Follow-on 10b) have their own
+    /// tables, so neither lands here any more.
+    ///
+    /// <para>
+    /// The name predates both follow-ons, when this column was a catch-all. It is deliberately
+    /// not renamed: that would be a migration and a contract change for a label
+    /// (hunter-creation-wizard.md 12.6, B9).
+    /// </para>
     /// </summary>
     public string? Background { get; set; }
 

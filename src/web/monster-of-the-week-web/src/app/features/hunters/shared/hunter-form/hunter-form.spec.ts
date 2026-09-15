@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 
 import {
   HunterDetailResponse,
@@ -478,5 +478,154 @@ describe('HunterFormComponent', () => {
     component.onSubmit();
     expect(emitted.length).toBe(1);
     expect(emitted[0].playbookId).toBe('pb1');
+  });
+
+  // -------------------------------------------------------------------------------------
+  // Phase 2 (13.11 items 1-6): live rendering bugs and request hardening
+  // -------------------------------------------------------------------------------------
+
+  it('renders history prompts as text, not HTML (item 1)', () => {
+    const withPrompts: PlaybookDetailResponse = { ...playbook, historyPromptsText: 'Line one\n<b>Line two</b>' };
+    TestBed.inject(PlaybookService).getById = () => of(withPrompts);
+    chooseThePlaybook();
+
+    const element = fixture.nativeElement as HTMLElement;
+    // Interpolated as text: the tag characters show up literally, and no <b> element is created.
+    expect(element.querySelector('details b')).toBeNull();
+    expect(element.textContent).toContain('<b>Line two</b>');
+    expect(element.querySelector('details div.whitespace-pre-line')).toBeTruthy();
+  });
+
+  it('renders granted gear (null pickCount) as a read-only "You get" list with no checkbox, and leaves pickable gear checkboxed (item 2)', () => {
+    chooseThePlaybook();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.textContent).toContain('You get');
+
+    const carSpan = Array.from(element.querySelectorAll('span.font-medium')).find(
+      (el) => el.textContent?.trim() === 'A car'
+    );
+    expect(carSpan).toBeTruthy();
+    // The granted option renders inside a plain div, not the checkbox label the pickable
+    // options use, and carries no checkbox of its own.
+    expect(carSpan!.closest('div.flex.items-start')?.querySelector('input[type="checkbox"]')).toBeNull();
+
+    const shotgunSpan = Array.from(element.querySelectorAll('span.font-medium')).find(
+      (el) => el.textContent?.trim() === 'Shotgun'
+    );
+    expect(shotgunSpan!.closest('label')?.querySelector('input[type="checkbox"]')).toBeTruthy();
+  });
+
+  it('leaves an already-saved granted-gear id alone on save, with nothing left to toggle it off (B6, L15)', () => {
+    fixture.componentRef.setInput('hunter', buildHunter({ playbookGearOptionIds: ['go4'] }));
+    fixture.detectChanges();
+
+    expect(component.isGearSelected('go4')).toBe(true);
+    component.onSubmit();
+    expect(emitted[0].playbookGearOptionIds).toContain('go4');
+  });
+
+  it('retitles the Background block to History / History notes (item 3)', () => {
+    chooseThePlaybook();
+    const element = fixture.nativeElement as HTMLElement;
+
+    const headings = Array.from(element.querySelectorAll('h3')).map((h) => h.textContent?.trim());
+    expect(headings).toContain('History');
+    expect(headings).not.toContain('Background');
+    expect(element.textContent).toContain('History notes');
+  });
+
+  it('does not let a slow response for the previous playbook overwrite a newer one (item 5, switchMap)', () => {
+    const slow: PlaybookDetailResponse = { ...playbook, id: 'pb-slow', name: 'Slow Playbook' };
+    const fast: PlaybookDetailResponse = { ...playbook, id: 'pb-fast', name: 'Fast Playbook' };
+    const slow$ = new Subject<PlaybookDetailResponse>();
+    const fast$ = new Subject<PlaybookDetailResponse>();
+    TestBed.inject(PlaybookService).getById = (id: string) => (id === 'pb-slow' ? slow$ : fast$);
+
+    // Two picker changes in quick succession, the way a user clicking around the list produces.
+    component.hunterForm.controls.playbookId.setValue('pb-slow');
+    component.hunterForm.controls.playbookId.setValue('pb-fast');
+
+    // The fast request resolves first...
+    fast$.next(fast);
+    fast$.complete();
+    // ...then the stale one finally arrives. switchMap already cancelled its subscription when
+    // the second picker change fired, so this must not be seen.
+    slow$.next(slow);
+    slow$.complete();
+
+    expect(component.playbook()?.id).toBe('pb-fast');
+  });
+
+  it('starts a ticked numeric leaf at NumericMax instead of sending null (item 6, L14)', () => {
+    const withNumeric: PlaybookDetailResponse = {
+      ...playbook,
+      bespokeSections: [
+        {
+          id: 'bs-numeric', title: 'The Show', description: null, effectText: null, freeTextLabel: null,
+          minSelect: null, maxSelect: null, minInstances: null, maxInstances: null, sortOrder: 0,
+          options: [
+            { id: 'opt-favour', title: 'Infernal Favour', descriptionText: null, minSelect: null, maxSelect: null, numericMin: 0, numericMax: 3, sortOrder: 0, children: [] },
+          ],
+        },
+      ],
+    };
+    TestBed.inject(PlaybookService).getById = () => of(withNumeric);
+    chooseThePlaybook();
+    component.hunterForm.controls.name.setValue('Numeric Tester');
+
+    component.toggleBespoke('bs-numeric', 'opt-favour');
+    fixture.detectChanges();
+    component.onSubmit();
+
+    const selection = emitted[0].bespokeSelections.find((s) => s.bespokeOptionId === 'opt-favour');
+    expect(selection?.numericValue).toBe(3);
+  });
+
+  it('keeps a numeric leaf value the player already set, rather than resetting it on re-tick', () => {
+    const withNumeric: PlaybookDetailResponse = {
+      ...playbook,
+      bespokeSections: [
+        {
+          id: 'bs-numeric', title: 'The Show', description: null, effectText: null, freeTextLabel: null,
+          minSelect: null, maxSelect: null, minInstances: null, maxInstances: null, sortOrder: 0,
+          options: [
+            { id: 'opt-favour', title: 'Infernal Favour', descriptionText: null, minSelect: null, maxSelect: null, numericMin: 0, numericMax: 3, sortOrder: 0, children: [] },
+          ],
+        },
+      ],
+    };
+    TestBed.inject(PlaybookService).getById = () => of(withNumeric);
+    chooseThePlaybook();
+    component.hunterForm.controls.name.setValue('Numeric Tester');
+
+    component.toggleBespoke('bs-numeric', 'opt-favour'); // ticked -> starts at 3
+    component.setBespokeAnswer('bs-numeric', { optionId: 'opt-favour', field: 'numeric', value: '1' });
+    component.toggleBespoke('bs-numeric', 'opt-favour'); // unticked
+    component.toggleBespoke('bs-numeric', 'opt-favour'); // reticked
+
+    component.onSubmit();
+    const selection = emitted[0].bespokeSelections.find((s) => s.bespokeOptionId === 'opt-favour');
+    expect(selection?.numericValue).toBe(1);
+  });
+
+  // Regression: hunter-detail.html only creates <app-hunter-form [hunter]="current"> once
+  // hunter() is truthy (an @if, not a later input change), so on the edit page the FIRST
+  // ngOnChanges this component ever receives already carries a non-null hunter — and Angular
+  // calls ngOnChanges before ngOnInit on that first change detection pass. This fixture builds
+  // its own component instance and sets a non-null `hunter` input before the very first
+  // detectChanges(), to reproduce that exact ordering rather than the shared beforeEach's
+  // hunter:null-then-later-set-real-hunter sequence, which happens to already have ngOnInit's
+  // subscriptions wired up by the time a real hunter is set.
+  it('loads the playbook on the very first render when hunter-form is created with a hunter already set', () => {
+    const freshFixture = TestBed.createComponent(HunterFormComponent);
+    freshFixture.componentRef.setInput('playbooks', playbooks);
+    freshFixture.componentRef.setInput('hunter', buildHunter());
+    freshFixture.componentRef.setInput('isSaving', false);
+    freshFixture.componentRef.setInput('submitLabel', 'Save changes');
+
+    freshFixture.detectChanges(); // first CD: ngOnChanges(hunter) fires before ngOnInit
+
+    expect(freshFixture.componentInstance.playbook()?.id).toBe('pb1');
   });
 });

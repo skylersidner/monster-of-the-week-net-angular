@@ -142,33 +142,49 @@
           <div class="grid gap-2">
             <div class="flex flex-wrap items-baseline gap-2">
               <span class="font-semibold">{{ category.label }}</span>
-              <small class="text-muted">{{ gearCategoryHint(category) }}</small>
               @if (category.pickCount !== null) {
+                <small class="text-muted">{{ gearCategoryHint(category) }}</small>
                 <!-- Progress only. Falling short is unfinished, not invalid, and never blocks a save. -->
                 <small class="text-[0.8rem] font-semibold" [class.text-muted]="isGearPickShort(category)">
                   {{ pickedInCategory(category) }} of {{ category.pickCount }} picked
                 </small>
+              } @else {
+                <small class="text-muted">You get</small>
               }
             </div>
-            @for (option of category.options; track option.id) {
-              <label
-                class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3"
-                [class.opacity-60]="isGearLimitReached(category) && !isGearSelected(option.id)"
-              >
-                <input
-                  type="checkbox"
-                  class="mt-1"
-                  [checked]="isGearSelected(option.id)"
-                  [disabled]="isGearLimitReached(category) && !isGearSelected(option.id)"
-                  (change)="toggleGear(option.id)"
-                />
-                <span>
-                  <span class="font-medium">{{ option.name }}</span>
-                  @if (option.mechanicalText) {
-                    <span class="block text-[0.85rem] text-muted mt-1">{{ option.mechanicalText }}</span>
-                  }
-                </span>
-              </label>
+            @if (category.pickCount !== null) {
+              @for (option of category.options; track option.id) {
+                <label
+                  class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3"
+                  [class.opacity-60]="isGearLimitReached(category) && !isGearSelected(option.id)"
+                >
+                  <input
+                    type="checkbox"
+                    class="mt-1"
+                    [checked]="isGearSelected(option.id)"
+                    [disabled]="isGearLimitReached(category) && !isGearSelected(option.id)"
+                    (change)="toggleGear(option.id)"
+                  />
+                  <span>
+                    <span class="font-medium">{{ option.name }}</span>
+                    @if (option.mechanicalText) {
+                      <span class="block text-[0.85rem] text-muted mt-1">{{ option.mechanicalText }}</span>
+                    }
+                  </span>
+                </label>
+              }
+            } @else {
+              <!-- Granted outright — read-only, no checkbox. No id for these is ever sent (B6). -->
+              @for (option of category.options; track option.id) {
+                <div class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3">
+                  <span>
+                    <span class="font-medium">{{ option.name }}</span>
+                    @if (option.mechanicalText) {
+                      <span class="block text-[0.85rem] text-muted mt-1">{{ option.mechanicalText }}</span>
+                    }
+                  </span>
+                </div>
+              }
             }
           </div>
         }
@@ -335,20 +351,16 @@
     }
 
     <section class="grid gap-[0.6rem]">
-      <h3>Background</h3>
-      <!--
-        Now the placeholder for history and bespoke-ruleset answers only — Looks got its own
-        structured section above. Everything still collapsing into this box is what the bespoke
-        pass will replace.
-      -->
+      <h3>History</h3>
       <label class="grid font-medium gap-1">
-        <span class="font-normal text-muted text-[0.85rem]">History, and anything else this playbook asks for — a structured version of this section comes later.</span>
+        <span class="font-normal text-muted text-[0.85rem]">History notes</span>
         <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="background" rows="8"></textarea>
       </label>
       @if (book.historyPromptsText) {
         <details class="bg-surface border border-default rounded-lg p-3">
           <summary class="cursor-pointer font-medium">History prompts for {{ book.name }}</summary>
-          <div class="text-[0.85rem] mt-2" [innerHTML]="book.historyPromptsText"></div>
+          <!-- Text interpolation, not [innerHTML]: the seed has no HTML in this field (13.2). -->
+          <div class="text-[0.85rem] mt-2 whitespace-pre-line">{{ book.historyPromptsText }}</div>
         </details>
       }
     </section>
@@ -409,6 +421,7 @@
               class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 flex-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
               [placeholder]="section.freeTextLabel ?? 'Name'"
               [value]="instance.name"
+              maxlength="255"
               (input)="setInstanceName(instance.key, $any($event.target).value)"
             />
             <button
