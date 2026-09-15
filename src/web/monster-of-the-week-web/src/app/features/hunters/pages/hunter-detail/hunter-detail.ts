@@ -12,7 +12,7 @@ import { HunterFormComponent } from '../../shared/hunter-form/hunter-form';
 /**
  * Owns the `update` and `delete` calls; the form is the same component the create page uses,
  * populated from `hunter`. The only per-mode differences are which service method fires and
- * that the playbook control is locked (see `HunterFormComponent.populate`).
+ * that the playbook control is locked (see `HunterDraft.populate`).
  */
 @Component({
   selector: 'app-hunter-detail',

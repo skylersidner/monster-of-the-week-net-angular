@@ -28,6 +28,12 @@ Create an `@Injectable` service provided at the route-component level (`provider
 
 **Store does NOT own:** Reactive form instances, `toSignal(form.valueChanges)` wrappers, uncommitted live form values.
 
+**Exception (2026-09-14, limited supersession): a draft that is submitted once may own its form.** The rule above stops form state leaking between sibling steps that submit separately. When one surface's sections share a draft and submit it as one request, there is nothing to leak into, so the draft may hold the `FormGroup` (first applied: `HunterDraft`, `features/hunters/shared/hunter-draft.ts`). Two conditions come with it:
+- Read the form through `valueChanges.pipe(map(() => form.getRawValue()), startWith(form.getRawValue()))`, never `.value`. A disabled control drops out of `.value`.
+- Computeds read that signal, never a control. A `computed` over a control caches its first answer.
+
+Source: `docs/hunter-playbooks/hunter-creation-wizard.md` 13.5 and 14.5.
+
 ---
 
 ## Pattern: Separate Add-Item Form Instances for Sibling Contexts

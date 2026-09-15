@@ -17,7 +17,7 @@ export interface BespokeOptionAnswer {
  * purely because something under it is ticked. Rendering a checkbox on a divider would invite a
  * state the server has no way to store — there is no "this category is chosen" row, by design.
  *
- * All state lives in `HunterFormComponent`; this component is presentational and emits. That
+ * All state lives in `HunterDraft`; this component is presentational and emits. That
  * keeps one map as the single source of truth rather than a tree of nested component state
  * that would have to be gathered back up on submit.
  */

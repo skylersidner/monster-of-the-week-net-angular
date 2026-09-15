@@ -1391,3 +1391,40 @@ Full suite: 48 files / 421 tests, up from a 46 / 404 baseline. That's 10 tracker
 
 ### Files
 New: `shared/wizard/wizard-tracker.{ts,html,scss,spec.ts}`, `shared/wizard/wizard-layout.{ts,html,scss,spec.ts}`. Modified: `features/mysteries/pages/mystery-create/mystery-create.{ts,html,spec.ts}`. Deleted: `mystery-create-tracker.{ts,html}`, `mystery-create.scss`. Not committed.
+
+---
+
+## 2026-09-14 — Hunter Wizard Phase 4 (R4, F2): extract `HunterDraft`
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 4. The characterisation spec came first. Then all hunter form state, prune, the untick clear and the one request builder moved into an injectable `HunterDraft`, with `HunterFormComponent` delegating and no change in behaviour. No section split (Phase 5), no wizard code (Phase 7).
+
+### Reusable technical facts
+- **Characterisation first, proven non-vacuous.** 7 cases, each `toStrictEqual` against a literal request, green on untouched efd5309 before any refactor. Snapshot the spec to the scratchpad before refactoring and `diff` it afterwards, to prove the expected values didn't move. Negative control afterwards: dropping `instance.serverId` failed both edit-page cases, while the old `hunter-form.spec.ts` stayed green (the 13.12 item 13 gap).
+- **Quirks it pins.** These are today's behaviour, not things to fix in a refactor:
+  - create never sends required move ids; only a loaded hunter's are echoed;
+  - instance and journal `sortOrder` is the index across all sections and journals, not per section;
+  - journal fields are sent in typed order;
+  - prune filters look answers by category id only;
+  - an answer on an unticked option is never sent;
+  - stale saved ids are pruned on edit load, so the next save drops them.
+- **`HunterDraft` is `@Injectable()`, in `HunterFormComponent.providers`,** and is injected in a field initializer. Its form therefore exists before the constructor wires `playbookId.valueChanges` and the `switchMap`, so Phase 2's first-render fix holds.
+  - Staying in the component: loading, `isLoadingPlaybook`/`playbookError`, the submit gate, and display helpers (`lookGroups`, `formatStat`, `gearCategoryHint`, `isFixedGrant`).
+  - `draft.populate` doesn't load. The component calls it, then `loadPlaybook`, in the same order as before.
+- **The template is byte-identical** thanks to pass-through members: signal aliases plus one-line method delegates. `hunter-form.spec.ts` is unchanged too. Phase 5 deletes the pass-throughs.
+- **`toSignal(form.valueChanges.pipe(map(() => form.getRawValue()), startWith(form.getRawValue())), { requireSync: true })`** works both in a component-provided service and inside `TestBed.runInInjectionContext(() => new HunterDraft())`.
+  - `isRatingUnchosen` is now a `computed` over it.
+  - `toRequest()` still reads `form.getRawValue()` at call time, so it can't be stale.
+- `TestBed.inject(HunterDraft)` throws, because it isn't root. `fixture.debugElement.injector.get(HunterDraft)` gets the form's own instance.
+- 13.5 and 13.15 item 2 also list these, and I didn't build them: `isDirty` and `playbookScopedSummary` (Phase 7), `sectionLevelPickedOptionIds` and governed `lockedScopes` (Phase 6).
+
+### Verification
+- Characterisation spec: 7/7 before the refactor and 7/7 after.
+- Hunter specs: 3 files / 43 tests.
+- Full suite: 50 files / 439 tests, up from 48 / 421 (7 characterisation tests, 11 draft tests).
+- `ng build --configuration production --output-path` into the scratchpad: clean, with the same 2 budget warnings.
+- No browser pass. Toad runs Y10's `GET` diff.
+- Docs: a dated limited supersession in `.squad/decisions.md` (2026-07-21) and in `angular-wizard-decomposition/SKILL.md`.
+
+### Files
+New: `features/hunters/shared/hunter-draft.{ts,spec.ts}`, `shared/hunter-form/hunter-form.characterisation.spec.ts`. Modified: `hunter-form.ts`; comments only in `bespoke-option-tree.ts` and `hunter-detail.ts`. Not committed.
