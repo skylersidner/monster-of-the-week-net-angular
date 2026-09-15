@@ -285,6 +285,17 @@ public sealed class PlaybookService(IPlaybookRepository repository) : IPlaybookS
             return "Harm unstable threshold cannot exceed the harm box count.";
         }
 
+        // MoveGrantCount is the printed total, Required moves included (hunter-creation-wizard.md
+        // 12.3), so a hunter's pick budget is the grant minus the Required count. More Required
+        // moves than the grant would make that budget negative. A grant of 0 is exempt: it still
+        // means the Moves section has not been authored (architecture.md Section 3).
+        var requiredMoveCount = (request.Moves ?? []).Count(m => m.Required);
+        if (request.MoveGrantCount > 0 && requiredMoveCount > request.MoveGrantCount)
+        {
+            return $"The playbook grants {request.MoveGrantCount} move(s) in total but marks {requiredMoveCount} as required; "
+                + "required moves count toward the total.";
+        }
+
         foreach (var category in request.GearCategories ?? [])
         {
             var optionCount = category.Options?.Count ?? 0;

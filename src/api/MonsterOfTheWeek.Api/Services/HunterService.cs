@@ -175,8 +175,11 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
         }
 
         /*
-         * MoveGrantCount is how many moves a hunter picks beyond the ones the playbook grants
-         * outright, so Required moves are excluded from the count rather than consuming a pick.
+         * MoveGrantCount is the total the sheet prints ("plus three Chosen moves"), Required
+         * moves included (hunter-creation-wizard.md 12.3, decided 2026-09-13). A Required move
+         * is one of that total, handed out rather than picked, so the ceiling is the rest:
+         * MovePicks.Budget. Required ids are left out of the picked count because ApplyPicks
+         * adds them whether or not they were sent, so sending one is not a pick.
          *
          * Only enforced when the count is greater than zero. architecture.md Section 3 is
          * explicit that 0 is indistinguishable from "this playbook grants no moves" and must not
@@ -186,11 +189,16 @@ public sealed class HunterService(IHunterRepository hunterRepository) : IHunterS
          */
         if (playbook.MoveGrantCount > 0)
         {
+            var budget = MovePicks.Budget(playbook);
             var chosenCount = moveIds.Count(id => !movesById[id].Required);
-            if (chosenCount > playbook.MoveGrantCount)
+            if (chosenCount > budget)
             {
-                return $"Playbook \"{playbook.Name}\" allows {playbook.MoveGrantCount} move "
-                    + $"{(playbook.MoveGrantCount == 1 ? "pick" : "picks")}, but {chosenCount} were made.";
+                var requiredCount = MovePicks.RequiredCount(playbook);
+                var besides = requiredCount == 0
+                    ? ""
+                    : $" besides its {requiredCount} granted {(requiredCount == 1 ? "move" : "moves")}";
+                return $"Playbook \"{playbook.Name}\" allows {budget} move {(budget == 1 ? "pick" : "picks")}{besides}, "
+                    + $"but {chosenCount} {(chosenCount == 1 ? "was" : "were")} made.";
             }
         }
 

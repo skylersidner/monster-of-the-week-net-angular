@@ -113,8 +113,9 @@ public sealed class HunterServiceTests
     {
         await using var harness = await Harness.StartAsync();
 
-        // MoveGrantCount is 1; the required move must not count against it, so two *pickable*
-        // moves is the failure and one pickable plus the required one is not.
+        // MoveGrantCount is 2, the printed total, and one of those is the required move, so the
+        // pick budget is 1 (hunter-creation-wizard.md 12.3). Two *pickable* moves is the failure;
+        // one pickable plus the required one is exactly the total and is not.
         var overLimit = await harness.Service.CreateAsync(
             Request() with { PlaybookMoveIds = [PickableMoveId, OtherMoveId] }, default);
         Assert.False(overLimit.IsSuccess);
@@ -343,7 +344,8 @@ public sealed class HunterServiceTests
         // more outstanding, and remains editable.
         await using var context = harness.NewContext();
         var playbook = await context.Playbooks.FirstAsync(x => x.Id == PlaybookId);
-        playbook.MoveGrantCount = 2;
+        // 2 → 3 is a total of three including the required move, so a budget of 2 picks.
+        playbook.MoveGrantCount = 3;
         await context.SaveChangesAsync();
 
         var reread = await harness.Service.GetByIdAsync(created.Value.Id, default);
@@ -829,7 +831,9 @@ public sealed class HunterServiceTests
         HarmBoxCount = 7,
         HarmUnstableThreshold = 5,
         ExperienceBoxCount = 5,
-        MoveGrantCount = 1,
+        // The printed total, the required "Granted Move" included, so the pick budget is 1
+        // (hunter-creation-wizard.md 12.3). The same shape as The Forged: two moves, one granted.
+        MoveGrantCount = 2,
         StatArrayOptions = [new PlaybookStatArrayOption { Id = StatArrayId, Charm = 1, Cool = 0, Sharp = 2, Tough = -1, Weird = 1, SortOrder = 0 }],
         Moves =
         [

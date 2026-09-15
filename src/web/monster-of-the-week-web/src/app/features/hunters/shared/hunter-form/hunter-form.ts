@@ -125,9 +125,18 @@ export class HunterFormComponent implements OnInit, OnChanges {
     () => this.pickableMoves().filter((move) => this.selectedMoveIds().has(move.id)).length
   );
 
+  /**
+   * The pick budget: `moveGrantCount` is the printed total, required moves included, so the
+   * picks left for the player is that total minus however many moves are required. Mirrors
+   * `HunterService.Validate` and `HunterCompleteness` — see `HunterService.cs`.
+   */
+  readonly moveBudget = computed(() =>
+    Math.max(0, this.moveGrantCount() - this.requiredMoves().length)
+  );
+
   /** A grant count of 0 means "unspecified", not "no picks allowed" — see HunterService.cs. */
   readonly isMoveLimitReached = computed(
-    () => this.moveGrantCount() > 0 && this.pickedMoveCount() >= this.moveGrantCount()
+    () => this.moveGrantCount() > 0 && this.pickedMoveCount() >= this.moveBudget()
   );
 
   /**
@@ -136,7 +145,7 @@ export class HunterFormComponent implements OnInit, OnChanges {
    * than only in the summary after saving — but none of them stops the form submitting.
    */
   readonly isMovePickShort = computed(
-    () => this.moveGrantCount() > 0 && this.pickedMoveCount() < this.moveGrantCount()
+    () => this.moveGrantCount() > 0 && this.pickedMoveCount() < this.moveBudget()
   );
 
   /**

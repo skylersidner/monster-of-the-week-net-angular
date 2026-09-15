@@ -70,10 +70,10 @@
         @if (moveGrantCount() > 0) {
           <span
             class="text-[0.8rem] font-semibold"
-            [class.text-danger]="pickedMoveCount() > moveGrantCount()"
+            [class.text-danger]="pickedMoveCount() > moveBudget()"
             [class.text-muted]="isMovePickShort()"
           >
-            {{ pickedMoveCount() }} of {{ moveGrantCount() }} picked
+            {{ pickedMoveCount() }} of {{ moveBudget() }} picked
           </span>
         }
       </div>

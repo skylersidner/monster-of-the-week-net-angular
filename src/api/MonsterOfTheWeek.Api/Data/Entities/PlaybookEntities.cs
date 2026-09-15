@@ -38,7 +38,9 @@ public sealed class Playbook
     public int ExperienceBoxCount { get; set; }
 
     /// <summary>
-    /// How many playbook moves a Hunter picks at creation.
+    /// How many playbook moves a Hunter starts with, as the sheet prints it ("plus three Chosen
+    /// moves"), <see cref="PlaybookMove.Required"/> moves included. The number the Hunter
+    /// actually picks is this minus the Required count (hunter-creation-wizard.md 12.3).
     /// <para>
     /// Stays 0 until Phase 6 authors the Moves section — Phase 4 does not populate it.
     /// During that window 0 is indistinguishable from "this playbook grants no moves", so
@@ -110,8 +112,10 @@ public sealed class PlaybookMove
     public string? DescriptionText { get; set; }
 
     /// <summary>
-    /// True when the playbook grants this move automatically ("You get this one:"), in
-    /// which case it does not count against <see cref="Playbook.MoveGrantCount"/>.
+    /// True when the playbook grants this move automatically ("You get this one:"). It is one
+    /// of the moves <see cref="Playbook.MoveGrantCount"/> counts, since that is the printed
+    /// total, but it is never picked, so it leaves the hunter
+    /// <c>MoveGrantCount − (Required moves)</c> picks (hunter-creation-wizard.md 12.3).
     /// </summary>
     public bool Required { get; set; }
 

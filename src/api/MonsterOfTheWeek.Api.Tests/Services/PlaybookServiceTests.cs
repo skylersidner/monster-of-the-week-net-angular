@@ -128,6 +128,55 @@ public sealed class PlaybookServiceTests
     }
 
     [Fact]
+    public async Task CreateAndUpdate_ReturnValidation_WhenMoreMovesAreRequiredThanTheGrantCount()
+    {
+        var repository = new FakePlaybookRepository();
+        var service = new PlaybookService(repository);
+
+        // MoveGrantCount is the printed total, Required moves included (hunter-creation-wizard.md
+        // 12.3), so two Required moves cannot fit inside a total of one. The verifier already
+        // checked this for seeded data; the admin path is what this closes.
+        var request = Request() with
+        {
+            MoveGrantCount = 1,
+            Moves = [Move("Fate", required: true, 0), Move("Destiny", required: true, 1), Move("Pickable", required: false, 2)],
+        };
+
+        var created = await service.CreateAsync(request, CancellationToken.None);
+        Assert.False(created.IsSuccess);
+        Assert.Equal(ServiceErrorType.Validation, created.Error!.Type);
+        Assert.Contains("grants 1 move(s) in total but marks 2 as required", created.Error.Message);
+
+        var updated = await service.UpdateAsync(Guid.NewGuid(), request, CancellationToken.None);
+        Assert.False(updated.IsSuccess);
+        Assert.Equal(ServiceErrorType.Validation, updated.Error!.Type);
+
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    [Theory]
+    // Required moves filling the whole total is legal: nothing is left to pick, but nothing is negative.
+    [InlineData(2, 2)]
+    // 0 still means the Moves section has not been authored (architecture.md Section 3), so it sets no bound.
+    [InlineData(0, 2)]
+    public async Task CreateAsync_Saves_WhenRequiredMovesFitTheGrantCount_OrTheCountIsUnauthored(int grant, int required)
+    {
+        var repository = new FakePlaybookRepository();
+        var service = new PlaybookService(repository);
+
+        var result = await service.CreateAsync(
+            Request() with
+            {
+                MoveGrantCount = grant,
+                Moves = [.. Enumerable.Range(0, required).Select(i => Move($"Granted {i}", required: true, i))],
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(1, repository.SaveChangesCalls);
+    }
+
+    [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenAFreeTextSectionAlsoListsOptions()
     {
         var service = new PlaybookService(new FakePlaybookRepository());
@@ -321,6 +370,9 @@ public sealed class PlaybookServiceTests
 
     private static UpsertPlaybookRequest Request(string name = "The Test Subject") => new(
         name, null, 7, null, 5, 7, 5, 2, null, null, null, null, [], [], [], [], [], [], [], []);
+
+    private static UpsertPlaybookMoveRequest Move(string name, bool required, int sortOrder) =>
+        new(null, name, null, required, false, sortOrder, []);
 
     private static UpsertBespokeSectionRequest Section(string title, int? min, int? max, int optionCount) => new(
         null, title, null, null, null, min, max, null, null, 0,

@@ -29,7 +29,7 @@ const playbook: PlaybookDetailResponse = {
   harmUnstableThreshold: 5,
   harmBoxCount: 7,
   experienceBoxCount: 5,
-  moveGrantCount: 2,
+  moveGrantCount: 3,
   gettingStartedText: null,
   introductionsText: null,
   levelingUpText: null,
@@ -424,6 +424,38 @@ describe('HunterFormComponent', () => {
     expect(component.isMovePickShort()).toBe(false);
     expect(component.isGearPickShort(playbook.gearCategories[0])).toBe(false);
     expect(component.unansweredLookCount()).toBe(0);
+  });
+
+  it('reaches the move limit at the budget, not the printed grant total', () => {
+    // moveGrantCount is 3 (the printed total, required move included), so the pick budget is
+    // 3 - 1 = 2. Ticking both pickable moves fills that budget even though it is one short of
+    // moveGrantCount itself.
+    chooseThePlaybook();
+
+    expect(component.isMoveLimitReached()).toBe(false);
+
+    component.toggleMove('mv1');
+    component.toggleMove('mv2');
+    fixture.detectChanges();
+
+    expect(component.isMoveLimitReached()).toBe(true);
+  });
+
+  it('imposes no ceiling and no minimum when moveGrantCount is 0 (unspecified)', () => {
+    const unspecified: PlaybookDetailResponse = { ...playbook, moveGrantCount: 0 };
+    TestBed.inject(PlaybookService).getById = () => of(unspecified);
+    chooseThePlaybook();
+
+    // No picks yet: still not "short", because there is no printed total to fall short of.
+    expect(component.isMovePickShort()).toBe(false);
+    expect(component.isMoveLimitReached()).toBe(false);
+
+    component.toggleMove('mv1');
+    component.toggleMove('mv2');
+    fixture.detectChanges();
+
+    // Both pickable moves taken: still no ceiling.
+    expect(component.isMoveLimitReached()).toBe(false);
   });
 
   it('keeps the gear ceiling the server also enforces', () => {

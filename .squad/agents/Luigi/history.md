@@ -1326,3 +1326,22 @@ Server-side `HunterService.ValidateBespoke` was tightened same-day to refuse a b
 
 ### Files
 Modified: `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.spec.ts`. Not committed. Decision filed at `.squad/decisions/inbox/luigi-hunter-form-untick-move-drops-bespoke-state.md`.
+
+---
+
+## 2026-09-14 — Hunter Wizard Phase 1: F0, move-limit budget
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 1 (R1), F0 slice of the Gap 1 fix (Q1 decided "total, picks 1"): `MoveGrantCount` is the printed total including required moves, so the client's pick budget is `max(0, moveGrantCount − requiredMoves().length)`, matching Bowser's same-day `HunterService`/`HunterCompleteness` change (`MovePicks.Budget`, uncommitted alongside this).
+
+### Reusable technical facts
+- Added `moveBudget` as its own `computed()` in `hunter-form.ts` rather than inlining the subtraction into `isMoveLimitReached`/`isMovePickShort`, since the HTML counter (`hunter-form.html:70-77`) needed the same number to read "n of budget picked" instead of "n of grant picked".
+- The `moveGrantCount() > 0` gate on both computeds was kept unchanged (not replaced with a `moveBudget() > 0` gate) — that's what preserves "a grant count of 0 means unspecified, no ceiling, no minimum" even though `moveBudget()` would itself evaluate to 0 whenever `moveGrantCount()` is 0.
+- No "plus N moves" heading exists in this component to worry about (Bowser's handoff note about it not changing was accurate but moot here — that heading, if it exists, isn't in `hunter-form.html`).
+- Admin playbook form (`pages/data-admin/components/playbook-admin/playbook-admin.ts:86-90`) already renders `error.error.message` via `notificationService.error` on a failed save, so Bowser's new `PlaybookService` refusal ("...required moves count toward the total.") needs no frontend change — confirmed, not assumed.
+
+### Verification
+`ng test --watch=false --reporters=verbose --include hunter-form.spec.ts`: 17/17 green (15 existing + fixture `moveGrantCount: 2 → 3` + 2 new: a limit-reached case and a `moveGrantCount: 0` no-ceiling/no-minimum case). `npm run test -- --watch=false` (full suite): 44 files / 383 tests green (+2 over the 381 baseline). `ng build --configuration production` (output redirected to scratchpad): clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`).
+
+### Files
+Modified: `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.html`, `hunter-form.spec.ts`. Not committed. Backend half (B1, B3) is Bowser's, already uncommitted in the working tree; not touched here.

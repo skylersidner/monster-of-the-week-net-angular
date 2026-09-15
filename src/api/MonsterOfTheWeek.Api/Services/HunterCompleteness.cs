@@ -46,6 +46,10 @@ public static class HunterCompleteness
         }
 
         /*
+         * The minimum is the pick budget, not MoveGrantCount itself: the grant is the printed
+         * total and already includes the Required moves a hunter holds without picking them
+         * (MovePicks). A budget of 0 therefore reports nothing.
+         *
          * Same MoveGrantCount == 0 caveat the ceiling check uses, and for the same reason:
          * Section 3 is explicit that 0 is indistinguishable from an unauthored Moves section,
          * so it cannot be read as "this playbook grants zero picks". All 28 canonical playbooks
@@ -53,12 +57,13 @@ public static class HunterCompleteness
          */
         if (playbook.MoveGrantCount > 0)
         {
+            var budget = MovePicks.Budget(playbook);
             var pickedIds = hunter.Moves.Select(x => x.PlaybookMoveId).ToHashSet();
             var required = playbook.Moves.Where(m => m.Required).Select(m => m.Id).ToHashSet();
             var chosen = pickedIds.Count(id => !required.Contains(id));
-            if (chosen < playbook.MoveGrantCount)
+            if (chosen < budget)
             {
-                outstanding.Add($"Moves: {chosen} of {playbook.MoveGrantCount} picked.");
+                outstanding.Add($"Moves: {chosen} of {budget} picked.");
             }
         }
 
@@ -204,6 +209,33 @@ public static class HunterCompleteness
             }
         }
     }
+}
+
+/// <summary>
+/// The move pick budget, shared by <see cref="HunterCompleteness"/> (the minimum) and
+/// <c>HunterService.Validate</c> (the ceiling) for the same reason <see cref="BespokeEngagement"/>
+/// is: two copies of the arithmetic could call one hunter over and under at once.
+///
+/// <para>
+/// <b><see cref="Playbook.MoveGrantCount"/> is the printed total, Required moves included</b>
+/// (hunter-creation-wizard.md 12.3, decided 2026-09-13, checked against the PDF for all 28).
+/// The Chosen stores 3 for "plus three Chosen moves. You get these two: … Then pick one", so
+/// what a hunter picks is the grant minus its Required moves. Until 2026-09-14 the code read
+/// the grant as picks <i>beyond</i> the Required moves, which let the 14 playbooks with
+/// Required moves take too many picks and reported a correct hunter as unfinished.
+/// </para>
+///
+/// <para>
+/// Callers still skip everything when <c>MoveGrantCount</c> is 0 (an unauthored Moves section,
+/// architecture.md Section 3). The floor of 0 only matters for a stored playbook with more
+/// Required moves than its grant, which <c>PlaybookService</c> refuses to save.
+/// </para>
+/// </summary>
+internal static class MovePicks
+{
+    public static int RequiredCount(Playbook playbook) => playbook.Moves.Count(m => m.Required);
+
+    public static int Budget(Playbook playbook) => Math.Max(0, playbook.MoveGrantCount - RequiredCount(playbook));
 }
 
 /// <summary>
