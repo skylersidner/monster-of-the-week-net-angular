@@ -32,6 +32,8 @@ Yoshi's `docs/updates/multi-minion-support.md` is dated 2026-08-04 and is descri
 
 The last row is the binding constraint on everything below: whatever the minion step becomes, it lives in a narrow, already-scrolling column whose inline sub-resource add-forms are already fighting for horizontal space (`flex-[1_1_220px]` inputs, a `flex: 0 1 160px` weapon-tag select).
 
+> **Update 2026-09-14 (hunter creation wizard Phase 3, R3):** the 42% column no longer applies at every width. The wizard now renders through the shared `WizardLayoutComponent` (`shared/wizard/wizard-layout.html`), which is `w-full md:w-[42%]`. Below Tailwind's `md` breakpoint (768px), the form column is full width, the dossier is hidden, and the tracker goes compact. At `md` and above, the constraints in this section still hold. The `mystery-create.html:5` references in this doc predate that move.
+
 ---
 
 ## 1. Recommended Pattern — Roster + Single Active Composer

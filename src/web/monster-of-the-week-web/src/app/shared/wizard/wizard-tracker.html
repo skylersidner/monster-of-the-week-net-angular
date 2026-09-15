@@ -1,0 +1,46 @@
+<header
+  class="tracker bg-surface shadow-sm min-h-[80px] py-3 px-4 md:px-8"
+  [style.grid-template-columns]="gridTemplateColumns">
+  @for (step of steps; track $index; let i = $index) {
+    @if (i > 0) {
+      <div
+        class="tracker-line bg-border-strong max-w-[80px] min-w-2 md:min-w-6"
+        [class.complete]="steps[i - 1].status === 'finished'"
+        [style.grid-column]="i * 2">
+      </div>
+    }
+
+    <div class="tracker-phase" [style.grid-column]="i * 2 + 1">
+      <button
+        type="button"
+        class="phase-bubble h-7 w-7 md:h-9 md:w-9"
+        [class.active]="isCurrent(i)"
+        [class.complete]="!isCurrent(i) && step.status === 'finished'"
+        [class.visited]="!isCurrent(i) && step.status === 'visited'"
+        [class.not-applicable]="step.status === 'notApplicable'"
+        [disabled]="!isEnabled(step)"
+        [attr.aria-current]="isCurrent(i) ? 'step' : null"
+        [attr.aria-label]="ariaLabel(step, i)"
+        (click)="select(i)">
+        {{ bubbleText(step, i) }}
+      </button>
+
+      <span class="tracker-label inline-flex items-center text-muted text-xs gap-[0.35rem] font-semibold" [class]="labelVisibilityClass(i)">
+        @if (iconTemplate) {
+          <ng-container [ngTemplateOutlet]="iconTemplate" [ngTemplateOutletContext]="{ $implicit: step }" />
+        }
+        <span>{{ step.label }}</span>
+      </span>
+
+      <div class="tracker-dots flex gap-[0.3rem]" aria-hidden="true">
+        @for (dot of step.subSteps; track $index; let d = $index) {
+          <span
+            class="step-dot"
+            [class.active]="isCurrentDot(i, d)"
+            [class.complete]="!isCurrentDot(i, d) && dot === 'finished'">
+          </span>
+        }
+      </div>
+    </div>
+  }
+</header>

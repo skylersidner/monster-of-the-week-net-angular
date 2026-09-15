@@ -1368,3 +1368,26 @@ Modified: `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.spe
 
 ### Files
 Modified: `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.html`, `hunter-form.spec.ts`. Not committed. Backend half (B1, B3) is Bowser's, already uncommitted in the working tree; not touched here.
+
+---
+
+## 2026-09-14 — Hunter Wizard Phase 3 (R3, F4): shared wizard tracker and layout, Mysteries first
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 3: presentational `WizardTrackerComponent` + `WizardLayoutComponent` in `shared/wizard/`; Mystery wizard (create and `/:id/edit`, same component) moved onto both. Q9 "Both wizards": scroll reset, heading focus, narrow layout. No hunter wizard code, no store change.
+
+### Reusable technical facts
+- **"Current always wins" is structural:** the template never binds `.complete`/`.visited` together with `.active` (`!isCurrent(i) && ...`); `.active` also declared last. Applies to step dots too, so a filled-in current step's dot stays accent (a visible change the doc's list didn't name).
+- **Generated columns via a CSS var:** TS builds `auto var(--wizard-tracker-connector) auto ...`; SCSS sets the var to `minmax(0.5rem, 1.5rem)`, and to `minmax(1.5rem, 3rem)` in `@media (min-width: 48rem)`. jsdom keeps a `var()` value in `style.gridTemplateColumns`, so a spec can assert it.
+- **An `sr-only` grid item is absolutely positioned and leaves the subgrid's auto-placement,** so the dots moved up a row. Pin `grid-row` 1/2/3 on the bubble, label and dots.
+- **Compact sizing lives in template utilities** (`h-7 w-7 md:h-9 md:w-9`, `px-4 md:px-8`, `min-w-2 md:min-w-6`, label `max-md:sr-only` via `[class]`, merged with static `class`), so a jsdom spec can assert it. Emitted CSS confirmed in the production build.
+- **Focus and scroll run in `afterNextRender` from `ngOnChanges`** (skipped on `firstChange`), so the heading already has the new title when it takes focus. Specs need `await fixture.whenStable()` to see it. jsdom `scrollTop` is always 0: `Object.defineProperty(el, 'scrollTop', { value, writable: true })`.
+- **The layout is `ViewEncapsulation.None`, scoped under `.wizard-layout`,** so the `.dossier-section` animation reaches projected dossier markup. `prefers-reduced-motion` override added. `mystery-create.scss` deleted, and the page host uses `host: { class: 'block h-full' }`. The tracker icon comes through `iconTemplate` (`let-step` → `step.icon`), because `shared/` can't import a feature's icon component. The spec's icon count of 5 holds.
+- **Mystery mapping never uses `visited`:** incomplete phases are `unreached`, with `clickable` from `isPhaseAccessible`. The edit-mode plain clickable bubble is unchanged.
+- Negative controls, both reverted: removing the `firstChange` guard failed the layout first-render test and the new Mystery focus case. Binding `.complete` without `!isCurrent` failed the current-wins test.
+
+### Verification
+Full suite: 48 files / 421 tests, up from a 46 / 404 baseline. That's 10 tracker tests, 6 layout tests and 1 new `mystery-create.spec.ts` case. No existing assertion changed, and the store spec is untouched. `ng build --configuration production --output-path` into scratchpad: clean, 2 budget warnings. The new `wizard-tracker.scss` (2.96 kB) replaces the old `mystery-create.scss` warning; `custom-select` is unchanged. No browser pass, which is Toad's. Docs: dated notes in `luigi-theming-phase6-mystery-wizard.md` §6 and `multi-minion-wizard-design.md`.
+
+### Files
+New: `shared/wizard/wizard-tracker.{ts,html,scss,spec.ts}`, `shared/wizard/wizard-layout.{ts,html,scss,spec.ts}`. Modified: `features/mysteries/pages/mystery-create/mystery-create.{ts,html,spec.ts}`. Deleted: `mystery-create-tracker.{ts,html}`, `mystery-create.scss`. Not committed.

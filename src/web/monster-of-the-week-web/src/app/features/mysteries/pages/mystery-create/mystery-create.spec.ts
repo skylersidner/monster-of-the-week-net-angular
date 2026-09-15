@@ -270,6 +270,21 @@ describe('MysteryCreateComponent', () => {
     expect(text).not.toContain('Acolyte-power-1');
   });
 
+  it('moves focus to the step heading after store.next()', async () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const heading = element.querySelector<HTMLElement>('section h1')!;
+    expect(document.activeElement).not.toBe(heading);
+
+    component.store.conceptForm.controls.name.setValue('The Hollow Choir');
+    component.store.conceptForm.controls.adventureTypeId.setValue('adventure-type-1');
+    component.store.next();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(heading);
+    expect(heading.textContent).toContain('How Do the Hunters Get Involved?');
+  });
+
   it('keeps the minion dossier section visible after a saved minion resets the composer', () => {
     component.store.currentPhase.set(1);
     component.store.currentStep.set(1);
