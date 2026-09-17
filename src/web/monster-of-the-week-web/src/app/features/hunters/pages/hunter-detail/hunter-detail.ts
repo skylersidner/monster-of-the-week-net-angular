@@ -10,9 +10,9 @@ import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-m
 import { HunterFormComponent } from '../../shared/hunter-form/hunter-form';
 
 /**
- * Owns the `update` and `delete` calls; the form is the same component the create page uses,
- * populated from `hunter`. The only per-mode differences are which service method fires and
- * that the playbook control is locked (see `HunterFormComponent.populate`).
+ * Owns the `update` and `delete` calls; the form is the edit-only `HunterFormComponent`, populated
+ * from `hunter`, with its playbook control locked (see `HunterDraft.populate`). Creating a hunter is
+ * the wizard at `/hunters/new` (hunter-creation-wizard.md L17).
  */
 @Component({
   selector: 'app-hunter-detail',

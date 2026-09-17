@@ -1,0 +1,72 @@
+/* `#styles.css` (not bare `tailwindcss`) so `@apply` can reach the app's semantic tokens
+   (`bg-accent`, `bg-success`, `border-strong`, ...). See docs/theming/theming-plan.md, Decision B addendum. */
+@reference "#styles.css";
+
+/* Subgrid, generated columns and compound state selectors have no Tailwind utility equivalent.
+   Sizes that change at `md` (bubble, connector line, padding) live in the template as utilities. */
+
+/* ── Subgrid tracker ─────────────────────────────────────────────────────────── */
+.tracker {
+  /* Connector track width; `grid-template-columns` is generated from the step count in the component. */
+  --wizard-tracker-connector: minmax(0.5rem, 1.5rem);
+  display: grid;
+  grid-template-rows: auto auto auto;
+  justify-content: center;
+  justify-items: center;
+  row-gap: 0.35rem;
+}
+
+/* Tailwind's `md` breakpoint (48rem; not overridden in styles.css). */
+@media (min-width: 48rem) {
+  .tracker {
+    --wizard-tracker-connector: minmax(1.5rem, 3rem);
+  }
+}
+
+.tracker-phase {
+  display: grid;
+  grid-row: 1 / 4;
+  grid-template-rows: subgrid;
+  justify-items: center;
+}
+
+/* Explicit rows: an `sr-only` label is absolutely positioned and would otherwise pull the dots up a row. */
+.tracker-phase > .phase-bubble { grid-row: 1; }
+.tracker-phase > .tracker-label { grid-row: 2; }
+.tracker-phase > .tracker-dots { grid-row: 3; }
+
+.tracker-line {
+  align-self: center;
+  grid-row: 1;
+  height: 2px;
+  justify-self: stretch;
+}
+
+.tracker-line.complete {
+  @apply bg-success;
+}
+
+/* ── Phase bubbles — one status ladder (hunter-creation-wizard.md §4.2) ─────────
+   The template never puts `.active` together with `.complete` or `.visited`, so the current
+   step wins structurally; `.active` is also declared last. */
+.phase-bubble {
+  @apply inline-flex items-center justify-center bg-transparent border-2 border-strong
+         rounded-full text-muted cursor-default text-sm font-bold;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+
+  &.visited        { @apply border-accent text-accent cursor-pointer; }
+  &.complete       { @apply bg-success border-success text-on-success cursor-pointer; }
+  &.not-applicable { @apply border-dashed; }
+  &.active         { @apply bg-accent border-accent text-on-accent; }
+  &:disabled       { @apply cursor-not-allowed opacity-50; }
+}
+
+/* ── Step dots ───────────────────────────────────────────────────────────────── */
+.step-dot {
+  @apply inline-block bg-border rounded-full transition-colors;
+  height: 7px;
+  width: 7px;
+
+  &.complete { @apply bg-success; }
+  &.active   { @apply bg-accent; }
+}

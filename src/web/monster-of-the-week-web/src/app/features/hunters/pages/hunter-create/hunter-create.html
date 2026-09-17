@@ -1,17 +1,76 @@
-<section class="text-primary">
-  <a routerLink="/hunters" class="inline-block mb-3">← Back to hunters</a>
-  <h2 class="mb-4">New Hunter</h2>
+<app-wizard-layout
+  [eyebrow]="store.eyebrow()"
+  [title]="store.title()"
+  [blurb]="store.blurb()"
+  [error]="store.error()"
+  [stepKey]="store.stepKey()">
+  <app-wizard-tracker
+    wizardTracker
+    [steps]="store.trackerSteps()"
+    [currentIndex]="store.current().step"
+    [currentSubIndex]="store.current().sub"
+    [collapseLabelsBelowLg]="true"
+    (jump)="store.jumpTo($event)" />
 
-  @if (isLoading()) {
-    <p>Loading playbooks...</p>
-  } @else if (errorMessage()) {
-    <p class="text-danger">{{ errorMessage() }}</p>
-  } @else {
-    <app-hunter-form
-      [playbooks]="playbooks()"
-      [isSaving]="isSaving()"
-      submitLabel="Create Hunter"
-      (save)="onSave($event)"
-    />
+  @switch (store.current().step) {
+    @case (step.playbook) {
+      <app-hunter-playbook-step />
+    }
+    @case (step.ratings) {
+      <app-hunter-ratings-step />
+    }
+    @case (step.tracks) {
+      <app-hunter-tracks-step />
+    }
+    @case (step.rules) {
+      <app-hunter-rules-step />
+    }
+    @case (step.moves) {
+      <app-hunter-moves-step />
+    }
+    @case (step.gear) {
+      <app-hunter-gear-step />
+    }
+    @case (step.improvements) {
+      <app-hunter-improvements-step />
+    }
+    @case (step.introductions) {
+      <app-hunter-introductions-step />
+    }
   }
-</section>
+
+  <!-- L7 / L27: beside a refusal, a link to the step the picks don't fit, or Reload playbook. -->
+  @if (store.bandAction(); as action) {
+    <button wizardErrorAction type="button" class="bg-transparent border border-accent rounded-lg text-accent cursor-pointer font-[inherit] text-[0.8rem] font-semibold ml-2 px-2 py-[0.1rem] disabled:cursor-not-allowed disabled:opacity-60" [disabled]="store.reloadState() === 'reloading'" (click)="store.runBandAction(action)">{{ action.label }}</button>
+  }
+
+  <button wizardFooter type="button" class="bg-transparent border border-strong rounded-lg text-muted cursor-pointer font-[inherit] text-[0.9rem] px-5 py-[0.55rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40" [disabled]="!store.canGoBack()" (click)="store.back()">← Back</button>
+  <!-- Create Hunter is enabled whenever the step 1 gate holds (Q1, "Carry on"); only an in-flight Create disables it. -->
+  <button wizardFooter type="button" class="bg-accent border-0 rounded-lg text-on-accent cursor-pointer font-[inherit] text-[0.9rem] font-semibold px-6 py-[0.55rem] hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-70 transition-colors" [disabled]="store.isSubmitting()" (click)="store.isLastStep() ? store.create() : store.next()">
+    @if (store.isSubmitting()) { Creating… } @else if (store.isLastStep()) { Create Hunter } @else { Next → }
+  </button>
+
+  <app-hunter-sheet-preview wizardAside />
+</app-wizard-layout>
+
+<!-- 7.4 / L13: switching playbook with picks in place. -->
+<app-confirm-delete-modal
+  [visible]="store.pendingSwitch() !== null"
+  verb="Switch to"
+  confirmLabel="Switch playbook"
+  [itemName]="store.pendingSwitch()?.playbookName ?? ''"
+  [message]="switchMessage()"
+  [items]="store.pendingSwitch()?.items ?? []"
+  permanenceNote="Your name, pronouns and History notes stay."
+  (confirmed)="store.confirmSwitch()"
+  (cancelled)="store.cancelSwitch()" />
+
+<!-- 7.5 / L12: leaving a dirty draft. -->
+<app-confirm-delete-modal
+  [visible]="isConfirmingDiscard()"
+  verb="Discard"
+  [itemName]="discardName()"
+  message="Nothing has been saved yet."
+  permanenceNote=""
+  (confirmed)="resolveDiscard(true)"
+  (cancelled)="resolveDiscard(false)" />

@@ -539,6 +539,71 @@ export interface PlaybookDetailResponse {
   bespokeSections: BespokeSectionResponse[];
   bespokeJournals: BespokeJournalResponse[];
   extraTracks: PlaybookExtraTrackResponse[];
+  /** Pick rules (hunter-creation-wizard.md 12.9). Last on the wire, as on the C# record. */
+  pickRules: PlaybookPickRuleResponse[];
+}
+
+// --- Pick rules (hunter-creation-wizard.md 12.9, the JSON shape as re-pinned for Q12) -----
+// A rule is a set of alternatives. Each alternative has one count per governed target: a gear
+// category, or a top-level bespoke category divider. A count is a range plus at most one
+// adjustment, a different range that applies when any of its trigger options is picked.
+// Counts and adjustments carry no ids: they are replaced wholesale within their alternative.
+
+export interface PlaybookPickRuleAdjustmentResponse {
+  triggerOptionIds: string[];
+  minCount: number;
+  maxCount: number;
+}
+
+export interface PlaybookPickRuleCountResponse {
+  /** Exactly one of `gearCategoryId` and `bespokeOptionId` is set. */
+  gearCategoryId: string | null;
+  bespokeOptionId: string | null;
+  minCount: number;
+  maxCount: number;
+  adjustment: PlaybookPickRuleAdjustmentResponse | null;
+}
+
+export interface PlaybookPickRuleAlternativeResponse {
+  id: string;
+  label: string | null;
+  sortOrder: number;
+  counts: PlaybookPickRuleCountResponse[];
+}
+
+export interface PlaybookPickRuleResponse {
+  id: string;
+  label: string | null;
+  sortOrder: number;
+  alternatives: PlaybookPickRuleAlternativeResponse[];
+}
+
+export interface UpsertPlaybookPickRuleAdjustmentRequest {
+  triggerOptionIds: string[];
+  minCount: number;
+  maxCount: number;
+}
+
+export interface UpsertPlaybookPickRuleCountRequest {
+  gearCategoryId: string | null;
+  bespokeOptionId: string | null;
+  minCount: number;
+  maxCount: number;
+  adjustment: UpsertPlaybookPickRuleAdjustmentRequest | null;
+}
+
+export interface UpsertPlaybookPickRuleAlternativeRequest {
+  id: string | null;
+  label: string | null;
+  sortOrder: number;
+  counts: UpsertPlaybookPickRuleCountRequest[];
+}
+
+export interface UpsertPlaybookPickRuleRequest {
+  id: string | null;
+  label: string | null;
+  sortOrder: number;
+  alternatives: UpsertPlaybookPickRuleAlternativeRequest[];
 }
 
 export interface UpsertPlaybookStatArrayOptionRequest {
@@ -619,6 +684,12 @@ export interface UpsertPlaybookRequest {
   bespokeSections: UpsertBespokeSectionRequest[];
   bespokeJournals: UpsertBespokeJournalRequest[];
   extraTracks: UpsertPlaybookExtraTrackRequest[];
+  /**
+   * The one child collection where absent does NOT mean empty (12.9 S9): absent or null leaves
+   * the stored rules untouched, `[]` removes them all, and a list is Id-diffed. The admin playbook
+   * form has no rule editor, so it never sets this key (S3, L32).
+   */
+  pickRules?: UpsertPlaybookPickRuleRequest[] | null;
 }
 
 // --- Phase 5: bespoke rulesets ---------------------------------------------------------
@@ -813,6 +884,28 @@ export interface HunterDetailResponse {
    */
   outstanding: string[];
   createdAt: string;
+}
+
+// --- The check (hunter-creation-wizard.md 12.8, 13.9) --------------------------------------
+// `POST /api/hunters/evaluate` answers what Create would say about an unsaved hunter, and saves
+// nothing. The areas are sheet areas, sent as lowercase strings; the wizard maps them to steps.
+
+export type HunterOutstandingArea = 'ratings' | 'rules' | 'moves' | 'gear' | 'look';
+
+export interface HunterOutstandingItem {
+  area: HunterOutstandingArea;
+  /** Set on every bespoke line, a repeatable entry's included. */
+  sectionId: string | null;
+  /** Set on gear lines. */
+  gearCategoryId: string | null;
+  /** Exactly the string `HunterDetailResponse.outstanding` carries for the same gap. */
+  message: string;
+}
+
+export interface HunterEvaluationResponse {
+  /** The message Create would refuse the request with; `outstanding` is then empty. */
+  refusal: string | null;
+  outstanding: HunterOutstandingItem[];
 }
 
 export interface UpsertHunterRequest {

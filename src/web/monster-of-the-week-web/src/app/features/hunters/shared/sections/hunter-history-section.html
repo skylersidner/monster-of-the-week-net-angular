@@ -1,0 +1,29 @@
+@if (mode === 'create') {
+  <!-- The wizard's last step (3.3 step 8, Q4): the prompts as a reference panel, the optional notes box under them. -->
+  @if (draft.playbook()?.historyPromptsText; as prompts) {
+    <div class="bg-surface-sunken rounded-lg p-4" data-panel="history">
+      <div class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] uppercase mb-2">History</div>
+      <!-- Text interpolation, not [innerHTML]: the seed has no HTML in this field (13.2). -->
+      <div class="text-primary text-[0.9rem] leading-[1.65] whitespace-pre-line">{{ prompts }}</div>
+    </div>
+  }
+  <label class="grid font-medium gap-1">
+    <span class="font-normal text-muted text-[0.85rem]">History notes (optional)</span>
+    <textarea class="w-full min-w-0 bg-surface border border-default rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" [formControl]="draft.form.controls.background" rows="6"></textarea>
+  </label>
+} @else {
+  <h3>History</h3>
+  <label class="grid font-medium gap-1">
+    <span class="font-normal text-muted text-[0.85rem]">History notes</span>
+    <textarea class="w-full min-w-0 border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" [formControl]="draft.form.controls.background" rows="8"></textarea>
+  </label>
+  @if (draft.playbook(); as book) {
+    @if (book.historyPromptsText) {
+      <details class="bg-surface border border-default rounded-lg p-3">
+        <summary class="cursor-pointer font-medium">History prompts for {{ book.name }}</summary>
+        <!-- Text interpolation, not [innerHTML]: the seed has no HTML in this field (13.2). -->
+        <div class="text-[0.85rem] mt-2 whitespace-pre-line">{{ book.historyPromptsText }}</div>
+      </details>
+    }
+  }
+}

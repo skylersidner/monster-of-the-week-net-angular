@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
+import { HttpContext } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiService } from './api';
-import { HunterDetailResponse, HunterListItemResponse, UpsertHunterRequest } from './models';
+import { SUPPRESS_ERROR_TOAST } from './http-context-tokens';
+import { HunterDetailResponse, HunterEvaluationResponse, HunterListItemResponse, UpsertHunterRequest } from './models';
 
 /**
  * Hunters are player-character instances built from a Playbook template. The list is flat —
@@ -28,11 +30,35 @@ export class HunterService {
   }
 
   create(request: UpsertHunterRequest): Observable<HunterDetailResponse> {
-    return this.apiService.post<UpsertHunterRequest, HunterDetailResponse>('/api/hunters', request);
+    // SUPPRESS_ERROR_TOAST: the create/detail page already shows the server's message on a
+    // refusal (13.11 item 4, L9); without this a rejected save doubles as a generic toast too.
+    return this.apiService.post<UpsertHunterRequest, HunterDetailResponse>(
+      '/api/hunters',
+      request,
+      new HttpContext().set(SUPPRESS_ERROR_TOAST, true)
+    );
+  }
+
+  /**
+   * The check-only call (hunter-creation-wizard.md 12.8, 13.9): what Create would say about this
+   * request, with nothing saved. SUPPRESS_ERROR_TOAST (L9): the wizard runs it on every step change
+   * and shows its own information-only "Couldn't check what's left", so a failure must not toast.
+   * A 401 still bounces to /login.
+   */
+  evaluate(request: UpsertHunterRequest): Observable<HunterEvaluationResponse> {
+    return this.apiService.post<UpsertHunterRequest, HunterEvaluationResponse>(
+      '/api/hunters/evaluate',
+      request,
+      new HttpContext().set(SUPPRESS_ERROR_TOAST, true)
+    );
   }
 
   update(hunterId: string, request: UpsertHunterRequest): Observable<HunterDetailResponse> {
-    return this.apiService.put<UpsertHunterRequest, HunterDetailResponse>(`/api/hunters/${hunterId}`, request);
+    return this.apiService.put<UpsertHunterRequest, HunterDetailResponse>(
+      `/api/hunters/${hunterId}`,
+      request,
+      new HttpContext().set(SUPPRESS_ERROR_TOAST, true)
+    );
   }
 
   delete(hunterId: string): Observable<void> {

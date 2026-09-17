@@ -104,7 +104,10 @@ public sealed record PlaybookDetailResponse(
     IReadOnlyList<PlaybookImprovementResponse> Improvements,
     IReadOnlyList<BespokeSectionResponse> BespokeSections,
     IReadOnlyList<BespokeJournalResponse> BespokeJournals,
-    IReadOnlyList<PlaybookExtraTrackResponse> ExtraTracks);
+    IReadOnlyList<PlaybookExtraTrackResponse> ExtraTracks,
+    // Hunter creation wizard Phase 6. Last on purpose, so an older seed file without it still
+    // deserializes; PlaybookSeed.ToEntity reads a missing list as no rules.
+    IReadOnlyList<PlaybookPickRuleResponse> PickRules);
 
 public sealed record BasicMoveResponse(Guid Id, string Name, string DescriptionText, int SortOrder);
 
@@ -184,7 +187,19 @@ public sealed record UpsertPlaybookRequest(
     IReadOnlyList<UpsertPlaybookImprovementRequest>? Improvements,
     IReadOnlyList<UpsertBespokeSectionRequest>? BespokeSections,
     IReadOnlyList<UpsertBespokeJournalRequest>? BespokeJournals,
-    IReadOnlyList<UpsertPlaybookExtraTrackRequest>? ExtraTracks);
+    IReadOnlyList<UpsertPlaybookExtraTrackRequest>? ExtraTracks,
+    /*
+     * A deliberate exception to every other child collection here, which reads null as empty
+     * (hunter-creation-wizard.md 12.9, S9):
+     * - null or absent: the stored rules are left exactly as they are;
+     * - []: every rule is removed;
+     * - a list: the usual Id-based diff for rules and alternatives, with each alternative's
+     *   counts replaced wholesale.
+     * The admin form has no rule editor and omits this key, so it can't rewrite a rule by
+     * echoing it back badly. The rules a save keeps are still validated against the edited
+     * playbook, and a conflict with one is a 409 (S11).
+     */
+    IReadOnlyList<UpsertPlaybookPickRuleRequest>? PickRules = null);
 
 // ---------------------------------------------------------------------------------------
 // Phase 5 — bespoke rulesets. architecture.md Section 6.
@@ -286,3 +301,71 @@ public sealed record UpsertPlaybookExtraTrackRequest(
     string? StartLabel,
     [param: Required, MinLength(1)] string EndLabel,
     int SortOrder);
+
+// ---------------------------------------------------------------------------------------
+// Hunter creation wizard Phase 6 — pick rules. hunter-creation-wizard.md 12.9; schema in
+// architecture.md Section 6.10.
+//
+// The JSON shape is pinned in 12.9 and the web client is built against it, so property order
+// and names here are part of the contract:
+//
+//   pickRules: [{ id, label, sortOrder,
+//     alternatives: [{ id, label, sortOrder,
+//       counts: [{ gearCategoryId, bespokeOptionId, minCount, maxCount,
+//                  adjustment: { triggerOptionIds, minCount, maxCount } | null }] }] }]
+//
+// Rules and alternatives carry ids and go through the Id-based diff. Counts and adjustments
+// carry none and are replaced within their alternative. The response orders rules and
+// alternatives by SortOrder then id, counts by their target's SortOrder then target id, and
+// triggerOptionIds by option SortOrder then id (Y7), so a seed re-export doesn't depend on
+// database row order. A request uses the same shape, with a null id for a new rule or
+// alternative.
+// ---------------------------------------------------------------------------------------
+
+public sealed record PlaybookPickRuleResponse(
+    Guid Id,
+    string? Label,
+    int SortOrder,
+    IReadOnlyList<PlaybookPickRuleAlternativeResponse> Alternatives);
+
+public sealed record PlaybookPickRuleAlternativeResponse(
+    Guid Id,
+    string? Label,
+    int SortOrder,
+    IReadOnlyList<PlaybookPickRuleCountResponse> Counts);
+
+public sealed record PlaybookPickRuleCountResponse(
+    Guid? GearCategoryId,
+    Guid? BespokeOptionId,
+    int MinCount,
+    int MaxCount,
+    PlaybookPickRuleAdjustmentResponse? Adjustment);
+
+public sealed record PlaybookPickRuleAdjustmentResponse(
+    IReadOnlyList<Guid> TriggerOptionIds,
+    int MinCount,
+    int MaxCount);
+
+public sealed record UpsertPlaybookPickRuleRequest(
+    Guid? Id,
+    string? Label,
+    int SortOrder,
+    IReadOnlyList<UpsertPlaybookPickRuleAlternativeRequest>? Alternatives);
+
+public sealed record UpsertPlaybookPickRuleAlternativeRequest(
+    Guid? Id,
+    string? Label,
+    int SortOrder,
+    IReadOnlyList<UpsertPlaybookPickRuleCountRequest>? Counts);
+
+public sealed record UpsertPlaybookPickRuleCountRequest(
+    Guid? GearCategoryId,
+    Guid? BespokeOptionId,
+    int MinCount,
+    int MaxCount,
+    UpsertPlaybookPickRuleAdjustmentRequest? Adjustment);
+
+public sealed record UpsertPlaybookPickRuleAdjustmentRequest(
+    IReadOnlyList<Guid>? TriggerOptionIds,
+    int MinCount,
+    int MaxCount);

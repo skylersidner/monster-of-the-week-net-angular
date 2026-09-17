@@ -962,6 +962,29 @@ Implemented Phase 0 only of `docs/updates/svg-symbol-icons.md` (approved plan) �
 ### Verification
 `npm run build`: clean, same 2 pre-existing `anyComponentStyle` budget warnings (`custom-select.component.scss`, `mystery-create.scss`), unrelated. `npm run test -- --watch=false`: 38 files / 278 tests, all green, no regressions, no new specs needed (Phase 0 has no new behavior to test — the sprite renders nothing visible and nothing consumes it yet). Live-verified via Playwright against `ng serve` (no backend running, so pages loaded with the expected "API unavailable" state — unrelated to this change): `app-icon-sprite svg` present in the DOM with `computedStyle.display === 'none'` and all 26 expected symbol IDs; screenshotted `/dashboard` and `/minions` and confirmed pixel-identical layout to pre-change (sidebar icons, search glass, plus button, API-modal all render exactly as before — no visual diff, as expected for a `display:none` sprite). Cleaned up the throwaway `.mjs` verification script and killed the `ng serve` process I started (confirmed via `netstat` that the port was freed, didn't touch any other process).
 
+---
+
+## 2026-09-14 — Hunter Wizard Phase 2: F1 (13.11 items 1-6) + B4 frontend half
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 2 (R2), run concurrently with Bowser's B4 (`[MaxLength(255)]`)/B9 backend work — he only touches `src/api/`, I only touch `src/web/`. Six live-bug fixes on `hunter-form` plus the toast-suppression token (also wired onto the admin playbook save/delete per 13.12 item 14), plus verifying/adding the entry-name `maxlength`.
+
+### Reusable technical facts
+- **`ApiService.post/put/delete` gained an optional trailing `context?: HttpContext` param**, forwarded to `HttpClient` as `context ? { context } : undefined`. `HunterService.create/update` and `PlaybookService.create/update/delete` each build `new HttpContext().set(SUPPRESS_ERROR_TOAST, true)` — the token lives in new `core/http-context-tokens.ts`, checked only by `httpErrorInterceptor` (`isSelfHandled = isSelfHandledRequest(req) || req.context.get(SUPPRESS_ERROR_TOAST)`). Deliberately NOT folded into `isSelfHandledRequest`, since that predicate also disables `authErrorInterceptor`'s 401 bounce (per `luigi-interceptor-order-error-direction.md`) and these calls still need the bounce. Since `authErrorInterceptor` is innermost in `withInterceptors([credentials, httpError, authError])`, a 401 never even reaches `httpErrorInterceptor`'s catchError, so the new token is structurally inert on that path — pinned by a new `auth-error-interceptor.spec.ts` case that sets the token and still asserts a bounce with zero toasts.
+- **Bowser's B4 400 is ASP.NET's default ProblemDetails with no `message` field** (`{ title, errors: { Name: [...] }, traceId }`, no `message` key). The existing page handlers' `error?.error?.message ?? 'Unable to create hunter.'` pattern (unmodified, pre-existing in `hunter-create.ts`/`hunter-detail.ts`/`playbook-admin.ts`) already falls back correctly since optional chaining yields `undefined` for the missing key — pinned with the literal payload Bowser supplied in a new `http-error-interceptor.spec.ts` case, rather than by creating new page-level spec files (none exist yet for the hunter pages or `playbook-admin.ts` — a documented gap, 13.12 item 13, deferred to Phase 4).
+- **Playbook load race fix (item 5):** replaced two independent per-call `.subscribe()`s (one on `playbookId.valueChanges`, one inline inside the old `loadPlaybook`, plus a *third* direct call from `populate()`) with a single `Subject<string>` (`playbookIdRequests`) that every trigger pushes into, piped once through `switchMap`. Pinned with a new test using two raw `Subject`s as the mocked `getById` responses, resolving the *second* (fast) request before flushing the *first* (slow) one late — asserts the stale one never overwrites.
+- **Second-round bug, caught by Mario's review before I called this done: the switchMap subscription cannot live in `ngOnInit`.** `hunter-detail.html` only creates `<app-hunter-form [hunter]="current">` inside `@if (hunter(); as current)` — so on the edit page, the component's very *first* `ngOnChanges` already carries a non-null hunter, and Angular calls `ngOnChanges` before `ngOnInit` on that first change-detection pass. `populate()` (from `ngOnChanges`) ends by pushing into `playbookIdRequests`; with the subscription in `ngOnInit` that first push had no subscriber yet, and a plain `Subject` (not a `ReplaySubject`) drops it silently — the edit page's playbook would never load. All my Phase 2 tests missed this because the shared `beforeEach` always sets `hunter: null` and calls `detectChanges()` *before* setting a real hunter in a later, separate `detectChanges()` call — by which point `ngOnInit` had already run. **Fix: moved both subscriptions (`valueChanges` and the `playbookIdRequests`→`switchMap` pipeline) into an explicit `constructor()`.** Field initializers (including `hunterForm`, `playbookIdRequests`, `destroyRef`) all run before a constructor body regardless of source order, and construction always precedes the first `ngOnChanges`, so this can't race no matter which input arrives first. Removed the now-empty `ngOnInit`/`OnInit`. **Lesson for next time a fix touches a `switchMap`/`Subject` pipeline gating on an `@Input`:** write the "component created with the input already set" case *before* trusting a green suite — a spec that starts from `hunter: null` and mutates later cannot catch an ordering bug that only exists on first construction. Pinned with a spec that calls `TestBed.createComponent` fresh and sets a non-null `hunter` via `setInput` *before the first* `detectChanges()`, reproducing `hunter-detail`'s real order; confirmed failing against the `ngOnInit` version before applying the fix.
+- **Numeric leaf default (item 6, L14):** `toggleBespoke` now looks up the option via a new private `findBespokeOption(optionId)` (recursive search over `allSections()`'s option trees) and, only on a fresh tick (`!wasPicked`) with no existing answer (`!this.answersFor(scopeKey).has(optionId)`), seeds `bespokeAnswers` with `numericValue: option.numericMax`. The "no existing answer" guard is what makes untick→retick preserve a value the player already typed — pinned by a dedicated control test, not just the happy path.
+- **Granted gear (item 2, B6/L15):** template-only split on `category.pickCount !== null` — pickable categories keep their checkbox `<label>`s unchanged; null-`pickCount` categories render a plain read-only `<div>` list headed "You get", no checkbox, so there is nothing to toggle a granted option's id on or off. No changes needed in `hunter-form.ts`: `selectedGearIds` already round-trips whatever `hunter.playbookGearOptionIds` loaded, and `dropSelectionsOutside` already treats granted-category option ids as valid (they're still part of `playbook.gearCategories`), so already-saved ids simply survive untouched — confirmed with a populate-then-resubmit test rather than assumed.
+- **History retitle + text interpolation (items 1, 3):** confirmed Bowser's B9 note — the only remaining stale comment was the template block above the `<textarea>` (`hunter-form.html`, "Now the placeholder for history and bespoke-ruleset answers only…"), now gone along with the `<h3>Background</h3>` heading and the old hint paragraph. `historyPromptsText`'s `[innerHTML]` (line 351 exactly, as the doc named it) became `{{ book.historyPromptsText }}` with a `whitespace-pre-line` class; the other `[innerHTML]` bindings in the file (move/section/option/effect text) were left alone per the brief.
+- Doc line references drift slightly from the current file (e.g. 13.11 item 5 cites `hunter-form.ts:668-692`; the actual `loadPlaybook` sat at `:677-701` before this change) — not a real mismatch, just Phase 1's edits shifting line numbers; flagged, not treated as a doc error.
+
+### Verification
+`npm run test -- --watch=false`: 46 files / 404 tests green (+21 over the 383 baseline: 8 in `hunter-form.spec.ts` — items 1/2/3/5/6, the B6/L15 already-saved-id case, and the edit-page first-render regression — 3 in `http-error-interceptor.spec.ts` (token true/false, message-less ProblemDetails), 1 in `auth-error-interceptor.spec.ts`, 4 in `api.spec.ts` for context forwarding, and 2 new files — `hunter.spec.ts` (2 tests) and `playbook.spec.ts` (3 tests) — asserting the token lands on the real outgoing request via `HttpTestingController`). `ng build --configuration production` (output redirected to the scratchpad, not `wwwroot`): clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`). `git status` after: only `src/web/` files touched by me; Bowser's B4/B9 changes are confined to `src/api/`, confirmed untouched.
+
+### Files
+New: `core/http-context-tokens.ts`, `core/hunter.spec.ts`, `core/playbook.spec.ts`. Modified: `core/api.ts`, `core/hunter.ts`, `core/playbook.ts`, `core/http-error-interceptor.ts`, `core/http-error-interceptor.spec.ts`, `core/auth-error-interceptor.spec.ts`, `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.html`, `hunter-form.spec.ts`. Not committed.
+
 ### Notes for whoever picks up Phase 1+
 The sprite already has Phase 4's `icon-nav-*`/`icon-mystery-*` symbols defined and correct (verified by DOM inspection, not just by eye) — Phase 4 only needs to repoint `domain-icon.component.ts`/`mystery-section-icon.ts`'s templates onto `<use>`, no new symbol authoring. Phase 1 can start immediately: `<app-icon name="trash" class="h-5 w-5" />` is ready to drop into all 13 call sites.
 
@@ -1307,3 +1330,239 @@ The main body of Yoshi's multi-minion plan, landed as one unit because the inter
 
 ### Files
 Modified: `features/mysteries/pages/mystery-create/mystery-create.store.ts`, `mystery-create-monster-phase.{ts,html}`, `mystery-create-dossier.{ts,html}`, `mystery-create.store.spec.ts`, `mystery-create.spec.ts`. Not committed.
+
+---
+
+## 2026-09-11 — Hunter Form: Untick-a-Move Drops Its Bespoke Section State
+
+### Task
+Server-side `HunterService.ValidateBespoke` was tightened same-day to refuse a bespoke entry/answer under a section whose owning move the hunter hasn't taken. Frontend never dropped that state on untick, so a Searcher hunter with Network entries who unticks Network and saves got refused. Skyler's chosen fix: unticking a move clears its `bespokeSections`' state client-side so the save never sends it — no restore on re-tick, no confirm dialog.
+
+### Reusable technical facts
+- **`toggleMove` reads `selectedMoveIds()` for the pre-toggle state before calling `.update()`**, then only clears on the untick transition (`wasSelected === true`). Required moves never call `toggleMove` (rendered checked+disabled), so no special-casing was needed there.
+- **Generalized `omit<T>(map, key)` → `omit<T>(map, keys: Iterable<string>)`** rather than adding a parallel bulk-delete helper. `removeInstance`'s three call sites became `omit(current, [key])` — one-line change, no behavior difference — so the new `clearBespokeSections` could reuse the exact same function for a multi-key clear. This is the "small shared helper" the brief asked for; didn't touch `dropSelectionsOutside`'s playbook-change prune, which filters the *inverse* direction (keep valid) and reads fine as its own thing.
+- **New private `clearBespokeSections(sections)`**: computes `sectionIds`, finds `bespokeInstances` under them, removes those instances, then unions `sectionIds` with the removed instances' own `key`s into one `deadScopes` set before clearing `bespokePicks`/`bespokeAnswers`/`bespokeFreeText`. Necessary because non-repeatable sections key state by section id directly, but repeatable sections (instances) key by `instance.key` — both had to be covered or a repeatable section's answers would survive as orphans.
+- **`bespokeInstances`/`picksFor`/etc. are populated and readable regardless of `moveSectionsFor`'s visibility gate** — that method only controls template rendering. Tests can call `addInstance`/`toggleBespoke` directly on a move's section without ticking the UI through the DOM, which is how the existing repeatable-section spec already worked.
+
+### Verification
+`ng test --watch=false --reporters=verbose --include hunter-form.spec.ts`: 15/15 green (14 existing + 1 new, covering both the drop-on-untick case and a control where a second taken move's section survives). `npm run test -- --watch=false` (full suite): 44 files / 381 tests green (+1 over the 380 baseline recorded 2026-09-01). `ng build --configuration production` (output redirected to scratchpad, not wwwroot): clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`).
+
+### Files
+Modified: `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.spec.ts`. Not committed. Decision filed at `.squad/decisions/inbox/luigi-hunter-form-untick-move-drops-bespoke-state.md`.
+
+---
+
+## 2026-09-14 — Hunter Wizard Phase 1: F0, move-limit budget
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 1 (R1), F0 slice of the Gap 1 fix (Q1 decided "total, picks 1"): `MoveGrantCount` is the printed total including required moves, so the client's pick budget is `max(0, moveGrantCount − requiredMoves().length)`, matching Bowser's same-day `HunterService`/`HunterCompleteness` change (`MovePicks.Budget`, uncommitted alongside this).
+
+### Reusable technical facts
+- Added `moveBudget` as its own `computed()` in `hunter-form.ts` rather than inlining the subtraction into `isMoveLimitReached`/`isMovePickShort`, since the HTML counter (`hunter-form.html:70-77`) needed the same number to read "n of budget picked" instead of "n of grant picked".
+- The `moveGrantCount() > 0` gate on both computeds was kept unchanged (not replaced with a `moveBudget() > 0` gate) — that's what preserves "a grant count of 0 means unspecified, no ceiling, no minimum" even though `moveBudget()` would itself evaluate to 0 whenever `moveGrantCount()` is 0.
+- No "plus N moves" heading exists in this component to worry about (Bowser's handoff note about it not changing was accurate but moot here — that heading, if it exists, isn't in `hunter-form.html`).
+- Admin playbook form (`pages/data-admin/components/playbook-admin/playbook-admin.ts:86-90`) already renders `error.error.message` via `notificationService.error` on a failed save, so Bowser's new `PlaybookService` refusal ("...required moves count toward the total.") needs no frontend change — confirmed, not assumed.
+
+### Verification
+`ng test --watch=false --reporters=verbose --include hunter-form.spec.ts`: 17/17 green (15 existing + fixture `moveGrantCount: 2 → 3` + 2 new: a limit-reached case and a `moveGrantCount: 0` no-ceiling/no-minimum case). `npm run test -- --watch=false` (full suite): 44 files / 383 tests green (+2 over the 381 baseline). `ng build --configuration production` (output redirected to scratchpad): clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`).
+
+### Files
+Modified: `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.html`, `hunter-form.spec.ts`. Not committed. Backend half (B1, B3) is Bowser's, already uncommitted in the working tree; not touched here.
+
+---
+
+## 2026-09-14 — Hunter Wizard Phase 3 (R3, F4): shared wizard tracker and layout, Mysteries first
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 3: presentational `WizardTrackerComponent` + `WizardLayoutComponent` in `shared/wizard/`; Mystery wizard (create and `/:id/edit`, same component) moved onto both. Q9 "Both wizards": scroll reset, heading focus, narrow layout. No hunter wizard code, no store change.
+
+### Reusable technical facts
+- **"Current always wins" is structural:** the template never binds `.complete`/`.visited` together with `.active` (`!isCurrent(i) && ...`); `.active` also declared last. Applies to step dots too, so a filled-in current step's dot stays accent (a visible change the doc's list didn't name).
+- **Generated columns via a CSS var:** TS builds `auto var(--wizard-tracker-connector) auto ...`; SCSS sets the var to `minmax(0.5rem, 1.5rem)`, and to `minmax(1.5rem, 3rem)` in `@media (min-width: 48rem)`. jsdom keeps a `var()` value in `style.gridTemplateColumns`, so a spec can assert it.
+- **An `sr-only` grid item is absolutely positioned and leaves the subgrid's auto-placement,** so the dots moved up a row. Pin `grid-row` 1/2/3 on the bubble, label and dots.
+- **Compact sizing lives in template utilities** (`h-7 w-7 md:h-9 md:w-9`, `px-4 md:px-8`, `min-w-2 md:min-w-6`, label `max-md:sr-only` via `[class]`, merged with static `class`), so a jsdom spec can assert it. Emitted CSS confirmed in the production build.
+- **Focus and scroll run in `afterNextRender` from `ngOnChanges`** (skipped on `firstChange`), so the heading already has the new title when it takes focus. Specs need `await fixture.whenStable()` to see it. jsdom `scrollTop` is always 0: `Object.defineProperty(el, 'scrollTop', { value, writable: true })`.
+- **The layout is `ViewEncapsulation.None`, scoped under `.wizard-layout`,** so the `.dossier-section` animation reaches projected dossier markup. `prefers-reduced-motion` override added. `mystery-create.scss` deleted, and the page host uses `host: { class: 'block h-full' }`. The tracker icon comes through `iconTemplate` (`let-step` → `step.icon`), because `shared/` can't import a feature's icon component. The spec's icon count of 5 holds.
+- **Mystery mapping never uses `visited`:** incomplete phases are `unreached`, with `clickable` from `isPhaseAccessible`. The edit-mode plain clickable bubble is unchanged.
+- Negative controls, both reverted: removing the `firstChange` guard failed the layout first-render test and the new Mystery focus case. Binding `.complete` without `!isCurrent` failed the current-wins test.
+
+### Verification
+Full suite: 48 files / 421 tests, up from a 46 / 404 baseline. That's 10 tracker tests, 6 layout tests and 1 new `mystery-create.spec.ts` case. No existing assertion changed, and the store spec is untouched. `ng build --configuration production --output-path` into scratchpad: clean, 2 budget warnings. The new `wizard-tracker.scss` (2.96 kB) replaces the old `mystery-create.scss` warning; `custom-select` is unchanged. No browser pass, which is Toad's. Docs: dated notes in `luigi-theming-phase6-mystery-wizard.md` §6 and `multi-minion-wizard-design.md`.
+
+### Files
+New: `shared/wizard/wizard-tracker.{ts,html,scss,spec.ts}`, `shared/wizard/wizard-layout.{ts,html,scss,spec.ts}`. Modified: `features/mysteries/pages/mystery-create/mystery-create.{ts,html,spec.ts}`. Deleted: `mystery-create-tracker.{ts,html}`, `mystery-create.scss`. Not committed.
+
+---
+
+## 2026-09-14 — Hunter Wizard Phase 4 (R4, F2): extract `HunterDraft`
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 4. The characterisation spec came first. Then all hunter form state, prune, the untick clear and the one request builder moved into an injectable `HunterDraft`, with `HunterFormComponent` delegating and no change in behaviour. No section split (Phase 5), no wizard code (Phase 7).
+
+### Reusable technical facts
+- **Characterisation first, proven non-vacuous.** 7 cases, each `toStrictEqual` against a literal request, green on untouched efd5309 before any refactor. Snapshot the spec to the scratchpad before refactoring and `diff` it afterwards, to prove the expected values didn't move. Negative control afterwards: dropping `instance.serverId` failed both edit-page cases, while the old `hunter-form.spec.ts` stayed green (the 13.12 item 13 gap).
+- **Quirks it pins.** These are today's behaviour, not things to fix in a refactor:
+  - create never sends required move ids; only a loaded hunter's are echoed;
+  - instance and journal `sortOrder` is the index across all sections and journals, not per section;
+  - journal fields are sent in typed order;
+  - prune filters look answers by category id only;
+  - an answer on an unticked option is never sent;
+  - stale saved ids are pruned on edit load, so the next save drops them.
+- **`HunterDraft` is `@Injectable()`, in `HunterFormComponent.providers`,** and is injected in a field initializer. Its form therefore exists before the constructor wires `playbookId.valueChanges` and the `switchMap`, so Phase 2's first-render fix holds.
+  - Staying in the component: loading, `isLoadingPlaybook`/`playbookError`, the submit gate, and display helpers (`lookGroups`, `formatStat`, `gearCategoryHint`, `isFixedGrant`).
+  - `draft.populate` doesn't load. The component calls it, then `loadPlaybook`, in the same order as before.
+- **The template is byte-identical** thanks to pass-through members: signal aliases plus one-line method delegates. `hunter-form.spec.ts` is unchanged too. Phase 5 deletes the pass-throughs.
+- **`toSignal(form.valueChanges.pipe(map(() => form.getRawValue()), startWith(form.getRawValue())), { requireSync: true })`** works both in a component-provided service and inside `TestBed.runInInjectionContext(() => new HunterDraft())`.
+  - `isRatingUnchosen` is now a `computed` over it.
+  - `toRequest()` still reads `form.getRawValue()` at call time, so it can't be stale.
+- `TestBed.inject(HunterDraft)` throws, because it isn't root. `fixture.debugElement.injector.get(HunterDraft)` gets the form's own instance.
+- 13.5 and 13.15 item 2 also list these, and I didn't build them: `isDirty` and `playbookScopedSummary` (Phase 7), `sectionLevelPickedOptionIds` and governed `lockedScopes` (Phase 6).
+
+### Verification
+- Characterisation spec: 7/7 before the refactor and 7/7 after.
+- Hunter specs: 3 files / 43 tests.
+- Full suite: 50 files / 439 tests, up from 48 / 421 (7 characterisation tests, 11 draft tests).
+- `ng build --configuration production --output-path` into the scratchpad: clean, with the same 2 budget warnings.
+- No browser pass. Toad runs Y10's `GET` diff.
+- Docs: a dated limited supersession in `.squad/decisions.md` (2026-07-21) and in `angular-wizard-decomposition/SKILL.md`.
+
+### Files
+New: `features/hunters/shared/hunter-draft.{ts,spec.ts}`, `shared/hunter-form/hunter-form.characterisation.spec.ts`. Modified: `hunter-form.ts`; comments only in `bespoke-option-tree.ts` and `hunter-detail.ts`. Not committed.
+
+---
+
+## 2026-09-14 — Hunter Wizard Phase 5 (R5, F3): shared sections
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 5, frontend only. 13.6's six shared sections, each injecting `HunterDraft`: ratings, moves, gear, look, bespoke, History. `HunterFormComponent` now composes them and keeps only the picker, name and pronouns, the edit-only blocks (extra tracks, Luck / Harm / Experience, journals), the playbook load and the submit gate. Both hunter pages get the sections through the form, so the page files didn't change. Pass-throughs removed. Bowser did the evaluate endpoint at the same time; `src/api/` untouched.
+
+### Reusable technical facts
+- **Attribute-selector components keep a recomposition DOM-identical.** Sections use `selector: '[appHunterRatingsSection]'` on the page's own `<section>` or `<div>`, and `host: { class }` carries the classes. No wrapper element, so the surrounding grid gaps are unchanged, and Toad's `app-hunter-form form > section` locators still match. This is the first attribute-selector component in the app, and there is no lint rule against it.
+- **`formControlName` can't cross a component boundary.** `FormControlName` looks up its `ControlContainer` with `@Host`. Sections bind `[formControl]="draft.form.controls.x"` instead, so they don't need an ancestor `[formGroup]` (the wizard may have none).
+- **Radios on `[formControl]`:** `RadioControlRegistry` groups by `_parent` (undefined for `FormControlDirective`) plus the `name` input. `formControlName` never writes a DOM `name`, so leaving `name` off keeps the DOM and keyboard behaviour identical. This is the only radio in the app. If a second nameless `[formControl]` radio set ever shares a page, the two sets will uncheck each other, so give both a `name`.
+- **Removing pass-throughs without moving a spec's expectations:** a receiver-only script (`component.X` → `component.draft.X`, `hunterForm` → `form`; `save`, `onSubmit` and `draft` excluded; CRLF kept). Proof: run the same script on `git show HEAD:` of the characterisation spec and diff it against the working copy. The diff was empty.
+- Negative controls, both reverted and checked with `cmp`: dropping the radio's `[formControl]` failed the characterisation DOM case and the ratings two-way test; wrapping the ratings section in a `div` failed the new composition test.
+- Built 13.6's `mode: 'create' | 'edit'` on the bespoke section, with `numericReadOnly` on the tree ("3 of 3" and no input). The default is `'edit'`, and today's single-page create page uses it too. Phase 6 and 7 seams are comments on the gear and bespoke sections.
+- The only visible change is the ratings grid (L16). The History retitle was already live from Phase 2.
+
+### Verification
+- Hunter specs: 9 files / 69 tests, up from 3 / 43. That's 25 section tests plus 1 composition test.
+- Full suite: 56 files / 465 tests, up from a 50 / 439 baseline taken before any edit.
+- `ng build --configuration production --output-path` into the scratchpad: clean, with the same 2 budget warnings (`wizard-tracker.scss`, `custom-select`). `grid-cols-5`, `gap-[0.1rem]` and `text-[0.75rem]` are emitted. wwwroot untouched.
+- No browser pass.
+
+### Files
+New: `features/hunters/shared/sections/hunter-{ratings,moves,gear,look,bespoke,history}-section.{ts,html,spec.ts}`. Modified: `hunter-form.{ts,html,spec.ts}`, `hunter-form.characterisation.spec.ts` (receivers only), `hunter-draft.spec.ts` (receivers only), `bespoke-option-tree.{ts,html}`. Not committed.
+
+---
+
+## 2026-09-15 — Hunter Wizard Phase 6 (R6, F8a/F8b/F8c): pick rules, frontend half
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 6, frontend only, coded against 12.9's pinned `pickRules` shape while Bowser built the backend in parallel. Admin form lists rules read-only and omits `pickRules`; pure `hunter-pick-rules.ts`; the Initiate's weapons in the gear section; Natural Attacks and Combat Magic in the bespoke section; both hunter surfaces. No wizard band links or marks (Phase 7).
+
+### Reusable technical facts
+- **`pickRules` is required on `PlaybookDetailResponse`, optional on `UpsertPlaybookRequest`.** 10 typed fixture literals needed `pickRules: []`, not 13.2's two, because Phase 4 and 5 added more. `tsc -p tsconfig.spec.json --noEmit` lists them in seconds. The characterisation spec gained that one input line; no expected value moved (checked with `git diff`).
+- **Omit, don't echo (S3):** the spec asserts `Object.keys(request)` has no `pickRules`, since `[]` or `null` would mean something else to the server.
+- **Real interceptor, real service, one toast:** `provideHttpClient(withInterceptors([httpErrorInterceptor]))` + `provideHttpClientTesting()` + real `NotificationService`, flush a 409, assert `notifications()` has exactly one entry. Removing the token from `update` fails it with two.
+- **Negative-control gotcha:** `if (false && indexed && …)` breaks TypeScript narrowing and the build fails, so nothing runs. Use a never-true trailing conjunct (`&& Date.now() < 0`) instead.
+- **The stored caps mask the lock merge on over-limit builds.** With the `lockedScopes` rule merge disabled, the 2 Bases + Extra spec still passed (the dividers' own `maxSelect` locks them). The 1 + 1, write-your-own and three-spell cases, including both Q10 edit-page cases, are the ones that prove the merge (5 failed).
+- Angular 22 exports `DOCUMENT` from `@angular/core`. jsdom has no `scrollIntoView`: call it optionally, and stub it on the target element in a spec.
+- `tsconfig.app.json` compiles every non-spec `.ts`, so the shared fixture module `features/hunters/shared/testing/pick-rule-playbooks.ts` is type-checked by the build, but never bundled.
+- `isShort` with no fitting alternative falls back to all alternatives, so an over-limit old-fashioned list doesn't mute the modern counter.
+- Built 13.7 and L25's edit-page "scrolls to" as small `Go to Gear` / `Go to {section title}` buttons (`sections/section-anchors.ts`); the wizard's step links stay F6. The L24 notice is state-derived, not tied to the click, so an over-limit hunter also shows it on load.
+- Admin summary extends L26 with each alternative's ranges and adjustments, so a reload shows whether an adjustment survived a save.
+
+### Verification
+- Full suite: 59 files / 539 tests, up from a 56 / 465 baseline (new: pick-rules spec, sections spec, admin page spec; 3 admin form cases).
+- `ng build --configuration production --output-path` into scratchpad: clean, same 2 budget warnings.
+- Two negative controls, both reverted.
+- No browser pass. Bowser's in-progress `PlaybookContracts.cs` matched the pinned shape.
+
+### Files
+New: `shared/hunter-pick-rules.{ts,spec.ts}`, `shared/testing/pick-rule-playbooks.ts`, `shared/sections/section-anchors.ts`, `shared/sections/hunter-pick-rule-sections.spec.ts`, `playbook-admin/playbook-admin.spec.ts`. Modified: `core/models.ts`, `hunter-draft.ts`, `bespoke-option-tree.{ts,html}`, `hunter-{gear,bespoke}-section.{ts,html}`, `playbook-form.{ts,html,spec.ts}`; `pickRules: []` in 9 other spec fixtures. Not committed.
+
+---
+
+## 2026-09-15 — Hunter Wizard Phase 7, F5: the wizard core
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 7, F5 only. F6, F7 and Toad's F9 come next, and nothing is committed until all of Phase 7 is in. `/hunters/new` is now the eight-step wizard: `HunterCreateStore`, the step 1 gate, Rules dots, read-only Tracks and Improvements, the dossier, and Create → toast → `/hunters`. `HunterFormComponent` is edit-only (L17).
+
+### Reusable technical facts
+- **The step model is pure** (`pages/hunter-create/hunter-step-model.ts`): steps, next and previous positions, the tracker mapping and the eyebrow. The store stays thin over it. In F5 the tracker shows only `visited`, `unreached` and `notApplicable`. F6 layers `hunterTrackerMarks` on top.
+- **The gate:** a loaded playbook, whose id matches `formValue().playbookId`, plus a name. A test that only covers a *first* load proves nothing, because `draft.playbook` is null during it anyway. Only the switch-while-loading case catches a missing id or loading check; a negative control confirmed it.
+- **The picker binds its own `FormControl` (13.7):** `requestPlaybook`, then `switchPlaybook`, which resets `furthest`. F7 puts the confirmation in `requestPlaybook`.
+- **Angular strips whitespace between elements,** so `textContent` reads "OkayDoomed" and "PlaybookThe Crooked". Read labels and values apart.
+- **"Choose a playbook." is a substring of the custom-select placeholder "Choose a playbook...".** Assert `small.text-danger`, never the page text, or a toContain passes without checking anything.
+- **Proving a moved characterisation case unchanged:** a scratchpad script compares each `it` title's `toStrictEqual` literals before and after, and each fixture statement with a bracket scanner. The scanner must skip comments: an apostrophe in "the load's prune" opened a fake string.
+- **Track labels, from the PDF:** Luck "Okay … Doomed", Harm "Okay bbb|bbbb Dying", Corruption "Okay … Lost". The callout reads "{Short} special", as on the sheets.
+- `RouterTestingHarness.navigateByUrl(url, Component)` resolves a lazy `loadComponent` under the Vitest builder.
+- **`mode` inputs:** the history section's changes only its layout; the moves section passes its own down to move-internal bespoke sections. `populate(null)` is gone; the wizard starts from a fresh draft.
+
+### Verification
+- Full suite: 66 files / 638 tests, up from a 59 / 539 baseline.
+- Characterisation: the 5 create cases moved to `pages/hunter-create/hunter-create.characterisation.spec.ts`, and the 2 edit cases stayed. The script reported every expected literal and every fixture statement SAME.
+- 4 negative controls, all caught, all restored: the gate id/loading check, jumps ignoring the gate, `submitted` after navigate, and Rules in edit mode.
+- `ng build --configuration production --output-path` into the scratchpad: clean, with the same 2 budget warnings. No browser pass.
+
+### Files
+- **New:** `pages/hunter-create/hunter-create.store.{ts,spec.ts}`, `hunter-step-model.{ts,spec.ts}`, `hunter-sheet-preview.{ts,html,spec.ts}`, `hunter-create.{spec,characterisation.spec}.ts`, `steps/` (8 step components plus `hunter-wizard-steps.spec.ts`), `shared/testing/characterisation-playbooks.ts`, `hunters.routes.spec.ts`.
+- **Rewritten:** `hunter-create.{ts,html}`.
+- **Modified:** `hunter-form.{ts,html,spec.ts,characterisation.spec.ts}`, `hunter-draft.{ts,spec.ts}`, `hunter-{history,moves}-section.{ts,html,spec.ts}`, `hunter-pick-rule-sections.spec.ts`; comments only in `hunter-bespoke-section.ts`, `hunter-detail.ts`, `hunters.routes.ts`, `http-context-tokens.ts` and `http-error-interceptor.spec.ts`.
+
+Not committed.
+
+---
+
+## 2026-09-15 — Hunter Wizard Phase 7, F6 and F7: the check, marks, card, links, switch confirm, discard guard
+
+### Task
+The rest of Phase 7's code, in the same working tree as F5. Toad's F9 browser pass follows, and nothing is committed until all of Phase 7 is in.
+- **F6:** evaluate on every navigation, plus Q8's step 8 re-check; `hunterTrackerMarks` with L5; the "Still to finish" card; the refusal band with L7 links; step links replacing the Phase 6 scroll buttons inside the wizard.
+- **F7:** the playbook-switch confirmation (L13), the discard guard and `beforeunload` (L12), standing aside when signed out (L11), and `canceledNavigationResolution: 'computed'`.
+- **Docs:** `architecture.md` §8 note; the status lines of both wizard docs; dated implementation notes after L33.
+
+### Decisions (recorded in hunter-creation-wizard.md after L33)
+- **L13 is the prune.** 7.4 defines the switch's "clear" as `dropSelectionsOutside`, so the moved prune characterisation case keeps its expected value; it now confirms the switch first.
+- **Marks the check never drives:** step 1 is finished whenever the gate holds; Tracks, Improvements and fixed-grant dots are finished once visited. L5 only touches the rest.
+- **Harm sentence:** fixed wording, number from `harmUnstableThreshold`.
+
+### Reusable technical facts
+- **One latest-wins check stream:** a `Subject<request | null>` into `switchMap`, with `null` as reset so a playbook switch cancels an in-flight check. `concat(of(started), defer(() => evaluate()).pipe(map, defaultIfEmpty(failed), catchError(failed)))`. `defer` turns a missing mock method into `failed` rather than a dead stream.
+- **Q8 debounce:** `toObservable(computed(() => JSON.stringify({ ...toRequest(), background: null })))`, `skip(1)`, filter to the last step, `debounceTime(500)`. Specs need `TestBed.tick()` after each edit and a tick before the first. `vi.useFakeTimers()` drives `debounceTime`. `Subject.observed` proves a check was cancelled.
+- **A control that leaves a second guard in place proves nothing.** Removing only the filter's `isLastStep()` was MISSED, because the subscriber checked it again; the spec now also asserts `recheckPending` right after an off-step edit.
+- **Negative-control scripts must normalise line endings per file.** `core/*.ts`, `app.config.ts`, `models.ts`, `hunters.routes.ts` and the confirm modal are CRLF in the working copy, so a `\n` match silently SKIPs.
+- **`RouterTestingHarness.create()` never calls `initialNavigation()`,** so the router ignores popstate until `router.setUpLocationChangeListener()` runs. Wait for the router's `NavigationCancel` / `NavigationEnd`, not ticks, because it defers popstate with `setTimeout`. A separate 'replace' control test asserted `SpyLocation` internals (it starts with an extra '' entry) and was dropped; the `ROUTER_CONFIG` negative control is the proof.
+- **Section navigator token** (`shared/sections/section-navigator.ts`): the wizard provides `useExisting: HunterCreateStore`, so the same "Go to" buttons are step links there and scrolls on the edit page.
+- **Link anchors scroll in `afterNextRender({ read })`** from a page `effect`, which runs after the layout's write-phase scroll reset.
+- **The band action** is projected into the layout's error band through `[wizardErrorAction]`, inside `@if` on both sides.
+- `ApiService.get` gained an optional `HttpContext`; `PlaybookService.getById(id, { suppressErrorToast })` is used by Reload playbook.
+- `ConfirmDeleteModalComponent.items` is now `readonly string[]`, and `confirmLabel` defaults to `verb`.
+
+### Verification
+- Full suite: 72 files / 730 tests, up from 66 / 638 after F5.
+- 9 negative controls, all caught, all restored: History notes counting as a change, off-step re-checks, `mergeMap` instead of `switchMap`, a refusal keeping marks, the band never finding a rule, Cancel emitting, the guard ignoring auth, 'replace' resolution, and evaluate toasting.
+- Characterisation script: ALL SAME.
+- `ng build --configuration production --output-path` into the scratchpad: clean, with the same 2 budget warnings.
+- No browser pass (F9).
+
+### Files
+- **New:** `pages/hunter-create/hunter-evaluation.{ts,spec.ts}`, `hunter-tracker-marks.{ts,spec.ts}`, `hunter-draft.guard.{ts,spec.ts}`, `steps/hunter-still-to-finish.{ts,html,spec.ts}`, `shared/sections/section-navigator.ts`, `app.config.spec.ts`, `shared/confirm-delete-modal.component.spec.ts`.
+- **Modified:** the store, page, introductions and tracks steps, and their specs; `hunter-draft.{ts,spec.ts}` (`isDirty`, `playbookScopedSummary`); the gear, bespoke and look sections; `section-anchors.ts`; `hunters.routes.ts`; `core/{models,hunter,playbook,api}.ts` and the `hunter` and `playbook` specs; `app.config.ts`; the confirm modal; `wizard-layout.html` and its spec; the characterisation spec (evaluate mock, confirm in the prune case); `architecture.md`, `hunter-creation-wizard.md`, `hunter-creation-wizard-phases.md`.
+
+Not committed.
+
+**F9 fixes (same day, after Toad's pass):**
+- **B1, dark theme:** the wizard column set no text colour, so the shared hunter sections (written for pages wrapped in `section.text-primary`) rendered browser black on dark surfaces. The fix is `text-primary` on `wizard-layout.html`'s root, because the shell paints the surfaces and should set their foreground. The Mystery wizard colours every element explicitly, so nothing visible changes there.
+- **B2, overflow:** step 1's `grid-cols-[2fr_1fr]` row couldn't shrink below its inputs' intrinsic widths. It now stacks below `lg`, with `minmax(0, …)` columns, `min-w-0` items and `w-full` inputs.
+- **Guards:** layout, page and steps specs.
+- **Verification:** 72 files / 732 tests; production build clean, with the 2 usual warnings.
+- **Lesson:** any shell that paints a surface must set its text token too, because `body` sets none.
+
+**N1 fix (Toad's 768 sweep):** the bespoke tree's write-in inputs kept their intrinsic width, so at 768 they pushed the Hex's Rotes card 34px past the column (and the Professional's and the Wronged's by 8px each).
+- **Grid-stretched inputs and textareas** get `w-full min-w-0`: the tree's two write-ins, the entry "Details…" input, the free-text textarea, and both History textareas. A percentage width drops a form control's minimum-width contribution to zero, and since they already fill their cell, desktop is unchanged.
+- **Flex items** keep their own width but get `min-w-0`: the entry name has `flex-1`, and the look write-in also gets `max-w-full`, so neither widens on desktop.
+- **The leaf text span** gets `min-w-0`.
+- **Guard:** `hunter-narrow-column-inputs.spec.ts`.
+- **Verification:** 73 files / 735 tests; production build clean.

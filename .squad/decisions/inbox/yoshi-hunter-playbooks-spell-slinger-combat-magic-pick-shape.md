@@ -31,4 +31,13 @@ Model Combat Magic as a single flat `BespokeSection` with all 10 options in one 
 
 Recognized this as a case that superficially resembles an already-answered question (Natural Attacks' unenforced either/or) but isn't the same size of trade-off — reused the *framing* (real rule stated in prose, no new schema) without assuming the *conclusion* (that the resulting gap is small enough not to need asking) carries over. The two options represented a genuine design trade-off (total-cap fidelity vs. sub-grouping fidelity for UI), not a case where an existing decision already settled the answer — worth Skyler's call rather than a unilateral pick. Skyler chose to preserve the grouping and accept the larger gap; recorded verbatim, not second-guessed, and the gap's size is called out explicitly in the catalogue entry so it doesn't read as a smaller, Natural-Attacks-sized gap to a future reader.
 
+## Update 2026-09-15: the constraint is now enforced
+
+Recorded by Bowser (Backend Developer / DevOps) with hunter creation wizard Phase 6 (R6). Skyler's Q5 answer, "Include both now" (`hunter-creation-wizard.md` 12.10), brought Combat Magic under the new pick rules. The total-and-floor constraint this record said validation would have to enforce explicitly is now enforced.
+- A rule labelled "Pick three (with at least one base)." allows 3 Bases + 0 Effects, 2 + 1, or 1 + 2.
+- Over-limit builds are refused on save.
+- A build short of three spells is reported as unfinished.
+
+Skyler's nested Bases/Effects structure is unchanged, and its stored counts stay as ceilings. Only the "unenforced" status changes. Schema: `docs/hunter-playbooks/architecture.md` Section 6.10. Reasoning and build tables: `hunter-creation-wizard.md` 12.9.
+
 Full detail, including the verified option content (all 10 Bases/Effects options with confirmed bold titles, plain description bodies) and both Move-internal-pick-trap findings on this same playbook (Tools and Techniques, Could've Been Worse — both out of catalogue scope, unaffected by this question): `docs/hunter-playbooks/bespoke-ruleset-catalogue.md` `## The Spell-Slinger`.

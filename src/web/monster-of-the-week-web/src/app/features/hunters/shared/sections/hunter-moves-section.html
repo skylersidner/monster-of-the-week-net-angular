@@ -1,0 +1,68 @@
+<div class="flex flex-wrap items-baseline gap-3">
+  <h3>Moves</h3>
+  @if (draft.moveGrantCount() > 0) {
+    <span
+      class="text-[0.8rem] font-semibold"
+      [class.text-danger]="draft.pickedMoveCount() > draft.moveBudget()"
+      [class.text-muted]="draft.isMovePickShort()"
+    >
+      {{ draft.pickedMoveCount() }} of {{ draft.moveBudget() }} picked
+    </span>
+  }
+</div>
+
+@if (draft.requiredMoves().length > 0) {
+  <div class="grid gap-2">
+    @for (move of draft.requiredMoves(); track move.id) {
+      <label class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3 opacity-80">
+        <input type="checkbox" checked disabled class="mt-1" />
+        <span>
+          <span class="font-semibold">{{ move.name }}</span>
+          <span class="rounded-full text-[0.7rem] font-semibold ml-2 px-[0.5rem] py-[0.1rem] bg-badge-playbook text-on-badge-playbook">Always granted</span>
+          @if (move.descriptionText) {
+            <span class="block text-[0.85rem] mt-1" [innerHTML]="move.descriptionText"></span>
+          }
+        </span>
+      </label>
+      @for (section of draft.moveSectionsFor(move); track section.id) {
+        <div class="ml-8 max-md:ml-3">
+          <div appHunterBespokeSection [section]="section" [mode]="mode"></div>
+        </div>
+      }
+    }
+  </div>
+}
+
+@if (draft.pickableMoves().length === 0) {
+  <p class="text-muted">This playbook has no moves to pick from yet.</p>
+} @else {
+  <div class="grid gap-2">
+    @for (move of draft.pickableMoves(); track move.id) {
+      <label
+        class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3"
+        [class.cursor-pointer]="!draft.isMoveLimitReached() || draft.isMoveSelected(move.id)"
+        [class.opacity-60]="draft.isMoveLimitReached() && !draft.isMoveSelected(move.id)"
+      >
+        <input
+          type="checkbox"
+          class="mt-1"
+          [checked]="draft.isMoveSelected(move.id)"
+          [disabled]="draft.isMoveLimitReached() && !draft.isMoveSelected(move.id)"
+          (change)="draft.toggleMove(move.id)"
+        />
+        <span>
+          <span class="font-semibold">{{ move.name }}</span>
+          @if (move.descriptionText) {
+            <span class="block text-[0.85rem] mt-1" [innerHTML]="move.descriptionText"></span>
+          }
+        </span>
+      </label>
+      <!-- This Move's own pick-structure, printed inside the move on the sheet (6.8). -->
+      @for (section of draft.moveSectionsFor(move); track section.id) {
+        <div class="ml-8 max-md:ml-3">
+          <div appHunterBespokeSection [section]="section" [mode]="mode"></div>
+        </div>
+      }
+    }
+  </div>
+}

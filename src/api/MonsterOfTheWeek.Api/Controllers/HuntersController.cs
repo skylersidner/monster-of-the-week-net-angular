@@ -44,6 +44,22 @@ public sealed class HuntersController(IHunterService hunterService) : Controller
         return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
     }
 
+    /*
+     * The check-only endpoint (hunter-creation-wizard.md 12.8). Takes the same body as Create and
+     * answers with what Create would refuse or report, saving nothing. Always 200 once the body
+     * binds: a refusal is an answer here, not an error. A malformed body is still refused by
+     * model binding with the usual 400.
+     *
+     * The wizard can call this in bursts on its last step (Q8), so nothing is logged per call
+     * beyond the framework defaults, and the request token is passed down so an aborted check
+     * stops at its one database read (12.8.1 O3).
+     */
+    [HttpPost("api/hunters/evaluate")]
+    public async Task<ActionResult<HunterEvaluationResponse>> Evaluate(
+        [FromBody] UpsertHunterRequest request,
+        CancellationToken cancellationToken) =>
+        Ok(await hunterService.EvaluateAsync(request, cancellationToken));
+
     [HttpPut("api/hunters/{id:guid}")]
     public async Task<ActionResult<HunterDetailResponse>> Update(
         Guid id,

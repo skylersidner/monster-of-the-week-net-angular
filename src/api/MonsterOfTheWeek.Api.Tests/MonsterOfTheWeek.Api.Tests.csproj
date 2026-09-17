@@ -17,6 +17,19 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Security pins, not direct dependencies. Both arrive transitively through the API's
+      Microsoft.AspNetCore.DataProtection.EntityFrameworkCore 10.0.0. The API itself gets them
+      from the ASP.NET Core shared framework, so NuGet prunes them there. This project uses the
+      plain SDK, so it restores the vulnerable 10.0.0 packages instead. These are the lowest
+      patched versions: 10.0.7 clears GHSA-9mv3-2cwr-p262, and 10.0.10 clears all eight
+      System.Security.Cryptography.Xml advisories. Remove once the API's reference is 10.0.10 or later.
+    -->
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="10.0.7" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\MonsterOfTheWeek.Api\MonsterOfTheWeek.Api.csproj" />
   </ItemGroup>
 

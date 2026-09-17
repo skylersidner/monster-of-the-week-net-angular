@@ -11,7 +11,8 @@
         [disabled]="isDisabled(option)"
         (change)="toggled.emit(option.id)"
       />
-      <span class="grid gap-1">
+      <!-- min-w-0 here and w-full min-w-0 on the write-ins: without them an input's intrinsic width pushes the card past a narrow column. -->
+      <span class="grid min-w-0 gap-1">
         @if (option.title) {
           <span class="font-medium">{{ withoutBlank(option.title) }}</span>
         }
@@ -24,7 +25,7 @@
           @if (hasBlankTitle(option)) {
             <input
               type="text"
-              class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+              class="w-full min-w-0 border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
               placeholder="Name it..."
               [value]="answerFor(option.id, 'title')"
               (input)="answerChanged.emit({ optionId: option.id, field: 'title', value: $any($event.target).value })"
@@ -33,13 +34,15 @@
           @if (hasBlankText(option)) {
             <input
               type="text"
-              class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+              class="w-full min-w-0 border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
               placeholder="Fill in the blank..."
               [value]="answerFor(option.id, 'text')"
               (input)="answerChanged.emit({ optionId: option.id, field: 'text', value: $any($event.target).value })"
             />
           }
-          @if (isNumeric(option)) {
+          @if (isNumeric(option) && numericReadOnly) {
+            <span class="text-[0.85rem] font-medium">{{ numericFor(option) }} of {{ option.numericMax }}</span>
+          } @else if (isNumeric(option)) {
             <label class="flex items-center gap-2 text-[0.85rem]">
               <span class="text-muted">Value</span>
               <input
@@ -66,7 +69,10 @@
         @if (option.title) {
           <span class="font-semibold">{{ withoutBlank(option.title) }}</span>
         }
-        @if (hint(option); as pickHint) {
+        @if (governedIds.has(option.id)) {
+          <!-- Under a pick rule: no stored range, just the count under the rule's instruction (L25, L31). -->
+          <small class="text-muted">{{ pickedUnder(option) }} picked</small>
+        } @else if (hint(option); as pickHint) {
           <small class="text-muted">{{ pickHint }}</small>
         }
       </div>
@@ -79,6 +85,8 @@
         [answers]="answers"
         [parentKey]="option.id"
         [lockedScopes]="lockedScopes"
+        [numericReadOnly]="numericReadOnly"
+        [governedIds]="governedIds"
         (toggled)="toggled.emit($event)"
         (answerChanged)="answerChanged.emit($event)"
       />

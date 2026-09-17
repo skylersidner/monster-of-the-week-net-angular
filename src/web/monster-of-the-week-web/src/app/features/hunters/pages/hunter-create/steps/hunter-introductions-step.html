@@ -1,0 +1,16 @@
+<div class="grid gap-6">
+  @if ((draft.playbook()?.lookCategories?.length ?? 0) > 0) {
+    <section appHunterLookSection></section>
+  }
+
+  @if (draft.playbook()?.introductionsText; as introductions) {
+    <div class="bg-surface-sunken rounded-lg p-4" data-panel="introductions">
+      <div class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] uppercase mb-2">Introductions</div>
+      <div class="text-primary text-[0.9rem] leading-[1.65] whitespace-pre-line">{{ introductions }}</div>
+    </div>
+  }
+
+  <section appHunterHistorySection mode="create"></section>
+
+  <app-hunter-still-to-finish />
+</div>

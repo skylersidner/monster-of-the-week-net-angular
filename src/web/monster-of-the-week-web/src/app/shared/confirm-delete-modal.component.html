@@ -23,7 +23,7 @@
       }
       <div class="flex justify-end gap-3">
         <button type="button" class="border-none rounded-md cursor-pointer text-[0.9rem] font-semibold px-5 py-2 transition-colors bg-surface-sunken text-secondary hover:bg-surface-hover" (click)="onCancel()">Cancel</button>
-        <button type="button" class="border-none rounded-md cursor-pointer text-[0.9rem] font-semibold px-5 py-2 transition-colors bg-danger text-on-danger hover:bg-danger-hover" (click)="onConfirm()">{{ verb }}</button>
+        <button type="button" class="border-none rounded-md cursor-pointer text-[0.9rem] font-semibold px-5 py-2 transition-colors bg-danger text-on-danger hover:bg-danger-hover" (click)="onConfirm()">{{ confirmLabel || verb }}</button>
       </div>
     </div>
   </div>

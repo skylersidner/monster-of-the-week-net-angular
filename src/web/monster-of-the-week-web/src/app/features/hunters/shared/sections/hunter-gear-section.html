@@ -1,0 +1,76 @@
+<h3>Gear</h3>
+@for (category of draft.playbook()?.gearCategories ?? []; track category.id) {
+  @let rule = ruleView(category);
+  <div class="grid gap-2" [attr.id]="gearAnchor(category.id)">
+    <div class="flex flex-wrap items-baseline gap-2">
+      <span class="font-semibold">{{ category.label }}</span>
+      @if (category.pickCount === null) {
+        <small class="text-muted">You get</small>
+      } @else if (rule) {
+        <!-- Under a pick rule: the printed heading, no stored "Pick n" hint, and the effective range (L25, L31). -->
+        <small class="text-[0.8rem] font-semibold" [class.text-danger]="rule.over" [class.text-muted]="rule.short">
+          {{ rule.counter }}
+        </small>
+      } @else {
+        <small class="text-muted">{{ gearCategoryHint(category) }}</small>
+        <!-- Progress only. Falling short is unfinished, not invalid, and never blocks a save. -->
+        <small class="text-[0.8rem] font-semibold" [class.text-muted]="draft.isGearPickShort(category)">
+          {{ draft.pickedInCategory(category) }} of {{ category.pickCount }} picked
+        </small>
+      }
+    </div>
+    @if (rule) {
+      @if (rule.hint || rule.dependsOn.length > 0) {
+        <p class="m-0 text-[0.8rem] text-muted">
+          {{ rule.hint }}
+          @for (unanswered of rule.dependsOn; track unanswered.sectionId) {
+            {{ unanswered.sentence }}
+            <button
+              type="button"
+              class="bg-transparent border-0 p-0 text-accent underline cursor-pointer font-[inherit] text-[inherit]"
+              (click)="goToSection(unanswered.sectionId)"
+            >Go to {{ unanswered.sectionTitle }}</button>
+          }
+        </p>
+      }
+      @if (rule.notice) {
+        <!-- L30: never auto-cleared. Picked options stay enabled so they can be unticked. -->
+        <p class="m-0 text-[0.85rem] text-danger">{{ rule.notice }}</p>
+      }
+    }
+    @if (category.pickCount !== null) {
+      @for (option of category.options; track option.id) {
+        <label
+          class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3"
+          [class.opacity-60]="!draft.gearHasRoom(category) && !draft.isGearSelected(option.id)"
+        >
+          <input
+            type="checkbox"
+            class="mt-1"
+            [checked]="draft.isGearSelected(option.id)"
+            [disabled]="!draft.gearHasRoom(category) && !draft.isGearSelected(option.id)"
+            (change)="draft.toggleGear(option.id)"
+          />
+          <span>
+            <span class="font-medium">{{ option.name }}</span>
+            @if (option.mechanicalText) {
+              <span class="block text-[0.85rem] text-muted mt-1">{{ option.mechanicalText }}</span>
+            }
+          </span>
+        </label>
+      }
+    } @else {
+      <!-- Granted outright — read-only, no checkbox. No id for these is ever sent (B6). -->
+      @for (option of category.options; track option.id) {
+        <div class="flex items-start gap-3 bg-surface border border-default rounded-lg p-3">
+          <span>
+            <span class="font-medium">{{ option.name }}</span>
+            @if (option.mechanicalText) {
+              <span class="block text-[0.85rem] text-muted mt-1">{{ option.mechanicalText }}</span>
+            }
+          </span>
+        </div>
+      }
+    }
+  </div>
+}

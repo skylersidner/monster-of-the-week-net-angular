@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
+import { HttpContext } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiService } from './api';
+import { SUPPRESS_ERROR_TOAST } from './http-context-tokens';
 import { PlaybookDetailResponse, PlaybookListItemResponse, UpsertPlaybookRequest } from './models';
 
 /**
@@ -19,22 +21,36 @@ export class PlaybookService {
     return this.apiService.get<PlaybookListItemResponse[]>('/api/playbooks');
   }
 
-  getById(playbookId: string): Observable<PlaybookDetailResponse> {
-    return this.apiService.get<PlaybookDetailResponse>(`/api/playbooks/${playbookId}`);
+  /**
+   * `suppressErrorToast`: for a caller that shows its own message for a failed load, such as the
+   * creation wizard's Reload playbook, which says "That playbook no longer exists." on a 404 (L7, L27).
+   */
+  getById(playbookId: string, options: { suppressErrorToast?: boolean } = {}): Observable<PlaybookDetailResponse> {
+    return this.apiService.get<PlaybookDetailResponse>(
+      `/api/playbooks/${playbookId}`,
+      options.suppressErrorToast ? new HttpContext().set(SUPPRESS_ERROR_TOAST, true) : undefined
+    );
   }
 
   create(request: UpsertPlaybookRequest): Observable<PlaybookDetailResponse> {
-    return this.apiService.post<UpsertPlaybookRequest, PlaybookDetailResponse>('/api/playbooks', request);
+    // SUPPRESS_ERROR_TOAST: the admin page already shows the server's message on a refusal,
+    // including S11's 409 (13.12 item 14, L9).
+    return this.apiService.post<UpsertPlaybookRequest, PlaybookDetailResponse>(
+      '/api/playbooks',
+      request,
+      new HttpContext().set(SUPPRESS_ERROR_TOAST, true)
+    );
   }
 
   update(playbookId: string, request: UpsertPlaybookRequest): Observable<PlaybookDetailResponse> {
     return this.apiService.put<UpsertPlaybookRequest, PlaybookDetailResponse>(
       `/api/playbooks/${playbookId}`,
-      request
+      request,
+      new HttpContext().set(SUPPRESS_ERROR_TOAST, true)
     );
   }
 
   delete(playbookId: string): Observable<void> {
-    return this.apiService.delete(`/api/playbooks/${playbookId}`);
+    return this.apiService.delete(`/api/playbooks/${playbookId}`, new HttpContext().set(SUPPRESS_ERROR_TOAST, true));
   }
 }

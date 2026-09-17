@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, forwardRef } from '@angular/core';
 import { BespokeOptionResponse } from '../../../../core/models';
+import { engagedChildCount } from '../hunter-pick-rules';
 
 /** One recorded answer against a single option, as the form holds it before submit. */
 export interface BespokeOptionAnswer {
@@ -17,7 +18,7 @@ export interface BespokeOptionAnswer {
  * purely because something under it is ticked. Rendering a checkbox on a divider would invite a
  * state the server has no way to store — there is no "this category is chosen" row, by design.
  *
- * All state lives in `HunterFormComponent`; this component is presentational and emits. That
+ * All state lives in `HunterDraft`; this component is presentational and emits. That
  * keeps one map as the single source of truth rather than a tree of nested component state
  * that would have to be gathered back up on submit.
  */
@@ -42,6 +43,17 @@ export class BespokeOptionTreeComponent {
   @Input({ required: true }) parentKey = '';
   /** Scopes whose maximum is already met, so their unticked options render disabled. */
   @Input() lockedScopes: ReadonlySet<string> = new Set();
+  /**
+   * Shows a picked numeric leaf's value as read-only text ("3 of 3") instead of an input. Only
+   * `HunterBespokeSectionComponent`'s `'create'` mode sets it, for the Phase 7 wizard (L14).
+   */
+  @Input() numericReadOnly = false;
+  /**
+   * Dividers a pick rule governs (Natural Attacks' Base and Extra, Combat Magic's Bases and Effects).
+   * Their own stored "pick n–m" hint contradicts the rule, so it is replaced by "n picked" under the
+   * rule's instruction (L25, L31). Their locks still arrive through `lockedScopes`.
+   */
+  @Input() governedIds: ReadonlySet<string> = new Set();
 
   @Output() readonly toggled = new EventEmitter<string>();
   @Output() readonly answerChanged = new EventEmitter<{
@@ -83,6 +95,11 @@ export class BespokeOptionTreeComponent {
 
   isDisabled(option: BespokeOptionResponse): boolean {
     return this.lockedScopes.has(this.parentKey) && !this.picked.has(option.id);
+  }
+
+  /** A governed divider's count: its engaged direct children, as the rule counts them. */
+  pickedUnder(option: BespokeOptionResponse): number {
+    return engagedChildCount(option, this.picked);
   }
 
   /** Pick-count hint for a category divider, e.g. "pick 2" or "pick 2–3". */

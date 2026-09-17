@@ -51,6 +51,7 @@ function buildPlaybook(overrides: Partial<PlaybookDetailResponse> = {}): Playboo
     bespokeSections: [],
     bespokeJournals: [],
     extraTracks: [],
+    pickRules: [],
     ...overrides,
   };
 }
@@ -255,5 +256,95 @@ describe('PlaybookFormComponent', () => {
     expect(component.moves.length).toBe(0);
     expect(component.improvements.length).toBe(0);
     expect(component.form.controls.name.value).toBe('');
+  });
+
+  // -------------------------------------------------------------------------------------
+  // Pick rules: listed, never sent (hunter-creation-wizard.md 12.9 S3, S9; L26, L32)
+  // -------------------------------------------------------------------------------------
+
+  const leaf = (id: string, title: string) => ({ id, title, descriptionText: null, minSelect: null, maxSelect: null, numericMin: null, numericMax: null, sortOrder: 0, children: [] });
+
+  function withPickRules(): Partial<PlaybookDetailResponse> {
+    return {
+      gearCategories: [
+        { id: 'gc-old', label: 'Old-fashioned weapons', pickCount: 3, isOptional: false, sortOrder: 0, options: [{ id: 'go-sword', name: 'Sword', mechanicalText: null, sortOrder: 0 }] },
+        { id: 'gc-modern', label: 'Modern weapons', pickCount: 2, isOptional: false, sortOrder: 1, options: [{ id: 'go-pistol', name: 'Pistol', mechanicalText: null, sortOrder: 0 }] },
+      ],
+      bespokeSections: [
+        {
+          id: 'bs-sect', title: 'Sect', description: null, effectText: null, freeTextLabel: null, minSelect: 2, maxSelect: 2, minInstances: null, maxInstances: null, sortOrder: 0,
+          options: [{ ...leaf('bo-good', 'Good Traditions'), children: [leaf('bo-fighting', 'Fighting arts'), leaf('bo-modernised', 'Modernised')] }],
+        },
+        {
+          id: 'bs-attacks', title: 'Natural Attacks', description: null, effectText: null, freeTextLabel: null, minSelect: 2, maxSelect: 2, minInstances: null, maxInstances: null, sortOrder: 1,
+          options: [
+            { ...leaf('bo-base', 'Base'), minSelect: 1, maxSelect: 2, children: [leaf('bo-teeth', 'Teeth')] },
+            { ...leaf('bo-extra', 'Extra'), minSelect: 0, maxSelect: 1, children: [leaf('bo-reach', 'Long reach')] },
+          ],
+        },
+      ],
+      pickRules: [
+        {
+          id: 'pr-weapons', label: null, sortOrder: 0,
+          alternatives: [{
+            id: 'pa-weapons', label: null, sortOrder: 0,
+            counts: [
+              { gearCategoryId: 'gc-old', bespokeOptionId: null, minCount: 2, maxCount: 2, adjustment: { triggerOptionIds: ['bo-fighting'], minCount: 3, maxCount: 3 } },
+              { gearCategoryId: 'gc-modern', bespokeOptionId: null, minCount: 1, maxCount: 1, adjustment: { triggerOptionIds: ['bo-modernised'], minCount: 1, maxCount: 2 } },
+            ],
+          }],
+        },
+        {
+          id: 'pr-attacks', label: 'Pick a Base and add an extra to it, or two Bases.', sortOrder: 1,
+          alternatives: [
+            { id: 'pa-1', label: null, sortOrder: 0, counts: [
+              { gearCategoryId: null, bespokeOptionId: 'bo-base', minCount: 1, maxCount: 1, adjustment: null },
+              { gearCategoryId: null, bespokeOptionId: 'bo-extra', minCount: 1, maxCount: 1, adjustment: null },
+            ] },
+            { id: 'pa-2', label: null, sortOrder: 1, counts: [
+              { gearCategoryId: null, bespokeOptionId: 'bo-base', minCount: 2, maxCount: 2, adjustment: null },
+              { gearCategoryId: null, bespokeOptionId: 'bo-extra', minCount: 0, maxCount: 0, adjustment: null },
+            ] },
+          ],
+        },
+      ],
+    };
+  }
+
+  it('lists each pick rule read-only in the bespoke summary, adjustments included (L26)', () => {
+    loadExisting(withPickRules());
+
+    const gearLine = 'Gear — pick rule, 1 alternative(s): Old-fashioned weapons 2 (3 with Fighting arts), Modern weapons 1 (1–2 with Modernised)';
+    const attacksLine =
+      'Natural Attacks — pick rule "Pick a Base and add an extra to it, or two Bases.", 2 alternative(s): Base 1, Extra 1 | Base 2, Extra 0';
+    expect(component.bespokeSummary()).toEqual(expect.arrayContaining([gearLine, attacksLine]));
+
+    const summary = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('article')).find(
+      (article) => article.querySelector('h3')?.textContent?.trim() === 'Bespoke rulesets'
+    )!;
+    const items = Array.from(summary.querySelectorAll('li')).map((li) => li.textContent?.trim());
+    expect(items).toEqual(expect.arrayContaining([gearLine, attacksLine]));
+    // Read-only: nothing in the summary can be edited.
+    expect(summary.querySelector('input, select, textarea, button')).toBeNull();
+  });
+
+  it('omits pickRules from the save request entirely, so the server keeps the stored rules (S3, S9)', () => {
+    loadExisting(withPickRules());
+
+    component.submit();
+
+    expect(emitted).toHaveLength(1);
+    // Not `[]` and not null: an absent key is the only value that means "unchanged".
+    expect(Object.keys(emitted[0])).not.toContain('pickRules');
+    // The passthroughs it does carry are untouched.
+    expect(emitted[0].bespokeSections.map((s) => s.id)).toEqual(['bs-sect', 'bs-attacks']);
+  });
+
+  it('omits pickRules on create too', () => {
+    component.form.controls.name.setValue('The New One');
+
+    component.submit();
+
+    expect(Object.keys(emitted[0])).not.toContain('pickRules');
   });
 });

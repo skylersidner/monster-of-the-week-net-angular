@@ -548,6 +548,102 @@ for (const [key, d] of Object.entries(detail)) {
   check(leaked.length === 0, `${key}: no move-internal section duplicated at playbook level`);
 }
 
+// --- Pick rules (hunter creation wizard R6) ---------------------------------------------
+// Added 2026-09-15. Three rules exist in the whole corpus (hunter-creation-wizard.md 12.9), so
+// they are checked as known artifacts: resolved from ids to printed names and compared whole. Any
+// other playbook carrying a rule is a finding. Every rule, known or not, also gets the structural
+// checks PlaybookService applies (architecture.md §6.10), re-read from the API.
+const EXPECTED_PICK_RULES = {
+  initiate: {
+    label: null,
+    alternatives: [[
+      { target: 'gear:Old-fashioned weapons (pick either two or three, as above)', min: 2, max: 2,
+        adjustment: { triggers: ['Fighting arts', 'Obsolete gear'], min: 3, max: 3 } },
+      { target: 'gear:Modern weapons (pick either one or two, as above)', min: 1, max: 1,
+        adjustment: { triggers: ['Modernised', 'Nifty gadgets'], min: 1, max: 2 } },
+    ]],
+  },
+  monstrous: {
+    label: 'Pick a Base and add an extra to it, or two Bases.',
+    alternatives: [
+      [{ target: 'Natural Attacks/Base', min: 1, max: 1, adjustment: null }, { target: 'Natural Attacks/Extra', min: 1, max: 1, adjustment: null }],
+      [{ target: 'Natural Attacks/Base', min: 2, max: 2, adjustment: null }, { target: 'Natural Attacks/Extra', min: 0, max: 0, adjustment: null }],
+    ],
+  },
+  'spell-slinger': {
+    label: 'Pick three (with at least one base).',
+    alternatives: [
+      [{ target: 'Combat Magic/Bases', min: 3, max: 3, adjustment: null }, { target: 'Combat Magic/Effects', min: 0, max: 0, adjustment: null }],
+      [{ target: 'Combat Magic/Bases', min: 2, max: 2, adjustment: null }, { target: 'Combat Magic/Effects', min: 1, max: 1, adjustment: null }],
+      [{ target: 'Combat Magic/Bases', min: 1, max: 1, adjustment: null }, { target: 'Combat Magic/Effects', min: 2, max: 2, adjustment: null }],
+    ],
+  },
+};
+
+for (const [key, d] of Object.entries(detail)) {
+  const rules = d.pickRules ?? [];
+  const gearById = new Map(d.gearCategories.map((c) => [c.id, c]));
+  // Playbook-level sections only: a rule may never point into a move's section.
+  const optionById = new Map();
+  const walk = (section, opts, parent) => opts.forEach((o) => { optionById.set(o.id, { option: o, section, parent }); walk(section, o.children, o); });
+  d.bespokeSections.forEach((s) => walk(s, s.options, null));
+
+  const describe = (rule) => ({
+    label: rule.label,
+    alternatives: rule.alternatives.map((a) => a.counts.map((c) => ({
+      target: c.gearCategoryId ? `gear:${gearById.get(c.gearCategoryId)?.label}`
+        : `${optionById.get(c.bespokeOptionId)?.section.title}/${optionById.get(c.bespokeOptionId)?.option.title}`,
+      min: c.minCount,
+      max: c.maxCount,
+      adjustment: c.adjustment && {
+        triggers: c.adjustment.triggerOptionIds.map((id) => optionById.get(id)?.option.title),
+        min: c.adjustment.minCount,
+        max: c.adjustment.maxCount,
+      },
+    }))),
+  });
+
+  if (EXPECTED_PICK_RULES[key]) {
+    check(rules.length === 1, `${key}: carries exactly one pick rule (${rules.length})`);
+    if (rules.length === 1) {
+      const actual = JSON.stringify(describe(rules[0]));
+      check(actual === JSON.stringify(EXPECTED_PICK_RULES[key]), `${key}: pick rule matches 12.9${actual === JSON.stringify(EXPECTED_PICK_RULES[key]) ? '' : ' — got ' + actual}`);
+    }
+  } else {
+    check(rules.length === 0, `${key}: carries no pick rule — only the Initiate, Monstrous and Spell-Slinger have one${rules.length ? ' (found ' + rules.length + ')' : ''}`);
+  }
+
+  for (const rule of rules) {
+    const counts = rule.alternatives.flatMap((a) => a.counts);
+    const targets = [...new Set(counts.map((c) => c.gearCategoryId ?? c.bespokeOptionId))];
+    const problems = [];
+    if (rule.alternatives.length === 0) problems.push('no alternatives');
+    if (counts.some((c) => !c.gearCategoryId === !c.bespokeOptionId)) problems.push('a count without exactly one target');
+    if (rule.alternatives.some((a) => a.counts.length !== targets.length || new Set(a.counts.map((c) => c.gearCategoryId ?? c.bespokeOptionId)).size !== targets.length))
+      problems.push('an alternative that does not count every target once');
+    for (const c of counts) {
+      const gear = c.gearCategoryId && gearById.get(c.gearCategoryId);
+      const opt = c.bespokeOptionId && optionById.get(c.bespokeOptionId);
+      if (c.gearCategoryId && (!gear || gear.pickCount === null || gear.isOptional)) problems.push('a gear target that is missing, granted outright, or optional');
+      if (c.bespokeOptionId && (!opt || opt.parent || opt.option.children.length === 0 || opt.section.minInstances !== null || opt.section.maxInstances !== null))
+        problems.push('a bespoke target that is not a top-level category of a section answered once');
+      const cap = gear ? gear.pickCount : opt?.option.maxSelect ?? null;
+      for (const [min, max] of [[c.minCount, c.maxCount], ...(c.adjustment ? [[c.adjustment.minCount, c.adjustment.maxCount]] : [])]) {
+        if (min < 0 || min > max || (cap !== null && max > cap)) problems.push(`a range ${min}-${max} outside 0..${cap}`);
+      }
+      for (const id of c.adjustment?.triggerOptionIds ?? []) {
+        const trigger = optionById.get(id);
+        if (!trigger || trigger.option.children.length > 0 || trigger.section.minInstances !== null || trigger.section.maxInstances !== null || (opt && trigger.section.id === opt.section.id))
+          problems.push('a trigger that is not a leaf in another playbook-level section answered once');
+      }
+    }
+    const sections = [...new Set(counts.filter((c) => c.bespokeOptionId).map((c) => optionById.get(c.bespokeOptionId)?.section))];
+    if (sections.length > 1) problems.push('categories from more than one section');
+    if (sections.length === 1 && sections[0] && sections[0].options.some((o) => !targets.includes(o.id))) problems.push('categories that do not cover their section');
+    check(problems.length === 0, `${key}: pick rule "${rule.label ?? rule.id}" is structurally coherent${problems.length ? ' — ' + [...new Set(problems)].join('; ') : ''}`);
+  }
+}
+
 [...pass, ...fail, ...notes].forEach((l) => console.log(l));
 console.log(`\n${pass.length} passed, ${fail.length} failed, ${notes.length} notes`);
 process.exit(fail.length ? 1 : 0);

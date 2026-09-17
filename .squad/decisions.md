@@ -26,5 +26,6 @@
 ### 2026-07-21: Mystery Create — Frontend Decomposition Architecture (Pending Implementation)
 **By:** Luigi (Frontend Developer)  
 **What:** Decompose `MysteryCreateComponent` (~680-line TS, ~550-line template) by **phase**, not by step. Each phase component owns all its steps' forms in memory and submits as a unit at phase transition. A `MysteryCreateStore` injectable service (provided at route component level) owns navigation, submission state, accumulated draft arrays, and reference data. ReactiveForm instances stay in phase components. No NgRx — use `signal()` fields.  
-**Why:** Steps within a phase are a UX concern (progressive disclosure), not an architectural boundary. Phase 0 has 4 steps but submits as one API call. Splitting by step would require premature state lifting.
+**Why:** Steps within a phase are a UX concern (progressive disclosure), not an architectural boundary. Phase 0 has 4 steps but submits as one API call. Splitting by step would require premature state lifting.  
+**Limited supersession (2026-09-14, Luigi, Hunter wizard Phase 4):** a draft that is submitted once may own its form. `HunterDraft` (`features/hunters/shared/hunter-draft.ts`) holds the hunter `FormGroup`, read through a `getRawValue` signal. One surface's sections share it and submit it as one request, so there are no sibling steps for form state to leak into, which is what this rule guards against. The rule still stands for anything that submits in separate phases. See `hunter-creation-wizard.md` 13.5 and 14.5.
 

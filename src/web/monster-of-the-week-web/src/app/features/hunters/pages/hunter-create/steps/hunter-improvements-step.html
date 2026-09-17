@@ -1,0 +1,32 @@
+<div class="grid gap-6">
+  <p class="m-0 text-muted text-[0.8rem] italic">Nothing to choose here — this is how your hunter grows during play.</p>
+
+  @if (draft.playbook()?.levelingUpText; as levelingUp) {
+    <div class="bg-surface-sunken rounded-lg p-4" data-panel="leveling-up">
+      <div class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] uppercase mb-2">Leveling up</div>
+      <div class="text-primary text-[0.9rem] leading-[1.65] whitespace-pre-line">{{ levelingUp }}</div>
+    </div>
+  }
+
+  @if (improvements().length > 0) {
+    <section class="grid gap-2" data-list="improvements">
+      <h3>Improvements</h3>
+      <ul class="bg-surface-sunken rounded-lg m-0 p-4 pl-9 list-disc grid gap-1 text-primary text-[0.9rem] leading-[1.5]">
+        @for (improvement of improvements(); track improvement.id) {
+          <li>{{ improvement.text }}</li>
+        }
+      </ul>
+    </section>
+  }
+
+  @if (advancedImprovements().length > 0) {
+    <section class="grid gap-2" data-list="advanced">
+      <h3>Advanced improvements</h3>
+      <ul class="bg-surface-sunken rounded-lg m-0 p-4 pl-9 list-disc grid gap-1 text-primary text-[0.9rem] leading-[1.5]">
+        @for (improvement of advancedImprovements(); track improvement.id) {
+          <li>{{ improvement.text }}</li>
+        }
+      </ul>
+    </section>
+  }
+</div>

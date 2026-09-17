@@ -1,0 +1,97 @@
+<div class="grid gap-6">
+  <p class="m-0 text-muted text-[0.8rem] italic">Nothing to choose here — this is what your hunter lives with.</p>
+
+  @if (draft.playbook(); as book) {
+    <section class="grid gap-2" data-track="luck">
+      <h3>Luck</h3>
+      <div class="flex flex-wrap items-center gap-2 text-muted text-[0.8rem]" role="img" [attr.aria-label]="'Luck: ' + book.luckBoxCount + ' boxes, from ' + labels.start + ' to ' + labels.luckEnd">
+        <span aria-hidden="true">{{ labels.start }}</span>
+        <span class="flex gap-1" aria-hidden="true">
+          @for (box of boxes(book.luckBoxCount); track box) {
+            <span class="track-box inline-block h-4 w-4 rounded-sm border border-strong"></span>
+          }
+        </span>
+        <span aria-hidden="true">{{ labels.luckEnd }}</span>
+      </div>
+      <p class="m-0 text-primary text-[0.9rem] leading-[1.65]">{{ rules.luck }}</p>
+      @if (book.luckSpecialText) {
+        <div class="bg-accent-subtle rounded-lg p-4">
+          <div class="text-accent text-[0.75rem] font-semibold tracking-[0.04em] uppercase mb-2">{{ shortName() }} special</div>
+          <div class="text-primary text-[0.9rem] leading-[1.65] whitespace-pre-line">{{ book.luckSpecialText }}</div>
+        </div>
+      }
+    </section>
+
+    <section class="grid gap-2" data-track="harm">
+      <h3>Harm</h3>
+      <div class="flex flex-wrap items-center gap-2 text-muted text-[0.8rem]" role="img" [attr.aria-label]="'Harm: ' + book.harmBoxCount + ' boxes, from ' + labels.start + ' to ' + labels.harmEnd + ', unstable at ' + book.harmUnstableThreshold">
+        <span aria-hidden="true">{{ labels.start }}</span>
+        <span class="flex gap-1" aria-hidden="true">
+          @for (box of boxes(book.harmBoxCount); track box) {
+            @if (box > 0 && box === book.harmUnstableThreshold - 1) {
+              <!-- The sheet's "bbb|bbbb": from this box on, the hunter is unstable. -->
+              <span class="unstable-divider self-stretch w-px bg-border-strong mx-[0.15rem]"></span>
+            }
+            <span class="track-box inline-block h-4 w-4 rounded-sm border border-strong"></span>
+          }
+        </span>
+        <span aria-hidden="true">{{ labels.harmEnd }} · unstable at {{ book.harmUnstableThreshold }}</span>
+      </div>
+      <p class="m-0 text-primary text-[0.9rem] leading-[1.65]">{{ harmRule(book.harmUnstableThreshold) }}</p>
+    </section>
+
+    <section class="grid gap-2" data-track="experience">
+      <h3>Experience</h3>
+      <div class="flex gap-1" role="img" [attr.aria-label]="'Experience: ' + book.experienceBoxCount + ' boxes'">
+        @for (box of boxes(book.experienceBoxCount); track box) {
+          <span class="track-box inline-block h-4 w-4 rounded-sm border border-strong" aria-hidden="true"></span>
+        }
+      </div>
+      <p class="m-0 text-primary text-[0.9rem] leading-[1.65]">{{ rules.experience }}</p>
+    </section>
+
+    @for (track of book.extraTracks; track track.id) {
+      <section class="grid gap-2" data-track="extra">
+        <h3>{{ track.name }}</h3>
+        <div class="flex flex-wrap items-center gap-2 text-muted text-[0.8rem]" role="img" [attr.aria-label]="track.name + ': ' + track.boxCount + ' boxes, from ' + (track.startLabel ?? labels.start) + ' to ' + track.endLabel">
+          <span aria-hidden="true">{{ track.startLabel ?? labels.start }}</span>
+          <span class="flex gap-1" aria-hidden="true">
+            @for (box of boxes(track.boxCount); track box) {
+              <span class="track-box inline-block h-4 w-4 rounded-sm border border-strong"></span>
+            }
+          </span>
+          <span aria-hidden="true">{{ track.endLabel }}</span>
+        </div>
+        @if (track.description) {
+          <span class="text-[0.85rem]" [innerHTML]="track.description"></span>
+        }
+        @if (track.effectText) {
+          <span class="text-[0.85rem] text-muted" [innerHTML]="track.effectText"></span>
+        }
+      </section>
+    }
+
+    @for (journal of book.bespokeJournals; track journal.id) {
+      <section class="grid gap-2" data-track="journal">
+        <h3>{{ journal.title }}</h3>
+        @if (journal.description) {
+          <span class="text-[0.85rem]" [innerHTML]="journal.description"></span>
+        }
+        @if (journal.effectText) {
+          <span class="text-[0.85rem] text-muted" [innerHTML]="journal.effectText"></span>
+        }
+        @if (journal.fields.length > 0) {
+          <div class="bg-surface-sunken rounded-lg p-4">
+            <div class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] uppercase mb-2">Each entry records</div>
+            <ul class="m-0 pl-5 list-disc text-primary text-[0.9rem] leading-[1.65]">
+              @for (field of journal.fields; track field.id) {
+                <li>{{ field.label }}</li>
+              }
+            </ul>
+          </div>
+        }
+        <p class="m-0 text-muted text-[0.8rem] italic">Entries are added during play.</p>
+      </section>
+    }
+  }
+</div>

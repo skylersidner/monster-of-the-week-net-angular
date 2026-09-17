@@ -1762,6 +1762,136 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.ToTable("playbook_moves", (string)null);
                 });
 
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Label")
+                        .HasColumnType("text")
+                        .HasColumnName("label");
+
+                    b.Property<Guid>("PlaybookId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("playbook_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaybookId")
+                        .HasDatabaseName("idx_playbook_pick_rules_playbook_id");
+
+                    b.ToTable("playbook_pick_rules", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleAlternative", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Label")
+                        .HasColumnType("text")
+                        .HasColumnName("label");
+
+                    b.Property<Guid>("RuleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rule_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RuleId")
+                        .HasDatabaseName("idx_playbook_pick_rule_alternatives_rule_id");
+
+                    b.ToTable("playbook_pick_rule_alternatives", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleCount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int?>("AdjustedMaxCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("adjusted_max_count");
+
+                    b.Property<int?>("AdjustedMinCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("adjusted_min_count");
+
+                    b.Property<Guid>("AlternativeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("alternative_id");
+
+                    b.Property<Guid?>("BespokeOptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bespoke_option_id");
+
+                    b.Property<Guid?>("GearCategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("gear_category_id");
+
+                    b.Property<int>("MaxCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_count");
+
+                    b.Property<int>("MinCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_count");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BespokeOptionId")
+                        .HasDatabaseName("idx_playbook_pick_rule_counts_bespoke_option_id");
+
+                    b.HasIndex("GearCategoryId")
+                        .HasDatabaseName("idx_playbook_pick_rule_counts_gear_category_id");
+
+                    b.HasIndex("AlternativeId", "BespokeOptionId")
+                        .IsUnique()
+                        .HasDatabaseName("idx_playbook_pick_rule_counts_alternative_bespoke_option");
+
+                    b.HasIndex("AlternativeId", "GearCategoryId")
+                        .IsUnique()
+                        .HasDatabaseName("idx_playbook_pick_rule_counts_alternative_gear_category");
+
+                    b.ToTable("playbook_pick_rule_counts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_playbook_pick_rule_counts_adjustment_pair", "(\"adjusted_min_count\" IS NULL) = (\"adjusted_max_count\" IS NULL)");
+
+                            t.HasCheckConstraint("ck_playbook_pick_rule_counts_one_target", "(\"gear_category_id\" IS NULL) <> (\"bespoke_option_id\" IS NULL)");
+
+                            t.HasCheckConstraint("ck_playbook_pick_rule_counts_range", "\"min_count\" <= \"max_count\"");
+                        });
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleCountTrigger", b =>
+                {
+                    b.Property<Guid>("CountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("count_id");
+
+                    b.Property<Guid>("BespokeOptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bespoke_option_id");
+
+                    b.HasKey("CountId", "BespokeOptionId");
+
+                    b.HasIndex("BespokeOptionId")
+                        .HasDatabaseName("idx_playbook_pick_rule_count_triggers_bespoke_option_id");
+
+                    b.ToTable("playbook_pick_rule_count_triggers", (string)null);
+                });
+
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookStatArrayOption", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2472,6 +2602,66 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("Playbook");
                 });
 
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRule", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
+                        .WithMany("PickRules")
+                        .HasForeignKey("PlaybookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Playbook");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleAlternative", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRule", "Rule")
+                        .WithMany("Alternatives")
+                        .HasForeignKey("RuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Rule");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleCount", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleAlternative", "Alternative")
+                        .WithMany("Counts")
+                        .HasForeignKey("AlternativeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeOption", null)
+                        .WithMany()
+                        .HasForeignKey("BespokeOptionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookGearCategory", null)
+                        .WithMany()
+                        .HasForeignKey("GearCategoryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Alternative");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleCountTrigger", b =>
+                {
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.BespokeOption", null)
+                        .WithMany()
+                        .HasForeignKey("BespokeOptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleCount", "Count")
+                        .WithMany("Triggers")
+                        .HasForeignKey("CountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Count");
+                });
+
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookStatArrayOption", b =>
                 {
                     b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Playbook", "Playbook")
@@ -2638,6 +2828,8 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
 
                     b.Navigation("Moves");
 
+                    b.Navigation("PickRules");
+
                     b.Navigation("StatArrayOptions");
                 });
 
@@ -2654,6 +2846,21 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookMove", b =>
                 {
                     b.Navigation("BespokeSections");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRule", b =>
+                {
+                    b.Navigation("Alternatives");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleAlternative", b =>
+                {
+                    b.Navigation("Counts");
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.PlaybookPickRuleCount", b =>
+                {
+                    b.Navigation("Triggers");
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.WeaponTag", b =>

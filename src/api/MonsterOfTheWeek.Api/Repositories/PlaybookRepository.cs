@@ -141,5 +141,9 @@ public sealed class PlaybookRepository(MotwDbContext dbContext) : IPlaybookRepos
             .Include(x => x.BespokeSections).ThenInclude(x => x.Options)
             .Include(x => x.BespokeJournals).ThenInclude(x => x.Fields)
             .Include(x => x.ExtraTracks)
+            // Hunter creation wizard Phase 6. The update path needs the rules loaded twice over:
+            // to validate the ones a save keeps (S11), and so a sent rule can be diffed by id.
+            // HunterRepository.GetPlaybookForValidationAsync carries the same chain.
+            .Include(x => x.PickRules).ThenInclude(r => r.Alternatives).ThenInclude(a => a.Counts).ThenInclude(c => c.Triggers)
             .AsSplitQuery();
 }
