@@ -540,6 +540,8 @@ List page follows the `MonstersListComponent` shape exactly (flat `GET /api/hunt
 
 ## 8. Hunter create/edit — flow vs. form (Phase 10, **implemented 2026-08-31**)
 
+**Update 2026-09-15: create is now a wizard (Hunter creation wizard, Phase 7).** `/hunters/new` is an eight-step wizard (`features/hunters/pages/hunter-create/`; design and decisions in `hunter-creation-wizard.md`). It still saves once, with one `POST /api/hunters`, and then lands on `/hunters`. Between steps it asks `POST /api/hunters/evaluate` what is left, and saves nothing. `HunterFormComponent` is now edit-only, on `/hunters/:hunterId`. The recommendation below still holds for edit, and its persistence reasoning (one domain, one request) still holds for both. Only its rejection of a wizard for create is reversed.
+
 **Built as recommended below**: one reactively-gated page, no wizard. `HunterFormComponent` + `HunterCreateComponent`/`HunterDetailComponent`, with `HunterService` gaining `getById`/`create`/`update`/`delete`. The predicted shape held up — nothing about the gating needed a second navigation step.
 
 **Three things the recommendation did not anticipate:**

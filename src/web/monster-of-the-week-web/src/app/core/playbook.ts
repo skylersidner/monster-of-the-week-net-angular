@@ -21,8 +21,15 @@ export class PlaybookService {
     return this.apiService.get<PlaybookListItemResponse[]>('/api/playbooks');
   }
 
-  getById(playbookId: string): Observable<PlaybookDetailResponse> {
-    return this.apiService.get<PlaybookDetailResponse>(`/api/playbooks/${playbookId}`);
+  /**
+   * `suppressErrorToast`: for a caller that shows its own message for a failed load, such as the
+   * creation wizard's Reload playbook, which says "That playbook no longer exists." on a 404 (L7, L27).
+   */
+  getById(playbookId: string, options: { suppressErrorToast?: boolean } = {}): Observable<PlaybookDetailResponse> {
+    return this.apiService.get<PlaybookDetailResponse>(
+      `/api/playbooks/${playbookId}`,
+      options.suppressErrorToast ? new HttpContext().set(SUPPRESS_ERROR_TOAST, true) : undefined
+    );
   }
 
   create(request: UpsertPlaybookRequest): Observable<PlaybookDetailResponse> {

@@ -886,6 +886,28 @@ export interface HunterDetailResponse {
   createdAt: string;
 }
 
+// --- The check (hunter-creation-wizard.md 12.8, 13.9) --------------------------------------
+// `POST /api/hunters/evaluate` answers what Create would say about an unsaved hunter, and saves
+// nothing. The areas are sheet areas, sent as lowercase strings; the wizard maps them to steps.
+
+export type HunterOutstandingArea = 'ratings' | 'rules' | 'moves' | 'gear' | 'look';
+
+export interface HunterOutstandingItem {
+  area: HunterOutstandingArea;
+  /** Set on every bespoke line, a repeatable entry's included. */
+  sectionId: string | null;
+  /** Set on gear lines. */
+  gearCategoryId: string | null;
+  /** Exactly the string `HunterDetailResponse.outstanding` carries for the same gap. */
+  message: string;
+}
+
+export interface HunterEvaluationResponse {
+  /** The message Create would refuse the request with; `outstanding` is then empty. */
+  refusal: string | null;
+  outstanding: HunterOutstandingItem[];
+}
+
 export interface UpsertHunterRequest {
   name: string;
   pronouns: string | null;

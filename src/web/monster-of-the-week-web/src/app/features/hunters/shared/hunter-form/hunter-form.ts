@@ -19,14 +19,14 @@ import {
 } from '../../../../core/models';
 
 /**
- * The Hunter create/edit form — one page, one submit, reactively gated on the chosen Playbook
- * (docs/hunter-playbooks/architecture.md Section 8, which rejected a wizard for this).
+ * The Hunter edit form on `/hunters/:hunterId`: one page, one submit, for a hunter that already
+ * exists. Edit-only since Phase 7 (hunter-creation-wizard.md L17): creating a hunter is the wizard at
+ * `/hunters/new` (`pages/hunter-create/`), which replaced the single-page create that architecture.md
+ * Section 8 described. Section 8's persistence half still holds for both: a hunter is one request.
  *
- * Mirrors `MonsterFormComponent`'s `@Input() hunter | null` / `@Output() save` contract, with
- * one deliberate departure: this component loads the selected Playbook itself rather than
- * receiving its options as inputs. The option lists have to be re-fetched whenever `playbookId`
- * changes, and that subscription would otherwise be duplicated identically in both the create
- * and the detail page. Section 8 specifies this shape explicitly.
+ * Mirrors `MonsterFormComponent`'s `@Input() hunter` / `@Output() save` contract, with one deliberate
+ * departure: this component loads the hunter's Playbook itself rather than receiving its options as
+ * inputs, because the option lists belong to the playbook, not to the page.
  *
  * Nothing in here blocks a save on an *unfinished* sheet (architecture.md Section 9). The
  * per-section counters are progress indicators, not validators: a name and a playbook are
@@ -37,9 +37,9 @@ import {
  * All hunter state, prune, the untick clear and the request builder live in `HunterDraft`
  * (hunter-creation-wizard.md 13.5), which this component provides for itself. The page is composed
  * of the shared sections in `../sections/` (13.6): ratings, moves, gear, look, bespoke sections and
- * History. They inject this form's draft. What stays here is the playbook picker, name and pronouns,
- * the edit-only blocks (extra tracks, Luck / Harm / Experience, journals, which the wizard shows
- * read-only instead), the playbook load and the submit gate.
+ * History. They inject this form's draft. What stays here is the locked playbook picker, name and
+ * pronouns, the edit-only blocks (extra tracks, Luck / Harm / Experience, journals, which the wizard
+ * shows read-only instead), the playbook load and the submit gate.
  */
 @Component({
   selector: 'app-hunter-form',
@@ -66,8 +66,8 @@ export class HunterFormComponent implements OnChanges {
   readonly draft = inject(HunterDraft);
 
   @Input() playbooks: PlaybookListItemResponse[] = [];
-  /** `null` = create mode. Any change to this input repopulates the form. */
-  @Input() hunter: HunterDetailResponse | null = null;
+  /** The saved hunter being edited. Any change to this input repopulates the form. */
+  @Input({ required: true }) hunter!: HunterDetailResponse;
   @Input() isSaving = false;
   @Input() submitLabel = 'Save Hunter';
 
@@ -77,11 +77,9 @@ export class HunterFormComponent implements OnChanges {
   readonly playbookError = signal<string | null>(null);
 
   /**
-   * Every playbookId, from the picker's own valueChanges and from populate()'s direct call on
-   * edit-mode load, funnels through this one Subject into one switchMap (below). Both used to
-   * call loadPlaybook() independently, each opening its own subscription to the HTTP call — so a
-   * slow response for a playbook the user has since navigated away from could still land after,
-   * and overwrite, a faster response for the one now showing (13.11 item 5).
+   * Every load goes through this one Subject into one switchMap (below), so when the hunter input is
+   * re-set (after a save) while an earlier load is still in flight, the earlier response can't land
+   * after, and overwrite, the later one (13.11 item 5).
    */
   private readonly playbookIdRequests = new Subject<string>();
 
@@ -89,22 +87,17 @@ export class HunterFormComponent implements OnChanges {
    * Wires the playbook-loading pipeline here, in the constructor, rather than in ngOnInit —
    * load-bearing, not stylistic. `hunter-detail.html` only creates this component once its
    * `hunter()` signal is already truthy (`@if (hunter(); as current) { <app-hunter-form
-   * [hunter]="current" ...> }`), so on the edit page the very FIRST `ngOnChanges` this component
-   * ever receives already carries a non-null hunter, and Angular calls ngOnChanges *before*
-   * ngOnInit on that first change-detection pass. `populate()` (called from ngOnChanges) ends by
-   * pushing into `playbookIdRequests`; a subscription set up in ngOnInit would not exist yet on
-   * that first push, and — being a plain Subject, not a ReplaySubject — would silently drop it,
-   * so the edit page's playbook would never load. Constructing the subscription here means it
-   * exists before any lifecycle hook can possibly fire. The draft is injected in a field
-   * initializer, so its form exists before this body runs.
+   * [hunter]="current" ...> }`), so the very FIRST `ngOnChanges` this component ever receives
+   * already carries the hunter, and Angular calls ngOnChanges *before* ngOnInit on that first
+   * change-detection pass. `populate()` (called from ngOnChanges) ends by pushing into
+   * `playbookIdRequests`; a subscription set up in ngOnInit would not exist yet on that first push,
+   * and — being a plain Subject, not a ReplaySubject — would silently drop it, so the playbook
+   * would never load. The draft is injected in a field initializer, so its form exists before this
+   * body runs.
    */
   constructor() {
-    this.draft.form.controls.playbookId.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((playbookId) => this.loadPlaybook(playbookId));
-
-    // switchMap: a new playbookId cancels whatever fetch is still in flight for the previous
-    // one, so a slow response can never arrive after, and overwrite, a later one's.
+    // switchMap: a new load cancels whatever fetch is still in flight for the previous one, so a
+    // slow response can never arrive after, and overwrite, a later one's.
     this.playbookIdRequests
       .pipe(
         switchMap((playbookId) => this.fetchPlaybook(playbookId)),
@@ -131,23 +124,13 @@ export class HunterFormComponent implements OnChanges {
   // ---- Playbook loading
 
   /** The draft is filled first, then the playbook loads (and prunes) — the same order as before extraction. */
-  private populate(hunter: HunterDetailResponse | null): void {
+  private populate(hunter: HunterDetailResponse): void {
     this.draft.populate(hunter);
-    if (hunter) {
-      this.loadPlaybook(hunter.playbookId);
-    }
-  }
-
-  private loadPlaybook(playbookId: string): void {
-    this.playbookIdRequests.next(playbookId);
+    this.playbookIdRequests.next(hunter.playbookId);
   }
 
   /** The switchMap's projection. Sets isLoadingPlaybook as a side effect before the request goes out. */
   private fetchPlaybook(playbookId: string) {
-    if (!playbookId) {
-      return of<PlaybookLoadOutcome>({ kind: 'empty' });
-    }
-
     this.isLoadingPlaybook.set(true);
     return this.playbookService.getById(playbookId).pipe(
       map((playbook): PlaybookLoadOutcome => ({ kind: 'loaded', playbook })),
@@ -156,12 +139,6 @@ export class HunterFormComponent implements OnChanges {
   }
 
   private applyPlaybookOutcome(outcome: PlaybookLoadOutcome): void {
-    if (outcome.kind === 'empty') {
-      this.draft.playbook.set(null);
-      this.playbookError.set(null);
-      this.isLoadingPlaybook.set(false);
-      return;
-    }
     if (outcome.kind === 'error') {
       this.draft.playbook.set(null);
       this.playbookError.set('Unable to load that playbook.');
@@ -177,6 +154,5 @@ export class HunterFormComponent implements OnChanges {
 
 /** The switchMap pipeline's result shape — see fetchPlaybook/applyPlaybookOutcome. */
 type PlaybookLoadOutcome =
-  | { readonly kind: 'empty' }
   | { readonly kind: 'error' }
   | { readonly kind: 'loaded'; readonly playbook: PlaybookDetailResponse };

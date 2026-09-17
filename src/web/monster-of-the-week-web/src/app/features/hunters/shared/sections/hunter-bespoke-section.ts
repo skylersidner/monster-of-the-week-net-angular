@@ -4,6 +4,7 @@ import { HunterDraft } from '../hunter-draft';
 import { BespokeOptionTreeComponent } from '../hunter-form/bespoke-option-tree';
 import { IndexedPickRule, StrandedList, doesNotFitNotice, fits, strandedLists } from '../hunter-pick-rules';
 import { bespokeSectionAnchor, gearCategoryAnchor, scrollToAnchor } from './section-anchors';
+import { HUNTER_SECTION_NAVIGATOR } from './section-navigator';
 
 /**
  * One bespoke section, for both playbook-level rulesets and the ones printed inside a move
@@ -11,10 +12,9 @@ import { bespokeSectionAnchor, gearCategoryAnchor, scrollToAnchor } from './sect
  * One renderer serves both places because only where it renders differs: architecture.md 6.8 says
  * the structure is identical.
  *
- * `mode` only changes the numeric leaf (L14). In `'create'` it shows as read-only "3 of 3". That
- * is the Phase 7 wizard, where the value is play state like Luck. In `'edit'`, the default, it
- * stays an input. Today's single-page create page is not the wizard, so it keeps the default
- * until L17 retires it.
+ * `mode` only changes the numeric leaf (L14). In `'create'`, the wizard's Rules and Moves steps, it
+ * shows as read-only "3 of 3", because the value is play state like Luck. In `'edit'`, the default
+ * and the edit page, it stays an input.
  *
  * Under a pick rule (Phase 6, F8c; today Natural Attacks and Combat Magic): the rule's label
  * replaces `sectionProgress`, the governed dividers show "n picked" instead of their own stored
@@ -37,6 +37,8 @@ import { bespokeSectionAnchor, gearCategoryAnchor, scrollToAnchor } from './sect
 export class HunterBespokeSectionComponent {
   readonly draft = inject(HunterDraft);
   private readonly document = inject(DOCUMENT);
+  /** Provided by the wizard, where "Go to Gear" is a step link; absent on the edit page, which scrolls. */
+  private readonly navigator = inject(HUNTER_SECTION_NAVIGATOR, { optional: true });
 
   @Input({ required: true }) section!: BespokeSectionResponse;
   @Input() mode: 'create' | 'edit' = 'edit';
@@ -81,6 +83,10 @@ export class HunterBespokeSectionComponent {
   }
 
   goToGear(categoryId: string): void {
-    scrollToAnchor(this.document, gearCategoryAnchor(categoryId));
+    if (this.navigator) {
+      this.navigator.goToGear(categoryId);
+    } else {
+      scrollToAnchor(this.document, gearCategoryAnchor(categoryId));
+    }
   }
 }

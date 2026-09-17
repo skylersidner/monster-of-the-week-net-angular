@@ -26,7 +26,7 @@
       </label>
       @for (section of draft.moveSectionsFor(move); track section.id) {
         <div class="ml-8 max-md:ml-3">
-          <div appHunterBespokeSection [section]="section"></div>
+          <div appHunterBespokeSection [section]="section" [mode]="mode"></div>
         </div>
       }
     }
@@ -60,7 +60,7 @@
       <!-- This Move's own pick-structure, printed inside the move on the sheet (6.8). -->
       @for (section of draft.moveSectionsFor(move); track section.id) {
         <div class="ml-8 max-md:ml-3">
-          <div appHunterBespokeSection [section]="section"></div>
+          <div appHunterBespokeSection [section]="section" [mode]="mode"></div>
         </div>
       }
     }

@@ -1481,3 +1481,88 @@ New: `features/hunters/shared/sections/hunter-{ratings,moves,gear,look,bespoke,h
 
 ### Files
 New: `shared/hunter-pick-rules.{ts,spec.ts}`, `shared/testing/pick-rule-playbooks.ts`, `shared/sections/section-anchors.ts`, `shared/sections/hunter-pick-rule-sections.spec.ts`, `playbook-admin/playbook-admin.spec.ts`. Modified: `core/models.ts`, `hunter-draft.ts`, `bespoke-option-tree.{ts,html}`, `hunter-{gear,bespoke}-section.{ts,html}`, `playbook-form.{ts,html,spec.ts}`; `pickRules: []` in 9 other spec fixtures. Not committed.
+
+---
+
+## 2026-09-15 — Hunter Wizard Phase 7, F5: the wizard core
+
+### Task
+`hunter-creation-wizard-phases.md` Phase 7, F5 only. F6, F7 and Toad's F9 come next, and nothing is committed until all of Phase 7 is in. `/hunters/new` is now the eight-step wizard: `HunterCreateStore`, the step 1 gate, Rules dots, read-only Tracks and Improvements, the dossier, and Create → toast → `/hunters`. `HunterFormComponent` is edit-only (L17).
+
+### Reusable technical facts
+- **The step model is pure** (`pages/hunter-create/hunter-step-model.ts`): steps, next and previous positions, the tracker mapping and the eyebrow. The store stays thin over it. In F5 the tracker shows only `visited`, `unreached` and `notApplicable`. F6 layers `hunterTrackerMarks` on top.
+- **The gate:** a loaded playbook, whose id matches `formValue().playbookId`, plus a name. A test that only covers a *first* load proves nothing, because `draft.playbook` is null during it anyway. Only the switch-while-loading case catches a missing id or loading check; a negative control confirmed it.
+- **The picker binds its own `FormControl` (13.7):** `requestPlaybook`, then `switchPlaybook`, which resets `furthest`. F7 puts the confirmation in `requestPlaybook`.
+- **Angular strips whitespace between elements,** so `textContent` reads "OkayDoomed" and "PlaybookThe Crooked". Read labels and values apart.
+- **"Choose a playbook." is a substring of the custom-select placeholder "Choose a playbook...".** Assert `small.text-danger`, never the page text, or a toContain passes without checking anything.
+- **Proving a moved characterisation case unchanged:** a scratchpad script compares each `it` title's `toStrictEqual` literals before and after, and each fixture statement with a bracket scanner. The scanner must skip comments: an apostrophe in "the load's prune" opened a fake string.
+- **Track labels, from the PDF:** Luck "Okay … Doomed", Harm "Okay bbb|bbbb Dying", Corruption "Okay … Lost". The callout reads "{Short} special", as on the sheets.
+- `RouterTestingHarness.navigateByUrl(url, Component)` resolves a lazy `loadComponent` under the Vitest builder.
+- **`mode` inputs:** the history section's changes only its layout; the moves section passes its own down to move-internal bespoke sections. `populate(null)` is gone; the wizard starts from a fresh draft.
+
+### Verification
+- Full suite: 66 files / 638 tests, up from a 59 / 539 baseline.
+- Characterisation: the 5 create cases moved to `pages/hunter-create/hunter-create.characterisation.spec.ts`, and the 2 edit cases stayed. The script reported every expected literal and every fixture statement SAME.
+- 4 negative controls, all caught, all restored: the gate id/loading check, jumps ignoring the gate, `submitted` after navigate, and Rules in edit mode.
+- `ng build --configuration production --output-path` into the scratchpad: clean, with the same 2 budget warnings. No browser pass.
+
+### Files
+- **New:** `pages/hunter-create/hunter-create.store.{ts,spec.ts}`, `hunter-step-model.{ts,spec.ts}`, `hunter-sheet-preview.{ts,html,spec.ts}`, `hunter-create.{spec,characterisation.spec}.ts`, `steps/` (8 step components plus `hunter-wizard-steps.spec.ts`), `shared/testing/characterisation-playbooks.ts`, `hunters.routes.spec.ts`.
+- **Rewritten:** `hunter-create.{ts,html}`.
+- **Modified:** `hunter-form.{ts,html,spec.ts,characterisation.spec.ts}`, `hunter-draft.{ts,spec.ts}`, `hunter-{history,moves}-section.{ts,html,spec.ts}`, `hunter-pick-rule-sections.spec.ts`; comments only in `hunter-bespoke-section.ts`, `hunter-detail.ts`, `hunters.routes.ts`, `http-context-tokens.ts` and `http-error-interceptor.spec.ts`.
+
+Not committed.
+
+---
+
+## 2026-09-15 — Hunter Wizard Phase 7, F6 and F7: the check, marks, card, links, switch confirm, discard guard
+
+### Task
+The rest of Phase 7's code, in the same working tree as F5. Toad's F9 browser pass follows, and nothing is committed until all of Phase 7 is in.
+- **F6:** evaluate on every navigation, plus Q8's step 8 re-check; `hunterTrackerMarks` with L5; the "Still to finish" card; the refusal band with L7 links; step links replacing the Phase 6 scroll buttons inside the wizard.
+- **F7:** the playbook-switch confirmation (L13), the discard guard and `beforeunload` (L12), standing aside when signed out (L11), and `canceledNavigationResolution: 'computed'`.
+- **Docs:** `architecture.md` §8 note; the status lines of both wizard docs; dated implementation notes after L33.
+
+### Decisions (recorded in hunter-creation-wizard.md after L33)
+- **L13 is the prune.** 7.4 defines the switch's "clear" as `dropSelectionsOutside`, so the moved prune characterisation case keeps its expected value; it now confirms the switch first.
+- **Marks the check never drives:** step 1 is finished whenever the gate holds; Tracks, Improvements and fixed-grant dots are finished once visited. L5 only touches the rest.
+- **Harm sentence:** fixed wording, number from `harmUnstableThreshold`.
+
+### Reusable technical facts
+- **One latest-wins check stream:** a `Subject<request | null>` into `switchMap`, with `null` as reset so a playbook switch cancels an in-flight check. `concat(of(started), defer(() => evaluate()).pipe(map, defaultIfEmpty(failed), catchError(failed)))`. `defer` turns a missing mock method into `failed` rather than a dead stream.
+- **Q8 debounce:** `toObservable(computed(() => JSON.stringify({ ...toRequest(), background: null })))`, `skip(1)`, filter to the last step, `debounceTime(500)`. Specs need `TestBed.tick()` after each edit and a tick before the first. `vi.useFakeTimers()` drives `debounceTime`. `Subject.observed` proves a check was cancelled.
+- **A control that leaves a second guard in place proves nothing.** Removing only the filter's `isLastStep()` was MISSED, because the subscriber checked it again; the spec now also asserts `recheckPending` right after an off-step edit.
+- **Negative-control scripts must normalise line endings per file.** `core/*.ts`, `app.config.ts`, `models.ts`, `hunters.routes.ts` and the confirm modal are CRLF in the working copy, so a `\n` match silently SKIPs.
+- **`RouterTestingHarness.create()` never calls `initialNavigation()`,** so the router ignores popstate until `router.setUpLocationChangeListener()` runs. Wait for the router's `NavigationCancel` / `NavigationEnd`, not ticks, because it defers popstate with `setTimeout`. A separate 'replace' control test asserted `SpyLocation` internals (it starts with an extra '' entry) and was dropped; the `ROUTER_CONFIG` negative control is the proof.
+- **Section navigator token** (`shared/sections/section-navigator.ts`): the wizard provides `useExisting: HunterCreateStore`, so the same "Go to" buttons are step links there and scrolls on the edit page.
+- **Link anchors scroll in `afterNextRender({ read })`** from a page `effect`, which runs after the layout's write-phase scroll reset.
+- **The band action** is projected into the layout's error band through `[wizardErrorAction]`, inside `@if` on both sides.
+- `ApiService.get` gained an optional `HttpContext`; `PlaybookService.getById(id, { suppressErrorToast })` is used by Reload playbook.
+- `ConfirmDeleteModalComponent.items` is now `readonly string[]`, and `confirmLabel` defaults to `verb`.
+
+### Verification
+- Full suite: 72 files / 730 tests, up from 66 / 638 after F5.
+- 9 negative controls, all caught, all restored: History notes counting as a change, off-step re-checks, `mergeMap` instead of `switchMap`, a refusal keeping marks, the band never finding a rule, Cancel emitting, the guard ignoring auth, 'replace' resolution, and evaluate toasting.
+- Characterisation script: ALL SAME.
+- `ng build --configuration production --output-path` into the scratchpad: clean, with the same 2 budget warnings.
+- No browser pass (F9).
+
+### Files
+- **New:** `pages/hunter-create/hunter-evaluation.{ts,spec.ts}`, `hunter-tracker-marks.{ts,spec.ts}`, `hunter-draft.guard.{ts,spec.ts}`, `steps/hunter-still-to-finish.{ts,html,spec.ts}`, `shared/sections/section-navigator.ts`, `app.config.spec.ts`, `shared/confirm-delete-modal.component.spec.ts`.
+- **Modified:** the store, page, introductions and tracks steps, and their specs; `hunter-draft.{ts,spec.ts}` (`isDirty`, `playbookScopedSummary`); the gear, bespoke and look sections; `section-anchors.ts`; `hunters.routes.ts`; `core/{models,hunter,playbook,api}.ts` and the `hunter` and `playbook` specs; `app.config.ts`; the confirm modal; `wizard-layout.html` and its spec; the characterisation spec (evaluate mock, confirm in the prune case); `architecture.md`, `hunter-creation-wizard.md`, `hunter-creation-wizard-phases.md`.
+
+Not committed.
+
+**F9 fixes (same day, after Toad's pass):**
+- **B1, dark theme:** the wizard column set no text colour, so the shared hunter sections (written for pages wrapped in `section.text-primary`) rendered browser black on dark surfaces. The fix is `text-primary` on `wizard-layout.html`'s root, because the shell paints the surfaces and should set their foreground. The Mystery wizard colours every element explicitly, so nothing visible changes there.
+- **B2, overflow:** step 1's `grid-cols-[2fr_1fr]` row couldn't shrink below its inputs' intrinsic widths. It now stacks below `lg`, with `minmax(0, …)` columns, `min-w-0` items and `w-full` inputs.
+- **Guards:** layout, page and steps specs.
+- **Verification:** 72 files / 732 tests; production build clean, with the 2 usual warnings.
+- **Lesson:** any shell that paints a surface must set its text token too, because `body` sets none.
+
+**N1 fix (Toad's 768 sweep):** the bespoke tree's write-in inputs kept their intrinsic width, so at 768 they pushed the Hex's Rotes card 34px past the column (and the Professional's and the Wronged's by 8px each).
+- **Grid-stretched inputs and textareas** get `w-full min-w-0`: the tree's two write-ins, the entry "Details…" input, the free-text textarea, and both History textareas. A percentage width drops a form control's minimum-width contribution to zero, and since they already fill their cell, desktop is unchanged.
+- **Flex items** keep their own width but get `min-w-0`: the entry name has `flex-1`, and the look write-in also gets `max-w-full`, so neither widens on desktop.
+- **The leaf text span** gets `min-w-0`.
+- **Guard:** `hunter-narrow-column-inputs.spec.ts`.
+- **Verification:** 73 files / 735 tests; production build clean.

@@ -61,6 +61,18 @@ describe('PlaybookService', () => {
     req.flush({});
   });
 
+  it('leaves getById toasting by default, and suppresses the toast only when the caller asks (the wizard\'s Reload playbook, L27)', () => {
+    service.getById('pb1').subscribe();
+    const plain = httpTestingController.expectOne('/api/playbooks/pb1');
+    expect(plain.request.context.get(SUPPRESS_ERROR_TOAST)).toBe(false);
+    plain.flush({});
+
+    service.getById('pb1', { suppressErrorToast: true }).subscribe();
+    const quiet = httpTestingController.expectOne('/api/playbooks/pb1');
+    expect(quiet.request.context.get(SUPPRESS_ERROR_TOAST)).toBe(true);
+    quiet.flush({});
+  });
+
   it('sets SUPPRESS_ERROR_TOAST on delete', () => {
     service.delete('pb1').subscribe();
     const req = httpTestingController.expectOne('/api/playbooks/pb1');

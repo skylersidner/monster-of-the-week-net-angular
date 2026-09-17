@@ -11,8 +11,8 @@ export class ApiService {
 
   constructor(private readonly httpClient: HttpClient) {}
 
-  get<TResponse>(path: string): Observable<TResponse> {
-    return this.httpClient.get<TResponse>(this.toUrl(path));
+  get<TResponse>(path: string, context?: HttpContext): Observable<TResponse> {
+    return this.httpClient.get<TResponse>(this.toUrl(path), context ? { context } : undefined);
   }
 
   post<TRequest, TResponse>(path: string, body: TRequest, context?: HttpContext): Observable<TResponse> {

@@ -1,0 +1,41 @@
+<section class="bg-surface border border-default rounded-lg grid gap-2 p-3" aria-labelledby="hunter-still-to-finish-title" data-card="still-to-finish">
+  <div class="flex flex-wrap items-baseline gap-2">
+    <h3 id="hunter-still-to-finish-title" class="font-semibold">Still to finish</h3>
+    @if (checking()) {
+      <small class="text-muted" data-status="checking">Checking…</small>
+    }
+  </div>
+  <p class="sr-only" aria-live="polite" data-status="count">{{ countText() }}</p>
+
+  @switch (view()) {
+    @case ('waiting') {
+      <p class="m-0 text-muted text-[0.85rem]" data-state="waiting">Checking what's left…</p>
+    }
+    @case ('done') {
+      <p class="m-0 text-primary text-[0.85rem]" data-state="done">Nothing left to finish. This hunter is ready to play.</p>
+    }
+    @case ('refused') {
+      <p class="m-0 text-muted text-[0.85rem]" data-state="refused">This list comes back once the problem above is fixed.</p>
+    }
+    @case ('failed') {
+      <p class="m-0 text-muted text-[0.85rem]" data-state="failed">Couldn't check what's left. Create Hunter still works, and the hunter's page will list anything unfinished.</p>
+    }
+  }
+
+  @for (group of groups(); track group.area) {
+    <div class="grid gap-1" [attr.data-group]="group.area">
+      <span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] uppercase">{{ group.label }}</span>
+      <ul class="grid gap-1 list-disc m-0 pl-5 text-[0.85rem]">
+        @for (line of group.lines; track $index) {
+          <li>
+            @if (line.link; as link) {
+              <button type="button" class="bg-transparent border-0 p-0 text-accent text-left underline cursor-pointer font-[inherit] text-[inherit]" (click)="store.followLink(link)">{{ line.message }}</button>
+            } @else {
+              <span class="text-muted">{{ line.message }}</span>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+  }
+</section>

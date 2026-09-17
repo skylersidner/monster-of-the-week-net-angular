@@ -9,11 +9,14 @@ export class ConfirmDeleteModalComponent {
   @Input() itemName: string = '';
   @Input() visible: boolean = false;
   @Input() message: string = 'This cannot be undone.';
-  @Input() items: string[] = [];
+  @Input() items: readonly string[] = [];
 
   /** Action verb for the title and confirm button. Defaults to "Delete"; the mystery wizard passes
    * "Remove" because dropping a draft card from the roster is not a deletion at confirm time. */
   @Input() verb: string = 'Delete';
+
+  /** The confirm button's label when the title's verb makes a poor button ("Switch to"); defaults to `verb`. */
+  @Input() confirmLabel: string | null = null;
 
   /** Permanence warning shown beneath the item list. Pass '' to hide it when nothing is destroyed. */
   @Input() permanenceNote: string = 'This cannot be undone.';

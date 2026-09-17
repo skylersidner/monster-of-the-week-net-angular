@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { BespokeSectionResponse, PlaybookDetailResponse } from '../../../../core/models';
@@ -7,9 +7,11 @@ import { HunterMovesSectionComponent } from './hunter-moves-section';
 
 @Component({
   imports: [HunterMovesSectionComponent],
-  template: `<section appHunterMovesSection></section>`,
+  template: `<section appHunterMovesSection [mode]="mode()"></section>`,
 })
-class HostComponent {}
+class HostComponent {
+  readonly mode = signal<'create' | 'edit'>('edit');
+}
 
 function section(id: string, title: string): BespokeSectionResponse {
   return {
@@ -110,5 +112,22 @@ describe('HunterMovesSectionComponent (13.6)', () => {
     render({ ...playbook, moves: [playbook.moves[0]] });
 
     expect(element.textContent).toContain('This playbook has no moves to pick from yet.');
+  });
+
+  it('hands its mode to each move\'s own sections: a numeric leaf is an input by default and read-only in create mode (L14)', () => {
+    const favour: BespokeSectionResponse = {
+      ...section('bs-favour', 'Favour'),
+      options: [{ id: 'opt-favour', title: 'Favour points', descriptionText: null, minSelect: null, maxSelect: null, numericMin: 0, numericMax: 2, sortOrder: 0, children: [] }],
+    };
+    render({ ...playbook, moves: [{ ...playbook.moves[0], bespokeSections: [favour] }] });
+    draft.toggleBespoke('bs-favour', 'opt-favour');
+    fixture.detectChanges();
+    expect(element.querySelector('[apphunterbespokesection] input[type="number"]')).toBeTruthy();
+
+    fixture.componentInstance.mode.set('create');
+    fixture.detectChanges();
+
+    expect(element.querySelector('[apphunterbespokesection] input[type="number"]')).toBeNull();
+    expect(element.textContent?.replace(/\s+/g, ' ')).toContain('2 of 2');
   });
 });

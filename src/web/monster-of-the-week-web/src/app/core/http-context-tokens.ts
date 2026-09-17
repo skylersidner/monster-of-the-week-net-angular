@@ -8,7 +8,7 @@ import { HttpContextToken } from '@angular/common/http';
  *
  * Deliberately NOT folded into `isSelfHandledRequest` (core/self-handled-request.ts): that
  * predicate also disables `authErrorInterceptor`'s 401 bounce, which these callers still need —
- * a stale hunter-create form should still be bounced to /login on an expired session, just
+ * a stale hunter creation wizard should still be bounced to /login on an expired session, just
  * without a duplicate generic toast on top of whatever the caller renders.
  *
  * The 401 bounce is unaffected regardless: under the app's interceptor order (app.config.ts,

@@ -44,7 +44,7 @@
       <div class="flex flex-wrap items-center gap-2">
         <input
           type="text"
-          class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 flex-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+          class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 flex-1 min-w-0 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
           [placeholder]="section.freeTextLabel ?? 'Name'"
           [value]="instance.name"
           maxlength="255"
@@ -61,7 +61,7 @@
       @if (section.freeTextLabel) {
         <input
           type="text"
-          class="border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+          class="w-full min-w-0 border border-strong rounded-lg text-[0.85rem] px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
           placeholder="Details..."
           [value]="draft.freeTextFor(instance.key)"
           (input)="draft.setFreeText(instance.key, $any($event.target).value)"
@@ -90,7 +90,7 @@
   <label class="grid font-medium gap-1 text-[0.85rem]">
     {{ section.freeTextLabel }}
     <textarea
-      class="border border-strong rounded-lg px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+      class="w-full min-w-0 border border-strong rounded-lg px-2 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
       rows="3"
       [value]="draft.freeTextFor(section.id)"
       (input)="draft.setFreeText(section.id, $any($event.target).value)"

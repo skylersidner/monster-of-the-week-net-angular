@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { PlaybookDetailResponse } from '../../../../core/models';
@@ -7,9 +7,11 @@ import { HunterHistorySectionComponent } from './hunter-history-section';
 
 @Component({
   imports: [HunterHistorySectionComponent],
-  template: `<section appHunterHistorySection></section>`,
+  template: `<section appHunterHistorySection [mode]="mode()"></section>`,
 })
-class HostComponent {}
+class HostComponent {
+  readonly mode = signal<'create' | 'edit'>('edit');
+}
 
 const playbook: PlaybookDetailResponse = {
   id: 'pb1', name: 'The Test Subject', description: null, luckBoxCount: 7, luckSpecialText: null,
@@ -24,11 +26,12 @@ describe('HunterHistorySectionComponent (13.6, L16)', () => {
   let draft: HunterDraft;
   let element: HTMLElement;
 
-  function render(book: PlaybookDetailResponse): void {
+  function render(book: PlaybookDetailResponse, mode: 'create' | 'edit' = 'edit'): void {
     TestBed.configureTestingModule({ imports: [HostComponent], providers: [HunterDraft] });
     draft = TestBed.inject(HunterDraft);
     draft.playbook.set(book);
     fixture = TestBed.createComponent(HostComponent);
+    fixture.componentInstance.mode.set(mode);
     fixture.detectChanges();
     element = fixture.nativeElement as HTMLElement;
   }
@@ -68,6 +71,35 @@ describe('HunterHistorySectionComponent (13.6, L16)', () => {
     render({ ...playbook, historyPromptsText: null });
 
     expect(element.querySelector('details')).toBeNull();
+    expect(element.querySelector('textarea')).toBeTruthy();
+  });
+
+  it('create mode (the wizard\'s last step): the prompts in a reference panel headed "History", then an optional notes box on background (Q4)', () => {
+    render(playbook, 'create');
+
+    const panel = element.querySelector<HTMLElement>('[data-panel="history"]')!;
+    expect(panel.firstElementChild?.textContent?.trim()).toBe('History');
+    const prompts = panel.querySelector('.whitespace-pre-line')!;
+    expect(prompts.querySelector('b')).toBeNull();
+    expect(prompts.textContent).toBe(playbook.historyPromptsText);
+    expect(element.querySelector('details')).toBeNull();
+    expect(element.querySelector('h3')).toBeNull();
+
+    // The notes box comes directly after the prompts.
+    const label = panel.nextElementSibling as HTMLElement;
+    expect(label.tagName).toBe('LABEL');
+    expect(label.textContent?.trim()).toBe('History notes (optional)');
+    const textarea = label.querySelector('textarea')!;
+    textarea.value = 'Owes Dana a favour.';
+    textarea.dispatchEvent(new Event('input'));
+    expect(draft.toRequest().background).toBe('Owes Dana a favour.');
+  });
+
+  it('create mode keeps the notes box when the playbook has no prompts', () => {
+    render({ ...playbook, historyPromptsText: null }, 'create');
+
+    expect(element.querySelector('[data-panel="history"]')).toBeNull();
+    expect(element.querySelector('label')?.textContent?.trim()).toBe('History notes (optional)');
     expect(element.querySelector('textarea')).toBeTruthy();
   });
 });

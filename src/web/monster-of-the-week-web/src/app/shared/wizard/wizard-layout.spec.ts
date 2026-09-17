@@ -25,6 +25,16 @@ class HostComponent {
   readonly stepKey = signal('0-0');
 }
 
+@Component({
+  imports: [WizardLayoutComponent],
+  template: `
+    <app-wizard-layout eyebrow="Step 5 of 8" title="What Can They Do?" blurb="" error="Refused." stepKey="4-0">
+      <button wizardErrorAction type="button" class="test-error-action">Go to Gear</button>
+    </app-wizard-layout>
+  `,
+})
+class ActionHostComponent {}
+
 describe('WizardLayoutComponent', () => {
   let fixture: ComponentFixture<HostComponent>;
   let host: HostComponent;
@@ -57,6 +67,10 @@ describe('WizardLayoutComponent', () => {
     const root = element().querySelector('.wizard-layout')!;
     const aside = element().querySelector('aside')!;
 
+    // The shell sets the theme's text colour for everything projected into it. Without it, content
+    // with no colour class of its own renders the browser's black on the dark theme's surfaces.
+    expect(root.classList).toContain('text-primary');
+    expect(root.contains(column()) && root.contains(aside)).toBe(true);
     expect(root.firstElementChild?.classList).toContain('test-tracker');
     expect(column().querySelector('.test-tracker')).toBeNull();
     expect(heading().querySelector('.test-title-icon')).not.toBeNull();
@@ -81,6 +95,20 @@ describe('WizardLayoutComponent', () => {
     // The band sits after the step content and before the footer.
     expect(column().querySelector('.test-step')!.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(band.compareDocumentPosition(column().querySelector('.mt-auto')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('projects an optional action into the error band, after the message (the hunter wizard\'s L7 link)', async () => {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({ imports: [ActionHostComponent] })
+      .compileComponents();
+    const actionFixture = TestBed.createComponent(ActionHostComponent);
+    actionFixture.detectChanges();
+    await actionFixture.whenStable();
+    const root = actionFixture.nativeElement as HTMLElement;
+
+    const band = root.querySelector('.bg-danger-subtle')!;
+    expect(band.firstChild?.textContent).toBe('Refused.');
+    expect(band.querySelector('button.test-error-action')?.textContent).toBe('Go to Gear');
   });
 
   it('keeps the 42% column at desktop widths and stacks to one column below md', async () => {

@@ -20,8 +20,9 @@ import {
  * Everything a hunter surface holds before it saves, and the one place that turns it into an
  * `UpsertHunterRequest` (hunter-creation-wizard.md 13.5, L1; Phase 4, R4).
  *
- * `@Injectable()`, not root: each surface provides its own. Today that is `HunterFormComponent`
- * (the single-page create and the edit page); the wizard page provides one in Phase 7.
+ * `@Injectable()`, not root: each surface provides its own. `HunterFormComponent` provides one for
+ * the edit page, and `HunterCreateComponent` provides one for the creation wizard (Phase 7), where
+ * a fresh draft is the empty hunter, so `populate` only ever takes a saved one.
  *
  * It owns a `FormGroup`, which `angular-wizard-decomposition/SKILL.md` and the 2026-07-21
  * decomposition record otherwise keep out of stores. Those rules stop form state leaking between
@@ -155,6 +156,15 @@ export class HunterDraft {
   readonly unansweredLookCount = computed(() => {
     const answered = this.lookAnswers();
     return (this.playbook()?.lookCategories ?? []).filter((c) => !answered.has(c.id)).length;
+  });
+
+  /**
+   * Whether leaving would lose anything (13.8, L12): a playbook chosen, or a name or pronouns typed.
+   * Everything else needs a playbook first, so it is covered by the first condition.
+   */
+  readonly isDirty = computed(() => {
+    const value = this.formValue();
+    return value.playbookId !== '' || value.name.trim() !== '' || (value.pronouns ?? '').trim() !== '';
   });
 
   // ---------------------------------------------------------------------------------------
@@ -499,40 +509,48 @@ export class HunterDraft {
     );
   }
 
+  /**
+   * What switching playbook would clear, for the switch confirmation's list (7.4, 13.5, L13), in the
+   * doc's order: "Rating line", "2 moves", "Background, Heat", "3 gear picks", "2 look lines". Name,
+   * pronouns, History notes and Luck, Harm and Experience aren't playbook-scoped, so they never appear.
+   * Empty means nothing would be lost, and the wizard switches without asking.
+   */
+  playbookScopedSummary(): string[] {
+    const items: string[] = [];
+    if (this.formValue().playbookStatArrayOptionId) {
+      items.push('Rating line');
+    }
+    const moves = this.selectedMoveIds().size;
+    if (moves > 0) {
+      items.push(countOf(moves, 'move'));
+    }
+    const sections = this.allSections()
+      .filter((section) => this.picksFor(section.id).size > 0 || this.freeTextFor(section.id).trim() !== '' || this.instancesFor(section).length > 0)
+      .map((section) => section.title);
+    if (sections.length > 0) {
+      items.push(sections.join(', '));
+    }
+    const gear = this.selectedGearIds().size;
+    if (gear > 0) {
+      items.push(countOf(gear, 'gear pick'));
+    }
+    const looks = this.lookAnswers().size;
+    if (looks > 0) {
+      items.push(countOf(looks, 'look line'));
+    }
+    return items;
+  }
+
   // ---------------------------------------------------------------------------------------
   // Populate, prune, request
   // ---------------------------------------------------------------------------------------
 
   /**
-   * Replaces the whole draft with a saved hunter, or empties it for `null`. Does not load the
-   * playbook: the consumer does that afterwards, then calls `prune`.
+   * Replaces the whole draft with a saved hunter. Does not load the playbook: the consumer does that
+   * afterwards, then calls `prune`. There is no "empty it" form any more: that was the single-page
+   * create's (L17), and the wizard starts from a fresh draft.
    */
-  populate(hunter: HunterDetailResponse | null): void {
-    if (!hunter) {
-      this.form.reset({
-        playbookId: '',
-        name: '',
-        pronouns: '',
-        playbookStatArrayOptionId: '',
-        luck: 0,
-        harm: 0,
-        experience: 0,
-        background: '',
-      });
-      this.form.controls.playbookId.enable({ emitEvent: false });
-      this.selectedMoveIds.set(new Set());
-      this.selectedGearIds.set(new Set());
-      this.lookAnswers.set(new Map());
-      this.trackValues.set(new Map());
-      this.bespokePicks.set(new Map());
-      this.bespokeAnswers.set(new Map());
-      this.bespokeFreeText.set(new Map());
-      this.bespokeInstances.set([]);
-      this.journalEntries.set([]);
-      this.playbook.set(null);
-      return;
-    }
-
+  populate(hunter: HunterDetailResponse): void {
     this.form.reset({
       playbookId: hunter.playbookId,
       name: hunter.name,
@@ -845,6 +863,10 @@ function omit<T>(map: ReadonlyMap<string, T>, keys: Iterable<string>): ReadonlyM
     next.delete(key);
   }
   return next;
+}
+
+function countOf(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 function toIntOrNull(raw: string): number | null {

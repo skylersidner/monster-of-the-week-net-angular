@@ -1,10 +1,12 @@
 import { Component, computed, inject } from '@angular/core';
 import { PlaybookLookCategoryResponse } from '../../../../core/models';
 import { HunterDraft } from '../hunter-draft';
+import { LOOK_SECTION_ANCHOR } from './section-anchors';
 
 /**
  * One answer per look line: a printed chip or the player's own words (hunter-creation-wizard.md
- * 13.6; Phase 5, R5). Behaviour is unchanged from the single form.
+ * 13.6; Phase 5, R5). Behaviour is unchanged from the single form. The host carries an id so the
+ * wizard's "Still to finish" look lines can scroll to it (L8).
  *
  * See `HunterRatingsSectionComponent` for why this is an attribute component.
  */
@@ -12,9 +14,11 @@ import { HunterDraft } from '../hunter-draft';
   selector: '[appHunterLookSection]',
   standalone: true,
   templateUrl: './hunter-look-section.html',
-  host: { class: 'grid gap-[0.6rem]' },
+  host: { class: 'grid gap-[0.6rem]', '[attr.id]': 'anchor' },
 })
 export class HunterLookSectionComponent {
+  readonly anchor = LOOK_SECTION_ANCHOR;
+
   readonly draft = inject(HunterDraft);
 
   /**

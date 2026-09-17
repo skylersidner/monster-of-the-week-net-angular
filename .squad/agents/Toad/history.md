@@ -72,3 +72,42 @@
 - Cosmetic: the Natural Attacks section description is the same sentence as the rule label, so the create and edit pages print it twice
 - Admin 409 for old-fashioned pickCount 3→2 names the rule by its two target labels (the Initiate rule has no label). One toast, the form stays open, and the GET shows 0 diffs
 - Fixtures added: "Toad Phase 6 Initiate" `55aab040-5d17-4dab-916e-06b5c2629a28` (ends 3+2, Knowledgable + Modernised + Obsolete gear), "Toad Phase 6 Monstrous" `be1a4d01-2585-4a4e-a9e9-89da9b7b3b66` (ends 2+0 teeth + claws), "Toad Phase 6 Spell-Slinger" `074db0d1-c995-47ee-a8a4-188eebacdd21` (ends 2+1 Blast, Ball, Fire). Bowser's over-limit fixture `f9d5e47b-847a-4cd0-949e-2b4c1a1effcd` was inserted and left in place (its SQL header says "never against motw", but the brief allowed local `motw`)
+
+## 2026-09-15 — Hunter wizard Phase 7 (F9): creation wizard browser pass (uncommitted, main tree)
+
+- Scripts + evidence: session scratchpad `phase7-verify/`. `builds.mjs` derives each playbook's minimum legal build from its JSON (mirrors HunterCompleteness; 12.9 finished builds for the three governed ones); `derive-builds.mjs` proves them through evaluate first (34/34), then `legal-pass.mjs` drives them (`--dry` walks without Create); `checks7.mjs <part> [--theme --width]`; `wizard-lib.mjs` is the driver
+- Picks by DOM index work: option-tree leaf checkboxes follow the served tree in depth-first order inside `#hunter-section-<id>`; gear `#hunter-gear-<cat> > label`; look rows `#hunter-look div.flex.flex-wrap.items-center` in served category order; eyebrow text gives step/dot
+- The client never sends Required move ids; the server adds them. Compare the POST without them and the stored GET with them, or 14/28 "fail" for nothing
+- Custom-select trigger innerText includes the caret "▾"; strip it
+- During a pending popstate guard the URL already shows the destination; with 'computed', Cancel puts `/hunters/new` back. Assert after Cancel, not while the modal is open
+- beforeunload: `page.evaluate(() => location.reload())` and `page.close({ runBeforeUnload: true })` both raise the `dialog` event once the page has had a click/typing gesture
+- Expired session: `context.clearCookies({ name: 'motw.session' })`, then Next: evaluate 401, straight to /login, no toast, no modal
+- Stale-playbook routes reach refusal paths the UI locks prevent: `page.route` the playbook GET with `pickRules: []` (NA 2+1 buildable, band offers Reload; after reload the band links to the dot), a fake gear option (Reload clears "1 gear pick"), a 404 on reload (L27 band)
+- Overflow heuristics: "element right > viewport" flags the collapsed tracker label text (inside a zero-width `overflow-x: hidden` span). Trust scroll boxes (html/body/main/column/tracker scrollWidth) and confirm offenders by clipper
+- Contrast probe (canvas oklch -> rgb, composite backgrounds): run it per step in dark; the wizard column sets no text colour, unlike the detail page's `section.text-primary`, so dark inherits a dark default
+- Found (Phase 7): dark theme, every wizard step's un-classed text (section/option titles, h3s, rating values, counters, look chips, step 1 labels) measures 1.18:1; light 0 offenders, dark edit page 0. Cause: `wizard-layout` column has no `text-primary`; HEAD's create page had `section.text-primary`
+- Found (Phase 7): step 1 name/pronouns row `grid-cols-[2fr_1fr]` resolves to `220px 220px` from md up (inputs' intrinsic width), so step 1 is ~450px minimum: Pronouns input 6px past the column at 1280, 113px at 1024, 221px at 768. 375 is fine (single column)
+- Observed: the error band renders after the step content, so a refusal raised by Next on a long step (Moves) lands below the fold
+- Pre-existing, cosmetic: server "Look: 1 of 2 line is unanswered." wording (since 634b3f9)
+- Failed check: `checks7.mjs failed` kills the PID listening on 5225 (`netstat | findstr`, `taskkill /F`); restart the API afterwards. Card "Couldn't check what's left", no toast, Create enabled; it keeps the last clean items under the message (L6, by design). Create with the API down: band "Unable to create hunter. Please try again.", no toast
+- Results: legal 28/28 (light 1280) + 15/15 (dark 1280, light 375, dark 375); refused builds 3/3 via evaluate; interaction checks all pass at light 1280 and dark 375 after 4 harness fixes
+- Fixtures added: 43 hunters named "Toad Phase 7 …" (28 light-1280 one per playbook; 5 each "dark 1280", "light 375", "dark 375" covering every 12.9 finished build). Ids in `phase7-verify/db-hunters-phase7-created.txt`. Hex re-saved unchanged (0 diffs vs Phase 6)
+
+## 2026-09-15 — Hunter wizard Phase 7: B1/B2 fix recheck (uncommitted, main tree)
+
+- Scripts + evidence: `phase7-verify/recheck/` (`probe-lib.mjs` measure + `toggleDiff`: strip `text-primary` from `.wizard-layout` in the DOM and diff computed colours, an A/B with no worktree; `contrast-recheck.mjs --theme --width`, `mystery-recheck.mjs`, `overflow-recheck.mjs row|sweep`, `repro-hex-rotes.mjs`, `smoke-create.mjs`)
+- B1 fixed: dark 1280/375 every step + card/hints/notices/bands/modals 0 enabled low (layout scope incl. tracker/aside); remaining sub-4.5 are disabled/faded only. Mystery: fix changes 0 elements' colour; tracker AND page 0px vs Phase 3 `A-*-after` (light+dark, create+edit)
+- Pre-existing, light only: tracker complete "✓" `text-on-success` on `bg-success` 2.47:1 (tracker untouched); band `text-danger` 3.91:1. Probe the whole layout, not just the column, or the tracker is missed
+- B2 fixed: step 1 row stacks at 1023/768/375, 2 cols at 1024/1280, column scrollWidth == clientWidth at all
+- Found: 768 sweep (all 28): shared option-tree write-in `<input>` (no `w-full min-w-0`, inside flex `span.grid` without `min-w-0`) forces the 42% column sideways: Hex Rotes entry after the 3rd pick 34px, Professional Agency / Wronged Who You Lost 8px. 900+ clean, 1024 all clean, edit page 768 clean. Section templates unchanged in Phase 7: exposure is the narrow column
+- Fixture added: "Toad Phase 7 recheck Initiate (Fighting arts, dark 1280)" `6bd7291b-11db-40cd-b989-632a13ea129f`
+
+## 2026-09-15 — Hunter wizard Phase 7: N1 write-in overflow fix recheck (uncommitted, main tree)
+
+- Scripts + evidence: `phase7-verify/recheck-n1/` (`n1-lib.mjs` `stripFix`/`restoreFix` remove exactly the fix's added classes from exactly the touched elements = before/after A/B with no worktree, plus `geometry`/`diffGeometry`/`pixelDiff`; `repro-n1.mjs hex|pro|wronged|gumshoe`, `sweep-n1.mjs`, `editpage-n1.mjs`, `followup-n1.mjs`)
+- Class-only fixes: static classes, so a DOM strip is a faithful "before". Check strip counts > 0 to prove the served build has the fix, and fixed-vs-restored = 0 to prove the harness is clean
+- N1 fixed: 768 Hex Rotes entry 0px sideways (stripped: 34px, the original repro); Professional Agency name / Wronged My prey 0 (stripped: 8). Write-ins shrink to 107–132px inside the card. At 375/1024/1280 the strip changes 0 elements, 0 px (wizard); Gumshoe Code textarea unaffected at 375/768
+- Sweep (28 playbooks, 232 steps each width): 1024 clean incl. padding. 768 leftovers all identical to the pre-fix sweep, all on Moves: Spell-Slinger nested move sections (`ml-8` at exactly md) 1px sideways + 33px into padding, cards touch the divider; Hex Moves cards 29.4px into padding. Hex Rotes card 1px (host grid track rounds 197.1→198). Crooked Heat padding gone
+- Edit page 1280 light+dark, Hex + Forged: strip A/B 0 geometry, 0 px full-page. Forged 16–18 px is look write-in render flicker (two unstripped captures differ identically). Write-ins stay 172px at desktop (`w-full` doesn't stretch them)
+- Harness noise: every session logs one console error "HTTP 0 GET /api/mysteries" (dashboard request aborted by navigating away after login)
+- Hunter specs 23 files / 326 tests pass. No hunters created, nothing saved

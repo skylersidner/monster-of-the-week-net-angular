@@ -23,7 +23,8 @@ import { HunterGearSectionComponent } from './hunter-gear-section';
 /*
  * Phase 6's pick rules in the shared gear and bespoke sections (hunter-creation-wizard.md 13.15
  * item 4): F8b (the Initiate's weapons), F8c (Natural Attacks, Combat Magic), L24, L25, L30, L31
- * and L33, then the same limits through `HunterFormComponent` on the edit page (Q10) and create.
+ * and L33, then the same limits through `HunterFormComponent` on the edit page (Q10). The create
+ * case moved to the wizard in Phase 7 (`pages/hunter-create/hunter-create.spec.ts`, L17).
  *
  * Nothing here provides HttpClient or a hunter service: every hint and notice, including
  * "This depends on your Sect picks.", comes from local picks with no check call (L25, Y14).
@@ -342,10 +343,10 @@ describe('pick rules in the shared sections (Phase 6)', () => {
 });
 
 // ---------------------------------------------------------------------------------------
-// Through HunterFormComponent: the edit page (Q10) and the still-live single-page create
+// Through HunterFormComponent: the edit page (Q10)
 // ---------------------------------------------------------------------------------------
 
-describe('pick rules through HunterFormComponent (edit page and single-page create)', () => {
+describe('pick rules through HunterFormComponent (edit page)', () => {
   const byId: Record<string, PlaybookDetailResponse> = {
     [INITIATE.playbookId]: initiatePlaybook,
     [MONSTROUS.playbookId]: monstrousPlaybook,
@@ -364,7 +365,7 @@ describe('pick rules through HunterFormComponent (edit page and single-page crea
 
   const selection = (sectionId: string, bespokeOptionId: string) => ({ sectionId, bespokeOptionId, freeformTitle: null, freeformText: null, numericValue: null });
 
-  function mount(saved: HunterDetailResponse | null): { fixture: ComponentFixture<HunterFormComponent>; element: HTMLElement } {
+  function mount(saved: HunterDetailResponse): { fixture: ComponentFixture<HunterFormComponent>; element: HTMLElement } {
     TestBed.configureTestingModule({
       imports: [HunterFormComponent],
       providers: [{ provide: PlaybookService, useValue: { getById: (id: string) => of(byId[id]) } }],
@@ -421,21 +422,5 @@ describe('pick rules through HunterFormComponent (edit page and single-page crea
       `${OLD_FASHIONED_LABEL}: 3 picked, but your Sect picks now allow 2. Go to Gear`
     );
     expect(fixture.componentInstance.draft.toRequest().playbookGearOptionIds).toEqual(['of-sword', 'of-axe', 'of-staff', 'mw-pistol']);
-  });
-
-  it('single-page create: choosing the Initiate applies the same limits and hints', () => {
-    const { fixture, element } = mount(null);
-    fixture.componentInstance.draft.form.controls.playbookId.setValue(INITIATE.playbookId);
-    fixture.detectChanges();
-
-    const old = element.querySelector<HTMLElement>(`#hunter-gear-${INITIATE.oldFashioned}`)!;
-    expect(squash(old.querySelector(':scope > div.flex > small')?.textContent)).toBe('0 of 2 picked');
-    expect(squash(old.querySelector(':scope > p.text-muted')?.textContent)).toContain('Fighting arts or Obsolete gear (Sect) allow 3.');
-
-    checkboxIn(old, 'Sword').click();
-    fixture.detectChanges();
-    checkboxIn(old, 'Axe').click();
-    fixture.detectChanges();
-    expect(checkboxIn(old, 'Staff').disabled).toBe(true);
   });
 });

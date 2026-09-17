@@ -14,6 +14,7 @@ import {
   unfiredAdjustmentHint,
 } from '../hunter-pick-rules';
 import { bespokeSectionAnchor, gearCategoryAnchor, scrollToAnchor } from './section-anchors';
+import { HUNTER_SECTION_NAVIGATOR } from './section-navigator';
 
 /** What a gear category governed by a pick rule shows under its printed heading (L25, L30, L31). */
 export interface GearRuleView {
@@ -53,6 +54,8 @@ export interface GearRuleView {
 export class HunterGearSectionComponent {
   readonly draft = inject(HunterDraft);
   private readonly document = inject(DOCUMENT);
+  /** Provided by the wizard, where "Go to {section}" is a Rules-dot link; absent on the edit page, which scrolls. */
+  private readonly navigator = inject(HUNTER_SECTION_NAVIGATOR, { optional: true });
 
   readonly gearAnchor = gearCategoryAnchor;
 
@@ -101,6 +104,10 @@ export class HunterGearSectionComponent {
   }
 
   goToSection(sectionId: string): void {
-    scrollToAnchor(this.document, bespokeSectionAnchor(sectionId));
+    if (this.navigator) {
+      this.navigator.goToSection(sectionId);
+    } else {
+      scrollToAnchor(this.document, bespokeSectionAnchor(sectionId));
+    }
   }
 }

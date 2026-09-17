@@ -1,6 +1,6 @@
 # Hunter Playbooks — Hunter Creation Wizard
 
-**Status: DECIDED, 2026-09-13.** Written 2026-09-12.
+**Status: DECIDED, 2026-09-13. Phases 0–7 implemented and verified as of 2026-09-15** (Toad's F9 browser pass; see `hunter-creation-wizard-phases.md`). Written 2026-09-12.
 - My four design questions are resolved in Section 10.
 - Bowser's backend review (Section 12) and Luigi's frontend review (Section 13) are in.
 - Their questions are numbered separately, Q1–Q12, and resolved in those sections; Yoshi decided their Q2.
@@ -1618,6 +1618,15 @@ The rest of the earlier growth stands: Q9's shell fixes and compact tracker (+1)
   - **Gear:** `gearCategoryHint`'s "Pick 3" / "Pick 2".
 - **L32 (agreed with Bowser 2026-09-13, 12.9 S3).** The admin playbook form omits `pickRules` from its save request while it has no rule editor.
 - **L33 (Yoshi's Y9, agreed 2026-09-14).** Every client hint and notice about a pick rule is built from the playbook's own titles: trigger options, target lists and categories, sections and rule labels. A spec renders them from a fixture with renamed titles to prove nothing is hard-coded.
+
+**Implementation notes (2026-09-15, Phase 7).** Three calls I made while building F5–F7. They read the defaults above; they don't change them.
+- **L13's "clears everything playbook-scoped" is the prune.** 7.4 defines the switch's clear as today's `dropSelectionsOutside`, and 13.7 says Confirm prunes. L13 summarises that same step. Real playbooks share no ids, so the prune does clear every playbook-scoped pick. The moved prune characterisation case keeps its expected value; it now confirms the switch first.
+- **Marks the check doesn't drive** (12.8 "Tracker marks"):
+  - step 1 is finished whenever the gate holds;
+  - Tracks, Improvements and fixed-grant Rules dots are finished once visited.
+
+  None of these reads the evaluation, so L5's loading, failed and refused states can't change them. Every other mark needs a clean result, as L5 says.
+- **The Harm sentence** keeps Q4's fixed wording, with its number taken from `HarmUnstableThreshold`: "When you reach {n} or more, mark unstable." All 28 seeded playbooks have 4, so the text reads as printed today, and an edited threshold can't contradict the box row.
 
 ### 13.18 What Bowser's decided questions (12.10–12.12) changed in the frontend work
 

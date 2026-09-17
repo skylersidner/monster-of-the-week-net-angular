@@ -1,6 +1,6 @@
 import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { provideRouter } from '@angular/router';
+import { RouterConfigOptions, provideRouter, withRouterConfig } from '@angular/router';
 import { AuthService } from './core/auth';
 import { authErrorInterceptor } from './core/auth-error-interceptor';
 import { credentialsInterceptor } from './core/credentials-interceptor';
@@ -8,6 +8,15 @@ import { httpErrorInterceptor } from './core/http-error-interceptor';
 import { ThemeService } from './core/theme';
 
 import { routes } from './app.routes';
+
+/**
+ * `canceledNavigationResolution: 'computed'` (hunter-creation-wizard.md 13.8, L12). When a guard
+ * cancels a browser Back, the default 'replace' leaves browser history one entry out of step, so the
+ * user's next Back skips a page. 'computed' puts history back where it was. App-wide, but the Hunter
+ * creation wizard's discard guard is the only route that cancels a navigation (the `canMatch` guards
+ * fall through rather than cancel).
+ */
+export const ROUTER_CONFIG: RouterConfigOptions = { canceledNavigationResolution: 'computed' };
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -32,7 +41,7 @@ export const appConfig: ApplicationConfig = {
         authErrorInterceptor,
       ])
     ),
-    provideRouter(routes),
+    provideRouter(routes, withRouterConfig(ROUTER_CONFIG)),
     provideAppInitializer(() => inject(ThemeService).initialize()),
     // RETURNS the observable — note the difference from the ThemeService line above, which returns
     // void because it is synchronous. Angular only waits for an initializer that hands back

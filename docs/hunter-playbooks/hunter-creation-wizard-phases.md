@@ -2,7 +2,7 @@
 
 See `hunter-creation-wizard.md` for the design, the reviews and every decision behind the items below. This document is the execution breakdown. Section numbers such as "12.9", "13.5" and "14.6" point into that doc, which stays the source for detail. The format follows `docs/search/phases.md` and `docs/simple-authentication-update/phases.md`.
 
-**Status: plan only, 2026-09-14. Nothing is implemented, and nothing in this plan has been run.** Written by Yoshi (Architect) at Skyler's request:
+**Status: Phases 0–7 implemented and verified as of 2026-09-15** (Toad's F9 browser pass, including the legal-build pass over all 28 playbooks, plus re-checks of the dark-theme and narrow-width fixes it prompted). Planned 2026-09-14. Written by Yoshi (Architect) at Skyler's request:
 
 > In reviewing the hunter creation wizard document, I confess that I was not expecting 2000 lines.  Can we have Yoshi put together a phased approach (like most of the work done on this project) to implement this plan?  Put that into a new markdown document that will summarize the work going into the phases, and this document can be used for detailed specifics.
 

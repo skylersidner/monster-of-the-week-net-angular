@@ -70,9 +70,9 @@ describe('httpErrorInterceptor', () => {
   });
 
   // B4's overlong-name 400 is ASP.NET's default ProblemDetails, with no `message` field. With
-  // SUPPRESS_ERROR_TOAST set, this interceptor stays silent — the page's own handler
-  // (`error?.error?.message ?? 'Unable to create hunter.'` in hunter-create.ts/hunter-detail.ts,
-  // unchanged by Phase 2) is what falls back to fixed copy, so exactly one message shows.
+  // SUPPRESS_ERROR_TOAST set, this interceptor stays silent — the caller's own handler
+  // (`createErrorMessage` in hunter-create.store.ts, `error?.error?.message ?? 'Unable to save
+  // hunter.'` in hunter-detail.ts) is what falls back to fixed copy, so exactly one message shows.
   it('does not send a toast for a message-less ProblemDetails 400 when the token is set', () => {
     const problemDetails = {
       type: 'https://tools.ietf.org/html/rfc9110#section-15.5.1',

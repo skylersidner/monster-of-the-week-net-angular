@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, Input, inject } from '@angular/core';
 import { HunterDraft } from '../hunter-draft';
 import { HunterBespokeSectionComponent } from './hunter-bespoke-section';
 
@@ -8,6 +8,9 @@ import { HunterBespokeSectionComponent } from './hunter-bespoke-section';
  *
  * Advanced moves are never offered: `HunterDraft.pickableMoves` leaves them out. Unticking a move
  * clears its sections' state inside the draft (`toggleMove`), not here.
+ *
+ * `mode` is handed to each move's own sections, where it only changes a numeric leaf (L14): the
+ * wizard's Moves step passes `'create'`; the edit page keeps the `'edit'` default.
  *
  * See `HunterRatingsSectionComponent` for why this is an attribute component.
  */
@@ -20,4 +23,6 @@ import { HunterBespokeSectionComponent } from './hunter-bespoke-section';
 })
 export class HunterMovesSectionComponent {
   readonly draft = inject(HunterDraft);
+
+  @Input() mode: 'create' | 'edit' = 'edit';
 }

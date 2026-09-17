@@ -35,7 +35,7 @@
         @if (category.allowsFreeform) {
           <input
             type="text"
-            class="border border-strong rounded-lg text-[0.85rem] px-3 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
+            class="max-w-full min-w-0 border border-strong rounded-lg text-[0.85rem] px-3 py-1 font-[inherit] focus:border-accent focus:outline-none focus:ring-focus"
             placeholder="or your own..."
             [value]="draft.lookFreeformFor(category.id)"
             (input)="draft.setLookFreeform(category.id, $any($event.target).value)"
