@@ -16,11 +16,11 @@
         <li class="flex items-center bg-surface border border-default rounded-lg gap-4 justify-between p-4">
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-baseline gap-2 mb-1">
-              <a class="font-semibold" [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
+              <a class="entity-link font-semibold" [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-minion text-on-badge-minion">{{ minion.minionType.name }}: {{ minion.minionType.motivation }}</span>
             </div>
             <p class="text-muted text-[0.82rem] mt-[0.15rem] mb-[0.25rem]">
-              Belongs to: <a class="text-inherit underline" [routerLink]="['/monsters', minion.monsterId]">{{ minion.monsterName }}</a>
+              Belongs to: <a class="entity-link entity-link--inline" [routerLink]="['/monsters', minion.monsterId]">{{ minion.monsterName }}</a>
             </p>
             <small>
               Attacks: {{ minion.attackCount }} · Powers: {{ minion.powerCount }} · Armors:

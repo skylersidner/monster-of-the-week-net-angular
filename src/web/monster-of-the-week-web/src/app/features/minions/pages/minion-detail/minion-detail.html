@@ -1,5 +1,5 @@
 <section class="text-primary">
-  <a [routerLink]="backLink()">{{ backLabel() }}</a>
+  <a class="back-link" [routerLink]="backLink()">{{ backLabel() }}</a>
 
   @if (isLoading()) {
     <p>Loading minion...</p>
@@ -8,7 +8,7 @@
   } @else if (minion()) {
     <h2>{{ minion()!.name }}</h2>
     <p>
-      Belongs to: <a [routerLink]="['/monsters', minion()!.monsterId]">{{ minion()!.monsterName }}</a>
+      Belongs to: <a class="entity-link entity-link--inline" [routerLink]="['/monsters', minion()!.monsterId]">{{ minion()!.monsterName }}</a>
     </p>
 
     @if (activeMutation()) {

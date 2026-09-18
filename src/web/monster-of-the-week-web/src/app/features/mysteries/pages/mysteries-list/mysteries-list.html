@@ -16,7 +16,7 @@
         <li class="flex items-center bg-surface border border-default rounded-lg gap-4 justify-between p-4">
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-baseline gap-2 mb-1">
-              <a class="text-[1.1rem] font-semibold" [routerLink]="['/mysteries', mystery.id]">{{ mystery.name }}</a>
+              <a class="entity-link text-[1.1rem] font-semibold" [routerLink]="['/mysteries', mystery.id]">{{ mystery.name }}</a>
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-mystery text-on-badge-mystery">{{ mystery.adventureType.name }}</span>
             </div>
             <p class="my-2">{{ mystery.concept || 'No concept provided' }}</p>

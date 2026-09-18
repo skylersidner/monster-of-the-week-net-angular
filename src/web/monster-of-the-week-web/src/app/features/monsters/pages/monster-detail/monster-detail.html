@@ -1,5 +1,5 @@
 <section class="text-primary">
-  <a [routerLink]="backLink()">{{ backLabel() }}</a>
+  <a class="back-link" [routerLink]="backLink()">{{ backLabel() }}</a>
 
   @if (isLoading()) {
     <p>Loading monster...</p>
@@ -28,7 +28,7 @@
           @for (minion of minions(); track minion.id) {
             <li class="bg-surface border border-default rounded-[0.4rem] block p-[0.6rem_0.75rem]">
               <div class="flex flex-wrap items-baseline gap-2 mb-[0.2rem]">
-                <a class="font-semibold" [routerLink]="['/monsters', monster()!.id, 'minions', minion.id]">{{ minion.name }}</a>
+                <a class="entity-link font-semibold" [routerLink]="['/monsters', monster()!.id, 'minions', minion.id]">{{ minion.name }}</a>
                 <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-minion text-on-badge-minion">{{ minion.minionType.name }}: {{ minion.minionType.motivation }}</span>
               </div>
               <small>

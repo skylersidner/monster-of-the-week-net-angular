@@ -47,7 +47,7 @@
           <ul class="grid gap-2 list-none m-0 p-0">
             @for (mystery of recentMysteries(); track mystery.id) {
               <li class="flex items-center justify-between gap-[0.6rem]">
-                <a class="text-accent font-semibold no-underline" [routerLink]="['/mysteries', mystery.id]">{{ mystery.name }}</a>
+                <a class="entity-link font-semibold" [routerLink]="['/mysteries', mystery.id]">{{ mystery.name }}</a>
                 <small class="text-muted">{{ mystery.createdAt | date: 'mediumDate' }}</small>
               </li>
             }

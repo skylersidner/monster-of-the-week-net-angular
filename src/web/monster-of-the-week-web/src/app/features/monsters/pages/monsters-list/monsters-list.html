@@ -16,7 +16,7 @@
         <li class="flex items-center bg-surface border border-default rounded-lg gap-4 justify-between p-4">
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-baseline gap-2 mb-1">
-              <a class="font-semibold" [routerLink]="['/monsters', monster.id]">{{ monster.name }}</a>
+              <a class="entity-link font-semibold" [routerLink]="['/monsters', monster.id]">{{ monster.name }}</a>
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-monster text-on-badge-monster">{{ monster.monsterType.name }}: {{ monster.monsterType.motivation }}</span>
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-archetype text-on-badge-archetype">{{ monster.monsterArchetype.name }}: {{ monster.monsterArchetype.description }}</span>
             </div>

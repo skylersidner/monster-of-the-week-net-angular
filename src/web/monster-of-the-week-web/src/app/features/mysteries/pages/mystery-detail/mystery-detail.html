@@ -1,5 +1,5 @@
 <section class="text-primary">
-  <a routerLink="/mysteries">← Back to mysteries</a>
+  <a class="back-link" routerLink="/mysteries">← Back to mysteries</a>
 
   @if (isLoading()) {
     <p>Loading mystery details...</p>
@@ -85,7 +85,7 @@
           <ul class="list-none m-0 p-0">
             @for (monster of pureMonsters(); track monster.id) {
               <li class="my-[0.4rem]">
-                <a [routerLink]="['/mysteries', mystery()!.id, 'monsters', monster.id]">{{ monster.name }}</a>
+                <a class="entity-link font-semibold" [routerLink]="['/mysteries', mystery()!.id, 'monsters', monster.id]">{{ monster.name }}</a>
               </li>
             }
           </ul>
@@ -105,7 +105,7 @@
           <ul class="list-none m-0 p-0">
             @for (minion of minions(); track minion.id) {
               <li class="my-[0.4rem]">
-                <a [routerLink]="['/mysteries', mystery()!.id, 'minions', minion.id]">{{ minion.name }}</a>
+                <a class="entity-link font-semibold" [routerLink]="['/mysteries', mystery()!.id, 'minions', minion.id]">{{ minion.name }}</a>
                 <p class="text-muted text-[0.82rem] mt-[0.15rem] mb-0">Belongs to: {{ minion.monsterName }}</p>
               </li>
             }
@@ -126,7 +126,7 @@
           <ul class="list-none m-0 p-0">
             @for (location of locations(); track location.id) {
               <li class="my-[0.4rem]">
-                <a [routerLink]="['/mysteries', mystery()!.id, 'locations', location.id]">{{ location.name }}</a>
+                <a class="entity-link font-semibold" [routerLink]="['/mysteries', mystery()!.id, 'locations', location.id]">{{ location.name }}</a>
               </li>
             }
           </ul>
@@ -146,9 +146,7 @@
           <ul class="list-none m-0 p-0">
             @for (bystander of bystanders(); track bystander.id) {
               <li class="my-[0.4rem]">
-                <a [routerLink]="['/mysteries', mystery()!.id, 'bystanders', bystander.id]">
-                  {{ bystander.name }}
-                </a>
+                <a class="entity-link font-semibold" [routerLink]="['/mysteries', mystery()!.id, 'bystanders', bystander.id]">{{ bystander.name }}</a>
               </li>
             }
           </ul>

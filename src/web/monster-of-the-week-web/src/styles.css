@@ -279,6 +279,123 @@
   @apply cursor-not-allowed opacity-40;
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * Cross-domain entity links (Rosalina, .squad/decisions/inbox/rosalina-cross-domain-link-style.md).
+ * ---------------------------------------------------------------------------
+ * For any anchor that navigates to another domain entity's detail view.
+ * Tailwind's preflight resets `a { color: inherit; text-decoration: inherit; }`
+ * and this app never re-established an anchor style anywhere, so a bare
+ * `<a [routerLink]>` rendered as plain, undiscoverable body text — the reported
+ * "no hover effects" bug was really this bigger gap. Three mutually
+ * inconsistent ad-hoc workarounds had grown up around it (dashboard.html's
+ * `text-accent font-semibold no-underline`, minions-list.html's `text-inherit
+ * underline`, and bare `font-semibold` or nothing everywhere else); this one
+ * class family replaces all three.
+ *
+ * In `@layer components`, unlike `.action-btn` above: these anchors already
+ * compose call-site utilities (`font-semibold`, `text-[1.1rem]`), and an
+ * un-layered class would out-specify them.
+ */
+@layer components {
+  .entity-link {
+    color: var(--color-accent);
+    text-decoration-line: underline;
+    text-decoration-color: transparent;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.18em;
+    border-radius: 0.25rem; /* inert at rest; shapes the focus outline */
+    @apply transition-colors;
+  }
+
+  .entity-link:hover,
+  .entity-link:focus-visible {
+    color: var(--color-accent-hover);
+    text-decoration-color: currentColor;
+  }
+
+  /*
+   * Focus uses a solid `outline`, not the `ring-focus` utility. `--color-focus-ring`
+   * is indigo at 20% alpha (35% in dark), and every existing consumer pairs it with
+   * `focus:border-accent` — the border carries the contrast, the ring is a glow. A
+   * bare text link has no border, so `ring-focus` alone would be the sole indicator
+   * at roughly 1.3:1 against `--color-surface` and fail WCAG 2.4.11/2.4.13. A solid
+   * 2px `var(--color-accent)` outline is >=6:1 in both themes; `outline` also
+   * handles an inline fragment across a line wrap correctly, which `box-shadow`
+   * does not. Focus also gets the hover underline, so a keyboard user sees the
+   * same state change a mouse user does, plus the ring. Never `outline: none` on
+   * these (the form-input convention of `focus:outline-none focus:ring-focus` is
+   * correct there and wrong here).
+   */
+  .entity-link:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /*
+   * No `:visited` styling: these are SPA router links to the user's own data,
+   * revisited constantly within a single session — a visited state would make
+   * the roster look greyed-out and stale. `:visited` is also privacy-restricted
+   * to color properties and never resets, so it is explicitly left out rather
+   * than merely omitted by oversight. No `font-weight` here either: call sites
+   * that want emphasis already apply their own `font-semibold` utility, so this
+   * class only ever owns color, decoration and focus.
+   */
+
+  /*
+   * `--inline` modifier: for anchors embedded in a sentence (e.g. "Belongs to: X"),
+   * show the underline at rest too, not just on hover. Otherwise color would be the
+   * only thing distinguishing the link from its surrounding prose — a WCAG 1.4.1
+   * (Use of Color) failure. Outside of prose the link is a whole list row/chip, so
+   * hover-only underline is fine there.
+   */
+  .entity-link--inline {
+    text-decoration-color: currentColor;
+  }
+
+  /*
+   * Companion class for the "← Back to X" navigational anchors (optional per
+   * Rosalina's doc; approved by Skyler alongside `.entity-link`). Same mechanism,
+   * but rests at `--color-text-secondary` rather than accent, per Rosalina's own
+   * call — secondary, always-available navigation, not a primary content
+   * relationship. Contrast checked against `--color-surface`: 7.59:1 light
+   * (slate-600 on white), 12.02:1 dark (slate-300 on slate-900) — both clear AA.
+   */
+  .back-link {
+    color: var(--color-text-secondary);
+    text-decoration-line: underline;
+    text-decoration-color: transparent;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.18em;
+    border-radius: 0.25rem; /* inert at rest; shapes the focus outline */
+    @apply transition-colors;
+  }
+
+  .back-link:hover,
+  .back-link:focus-visible {
+    color: var(--color-accent);
+    text-decoration-color: currentColor;
+  }
+
+  .back-link:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /*
+   * The only transition here is a color/decoration crossfade with no transform or
+   * movement, so it is already safe under reduced motion; this guard is included
+   * defensively and because there is no reduced-motion precedent block in this
+   * codebase yet.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .entity-link,
+    .back-link {
+      transition: none;
+    }
+  }
+}
+
 @layer base {
   html,
   body {
