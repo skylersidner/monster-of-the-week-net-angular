@@ -84,7 +84,30 @@ import { Component } from '@angular/core';
       </symbol>
 
       <!--
-        Brand logo mark — the unified favicon + sidebar mark (see
+        Wizard hat — mysteries-list.html's edit link (Skyler's "add a link to the mystery wizard"
+        ask, docs/design/mystery-wizard-icon-concepts.md; picked from Rosalina's six concepts,
+        2026-09-18). This REPLACES icon-pencil on that one link — it isn't a second action next to
+        it, so no separate hover-color modifier was added (the link keeps action-btn--edit's
+        existing indigo hover; same destination as before, just a clearer glyph). icon-pencil
+        itself is untouched here since mystery-create-monster-phase.html still uses it.
+
+        Artwork is Skyler's own supplied SVG (2026-09-18), superseding two prior in-house passes
+        (a plain filled silhouette he rejected as off-idiom, then a hand-drawn outline redraw).
+        It's a filled path with hollow counters cut out via the fill-rule the path data itself
+        encodes — the same idiom as icon-trash/icon-pencil below, not the fill="none"
+        stroke="currentColor" nav/mystery-section idiom. Path "d" kept byte-for-byte as supplied;
+        only fill="currentColor" was added (his source had no fill, which would have rendered
+        default black and ignored the theme) and the standalone-file wrapper attributes
+        (xmlns, id="Layer_1", data-name, width/height="512") were stripped, since none of those
+        belong on a sprite <symbol> — viewBox="0 0 24 24" was already exactly right as supplied.
+      -->
+      <symbol id="icon-wizard" viewBox="0 0 24 24" fill="currentColor">
+        <g transform="translate(1.2 1.2) scale(0.9)">
+          <path d="m16.5,17.5l-2,1-1,2-1-2-2-1,2-1,1-2,1,2,2,1Zm-5-3.5l.833-1.667,1.667-.833-1.667-.833-.833-1.667-.833,1.667-1.667.833,1.667.833.833,1.667Zm12.5,8v2H0v-2h1.15L8.146,4.595c.649-1.613,2.059-2.757,3.771-3.059L20.6.003l-3.829,7.657,6.077,14.339h1.152Zm-20.695,0h17.37l-6.105-14.409,2.463-4.928-4.77.842c-1.027.181-1.873.868-2.263,1.835L3.305,22Z" />
+        </g>
+      </symbol>
+
+      <!-- Brand logo mark — the unified favicon + sidebar mark (see
         .squad/decisions/inbox/luigi-favicon-logo-mark.md). Redrawn (not exported) from
         icon-nav-monsters' horns+trapezoid silhouette below, as a single filled shape instead of
         1.8px strokes, with the mouth line dropped (per Rosalina's design decision — it smudges
