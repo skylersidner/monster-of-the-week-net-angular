@@ -6,6 +6,7 @@ import { ApiService } from '../../../../core/api';
 import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
+import { IconComponent } from '../../../../shared/icons/icon.component';
 import { MysterySectionIconComponent } from '../../shared/mystery-section-icon';
 import { MYSTERY_COUNTDOWN_STAGES } from '../../shared/mystery-countdown-stage';
 import {
@@ -18,7 +19,7 @@ import {
 
 @Component({
   selector: 'app-mystery-detail',
-  imports: [RouterLink, MysterySectionIconComponent],
+  imports: [RouterLink, MysterySectionIconComponent, IconComponent],
   templateUrl: './mystery-detail.html',
   styleUrl: './mystery-detail.scss',
 })

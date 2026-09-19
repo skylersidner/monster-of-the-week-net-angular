@@ -146,4 +146,13 @@ describe('MysteryDetailComponent', () => {
     expect(element.textContent).toContain('Bell Tower');
     expect(element.textContent).toContain('Father Reed');
   });
+
+  it('links to the wizard, unconditionally, next to the title', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const wizardLink = element.querySelector('a[href="/mysteries/mystery-1/edit"]');
+
+    expect(wizardLink).toBeTruthy();
+    expect(wizardLink?.textContent).toContain('Continue in wizard');
+    expect(wizardLink?.querySelector('app-icon')).toBeTruthy();
+  });
 });

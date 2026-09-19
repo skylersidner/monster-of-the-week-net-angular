@@ -1,9 +1,9 @@
-# Mystery List — Edit-Link Icon (Wizard Hat)
+# Mystery List/Detail — Wizard Link (Wizard Hat icon)
 
 **Prepared by:** Rosalina (Designer)
 **Requested by:** Skyler Sidner
-**Date:** 2026-09-18 (revised twice same day — see Correction section below for the second revision)
-**Status:** Concept A (filled Wizard Hat) shipped, then **rejected by Skyler on sight** — it doesn't match the app's actual dominant idiom. Root cause: my read of the icon system in Section 1 was wrong (see Correction, directly below). Sections 5/6 (outline redraw) were Luigi's/my own correction, superseded before Skyler ever saw them: **Section 7 is what's actually live** — Skyler supplied his own SVG artwork directly. Sections 1–6 are kept for the record but contain a corrected error and a since-superseded recommendation; read the strikethroughs/callouts, don't take the original prose at face value.
+**Date:** 2026-09-18 (multiple revisions same day — see section-by-section status below)
+**Status:** The mysteries-**list** row swap (pencil → `icon-wizard`) shipped; Skyler rejected the first (filled) rendering, Luigi's outline redraw (Sections 5/6) was itself superseded before Skyler saw it — **Section 7 (+ its addendum) is the current source of truth for what art is actually live**, and even that's a description, not the file itself: always verify `icon-sprite.component.ts`'s `#icon-wizard` symbol directly rather than trusting a path copied into this doc. **Section 8 is the current open item** — a second placement of the same `icon-wizard` symbol on the mystery-**detail** page, advisory, not yet implemented. Sections 1–6 are kept for the icon-selection record only; read the strikethroughs/callouts, don't take the original prose at face value.
 
 `docs/design/` did not exist before this doc — no existing "design notes" folder was found under `docs/` (icon/visual work has previously lived as narrative decision docs in `.squad/decisions/inbox/` and as an implementation plan at `docs/updates/svg-symbol-icons.md`). Created `docs/design/` as the natural home for future icon/visual-concept docs, parallel to `docs/theming/`.
 
@@ -247,3 +247,80 @@ A **filled** path with hollow counters (a curled hat body plus two sparkle cutou
 Path `d` data is byte-for-byte what Skyler supplied — not redrawn, rescaled, or otherwise touched. The wrapper attributes his source file needed as a standalone SVG (`xmlns`, `id="Layer_1"`, `data-name="Layer 1"`, `width="512"`, `height="512"`) were stripped; none belong on a sprite `<symbol>`, and none affect rendering once it's a `<use>` target sized by the caller's Tailwind classes.
 
 **Verified (Luigi):** rendered via the real compiled `styles.css` (from the last production build) loaded into a standalone Playwright page, using the actual `action-btn action-btn--edit` classes and a real `:hover` (not a faked style) — confirmed at 20px it reads clearly as a hat with sparkle detail, confirmed `fill="currentColor"` correctly tracks `text-muted` at rest and `action-btn--edit`'s indigo hover in both light and dark themes (light: slate-500 rest → indigo-600 hover; dark: slate-400 rest → indigo-400 hover), and confirmed it's legible blown up to 96px with no artifacts.
+
+**Addendum — Section 7's path is itself now stale.** Skyler replaced his own artwork again with a thinner-stroke version; the symbol actually live in `icon-sprite.component.ts` today (confirmed directly, not re-described here from memory) wraps a different `d` in a `<g transform="translate(1.2 1.2) scale(0.9)">` (Luigi's 90% scale-down, added when the thinner strokes read slightly large against `icon-trash`/`icon-pencil` at 20px). Not reproducing the byte-for-byte path here — read `icon-sprite.component.ts`'s `#icon-wizard` symbol directly for the current source of truth rather than trusting either Section 7's path or this note going forward; this doc has now been wrong about the exact shipped geometry twice (Sections 5→6 outline, then 7 itself superseded), which is reason enough to stop copying the path into the doc and just point at the file.
+
+---
+
+## 8. Mystery Detail page — second placement of `icon-wizard` (Skyler, 2026-09-18)
+
+New ask: a link back into the wizard from `mystery-detail.html`, so Skyler can jump from reviewing a mystery straight into continuing an incomplete build. **Additive, on a different page — does not touch the mysteries-list swap above, which stays as shipped.** Advisory only; no app code changed by this doc.
+
+### 8.1 What's on the page today
+
+Read `mystery-detail.html`/`.ts`/`.scss` directly. Structure: a bare `← Back to mysteries` link, then (once loaded) a title row (`<h2>` + the amber adventure-type badge, both on one plain `flex items-baseline` line with **no action slot** — unlike `monster-detail.html`/`hunter-detail.html`, which put their header content in a `flex ... justify-between` row precisely so something can sit at the right edge), then a stack of read-only `<section>`/`<article>` cards (Concept/Hook/Overview, Countdown, then a 4-up grid of Monsters/Minions/Locations/Bystanders link lists). **There is no interactive edit affordance anywhere on this page today** — no button, no icon, nothing. `mystery-detail.scss` only sets the two `--mystery-section-icon-size` custom properties used by the decorative section-heading icons (`app-mystery-section-icon`); those are non-interactive, sized larger (2rem) for section headings and smaller (1rem) for countdown-stage labels, and aren't a precedent for an action control.
+
+### 8.2 What every other detail page does — and why Mystery is the odd one out
+
+Globbed `features/**/*-detail.html` (5 other detail pages: monster, minion, location, bystander, hunter) rather than assuming the three named in the ask. Finding, stated plainly since it changes the recommendation: **no other detail page has a "link to an edit surface" affordance at all**, because no other domain *has* a separate edit surface — `monster-detail.html`, `minion-detail.html`, `location-detail.html`, and `bystander-detail.html` all embed their own edit form directly inline on the page itself (`<app-monster-form [monster]="monster()" ... (save)="saveMonster($event)">`, and the `-minion-`/`-location-`/`-bystander-form` equivalents) — editing *is* being on the detail page, there's nothing to link to. Mystery is architecturally the outlier here: its "edit surface" is a separate route running a whole different component (`MysteryCreateComponent`, the multi-phase wizard), not an inline form on `MysteryDetailComponent` — which is exactly why the list row needed an explicit edit link in the first place, and why the detail page needs one too, unlike its five siblings.
+
+The one genuine precedent for **a primary action control living in a detail page's header** is `hunter-detail.html`: a labelled text button — `Delete hunter`, plain-language label, no icon — sitting top-right in a `flex flex-wrap items-center justify-between gap-3 mb-4` row alongside the title/badge cluster on the left. That row-shape (title+badges left, one action right) is the pattern to reuse for placement; Mystery's current title row just doesn't have the `justify-between`/right-hand slot yet.
+
+### 8.3 Recommendation: labelled button, not a bare icon — and here's the placement/markup
+
+**Labelled, not bare-icon.** Skyler's parenthetical floated "probably just the same wizard hat icon," but I'd push back on bare-icon-only here, for a reason specific to this page rather than a general aesthetic preference: the list row's bare icon works *because* it sits directly next to a second bare icon (trash) in a dense row, which teaches "icons are the interactive things here" contextually, and screen space is genuinely tight there. Neither is true on the detail page — it's the *only* interactive control that would exist on this page (see 8.1), there's no sibling icon-button to establish the vocabulary, and the page has abundant width in the header row. An unlabelled icon in that position risks reading as decorative (like the section-heading icons already on this exact page, which are non-interactive) rather than clickable. `hunter-detail.html`'s labelled-text-button precedent (8.2) backs this up — it's the one existing example of a detail-page header action, and it's text, not a bare icon.
+
+**Placement:** give the title row the same `justify-between` treatment `hunter-detail.html`/`monster-detail.html`'s header rows already use, and put the new link on the right, mirroring `hunter-detail.html`'s slot exactly. Concretely, replace `mystery-detail.html`'s current title block:
+
+```html
+<div class="flex flex-wrap items-baseline gap-3 mb-2">
+  <h2 class="m-0">{{ mystery()!.name }}</h2>
+  <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-mystery text-on-badge-mystery">{{ mystery()!.adventureType.name }}</span>
+</div>
+```
+
+with:
+
+```html
+<div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="m-0">{{ mystery()!.name }}</h2>
+    <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-mystery text-on-badge-mystery">{{ mystery()!.adventureType.name }}</span>
+  </div>
+  <a
+    [routerLink]="['/mysteries', mystery()!.id, 'edit']"
+    class="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover rounded-lg text-on-accent text-[0.9rem] font-semibold py-[0.55rem] px-5 no-underline transition-colors whitespace-nowrap"
+  >
+    <app-icon name="wizard" class="h-5 w-5" />
+    <span>Continue in wizard</span>
+  </a>
+</div>
+```
+
+- **Same destination as the list row's link** — `['/mysteries', mystery()!.id, 'edit']`, no new route needed.
+- **Styling reused, not invented:** this is the app's existing filled-pill primary-CTA treatment (`bg-accent hover:bg-accent-hover rounded-lg text-on-accent ... py-[0.55rem] px-5`), the same classes `mysteries-list.html`'s "Create something new..." and `monster-detail.html`'s "+ Add Minion" already use. I chose this over `hunter-detail.html`'s outline/`text-danger` treatment because that one is specifically the *destructive*-action style (bordered, danger-colored) — wrong register for an affirmative "go keep building" action. The filled-accent pill is this app's actual "go do the primary constructive thing here" convention, and reusing it means this link doesn't have to invent its own visual weight.
+- **No `title` attribute.** Unlike the list row's bare icon (which needs `title` because it has no visible text), this control has a visible label doing the accessible-naming work — matching the two precedents it's copying the pill styling from (`+ Add Minion`, `Create something new...`), neither of which carries a `title`. The `<app-icon>` SVG stays `aria-hidden="true"` automatically (baked into `IconComponent`), so nothing announces the glyph twice.
+- **Needs `IconComponent` added to `MysteryDetailComponent`'s `imports` array** (`mystery-detail.ts` currently imports only `RouterLink`/`MysterySectionIconComponent` — `<app-icon>` isn't available on this page yet).
+
+### 8.4 Accessible label / visible text wording
+
+**Recommend `Continue in wizard`** as the button's visible text (doubling as its accessible name — no separate `aria-label` needed). This is a deliberate departure from the list row's `title="Edit mystery in the wizard"` phrasing, not an inconsistency: Skyler's own stated motivation here is specifically "jump straight back into working on an incomplete mystery" — *continuing* unfinished work, not *editing* a finished one — and "Continue" matches that framing directly, the same way `hunter-create`'s own in-progress-resumption language already leans on "continue"/"still to finish" elsewhere in this app rather than "edit." **Alternate: `Edit in wizard`**, if Skyler/Luigi would rather keep exact wording parity with the list row's `"{Verb} {noun}"` title pattern — reasonable, just less specific to the actual motivation for this particular link.
+
+### 8.5 Completeness — investigated directly, here's the unhedged answer: **not available on this page, ship the unconditional version**
+
+Checked both places a completeness signal could live:
+
+- **`mystery-create.store.ts`** does have a completeness concept — `phaseComplete: signal<boolean[]>` / `phaseStepComplete: computed<boolean[][]>` — but it's **purely local, in-session UI state**, tracking which of the wizard's 4 phases the *current browser session* has stepped through while actively editing. It's constructed fresh inside `MysteryCreateStore` (provided at the create/edit route component level, per the `.squad/decisions.md` architecture entry) and never persisted anywhere. It does not exist before you open the wizard, and it's gone the moment you navigate away.
+- **The API contract** (`core/models.ts`) confirms this isn't a server concept either: `MysteryDetailResponse` — what `mystery-detail.html` actually renders from — has no completeness/outstanding/status field of any kind. Contrast directly with Hunters, which *do* have a real, server-computed completeness signal already wired to a detail page: `HunterDetailResponse.outstanding: string[]`, rendered on `hunter-detail.html` as a "Still to finish" panel plus a "Ready to play" badge when the list is empty. That's the shape a mystery-completeness feature would need to copy — a backend-computed field on `MysteryDetailResponse` — and it plainly doesn't exist today.
+
+**So: no completeness state is available on the mystery-detail view, full stop — not a hedge, a confirmed gap.** Recommend shipping the **unconditional** version in 8.3: the "Continue in wizard" link always present, no emphasis/gating/badge tied to whether the mystery is "done," because there is no data to drive that distinction without new backend plumbing (a `MysteryDetailResponse.outstanding`-equivalent field, mirroring the Hunter pattern). That backend work is a legitimate feature idea to raise with Peach/Skyler separately if mystery-completeness tracking is wanted later — precedent already exists to copy (Hunters) — but it is out of scope for this design task and I'm not going to fold a plumbing dependency into "add a link" by implication.
+
+### 8.6 Implemented (Luigi, 2026-09-18)
+
+Shipped 8.3's markup and 8.4's "Continue in wizard" wording verbatim, unconditional per 8.5 — no backend plumbing touched. Verified before shipping:
+
+- **`IconComponent` was indeed missing** from `MysteryDetailComponent`'s `imports` (`RouterLink`, `MysterySectionIconComponent` only) — added it, confirmed by reading the file rather than trusting the claim.
+- **The CTA classes hadn't drifted:** `mysteries-list.html`'s "Create something new..." link carries exactly `bg-accent hover:bg-accent-hover rounded-lg text-on-accent text-[0.9rem] font-semibold py-[0.55rem] px-5 no-underline transition-colors whitespace-nowrap`, byte-for-byte what section 8.3's markup reuses (plus `inline-flex items-center gap-2` for the icon+label layout, which "Create something new..." doesn't need since it has no icon).
+- **Rendered it** (compiled `styles.css` from a production build, loaded into a standalone Playwright page, real classes/markup) in both themes: `fill="currentColor"` correctly tracks `text-on-accent` — white icon on the indigo-600 pill in light, slate-900 icon on the indigo-400 pill in dark. Confirms the pill needs no separate icon-color handling beyond what `text-on-accent` already provides.
+- **`mystery-detail.spec.ts`** had no existing pattern for asserting on a header link (no other detail-page spec in this codebase tests one either — `hunter-detail.html`'s precedent action doesn't have a spec file at all). Added one test in the existing spec's own `querySelectorAll`/`textContent` style, asserting the link's `href`, visible label, and the icon's presence.
+- Build (`ng build --configuration development`) and full suite (`ng test`) both clean: 736/736 tests across 73 files (735 before this change, +1 new test).
