@@ -33,7 +33,7 @@
 
   <div class="border border-default rounded-lg mb-4 p-3">
     <h4 class="text-primary text-sm font-bold m-0 mb-3">Attacks</h4>
-    @for (attack of store.monsterAttacks(); track $index) {
+    @for (attack of store.monsterAttacks(); track attack.localKey) {
       <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
         <div class="flex flex-1 flex-col gap-[0.2rem]">
           <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
@@ -48,7 +48,7 @@
             <div class="text-muted text-[0.8rem] leading-[1.4]">{{ attack.description }}</div>
           }
         </div>
-        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterAttack($index)">×</button>
+        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterAttack(attack.localKey)">×</button>
       </div>
     }
     <form [formGroup]="store.monsterAttackForm" class="flex flex-wrap items-center gap-2 mt-2">
@@ -67,7 +67,7 @@
 
   <div class="border border-default rounded-lg mb-4 p-3">
     <h4 class="text-primary text-sm font-bold m-0 mb-3">Powers</h4>
-    @for (power of store.monsterPowers(); track $index) {
+    @for (power of store.monsterPowers(); track power.localKey) {
       <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
         <div class="flex flex-1 flex-col gap-[0.2rem]">
           <span>{{ power.name }}</span>
@@ -75,7 +75,7 @@
             <div class="text-muted text-[0.8rem] leading-[1.4]">{{ power.description }}</div>
           }
         </div>
-        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterPower($index)">×</button>
+        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterPower(power.localKey)">×</button>
       </div>
     }
     <form [formGroup]="store.monsterPowerForm" class="flex flex-wrap items-center gap-2 mt-2">
@@ -89,7 +89,7 @@
 
   <div class="border border-default rounded-lg mb-4 p-3">
     <h4 class="text-primary text-sm font-bold m-0 mb-3">Weaknesses</h4>
-    @for (weakness of store.monsterWeaknesses(); track $index) {
+    @for (weakness of store.monsterWeaknesses(); track weakness.localKey) {
       <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
         <div class="flex flex-1 flex-col gap-[0.2rem]">
           <span>{{ weakness.name }}</span>
@@ -97,7 +97,7 @@
             <div class="text-muted text-[0.8rem] leading-[1.4]">{{ weakness.description }}</div>
           }
         </div>
-        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterWeakness($index)">×</button>
+        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterWeakness(weakness.localKey)">×</button>
       </div>
     }
     <form [formGroup]="store.monsterWeaknessForm" class="flex flex-wrap items-center gap-2 mt-2">
@@ -111,7 +111,7 @@
 
   <div class="border border-default rounded-lg mb-4 p-3">
     <h4 class="text-primary text-sm font-bold m-0 mb-3">Armor</h4>
-    @for (armor of store.monsterArmors(); track $index) {
+    @for (armor of store.monsterArmors(); track armor.localKey) {
       <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
         <div class="flex flex-1 flex-col gap-[0.2rem]">
           <span>{{ armor.name }} (Soak {{ armor.harmSoak }})</span>
@@ -122,7 +122,7 @@
             <div class="text-muted text-[0.8rem] leading-[1.4]"><em class="italic">Special:</em> {{ armor.specialDescription }}</div>
           }
         </div>
-        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterArmor($index)">×</button>
+        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterArmor(armor.localKey)">×</button>
       </div>
     }
     <form [formGroup]="store.monsterArmorForm" class="flex flex-wrap items-center gap-2 mt-2">
@@ -237,7 +237,7 @@
 
       <div class="bg-surface-sunken rounded-lg mb-4 p-3">
         <h4 class="text-primary text-sm font-bold m-0 mb-3">Attacks</h4>
-        @for (attack of store.minionAttacks(); track $index) {
+        @for (attack of store.minionAttacks(); track attack.localKey) {
           <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
             <div class="flex flex-1 flex-col gap-[0.2rem]">
               <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
@@ -252,7 +252,7 @@
                 <div class="text-muted text-[0.8rem] leading-[1.4]">{{ attack.description }}</div>
               }
             </div>
-            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMinionAttack($index)">×</button>
+            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMinionAttack(attack.localKey)">×</button>
           </div>
         }
         <form [formGroup]="store.minionAttackForm" class="flex flex-wrap items-center gap-2 mt-2">
@@ -271,7 +271,7 @@
 
       <div class="bg-surface-sunken rounded-lg mb-4 p-3">
         <h4 class="text-primary text-sm font-bold m-0 mb-3">Powers</h4>
-        @for (power of store.minionPowers(); track $index) {
+        @for (power of store.minionPowers(); track power.localKey) {
           <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
             <div class="flex flex-1 flex-col gap-[0.2rem]">
               <span>{{ power.name }}</span>
@@ -279,7 +279,7 @@
                 <div class="text-muted text-[0.8rem] leading-[1.4]">{{ power.description }}</div>
               }
             </div>
-            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMinionPower($index)">×</button>
+            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMinionPower(power.localKey)">×</button>
           </div>
         }
         <form [formGroup]="store.minionPowerForm" class="flex flex-wrap items-center gap-2 mt-2">
@@ -293,7 +293,7 @@
 
       <div class="bg-surface-sunken rounded-lg mb-4 p-3">
         <h4 class="text-primary text-sm font-bold m-0 mb-3">Weaknesses</h4>
-        @for (weakness of store.minionWeaknesses(); track $index) {
+        @for (weakness of store.minionWeaknesses(); track weakness.localKey) {
           <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
             <div class="flex flex-1 flex-col gap-[0.2rem]">
               <span>{{ weakness.name }}</span>
@@ -301,7 +301,7 @@
                 <div class="text-muted text-[0.8rem] leading-[1.4]">{{ weakness.description }}</div>
               }
             </div>
-            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMinionWeakness($index)">×</button>
+            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMinionWeakness(weakness.localKey)">×</button>
           </div>
         }
         <form [formGroup]="store.minionWeaknessForm" class="flex flex-wrap items-center gap-2 mt-2">
@@ -315,7 +315,7 @@
 
       <div class="bg-surface-sunken rounded-lg mb-4 p-3">
         <h4 class="text-primary text-sm font-bold m-0 mb-3">Armor</h4>
-        @for (armor of store.minionArmors(); track $index) {
+        @for (armor of store.minionArmors(); track armor.localKey) {
           <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
             <div class="flex flex-1 flex-col gap-[0.2rem]">
               <span>{{ armor.name }} (Soak {{ armor.harmSoak }})</span>
@@ -326,7 +326,7 @@
                 <div class="text-muted text-[0.8rem] leading-[1.4]"><em class="italic">Special:</em> {{ armor.specialDescription }}</div>
               }
             </div>
-            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMinionArmor($index)">×</button>
+            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMinionArmor(armor.localKey)">×</button>
           </div>
         }
         <form [formGroup]="store.minionArmorForm" class="flex flex-wrap items-center gap-2 mt-2">
@@ -365,9 +365,12 @@
     [visible]="pendingRemoveKey() !== null"
     [itemName]="pendingRemoveName()"
     verb="Remove"
-    [footnote]="pendingRemoveNote()"
-    message="This minion will be removed from the mystery."
+    [confirmLabel]="pendingRemoveConfirmLabel()"
+    [message]="pendingRemoveMessage()"
     [items]="pendingRemoveItems()"
+    usageMessage=""
+    [usage]="[]"
+    [footnote]="pendingRemoveFootnote()"
     (confirmed)="onRemoveConfirmed()"
     (cancelled)="onRemoveCancelled()"
   />

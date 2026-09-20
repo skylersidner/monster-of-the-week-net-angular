@@ -469,3 +469,75 @@ before 5b adds a second composer; `mystery-create-dossier.html:232,248` still `t
 **Recorded, not solved:** the wizard's client-side load is 29 calls in **three rounds** (14/6/9), so
 the exposure is the browser's six-connection limit splitting round three, not 29 round trips. Budget
 it; the expand-style endpoint that would fix it must not be attempted inside the risk-centre phase.
+
+---
+
+## Rev 10 addendum (2026-09-20) — Peach's Phase 5 acceptance review
+
+Bowser's re-parent verb is committed (`ef28fd5`, backend 548 -> 562). Peach's Phase 5 criteria are at
+`docs/updates/mystery-entity-linking-acceptance-phase-5.md`. Six findings; five corrections and one
+design decision.
+
+**H3, the one that reshapes 5b's central feature: attaching a monster is hydration, not selection.**
+
+`MonsterListItemResponse` (`core/models.ts:191-205`) carries `attackCount`/`powerCount`/etc. and **no
+minions**. So a picked option cannot become a diffable `MonsterDraft`: it needs `getById` +
+`getByMonster` + a `getById` per minion — **1 + 1 + N**. This is a genuine divergence from the
+locations/bystanders attach and it is forced by the data model, not chosen: `LocationListItemResponse`
+already carries everything `LocationDraft` needs, so attaching a location is a pure client-side
+transform with zero fetches. Rosalina should design monster attach knowing it diverges.
+
+**Shape: factor `hydrateMonsterDraft(monsterId)` in 5a with two callers** — edit-mode load in 5a,
+attach in 5b. This is the same fan-out `loadEditData` already performs, so it is not new machinery.
+It also makes S5.2's invariant structural rather than disciplinary: the hydrator builds the baseline
+(`existingAttacks: MonsterAttackResponse[]`) and the draft ids **from the same response objects in the
+same step**, so no path can populate one without the other. H1, H2a and H2b are all fixed by having
+exactly one place that constructs a hydrated draft.
+
+**Hydrate, then commit.** I agree with Peach's position, and the architectural reason is stronger than
+the UX one: **every draft in the roster must be fully hydrated and therefore diffable**, because
+`submitPhase1` diffs whatever is in the roster. A card admitted with a known `id`, an empty baseline
+and empty drafts is the exact "baseline and drafts disagree" shape 5a spends its budget eliminating
+one level down — and under a *partial* failure it is the one path in the whole design that yields
+genuine outcome (ii) rather than churn. So the pick is not the commit; the successful hydration is,
+and a failed fetch commits nothing. No new endpoint — the fan-out is per-attach, not per-page-load,
+and S8.7 already rules the expand endpoint out of the risk-centre phase.
+
+**Five corrections.**
+
+- **H1 — "minions are already safe" was half wrong.** True of the minion *row*
+  (`saveMinionDrafts` backfills `draft.id`), false of its *sub-resources*: `loadEditData:1010-1013`
+  fills the four `existing*Ids` while `:995-1009` builds drafts with no id, and
+  `saveMinionDrafts:1947-1953` deletes-all/recreates-all. There is no correct path to copy; the
+  sentence was inviting Luigi to copy the same defect.
+- **H2a — not only `loadEditData`.** `submitPhase1:1790-1793` re-creates the state on every successful
+  submit, so it is reachable in **create mode** via Next -> Back -> Next.
+- **H2b — the consequence is churn, not destruction, and that defeats the obvious test.** Delete-set
+  and create-set are both "all of them," so content survives and only keys rotate. **A wrong 5a passes
+  a content-preservation test.** Assert key stability and dirty-check firing instead (Peach's
+  `5a-U1`/`5a-U9`).
+- **H4 — S7.7d and S7.7e do not compose.** Delete a minion, then remove its monster: the minion's
+  draft leaves the roster with its parent, so (e)'s roster-membership test no longer finds its
+  disposition, and under a monster **detach** it drains and destroys that minion in every other
+  mystery — contradicting what the modal just promised. Fix: removing a monster drops pending
+  `'minions'` dispositions for its children under **either** disposition (detach because they must
+  survive, delete because the cascade already handles them). Generalised: **(e)'s test is "is this
+  disposition still the roster's business," and a child whose parent has left is not.**
+- **H5 — a one-line landmine.** `membershipPersisted:1173` is a two-branch ternary, so `'monsters'`
+  and `'minions'` both silently resolve to the **bystander** baseline, with no compile error, on the
+  path that decides whether a destructive button appears. Renaming does not fix dispatch. Use an
+  **exhaustive `switch` over the closed union** so a fifth member fails at compile time; the ternary's
+  failure mode is silence. Compounds with Rosalina's S16 ruling that minions need a separate predicate,
+  so this is a restructuring rather than an extension. Her `id !== null` and `existingMinionIds()`
+  agree in practice; I'd take the baseline form for consistency and because `id !== null` would
+  diverge the moment a path sets an id without recording the baseline — the H2 class of bug, twice
+  found. Flagged to her, not decided over her.
+- **H6 — the drain must leave the monster save chain.** `submitPhase1:1768-1800` nests
+  `applyPendingRemovals` in a `switchMap` where phases 2 and 3 drain as a `forkJoin` sibling. Harmless
+  today; from 5a it is not, because decision 17 makes minion deletions drain-borne and a failed
+  monster save would strand a confirmed deletion — G1 by another route. 5b removes that save entirely.
+  Move it out unconditionally in 5a.
+
+**Effect on the cut and sizing:** the 5a/5b cut holds and is slightly better for it. H3 moves the
+hydrator into 5a (where it was needed for H1/H2 anyway) and leaves 5b with orchestration and states,
+so 5a grows a little and 5b shrinks a little — in the right direction, since 5b is the risk centre.

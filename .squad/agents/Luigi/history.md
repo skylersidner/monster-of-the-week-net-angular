@@ -1815,3 +1815,41 @@ Rosalina's §15 of `mystery-entity-linking-ux.md`, both build changes: §15.1 th
 - **Modified:** `shared/mystery-usage.{ts,spec.ts}` (`namesResolved` on both message functions, wizard copy unit tests); `mystery-create-{locations,bystanders}-phase.ts` (count/names split); `mystery-create.store.ts` (`collapseComposerIfUntouched`); `{locations,bystanders,monsters}-list.{ts,spec.ts}` (same split, `mysteriesAvailable` deleted); `mystery-create-phase4.store.spec.ts` (ledger form for D6/D7); and Toad's `mystery-create-phase4-ledger.spec.ts` and `mystery-create-phase4-usage-unavailable.spec.ts`, whose characterisations this round flips.
 
 Not committed.
+
+---
+
+## 2026-09-20 (same day, follow-up): Phase 5a — the sub-resource upsert diff, the one hydrator, minions on the drain
+
+### Task
+Phase 5a of `mystery-entity-linking.md` (rev 10, §5.4/§6.6/§7.7a–h) plus UX §16.4 and Peach's `mystery-entity-linking-acceptance-phase-5.md`. Eleven items: the hydrator, the eight-collection upsert diff, the derived per-row dirty check, the parameterised diff function, the weapon-tag sub-diff, minions on the disposition drain, `membershipPersisted`'s dispatch, `applyPendingRemovals` dropping rather than skipping, the drain leaving the monster save chain, `MinionService.moveToMonster`, and deleting `draftState`. Roster/monster-linking work is 5b. Not committed.
+
+### Reusable technical facts
+- **A diff cannot be tested by a stub that cannot represent "unchanged".** Every sub-resource double in this repo returned a bare `{ id }`. That was fine while every submit deleted and recreated the lot; against a diff it reports *every* row as changed on the next pass, so the double manufactures the exact churn the phase removes. Doubles now echo the request into the response, and each create mints a fresh id — a fixed id makes two rows indistinguishable to the diff and lets a genuine mis-identification pass.
+- **A follow-up call that returns nothing poisons the baseline.** `POST /attacks` answers *before* its weapon tags are assigned, so storing the create response as the baseline leaves `weaponTags: []` against a draft that has one. `isDirty` then reports that attack changed on every later submit, re-PUTting it and re-assigning the same tag for ever. Found by 5a-U2 in create mode, not by any edit-mode test. Fix: `afterSave` returns `Observable<TResponse>` — the row as the server now holds it — and whatever it emits becomes the baseline.
+- **`MonsterArmorResponse.specialDescription` is optional; its minion twin is not.** Comparing a draft's `''` against `undefined` marks an untouched armor dirty on every submit. `sameNullableText` normalises both sides to `null`.
+- **The H1/H2/H3 invariant is enforceable structurally, not by discipline.** `toHydratedMonster` builds `attacks` and `existingAttacks` from the same array in the same expression; a caller receives both or neither. The three bugs were one bug — two independent code paths, one of which ran.
+- **`rekeyDrafts` is the post-submit half of the same invariant.** Refreshing the baseline without re-keying the drafts is H2 exactly, and it is the cheapest thing to forget: the NC that removes only the re-key failed 12 tests, including 5a-U1 and 5a-U9.
+- **`jumpToPhase` silently refuses when the target phase is not complete.** A test that jumps and submits will quietly submit the *current* phase instead and pass for the wrong reason. Assert `currentPhase()` after the jump. This is how my first G1 test passed against a store that had dropped minions from the drain entirely.
+- **`false && predicate(x)` un-narrows `x` in TypeScript.** Useless as a negative-control mutation; `predicate(x) && (1 as number) < 0` compiles and does the same job.
+- **`draftState` is gone.** It was a `computed` with one consumer, a test that asserted its own shape. It had to be widened for every field 5a adds and bought nothing; F4 (draft persistence) does not exist. Deleted with its interface, and the test rewritten against the store signals it was proxying.
+
+### Judgment calls
+- **The minion predicate is the baseline form (`existingMinionIds().includes(id)`), not `id !== null`.** Rosalina's UX §16.4 argues for a separate `id !== null` predicate; Yoshi's §7.7b says the baseline implementation is right for all four and only the *name* is wrong. Skyler's standing instruction was to take the baseline form if Rosalina had not landed it, and the two documents still disagree, so: baseline form, renamed `persistedForRemoval`, with both meanings documented on it. For minions the two are observationally identical — a minion is never attached (UX §2.5) so its id can only become non-null by being saved, and the store sets `existingMinionIds` from exactly those saves and from hydration. Using one implementation means the modal and the drain cannot disagree about what the user was shown.
+- **`removalRequest`'s dispatch became a `switch` too**, not just `persistedForRemoval`'s. It was the same nested-ternary shape on the same closed union, deciding destroy-vs-unlink.
+- **The eight dossier `track $index` loops moved to `localKey` as well.** They render the same draft arrays. The locations/bystanders loops at `:232`/`:248` were left on `$index` — pre-existing, and outside 5a.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npx ng test --watch=false`: 89 files / **1088** tests, from a 1053 baseline.
+- `dotnet test src/api/MonsterOfTheWeek.Api.Tests`: **562 passed**, untouched; `git status src/api` is empty.
+- **Seven negative controls, all CAUGHT:** never skip an unchanged row (8 failed); refresh the baseline without re-keying the drafts (12); the minion diff loses the drain exclusion (2, ledger-only); minions resolve to the bystander baseline (4); the drain drops every minion disposition (1 — the G1 test); assign-only weapon tags (1); the minion modal gains a confirm label it should not have (2).
+- The duplicate-minion-delete control is caught **only** by the exact-call ledger — a positive "it was deleted" assertion passes with two DELETEs.
+
+### Files
+- **Added:** `mystery-create/hydrate-monster.ts`, `mystery-create/sub-resource-diff.ts`, `mystery-create/mystery-create-phase5a-ledger.spec.ts`, `core/phase5a-verbs-wire.spec.ts`.
+- **Modified:** `mystery-create.store.ts` (hydrator, eight adapters, the two collection savers, `submitPhase1`, the drain, `persistedForRemoval`, `draftState` deleted); `core/monster.ts` + `core/minion.ts` (updaters, tag remover, `moveToMonster`); `mystery-create-monster-phase.{ts,html}` (variant E, `localKey` loops); `mystery-create-dossier.html`; `mystery-create-{locations,bystanders}-phase.ts` (rename); four existing spec files.
+
+### Left for 5b, deliberately
+Monster roster and `MonsterDraft`, monster attach and its busy strip, the minion monster-picker wired to `moveToMonster`, `monsters[0]`, and monster-optional validation (`validateCurrentStep`'s phase-1/step-0 block is untouched — 5a-B2).
+
+Not committed.

@@ -1,7 +1,7 @@
 # Editing, Attaching and Removing Entities in the Mystery Wizard — UX / Visual Design
 
 **Prepared by:** Rosalina (Designer)
-**Status:** **Settled — Phases 3 and 4 shipped; Phase 5 rulings in §16 (a monster is no longer required), with §15's two Phase 4 fixes still outstanding for Luigi.** Every question in §12 is answered; **nothing in this document is waiting on Skyler.** Phase 3 (Luigi) implemented the modal's new input surface (§7.7), the `Escape` fix (§8.7) and accessibility items 1, 4, 5 and 7; two claims of mine were wrong in implementation and are corrected in place, with the reasoning, in §7.1 and §7.6. One new requirement (§8.6, focus after the composer collapses) was identified during that phase and is scoped to the roster replication. Each decision is folded into the section it affects and left in §12 struck through, so cross-references from Yoshi's doc still resolve. OQ9 is Luigi's call at implementation time and blocks nothing. OQ10 is deliberately deferred and has a durable home in §12.1, per Skyler's instruction to record it for after the final phase.
+**Status:** **Settled — Phases 3 and 4 shipped; Phase 5 rulings in §16 (a monster is no longer required) and §17 (attaching a monster holds the roster until its subtree lands), with §15's two Phase 4 fixes still outstanding for Luigi.** Every question in §12 is answered; **nothing in this document is waiting on Skyler.** Phase 3 (Luigi) implemented the modal's new input surface (§7.7), the `Escape` fix (§8.7) and accessibility items 1, 4, 5 and 7; two claims of mine were wrong in implementation and are corrected in place, with the reasoning, in §7.1 and §7.6. One new requirement (§8.6, focus after the composer collapses) was identified during that phase and is scoped to the roster replication. Each decision is folded into the section it affects and left in §12 struck through, so cross-references from Yoshi's doc still resolve. OQ9 is Luigi's call at implementation time and blocks nothing. OQ10 is deliberately deferred and has a durable home in §12.1, per Skyler's instruction to record it for after the final phase.
 **Date:** 2026-09-19 · **Reconciled against Yoshi's `mystery-entity-linking.md` rev 3, then against Skyler's answers to Yoshi's seven questions, then against his answers to the six remaining questions here** — see the dated notes in §2.2, §2.3, §7.1, §7.2, §8.7, §9.3, §9.5, §10.1 and §12. **§9.5 (added 2026-09-19, after Phase 2 landed) rules on the two partial-failure strings Luigi introduced and flagged; it carries two behaviour requirements for him, not only copy.**
 
 > Filed under `docs/updates/` alongside `docs/updates/mystery-entity-linking.md` (Yoshi's architecture proposal for the same feature) and `docs/updates/multi-minion-wizard-design.md`, whose roster-plus-composer pattern this generalises to all four entity types. This document covers **only** the interaction and visual half. Where it requires something Yoshi's doc does not currently allow, that is called out explicitly in §10 rather than left for Luigi to discover.
@@ -29,7 +29,7 @@ Plus the two things the brief adds: a **monster roster** in the wizard (Yoshi's 
 | Minions phase (step 1) | `mystery-create-monster-phase.html:148-372` | **Already roster + composer, already shipped.** `<ul class="grid gap-2 list-none m-0 mb-3 p-0">`, cards `flex items-center border rounded-lg gap-4 justify-between p-4` (`bg-surface border-default`, or `bg-accent-subtle border-accent` when loaded), name + `bg-badge-minion` badge, `<small>` counts line, `shrink-0` `action-btn--edit`/`--delete` cluster, `Editing` micro-label in place of the pencil, composer header `Add a Minion` / `Editing “…”`, footer `Save Minion` / `Save Changes` + `Cancel`, `ConfirmDeleteModalComponent` on remove. |
 | Monster phase (step 0) | `mystery-create-monster-phase.html:1-146` | Exactly one implicit monster. Five core fields at top level, then four `border border-default rounded-lg p-3` sub-panels. No list, no save action, no roster. |
 | Store draft shapes | `mystery-create.store.ts:62-109` | `LocationDraft`/`BystanderDraft` are flat `{ id, name, description, typeId }`. `MinionDraft` additionally carries four collections + four `existing*Ids` baselines. **None carries `mysteryIds`, an origin, or a stable client key.** |
-| Composer state | `mystery-create.store.ts:284-294` | `minionDrafts`, `editingDraftIndex`, `composerOpen`. The `composer: { open, editingDraftIndex }` block in `MysteryCreateDraftState` (`:171`) is the shipped shape for "where the composer is pointed." |
+| Composer state | `mystery-create.store.ts` | `minionDrafts`, `editingDraftKey`, `composerOpen` (`:361-368`, which documents why open-ness is not derivable from the editing key). **Updated 2026-09-20:** this row used to cite a `composer: { open, editingDraftIndex }` block on `MysteryCreateDraftState`; that interface has since been deleted outright, and the key is now a stable `localKey` rather than an index (§10.2). |
 | Confirm modal | `shared/confirm-delete-modal.component.*` | `role="dialog" aria-modal="true" aria-labelledby="modal-title"`, exactly **two** buttons (neutral Cancel, `bg-danger` confirm). Inputs already extended three times: `verb`, `confirmLabel`, `permanenceNote`, `items`. **No focus trap, no initial focus, no Escape handler, no focus restore.** |
 | Monster picker precedent | `minion-create.html:14-30` | `isMonsterLocked()` → a prose line "Creating a minion for **X**"; otherwise a labelled `<app-custom-select [formControl]="monsterControl">` with `A minion must belong to a monster.` beneath. **Both halves of this are directly reusable.** |
 | Mystery picker precedent | `location-create.html:14-21` + two twins | Single-select `<app-custom-select>` labelled "Attach to Mystery (optional)", `max-w-md`, sitting **outside and above** `<app-location-form>` (which is `max-w-[30rem]`). Two near-equal column widths stacked with one submit button between them — the layout already reads as two forms. |
@@ -604,6 +604,14 @@ Design consequences of Skyler's answers that Yoshi's current draft does not yet 
 
 **Design consequence: none.** The roster card, the composer, the mode signalling and the removal modal are all unchanged by this. That is why it is recorded here as a note rather than an open question.
 
+> **Addendum 2026-09-20, from a real defect Luigi found in Phase 5a that neither doc anticipated.** `POST /attacks` answers **before** its weapon tags are assigned, so storing the create response as the baseline records `weaponTags: []` against a draft that has one. The row then compares dirty **for ever**: every subsequent submit re-`PUT`s that attack and re-assigns the same tag, indefinitely. He fixed it by having `afterSave` return the response that becomes the baseline.
+>
+> Nothing here needs redesigning, but the rule generalises and is worth stating once, because it is the failure mode a baseline diff is uniquely prone to:
+>
+> **The baseline must be what the server ended up holding, not what the first call returned.**
+>
+> A baseline is a claim about server state. Any multi-call save — create-then-assign, create-then-link, create-then-reorder — has a window where the first response is already stale, and seeding the baseline from it makes the diff permanently wrong in the quiet direction: not a visible error, just work redone on every save. Note this is the *mirror* of the §17.2 rule about summaries and details: there, two sources that usually agree; here, one source sampled at the wrong moment.
+
 **The one dependency is resolved, favourably.** Skyler's answer 1 approves sub-resource upsert by ID presence and explicitly endorses dirty-tracking ("I do think that dirty-tracking is the way to go with this"). So the delete-all/recreate-all cycle goes, a per-row diff can express "leave this attack alone," and the fallback branch I had flagged here — per-draft dirty tracking becoming load-bearing again, with the cancelled-edit caveat back in play — is **dropped**. Dirty-tracking survives in the form Yoshi specified: a baseline snapshot compared row by row, as an **optimisation against write amplification**, not as a correctness guard. Nothing in §2-§9 depends on it either way.
 
 ### 10.2 Drafts need a stable client key, and the roster must `track` it
@@ -899,9 +907,21 @@ The dossier's guard will need widening to `monsterDrafts().length > 0 || monster
 
 Minions join the disposition drain, so the minion phase's modal moves onto the `confirmLabel` shape the other collections use. **It never gets a `secondaryLabel`:** a minion has no mystery membership, so there is nothing to detach.
 
-**The predicate first, because it is where the bug would be.** §7.1 keys on *"is this mystery's membership persisted"*. A minion has no membership — **the row itself is the thing** — so the equivalent question is *"is this row persisted"*, i.e. `draft.id !== null`. Yoshi is right that `membershipPersisted` is misnamed here: read literally it would classify **every** minion removal as a local discard, so a persisted minion dropped from the roster would never be recorded for deletion and would silently survive. Give minions their own predicate rather than widening that function — for locations "persisted" means *the membership row* exists, for minions *the entity row*; one name for two referents is the defect.
+**The predicate first, because it is where the bug would be.** §7.1 keys on *"is this mystery's membership persisted"*. A minion has no membership — **the row itself is the thing** — so the question to ask of a minion is *"is this row persisted"*. Read literally, "is the membership persisted" is false for **every** minion, which would classify every minion removal as a local discard and silently stop deleting them. **One name for two referents was the defect.**
 
-> **And `id !== null` is correct here for precisely the reason it was wrong there.** §7.1 rejected it because an *attached* entity has an id the instant it is picked. **Minions are never attached** — there is no attach strip on the minion step and there never will be (§2.5) — so the id can only become non-null by being saved. A reader who remembers "we decided `id !== null` is dangerous" should read this note before flagging it as a regression.
+> **Reconciled 2026-09-20 with what shipped (§7.7b / `persistedForRemoval`). My diagnosis stood; my remedy was the wrong one, and I'm withdrawing it.**
+>
+> I asked for a **separate predicate** for minions, keyed on `id !== null`. What shipped is one predicate for all four collections, renamed `persistedForRemoval` and read from the baseline. **That is better, and Luigi's reason is the one that decides it — it is a UX argument, and I should own it rather than concede it as architecture:**
+>
+> **The modal's confirm label is a promise about what is going to happen.** `Delete` promises destruction; a bare `Remove` promises a local discard. The dialog and the drain are answering the same question about the same row, so a second predicate is a way for them to disagree — and the failure is symmetric and silent in both directions. Dialog says `Delete`, drain classifies it a local discard: the user believes the minion is gone and it reappears next visit. Dialog says `Remove`, drain deletes: the user believes they undid a click and the entity is destroyed. **Either way the modal lied about its own button**, which is far worse than the naming untidiness I was trying to fix.
+>
+> My actual objection was to the *name*, and renaming fixed it: `persistedForRemoval` names the **question** ("would removing this draft change anything on the server?") rather than the mechanism, and that question genuinely is the same for all four collections even though the baseline holds memberships for three of them and rows for the fourth.
+>
+> **One argument neither of us made, which settles it beyond preference:** I justified `id !== null` on "minions are never attached" — but that is a *contingent* fact, protected only by §2.5 and §6.3 being obeyed. Predicating a destructive button on a convention is weaker than predicating it on data. If minion attach were ever added, `id !== null` would silently start offering `Delete` for a mis-clicked attach — **the exact §7.1 bug, reintroduced in the one collection where I had argued the shortcut was safe.** The baseline form degrades gracefully there; mine does not.
+
+**The protective note still matters — it belongs to the *question*, not to the implementation.** A reviewer who remembers "we decided `id !== null` is dangerous" needs to know why the minion case looked different:
+
+> **For minions the two forms agree**, because minions are never attached (§2.5 — there is no attach strip on that step and there never will be), so an id can only become non-null by being saved, and the store sets `existingMinionIds` from exactly those saves and from hydration. **The answer is read from the baseline anyway**, so that all four collections resolve the same way and no path can set an id without recording the baseline and diverge. Observational identity is the reason the minion case is *safe*, not a licence to implement it differently.
 
 **Variants.** Two, both without Detach:
 
@@ -939,3 +959,71 @@ Three notes on the copy:
 - Minions added to the pending-removal drain, with `action: 'delete'` only — there is no `'detach'` for a minion, and the type should say so rather than accepting a value it will never receive.
 - The reparent call is a **dedicated verb**, not a field on the minion `PUT` (§6). Wire the picker to it.
 - The zero-monster minion state (§6, *"Add a monster first — minions belong to a monster."*) stops being an edge case and becomes a reachable path. The copy stands; keep it in the ordinary `text-muted text-sm italic` empty-state treatment so it reads as a state, not an error.
+
+### 16.6 On Peach's `5b-O*` pairing — agreed, and the pairing is necessary rather than tidy
+
+She tests the blurb nudge and the field-versus-phase validator split as a pair because the two changes look identical from a single test. **That is exactly right and it is the concrete form of §16.2's warning.** Worth stating why, so nobody later "simplifies" the pair back into one test: stripping the composer's validators produces a wizard that **advances** — which looks like success. A test asserting only *"Next advances with an empty roster"* passes in both the correct world and the broken one. It takes the second assertion — that a **started** monster still blocks on its own required fields — to tell them apart. No change to my ruling; her reading is the one I intended.
+
+---
+
+## 17. Phase 5b ruling — attaching a monster cannot be instant, and the roster must not show a half-monster (2026-09-20)
+
+`MonsterListItemResponse` carries `attackCount`/`powerCount`/… and **no minions** (`core/models.ts:191-205`). `LocationListItemResponse` carries everything a `LocationDraft` needs, which is why `attachLocation` builds its draft straight from the picked option with no request at all (`mystery-create.store.ts:1269-1287`). A monster needs `getById` + `getByMonster` + a `getById` per minion — **1+1+N** — before the card has anything real to show.
+
+### 17.1 Ruling: hold the card, move the feedback into the strip
+
+**I'm adopting Peach's position — nothing enters the roster until its subtree is in hand — but the reason that decides it is not "don't show a half-monster."** It is this:
+
+> **A roster row must be a complete draft. Every consumer depends on it.**
+
+The dossier renders a block per monster, the minion composer's parent picker offers roster monsters, the removal modal discloses what a row takes with it, and the submit diff reads a row's collections as the user's intent. A "still loading" row forces a *what if this is incomplete* branch into **all four**, and one of them silently produces real destruction (§17.4). Making the roster's completeness an invariant deletes four branches instead of adding them.
+
+**This is also the §11 answer, not a departure from it.** §11 rejected splitting the roster by origin because origin should not change what a row can do. A loading row is a row that can't be edited, can't meaningfully be removed, and can't be picked as a minion's parent — **a second class of roster row, which is the exact thing §11 refused.** Holding avoids creating one.
+
+**And commit-on-pick survives.** §3's rejection of a browse panel and a modal was about space, about staying connected to the live dossier, and about not adding a confirm step — none of which this touches. What §3 was really protecting is **feedback**, not literal zero latency. So the feedback moves to the control the user is looking at:
+
+| State | Attach strip | Roster |
+|---|---|---|
+| idle | `Search your monsters…` | — |
+| **picking** | disabled, showing the picked name, `<app-icon name="spinner" class="h-4 w-4 shrink-0" />` + `Loading “The Hollow Man”…` | **unchanged** |
+| success | resets to placeholder, option now filtered out | card appears, complete |
+| failure | resets and re-enables, inline `text-danger text-sm` beneath | **unchanged** |
+
+The busy treatment copies the shipped one at `app.html:47-49` — spinner glyph plus a text label inside a disabled control. *(Pre-existing nit, flagged not fixed: neither shipped call site adds a rotation class and `icon-spinner` has no animation of its own, so the app's spinners are currently static. If Luigi adds `animate-spin` here, add it at all three sites rather than leaving them inconsistent.)*
+
+### 17.2 Failure copy, and the structural fix that outlives it
+
+> `Couldn't load “The Hollow Man”. Try again.`
+
+Inline in the strip, `text-danger text-sm`, cleared by the next successful pick. **Local to the control that failed** — not the wizard's footer error band, which belongs to submit failures and sits a scroll away from the action that caused this. The monster stays in the options list because it was never attached, so retry is simply picking it again; no separate retry affordance.
+
+**The half-monster of state 2 cannot occur, by construction** — nothing entered the roster. But one rule should outlive this specific fix:
+
+> **The roster card's counts must be derived from the draft's own collections, never from `MonsterListItemResponse`'s `attackCount`/`powerCount`/….**
+
+Otherwise the card and the composer read two different sources that agree only by coincidence, and "card says `Attacks: 4`, composer shows none" becomes reachable again by any future path that loads them separately. This is the same defect shape as §15.1, where a count derived from resolved *names* silently answered a question the *ids* already answered. **A summary and its detail must come from one source, not two that usually match.**
+
+### 17.3 During the fetch, `Next` is disabled
+
+Recommended, with the cheaper alternative named. If the user presses `Next` mid-fetch, the attach has not happened and their explicit action silently evaporates — the phase submits and the monster simply isn't there. Add the in-flight attach to the existing disabled binding alongside `store.isSubmitting()` (`mystery-create.html:33`); it is one more condition on a control that already has this behaviour, and the window is short.
+
+The cheaper fallback is to let `Next` win and abandon the attach. I don't recommend it: the cost of the guard is one boolean, and the failure it prevents is the user's deliberate action disappearing with no trace.
+
+### 17.4 What this gives Yoshi — an invariant, stated so it can't erode
+
+State 3 cannot occur under this ruling, but the reason must be written down as a guarantee rather than left as an accident of the current implementation:
+
+> **The monster roster contains only complete drafts. The submit diff will never see a partially-loaded monster.**
+
+That is worth coordinating with him explicitly, because it **simplifies** his diff — no incomplete-draft guard is needed — and a simplification that rests on an unstated invariant is exactly what a later "let's make attach feel snappier, show the card immediately" change would silently break. If the invariant is recorded on both sides, that change gets caught in review instead of in production. His team's finding that this is the only path producing genuine sub-resource destruction rather than harmless churn is the reason it deserves that weight.
+
+Two things for him specifically, beyond the data flow he is already deciding:
+
+1. **Where the fan-out lives.** The strip's busy state is per-phase view state, but the fetch populates a store draft. Whichever owns it, the roster must not be written until all 1+1+N responses have resolved — a partial write is the half-monster by another route.
+2. **Failure must leave no trace.** No orphan draft, no half-populated baseline, and the monster still present in `attachableMonsters` so retry works. A baseline written for a monster whose contents never arrived is worse than no attach at all, because it would make the next diff treat "nothing" as the user's intent.
+
+### 17.5 What changes in the attach affordance — less than it sounds
+
+**The visual vocabulary is unchanged.** Same strip, same position above the composer (§14.2(c) still governs focus), same single-select, same commit-on-pick, same exclusion of roster members, same hide-when-catalogue-empty rule. **One control gains two transient states — busy and error — and both are monsters-only.**
+
+Locations and Bystanders do **not** get them; they have no fetch, and a state that can never trigger is dead code. If the markup is shared, the two states should be driven by inputs those phases simply never set.

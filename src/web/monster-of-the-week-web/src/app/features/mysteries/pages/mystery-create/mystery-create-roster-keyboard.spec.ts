@@ -58,10 +58,10 @@ function minionDraft(name: string, overrides: Partial<MinionDraft> = {}): Minion
     powers: [],
     weaknesses: [],
     armors: [],
-    existingAttackIds: [],
-    existingPowerIds: [],
-    existingWeaknessIds: [],
-    existingArmorIds: [],
+    existingAttacks: [],
+    existingPowers: [],
+    existingWeaknesses: [],
+    existingArmors: [],
     ...overrides,
   };
 }
@@ -122,7 +122,14 @@ describe('The minion roster, keyboard-only and by its ARIA', () => {
   async function showRoster(names: string[], overrides: Partial<MinionDraft> = {}): Promise<void> {
     store.currentPhase.set(1);
     store.currentStep.set(1);
-    store.minionDrafts.set(names.map((name) => minionDraft(name, overrides)));
+    const drafts = names.map((name) => minionDraft(name, overrides));
+    store.minionDrafts.set(drafts);
+    // The removal modal asks the store whether a row is persisted, and the store answers from the
+    // baseline (5a). A fixture that sets an id without the baseline is exactly the state the shared
+    // hydrator makes unreachable in production, so keep the two in step here too. Bracket access
+    // because the baseline is private and should stay that way — the store owns it; this is a
+    // fixture standing in for a load.
+    store['existingMinionIds'].set(drafts.map((draft) => draft.id).filter((id): id is string => id !== null));
     store.editingDraftKey.set(null);
     store.composerOpen.set(false);
     await settle();
@@ -418,11 +425,88 @@ describe('The minion roster, keyboard-only and by its ARIA', () => {
   });
 
   // -------------------------------------------------------------------------------------------
+  // 5. The removal dialog's two variants (UX §16.4, 5a-M2/5a-M3)
+  // -------------------------------------------------------------------------------------------
+
+  const dialogText = (): string => dialog()!.textContent ?? '';
+  const dialogButtonNames = (): string[] => dialogButtons().map((button) => button.textContent?.trim() ?? '');
+
+  const attackDraft = (name: string) => ({
+    id: null,
+    localKey: createDraftKey('attack'),
+    name,
+    harm: 1,
+    description: '',
+    weaponTagIds: [] as string[],
+  });
+
+  async function openRemovalDialog(overrides: Partial<MinionDraft> = {}): Promise<void> {
+    await showRoster(['Cultist'], overrides);
+    buttonNamed('Remove Cultist').click();
+    await settle();
+  }
+
+  it('5a-M2/(A1-minion): a never-saved minion offers Cancel · Remove, and says nothing is on the server', async () => {
+    await openRemovalDialog({ attacks: [attackDraft('Bite'), attackDraft('Claw')] });
+
+    expect(dialogButtonNames()).toEqual(['Cancel', 'Remove']);
+    expect(dialogText()).toContain("This minion hasn't been saved yet. Removing it discards what you typed, including:");
+    expect(dialogText()).toContain('2 attacks');
+    // Nothing is destroyed, so there is no permanence warning to give.
+    expect(dialogText()).not.toContain('will be deleted');
+  });
+
+  it('(A1-minion) with nothing attached drops the trailing clause rather than promising an empty list', async () => {
+    await openRemovalDialog();
+
+    expect(dialogText()).toContain("This minion hasn't been saved yet. Removing it discards what you typed.");
+    expect(dialogText()).not.toContain('including:');
+  });
+
+  it('5a-M2/(E): a persisted minion offers Cancel · Delete — and never a Detach, which it has nothing to detach from', async () => {
+    await openRemovalDialog({ id: 'minion-1', attacks: [attackDraft('Bite')] });
+
+    // The whole of 5a-M2: two buttons, and the middle one the other three collections get is absent
+    // under every draft state, because a minion has no mystery membership.
+    expect(dialogButtonNames()).toEqual(['Cancel', 'Delete']);
+    expect(dialogButtonNames()).not.toContain('Detach');
+    // The title still says Remove: the user's action is removing it from the roster, and the button
+    // names the consequence. Same split as variants (B)/(C).
+    expect(dialogText()).toContain('Remove "Cultist"?');
+    expect(dialogText()).toContain('Deleting it also removes:');
+    expect(dialogText()).toContain('1 attack');
+    // Derived from deferredChangeTail(), not written out — phase 1 is never last today, and this
+    // feature is reordering the phases.
+    expect(dialogText()).toContain('The minion will be deleted when you continue to the next step.');
+  });
+
+  it('(E) with no sub-resources is title plus footnote, with no invented filler', async () => {
+    await openRemovalDialog({ id: 'minion-1' });
+
+    expect(dialogButtonNames()).toEqual(['Cancel', 'Delete']);
+    expect(dialogText()).toContain('Remove "Cultist"?');
+    expect(dialogText()).toContain('The minion will be deleted when you continue to the next step.');
+    expect(dialogText()).not.toContain('Deleting it also removes');
+    expect(dialogText()).not.toContain("hasn't been saved");
+  });
+
+  it('5a-M3: the counts come from the card being removed, never from the composer', async () => {
+    // The composer holds a *different* minion's attacks. §15.1's defect shape: a summary and its
+    // detail must come from one source, not two that usually agree.
+    store.minionAttacks.set([attackDraft('Not This One'), attackDraft('Nor This')]);
+
+    await openRemovalDialog({ id: 'minion-1', powers: [{ id: null, localKey: createDraftKey('trait'), name: 'Keening', description: '' }] });
+
+    expect(dialogText()).toContain('1 power');
+    expect(dialogText()).not.toContain('attack');
+  });
+
+  // -------------------------------------------------------------------------------------------
   // 4. What a screen reader is given — and what it is not
   // -------------------------------------------------------------------------------------------
 
   it('labels the dialog by its title and describes it by both lists, with ids unique to the instance', async () => {
-    await showRoster(['Cultist'], { id: 'minion-1', attacks: [{ name: 'Bite', harm: 1, description: '', weaponTagIds: [] }] });
+    await showRoster(['Cultist'], { id: 'minion-1', attacks: [{ id: null, localKey: createDraftKey('attack'), name: 'Bite', harm: 1, description: '', weaponTagIds: [] }] });
     buttonNamed('Remove Cultist').click();
     await settle();
 
@@ -440,7 +524,8 @@ describe('The minion roster, keyboard-only and by its ARIA', () => {
     const described = document.getElementById(describedId)!;
     expect(label.textContent).toContain('Remove "Cultist"?');
     // Everything the user must weigh is inside the described region, not just the title.
-    expect(described.textContent).toContain('This minion will be removed from the mystery.');
+    // Variant (E): the persisted cascade lead-in, not the never-saved one (UX §16.4).
+    expect(described.textContent).toContain('Deleting it also removes:');
     expect(described.textContent).toContain('1 attack');
     expect(described.textContent).toContain('The minion will be deleted when you continue');
   });

@@ -87,33 +87,38 @@ describe('MysteryCreateStore', () => {
     upsertCountdown: ReturnType<typeof vi.fn>;
     getMysteries: ReturnType<typeof vi.fn>;
   };
-  let monsterService: {
-    create: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    createAttack: ReturnType<typeof vi.fn>;
-    assignAttackWeaponTag: ReturnType<typeof vi.fn>;
-    createPower: ReturnType<typeof vi.fn>;
-    createWeakness: ReturnType<typeof vi.fn>;
-    createArmor: ReturnType<typeof vi.fn>;
-    deleteAttack: ReturnType<typeof vi.fn>;
-    deletePower: ReturnType<typeof vi.fn>;
-    deleteWeakness: ReturnType<typeof vi.fn>;
-    deleteArmor: ReturnType<typeof vi.fn>;
-  };
+  /**
+   * Every sub-resource verb the 5a diff can reach, monster and minion alike.
+   *
+   * Declared as one alias rather than listed twice because a *missing* double is the failure mode
+   * that matters: the diff calls `updatePower` on a changed row, and a stub without it throws a
+   * `TypeError` inside the rxjs chain, which the store swallows into a generic submit error. The
+   * test then fails on some unrelated later assertion and points at the wrong thing.
+   */
+  type SubResourceMocks = Record<
+    | 'createAttack'
+    | 'updateAttack'
+    | 'deleteAttack'
+    | 'assignAttackWeaponTag'
+    | 'removeAttackWeaponTag'
+    | 'createPower'
+    | 'updatePower'
+    | 'deletePower'
+    | 'createWeakness'
+    | 'updateWeakness'
+    | 'deleteWeakness'
+    | 'createArmor'
+    | 'updateArmor'
+    | 'deleteArmor',
+    ReturnType<typeof vi.fn>
+  >;
+
+  let monsterService: { create: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> } & SubResourceMocks;
   let minionService: {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
-    createAttack: ReturnType<typeof vi.fn>;
-    assignAttackWeaponTag: ReturnType<typeof vi.fn>;
-    createPower: ReturnType<typeof vi.fn>;
-    createWeakness: ReturnType<typeof vi.fn>;
-    createArmor: ReturnType<typeof vi.fn>;
-    deleteAttack: ReturnType<typeof vi.fn>;
-    deletePower: ReturnType<typeof vi.fn>;
-    deleteWeakness: ReturnType<typeof vi.fn>;
-    deleteArmor: ReturnType<typeof vi.fn>;
-  };
+  } & SubResourceMocks;
   let locationService: {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -140,14 +145,29 @@ describe('MysteryCreateStore', () => {
       upsertCountdown: vi.fn(() => of({ id: 'countdown-1' })),
       getMysteries: vi.fn(() => of(catalogMysteries)),
     };
+    /**
+     * **The sub-resource doubles echo the request back.** Before 5a they returned a bare `{ id }`,
+     * which was enough when every submit deleted and recreated the lot. The diff compares a draft
+     * against the response that became its baseline, so a response with no `name` reads as "changed"
+     * on the next pass and the double would manufacture the exact churn 5a exists to remove.
+     */
+    const echo = (id: string) => vi.fn((_ownerId: string, request: unknown) => of({ id, weaponTags: [], ...(request as object) }));
+    const echoUpdate = (id: string) =>
+      vi.fn((_ownerId: string, _id: string, request: unknown) => of({ id, weaponTags: [], ...(request as object) }));
+
     monsterService = {
       create: vi.fn(() => of({ id: 'monster-1' })),
       update: vi.fn(() => of({ id: 'monster-1' })),
-      createAttack: vi.fn(() => of({ id: 'attack-1' })),
+      createAttack: echo('attack-1'),
+      updateAttack: echoUpdate('attack-1'),
       assignAttackWeaponTag: vi.fn(() => of({})),
-      createPower: vi.fn(() => of({ id: 'power-1' })),
-      createWeakness: vi.fn(() => of({ id: 'weakness-1' })),
-      createArmor: vi.fn(() => of({ id: 'armor-1' })),
+      removeAttackWeaponTag: vi.fn(() => of(undefined)),
+      createPower: echo('power-1'),
+      updatePower: echoUpdate('power-1'),
+      createWeakness: echo('weakness-1'),
+      updateWeakness: echoUpdate('weakness-1'),
+      createArmor: echo('armor-1'),
+      updateArmor: echoUpdate('armor-1'),
       deleteAttack: vi.fn(() => of(undefined)),
       deletePower: vi.fn(() => of(undefined)),
       deleteWeakness: vi.fn(() => of(undefined)),
@@ -157,11 +177,16 @@ describe('MysteryCreateStore', () => {
       create: vi.fn(() => of({ id: 'minion-1' })),
       update: vi.fn(() => of({ id: 'minion-1' })),
       delete: vi.fn(() => of(undefined)),
-      createAttack: vi.fn(() => of({ id: 'minion-attack-1' })),
+      createAttack: echo('minion-attack-1'),
+      updateAttack: echoUpdate('minion-attack-1'),
       assignAttackWeaponTag: vi.fn(() => of({})),
-      createPower: vi.fn(() => of({ id: 'minion-power-1' })),
-      createWeakness: vi.fn(() => of({ id: 'minion-weakness-1' })),
-      createArmor: vi.fn(() => of({ id: 'minion-armor-1' })),
+      removeAttackWeaponTag: vi.fn(() => of(undefined)),
+      createPower: echo('minion-power-1'),
+      updatePower: echoUpdate('minion-power-1'),
+      createWeakness: echo('minion-weakness-1'),
+      updateWeakness: echoUpdate('minion-weakness-1'),
+      createArmor: echo('minion-armor-1'),
+      updateArmor: echoUpdate('minion-armor-1'),
       deleteAttack: vi.fn(() => of(undefined)),
       deletePower: vi.fn(() => of(undefined)),
       deleteWeakness: vi.fn(() => of(undefined)),
@@ -257,8 +282,12 @@ describe('MysteryCreateStore', () => {
     store.minionAttackForm.setValue({ name: 'Rusty Knife', harm: 1, description: '', weaponTagIds: [] });
     store.addMinionAttack();
 
-    expect(store.monsterAttacks()).toEqual([{ name: 'Claw Swipe', harm: 2, description: '', weaponTagIds: ['weapon-tag-1'] }]);
-    expect(store.minionAttacks()).toEqual([{ name: 'Rusty Knife', harm: 1, description: '', weaponTagIds: [] }]);
+    expect(store.monsterAttacks()).toEqual([
+      expect.objectContaining({ id: null, name: 'Claw Swipe', harm: 2, description: '', weaponTagIds: ['weapon-tag-1'] }),
+    ]);
+    expect(store.minionAttacks()).toEqual([
+      expect.objectContaining({ id: null, name: 'Rusty Knife', harm: 1, description: '', weaponTagIds: [] }),
+    ]);
     expect(store.monsterAttackForm.controls.name.value).toBe('');
     expect(store.minionAttackForm.controls.name.value).toBe('');
   });
@@ -421,8 +450,13 @@ describe('MysteryCreateStore', () => {
     expect(monsterService.update).toHaveBeenCalledTimes(1);
     expect(minionService.create).toHaveBeenCalledTimes(1);
     expect(minionService.update).toHaveBeenCalledTimes(1);
-    expect(monsterService.createPower).toHaveBeenCalledTimes(2);
-    expect(monsterService.deletePower).toHaveBeenCalledWith('monster-1', 'power-1');
+    // **5a: the untouched power costs nothing on the revisit.** This used to assert two creates
+    // and a delete — the delete-all/recreate-all cycle, which rotated the row's id on every phase
+    // transition. One create, no update (the values match the baseline), no delete.
+    expect(monsterService.createPower).toHaveBeenCalledTimes(1);
+    expect(monsterService.updatePower).not.toHaveBeenCalled();
+    expect(monsterService.deletePower).not.toHaveBeenCalled();
+    expect(store.monsterPowers()[0].id).toBe('power-1');
     expect(locationService.create).toHaveBeenCalledTimes(1);
     expect(locationService.update).toHaveBeenCalledWith('location-1', {
       name: 'Saint Brigid Chapel',
@@ -583,7 +617,9 @@ describe('MysteryCreateStore', () => {
 
     expect(store.minionForm.controls.name.value).toBe('Choir Thrall');
     expect(store.minionForm.controls.minionTypeId.value).toBe('minion-type-1');
-    expect(store.minionAttacks()).toEqual([{ name: 'Jagged Hymn', harm: 1, description: '', weaponTagIds: [] }]);
+    expect(store.minionAttacks()).toEqual([
+      expect.objectContaining({ id: null, name: 'Jagged Hymn', harm: 1, description: '', weaponTagIds: [] }),
+    ]);
     expect(store.minionArmors()).toHaveLength(1);
 
     store.minionForm.controls.description.setValue('Possessed singer');
@@ -905,20 +941,35 @@ describe('MysteryCreateStore', () => {
     store.addMinionArmor();
 
     expect(store.monsterArmors()).toEqual([
-      { name: 'Thick Hide', description: 'Tough skin', harmSoak: 2, isSpecial: false, specialDescription: '' },
+      expect.objectContaining({
+        id: null,
+        name: 'Thick Hide',
+        description: 'Tough skin',
+        harmSoak: 2,
+        isSpecial: false,
+        specialDescription: '',
+      }),
     ]);
     expect(store.minionArmors()).toEqual([
-      { name: 'Leather Vest', description: '', harmSoak: 1, isSpecial: true, specialDescription: 'Only protects vital organs' },
+      expect.objectContaining({
+        id: null,
+        name: 'Leather Vest',
+        description: '',
+        harmSoak: 1,
+        isSpecial: true,
+        specialDescription: 'Only protects vital organs',
+      }),
     ]);
 
-    store.removeMonsterArmor(0);
+    // Addressed by key, not index (5a). The index was standing in for identity.
+    store.removeMonsterArmor(store.monsterArmors()[0].localKey);
     expect(store.monsterArmors()).toEqual([]);
     expect(store.minionArmors()).toEqual([
-      { name: 'Leather Vest', description: '', harmSoak: 1, isSpecial: true, specialDescription: 'Only protects vital organs' },
+      expect.objectContaining({ name: 'Leather Vest', harmSoak: 1, isSpecial: true }),
     ]);
   });
 
-  it('includes armor drafts in the submission collections', () => {
+  it('keeps monster and minion armor drafts in their own collections', () => {
     store.monsterArmorForm.setValue({
       name: 'Steel Plates',
       description: 'Reinforced armor',
@@ -937,15 +988,14 @@ describe('MysteryCreateStore', () => {
     });
     store.addMinionArmor();
 
-    const draftState = store.draftState();
-    
-    expect(draftState.collections.monsterArmors).toEqual([
-      { name: 'Steel Plates', description: 'Reinforced armor', harmSoak: 3, isSpecial: false, specialDescription: '' },
+    expect(store.monsterArmors()).toEqual([
+      expect.objectContaining({ name: 'Steel Plates', harmSoak: 3, specialDescription: '' }),
     ]);
-    expect(draftState.collections.minionArmors).toEqual([
-      { name: 'Leather Vest', description: '', harmSoak: 1, isSpecial: true, specialDescription: 'Only vital organs' },
+    expect(store.minionArmors()).toEqual([
+      expect.objectContaining({ name: 'Leather Vest', harmSoak: 1, specialDescription: 'Only vital organs' }),
     ]);
-    expect(draftState.collections.minionDrafts).toEqual([]);
-    expect(draftState.composer).toEqual({ open: true, editingDraftKey: null });
+    expect(store.minionDrafts()).toEqual([]);
+    expect(store.composerOpen()).toBe(true);
+    expect(store.editingDraftKey()).toBeNull();
   });
 });

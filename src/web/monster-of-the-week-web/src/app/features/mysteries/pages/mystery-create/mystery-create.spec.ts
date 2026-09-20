@@ -10,9 +10,16 @@ import { ReferenceDataService } from '../../../../core/reference-data';
 import { MysteryCreateComponent } from './mystery-create';
 import { MinionDraft, createDraftKey } from './mystery-create.store';
 
+/** Fresh sub-resource identity: unsaved (`id: null`) with a unique addressable key. */
+const identity = (prefix: string) => ({ id: null, localKey: createDraftKey(prefix) });
+
 function minionDraft(name: string, counts: Partial<Record<'attacks' | 'powers' | 'weaknesses' | 'armors', number>> = {}): MinionDraft {
   const named = (prefix: string, count: number) =>
-    Array.from({ length: count }, (_, index) => ({ name: prefix + '-' + (index + 1), description: '' }));
+    Array.from({ length: count }, (_, index) => ({
+      ...identity(prefix),
+      name: prefix + '-' + (index + 1),
+      description: '',
+    }));
 
   return {
     id: null,
@@ -22,6 +29,7 @@ function minionDraft(name: string, counts: Partial<Record<'attacks' | 'powers' |
     harmCapacity: 3,
     minionTypeId: 'minion-type-1',
     attacks: Array.from({ length: counts.attacks ?? 0 }, (_, index) => ({
+      ...identity('attack'),
       name: name + '-attack-' + (index + 1),
       harm: 1,
       description: '',
@@ -30,16 +38,17 @@ function minionDraft(name: string, counts: Partial<Record<'attacks' | 'powers' |
     powers: named(name + '-power', counts.powers ?? 0),
     weaknesses: named(name + '-weakness', counts.weaknesses ?? 0),
     armors: Array.from({ length: counts.armors ?? 0 }, (_, index) => ({
+      ...identity('armor'),
       name: name + '-armor-' + (index + 1),
       description: '',
       harmSoak: 1,
       isSpecial: false,
       specialDescription: '',
     })),
-    existingAttackIds: [],
-    existingPowerIds: [],
-    existingWeaknessIds: [],
-    existingArmorIds: [],
+    existingAttacks: [],
+    existingPowers: [],
+    existingWeaknesses: [],
+    existingArmors: [],
   };
 }
 
@@ -190,6 +199,7 @@ describe('MysteryCreateComponent', () => {
     component.store.monsterForm.controls.name.setValue("The Grinner");
     component.store.monsterArmors.set([
       {
+        ...identity("armor"),
         name: "Bone Plate",
         description: "Fused ribs worn as a cuirass.",
         harmSoak: 2,
@@ -197,6 +207,7 @@ describe('MysteryCreateComponent', () => {
         specialDescription: "Only silver gets through.",
       },
       {
+        ...identity("armor"),
         name: "Thick Hide",
         description: "Calloused and scarred.",
         harmSoak: 1,

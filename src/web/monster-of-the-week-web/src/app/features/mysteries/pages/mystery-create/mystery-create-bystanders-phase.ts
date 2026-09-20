@@ -59,7 +59,7 @@ export class MysteryCreateBystandersPhaseComponent {
    * which is the same question `submitPhase3`'s diff asks of the same baseline signal.
    */
   readonly pendingRemovePersisted = computed(() =>
-    this.store.membershipPersisted('bystanders', this.pendingRemoveDraft()?.id ?? null),
+    this.store.persistedForRemoval('bystanders', this.pendingRemoveDraft()?.id ?? null),
   );
 
   /**

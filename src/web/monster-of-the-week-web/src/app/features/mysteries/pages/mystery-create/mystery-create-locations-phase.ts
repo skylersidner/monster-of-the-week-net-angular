@@ -59,7 +59,7 @@ export class MysteryCreateLocationsPhaseComponent {
    * which is the same question `submitPhase2`'s diff asks of the same baseline signal.
    */
   readonly pendingRemovePersisted = computed(() =>
-    this.store.membershipPersisted('locations', this.pendingRemoveDraft()?.id ?? null),
+    this.store.persistedForRemoval('locations', this.pendingRemoveDraft()?.id ?? null),
   );
 
   /**

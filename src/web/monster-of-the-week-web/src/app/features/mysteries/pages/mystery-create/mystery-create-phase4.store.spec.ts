@@ -324,17 +324,17 @@ describe('MysteryCreateStore · Phase 4 — attach, re-edit, removal', () => {
   it('D1/G3: the variant predicate is the baseline, not the id', () => {
     // An authored draft has no id at all.
     authorLocation('The Chapel');
-    expect(store.membershipPersisted('locations', store.locations()[0].id)).toBe(false);
+    expect(store.persistedForRemoval('locations', store.locations()[0].id)).toBe(false);
 
     // An *attached* draft has an id immediately — and still no membership. This is the case the
     // intuitive `id !== null` predicate gets wrong, by offering Delete for a mis-click.
     store.attachLocation('loc-existing');
     expect(store.locations()[1].id).toBe('loc-existing');
-    expect(store.membershipPersisted('locations', 'loc-existing')).toBe(false);
+    expect(store.persistedForRemoval('locations', 'loc-existing')).toBe(false);
 
     // Only a successful submit makes it true.
     submitLocations();
-    expect(store.membershipPersisted('locations', 'loc-existing')).toBe(true);
+    expect(store.persistedForRemoval('locations', 'loc-existing')).toBe(true);
   });
 
   it('D1/G3: removing a draft with no persisted membership records nothing and calls nothing', () => {
@@ -538,14 +538,14 @@ describe('MysteryCreateStore · Phase 4 — attach, re-edit, removal', () => {
     store.isEditMode.set(true);
     store.attachLocation('loc-existing');
     submitLocations();
-    expect(store.membershipPersisted('locations', 'loc-existing')).toBe(true);
+    expect(store.persistedForRemoval('locations', 'loc-existing')).toBe(true);
 
     store.removeLocationDraft(locationKeys()[0], 'detach');
     store.jumpToPhase(3);
     store.next();
     calls.length = 0;
 
-    expect(store.membershipPersisted('locations', 'loc-existing')).toBe(false);
+    expect(store.persistedForRemoval('locations', 'loc-existing')).toBe(false);
 
     store.currentPhase.set(2);
     store.currentStep.set(0);

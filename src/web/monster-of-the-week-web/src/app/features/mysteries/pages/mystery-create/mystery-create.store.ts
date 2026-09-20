@@ -24,6 +24,14 @@ import {
   MonsterWeaknessResponse,
   TypeRefResponse,
   UpsertBystanderRequest,
+  UpsertMinionArmorRequest,
+  UpsertMinionAttackRequest,
+  UpsertMinionPowerRequest,
+  UpsertMinionWeaknessRequest,
+  UpsertMonsterArmorRequest,
+  UpsertMonsterAttackRequest,
+  UpsertMonsterPowerRequest,
+  UpsertMonsterWeaknessRequest,
   UpsertCountdownRequest,
   UpsertLocationRequest,
   UpsertMinionRequest,
@@ -37,25 +45,49 @@ import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import type { MysterySectionIconKind } from '../../shared/mystery-section-icon';
+import { HydratedMonster, rekeyDrafts, toHydratedMonster } from './hydrate-monster';
+import {
+  SubResourceService,
+  applySubResourceDiff,
+  sameNullableText,
+  sameWeaponTags,
+  weaponTagOperations,
+} from './sub-resource-diff';
 
-export interface AttackDraft {
+/**
+ * Identity for a sub-resource draft, carried by all four kinds.
+ *
+ * **`id` is what makes the diff an upsert** (decision 8): `null` means create, set means update, and
+ * a baseline row that no draft claims means delete. Before 5a these arrays held no identity at all
+ * and every submit deleted the lot and recreated it, re-keying every row.
+ *
+ * **`localKey` is what makes it addressable** (§5.4). `id` cannot do that job — an unsaved row has
+ * none — and the array index was standing in for identity, which is the bug source Phase 3 removed
+ * one level up. Minted at author and at hydration, never sent to the server.
+ */
+export interface SubResourceIdentity {
+  id: string | null;
+  localKey: string;
+}
+
+export interface AttackDraft extends SubResourceIdentity {
   name: string;
   harm: number;
   description: string;
   weaponTagIds: string[];
 }
 
-export interface PowerDraft {
+export interface PowerDraft extends SubResourceIdentity {
   name: string;
   description: string;
 }
 
-export interface WeaknessDraft {
+export interface WeaknessDraft extends SubResourceIdentity {
   name: string;
   description: string;
 }
 
-export interface ArmorDraft {
+export interface ArmorDraft extends SubResourceIdentity {
   name: string;
   description: string;
   harmSoak: number;
@@ -92,7 +124,14 @@ export interface BystanderDraft {
 }
 
 /** Which catalogue a pending removal belongs to. Monsters and minions join in Phase 5. */
-export type RemovalCollection = 'locations' | 'bystanders';
+/**
+ * The collections whose removals go through `pendingRemovals`. Monsters join in 5b.
+ *
+ * **Minions are here despite having no mystery membership** (decision 17). They have the identical
+ * tracker-jump hole G1 described: `jumpToPhase` does not submit, so a confirmed minion deletion was
+ * silently discarded. What they do *not* have is a disposition choice — see `PendingRemoval`.
+ */
+export type RemovalCollection = 'locations' | 'bystanders' | 'minions';
 
 /**
  * A removal the user confirmed through the modal, waiting for a phase submit to apply it
@@ -105,11 +144,16 @@ export type RemovalCollection = 'locations' | 'bystanders';
  * would never submit phase 2 — and the confirmed deletion would silently not happen. A removal
  * names a collection, an id and a disposition; applying it never depended on which phase submits.
  */
-export interface PendingRemoval {
-  collection: RemovalCollection;
-  id: string;
-  action: 'detach' | 'delete';
-}
+export type PendingRemoval =
+  | { collection: 'locations' | 'bystanders'; id: string; action: 'detach' | 'delete' }
+  /**
+   * **Delete-only, and the type refuses `'detach'` rather than tolerating it.** A minion has no
+   * mystery membership — `Minion.MonsterId` is a required FK — so there is nothing to detach from
+   * and the modal never offers the button (UX §16.4). Encoding that here means a caller that
+   * reaches for `'detach'` on a minion fails to compile instead of recording a disposition the
+   * drain would have to decide what to do with.
+   */
+  | { collection: 'minions'; id: string; action: 'delete' };
 
 /**
  * The wizard's minion harm-capacity default. Single-sourced because `composerDirty()` treats
@@ -126,12 +170,6 @@ const LOCATION_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the location you're e
 const BYSTANDER_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the bystander you're editing before continuing.";
 
 /**
- * One minion under the wizard's monster. Unlike `LocationDraft`/`BystanderDraft` — flat leaf
- * entities where `id` was the whole story — a minion owns four sub-resource collections, so each
- * draft carries its own collections *and* its own existing-sub-resource-ID baseline: `submitPhase1`
- * runs an independent delete-all/recreate-all cycle per minion, not one shared cycle across all of them.
- */
-/**
  * Monotonic within a session, so a key is never reused even after the roster is cleared and
  * rehydrated. A counter rather than a UUID because the value never leaves the browser and a
  * readable key makes a failing roster assertion legible.
@@ -143,6 +181,12 @@ export function createDraftKey(prefix = 'minion'): string {
   return `${prefix}-${++nextDraftKey}`;
 }
 
+/**
+ * One minion under the wizard's monster. Unlike `LocationDraft`/`BystanderDraft` — flat leaf
+ * entities where `id` was the whole story — a minion owns four sub-resource collections, so each
+ * draft carries both its own collections **and** its own baseline of the rows the server last
+ * returned for them. Those two halves are what `applySubResourceDiff` diffs, per minion.
+ */
 export interface MinionDraft {
   /** `null` until this draft has been saved at least once in this session (or hydrated from an existing mystery). */
   id: string | null;
@@ -167,76 +211,21 @@ export interface MinionDraft {
   powers: PowerDraft[];
   weaknesses: WeaknessDraft[];
   armors: ArmorDraft[];
-  existingAttackIds: string[];
-  existingPowerIds: string[];
-  existingWeaknessIds: string[];
-  existingArmorIds: string[];
-}
-
-export interface MysteryCreateDraftState {
-  navigation: {
-    currentPhase: number;
-    currentStep: number;
-    phaseComplete: boolean[];
-    mysteryId: string | null;
-  };
-  forms: {
-    concept: { name: string; concept: string | null };
-    hook: { hook: string | null };
-    overview: { overview: string | null };
-    countdown: {
-      day: string | null;
-      shadows: string | null;
-      sunset: string | null;
-      dusk: string | null;
-      nightfall: string | null;
-      midnight: string | null;
-    };
-    monster: {
-      name: string;
-      description: string | null;
-      harmCapacity: number;
-      monsterTypeId: string;
-      monsterArchetypeId: string;
-    };
-    minion: {
-      name: string;
-      description: string | null;
-      harmCapacity: number;
-      minionTypeId: string;
-    };
-    location: {
-      name: string;
-      description: string | null;
-      locationTypeId: string;
-    };
-    bystander: {
-      name: string;
-      description: string | null;
-      bystanderTypeId: string;
-    };
-  };
-  collections: {
-    monsterAttacks: AttackDraft[];
-    monsterPowers: PowerDraft[];
-    monsterWeaknesses: WeaknessDraft[];
-    monsterArmors: ArmorDraft[];
-    minionAttacks: AttackDraft[];
-    minionPowers: PowerDraft[];
-    minionWeaknesses: WeaknessDraft[];
-    minionArmors: ArmorDraft[];
-    locations: LocationDraft[];
-    bystanders: BystanderDraft[];
-    minionDrafts: MinionDraft[];
-  };
   /**
-   * Where the minion composer is pointed. `forms.minion` + `collections.minionAttacks`/etc. are the
-   * composer's *contents*; these two are its position, and neither is derivable from the other.
+   * **The baseline: the server responses themselves, not a list of ids** (§5.4).
+   *
+   * The ids come off these with `.map`, so the delete-detection the old `existing*Ids` arrays
+   * existed for is unchanged — and the *value* comparison the dirty check needs (decision 9) comes
+   * free in the same field, with no second array that could disagree with the first. That
+   * disagreement is the Bug 2 shape this file has been bitten by twice.
+   *
+   * The weapon-tag diff needs these for a second reason: `MonsterAttackResponse.weaponTags` exists
+   * only on the response, so "what did the server last have" is unanswerable from an id list.
    */
-  composer: {
-    open: boolean;
-    editingDraftKey: string | null;
-  };
+  existingAttacks: MinionAttackResponse[];
+  existingPowers: MinionPowerResponse[];
+  existingWeaknesses: MinionWeaknessResponse[];
+  existingArmors: MinionArmorResponse[];
 }
 
 interface SavedThreatCollections {
@@ -377,17 +366,18 @@ export class MysteryCreateStore {
    * `composerOpen()`; every method that writes one writes the other.
    */
   readonly composerOpen = signal(true);
-  private readonly existingMonsterAttackIds = signal<string[]>([]);
-  private readonly existingMonsterPowerIds = signal<string[]>([]);
-  private readonly existingMonsterWeaknessIds = signal<string[]>([]);
-  private readonly existingMonsterArmorIds = signal<string[]>([]);
+  /** The monster's sub-resource baseline. Responses, not ids — see `MinionDraft.existingAttacks`. */
+  private readonly existingMonsterAttacks = signal<MonsterAttackResponse[]>([]);
+  private readonly existingMonsterPowers = signal<MonsterPowerResponse[]>([]);
+  private readonly existingMonsterWeaknesses = signal<MonsterWeaknessResponse[]>([]);
+  private readonly existingMonsterArmors = signal<MonsterArmorResponse[]>([]);
   /** Minion IDs on the server as of the last phase-1 save; anything missing from `minionDrafts()` gets hard-deleted. */
   private readonly existingMinionIds = signal<string[]>([]);
   /**
    * The memberships this mystery actually has on the server, as of the last successful submit.
    *
    * **This is the one fact the removal modal and the submit diff both key on**, and it is exposed
-   * through `membershipPersisted()` so there is exactly one implementation of the question (§7.1,
+   * through `persistedForRemoval()` so there is exactly one implementation of the question (§7.1,
    * decision 16). `id !== null` is the intuitive predicate and it is the wrong one: an attached
    * entity has an id the instant it is picked, and no membership row until the phase submits — so
    * keying on the id offers **Delete** to a user undoing a mis-click ten seconds old.
@@ -751,42 +741,6 @@ export class MysteryCreateStore {
 
   readonly canGoBack = computed(() => !(this.currentPhase() === 0 && this.currentStep() === 0));
 
-  readonly draftState = computed<MysteryCreateDraftState>(() => ({
-    navigation: {
-      currentPhase: this.currentPhase(),
-      currentStep: this.currentStep(),
-      phaseComplete: [...this.phaseComplete()],
-      mysteryId: this.mysteryId(),
-    },
-    forms: {
-      concept: this.conceptForm.getRawValue(),
-      hook: this.hookForm.getRawValue(),
-      overview: this.overviewForm.getRawValue(),
-      countdown: this.countdownForm.getRawValue(),
-      monster: this.monsterForm.getRawValue(),
-      minion: this.minionForm.getRawValue(),
-      location: this.addLocationForm.getRawValue(),
-      bystander: this.addBystanderForm.getRawValue(),
-    },
-    collections: {
-      monsterAttacks: [...this.monsterAttacks()],
-      monsterPowers: [...this.monsterPowers()],
-      monsterWeaknesses: [...this.monsterWeaknesses()],
-      monsterArmors: [...this.monsterArmors()],
-      minionAttacks: [...this.minionAttacks()],
-      minionPowers: [...this.minionPowers()],
-      minionWeaknesses: [...this.minionWeaknesses()],
-      minionArmors: [...this.minionArmors()],
-      locations: [...this.locations()],
-      bystanders: [...this.bystanders()],
-      minionDrafts: [...this.minionDrafts()],
-    },
-    composer: {
-      open: this.composerOpen(),
-      editingDraftKey: this.editingDraftKey(),
-    },
-  }));
-
   init(mysteryId?: string): void {
     if (this.initialized) {
       return;
@@ -852,6 +806,35 @@ export class MysteryCreateStore {
       .getMysteries()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ next: (mysteries) => this.mysteries.set(mysteries), error: () => {} });
+  }
+
+  /**
+   * **The one hydrator** (§6.6). Loads a monster and its minions in full, and hands back a shape in
+   * which every draft's `id` and every baseline row come from the same response object.
+   *
+   * **How the invariant is enforced.** Not by a rule anyone has to follow: the broken state cannot
+   * be expressed. `toHydratedMonster` builds `attacks` and `existingAttacks` from the same
+   * `monster.attacks` array in the same expression, and likewise for the other three collections
+   * and for each minion. A caller receives both or neither. The old code had two independent paths
+   * — one patching drafts, one setting baselines — and H1, H2a and H3 were all the same bug: one
+   * path ran and the other did not.
+   *
+   * The minion list endpoint returns list items, which do not carry the four sub-collections, so
+   * each minion is re-fetched by id. That is the only reason this is two round trips deep.
+   *
+   * 5a's caller is edit-mode load. 5b adds attach, which needs exactly this and nothing else.
+   */
+  hydrateMonsterDraft(monsterId: string): Observable<HydratedMonster> {
+    return forkJoin({
+      monster: this.monsterService.getById(monsterId),
+      minions: this.minionService.getByMonster(monsterId).pipe(
+        switchMap((minions) =>
+          minions.length > 0
+            ? forkJoin(minions.map((minion) => this.minionService.getById(minion.id)))
+            : of<MinionDetailResponse[]>([])
+        )
+      ),
+    }).pipe(map(({ monster, minions }) => toHydratedMonster(monster, minions)));
   }
 
   private loadEditData(mysteryId: string): void {
@@ -931,92 +914,52 @@ export class MysteryCreateStore {
             bystanders.length > 0,
           ]);
 
-          return forkJoin({
-            pureMonster: pureMonster ? this.monsterService.getById(pureMonster.id) : of(null),
-            minions: pureMonster
-              ? this.minionService.getByMonster(pureMonster.id).pipe(
-                  switchMap((minions) =>
-                    minions.length > 0
-                      ? forkJoin(minions.map((minion) => this.minionService.getById(minion.id)))
-                      : of<MinionDetailResponse[]>([])
-                  )
-                )
-              : of<MinionDetailResponse[]>([]),
-          });
+          // §6.6: one hydrator, and 5b attach is its second caller. It builds the baseline and the
+          // drafts' ids from the same responses in the same step, so neither can exist without the
+          // other — which is the whole of H1, H2a and H3.
+          return pureMonster ? this.hydrateMonsterDraft(pureMonster.id) : of(null);
         }),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe(({ pureMonster, minions }: { pureMonster: import('../../../../core/models').MonsterDetailResponse | null; minions: MinionDetailResponse[] }) => {
-        if (pureMonster) {
-          this.editingMonsterId.set(pureMonster.id);
-          this.existingMonsterAttackIds.set(pureMonster.attacks.map((a) => a.id));
-          this.existingMonsterPowerIds.set(pureMonster.powers.map((p) => p.id));
-          this.existingMonsterWeaknessIds.set(pureMonster.weaknesses.map((w) => w.id));
-          this.existingMonsterArmorIds.set(pureMonster.armors.map((a) => a.id));
-          this.monsterForm.patchValue({
-            name: pureMonster.name,
-            description: pureMonster.description ?? '',
-            harmCapacity: pureMonster.harmCapacity,
-            monsterTypeId: pureMonster.monsterTypeId,
-            monsterArchetypeId: pureMonster.monsterArchetype.id,
-          });
-          this.monsterAttacks.set(
-            pureMonster.attacks.map((a) => ({
-              name: a.name,
-              harm: a.harm,
-              description: a.description ?? '',
-              weaponTagIds: a.weaponTags.map((t) => t.id),
-            }))
-          );
-          this.monsterPowers.set(pureMonster.powers.map((p) => ({ name: p.name, description: p.description ?? '' })));
-          this.monsterWeaknesses.set(pureMonster.weaknesses.map((w) => ({ name: w.name, description: w.description ?? '' })));
-          this.monsterArmors.set(
-            pureMonster.armors.map((a) => ({
-              name: a.name,
-              description: a.description ?? '',
-              harmSoak: a.harmSoak,
-              isSpecial: a.isSpecial,
-              specialDescription: a.specialDescription ?? '',
-            }))
-          );
-        }
-
-        this.existingMinionIds.set(minions.map((minion) => minion.id));
-        this.minionDrafts.set(
-          minions.map((minion) => ({
-            id: minion.id,
-            // Hydrated drafts get a key too, so there is exactly one addressing scheme on the
-            // roster whether a card came from the server or from this session.
-            localKey: createDraftKey(),
-            name: minion.name,
-            description: minion.description ?? '',
-            harmCapacity: minion.harmCapacity,
-            minionTypeId: minion.minionType.id,
-            attacks: minion.attacks.map((a) => ({
-              name: a.name,
-              harm: a.harm,
-              description: a.description ?? '',
-              weaponTagIds: a.weaponTags.map((t) => t.id),
-            })),
-            powers: minion.powers.map((power) => ({ name: power.name, description: power.description ?? '' })),
-            weaknesses: minion.weaknesses.map((w) => ({ name: w.name, description: w.description ?? '' })),
-            armors: minion.armors.map((a) => ({
-              name: a.name,
-              description: a.description ?? '',
-              harmSoak: a.harmSoak,
-              isSpecial: a.isSpecial,
-              specialDescription: a.specialDescription ?? '',
-            })),
-            existingAttackIds: minion.attacks.map((a) => a.id),
-            existingPowerIds: minion.powers.map((power) => power.id),
-            existingWeaknessIds: minion.weaknesses.map((w) => w.id),
-            existingArmorIds: minion.armors.map((a) => a.id),
-          }))
-        );
+      .subscribe((hydrated: HydratedMonster | null) => {
+        this.applyHydratedMonster(hydrated);
         // A non-empty loaded roster is "nothing being edited" — composer collapsed (§1.2/§1.7).
         this.editingDraftKey.set(null);
-        this.composerOpen.set(minions.length === 0);
+        this.composerOpen.set(this.minionDrafts().length === 0);
       });
+  }
+
+  /**
+   * Writes a hydrated monster into the wizard's single-monster shape: the composer's fields, its
+   * four draft arrays, the baseline those drafts came from, and the minion roster.
+   *
+   * 5a's only caller is edit-mode load; 5b's attach is the second, and gains a roster entry instead
+   * of writing the singleton signals. Everything below is assignment — the construction that has to
+   * be right happens once, in `toHydratedMonster`.
+   */
+  private applyHydratedMonster(hydrated: HydratedMonster | null): void {
+    if (hydrated) {
+      this.editingMonsterId.set(hydrated.id);
+      this.monsterForm.patchValue({
+        name: hydrated.name,
+        description: hydrated.description,
+        harmCapacity: hydrated.harmCapacity,
+        monsterTypeId: hydrated.monsterTypeId,
+        monsterArchetypeId: hydrated.monsterArchetypeId,
+      });
+      this.monsterAttacks.set(hydrated.attacks);
+      this.monsterPowers.set(hydrated.powers);
+      this.monsterWeaknesses.set(hydrated.weaknesses);
+      this.monsterArmors.set(hydrated.armors);
+      this.existingMonsterAttacks.set(hydrated.existingAttacks);
+      this.existingMonsterPowers.set(hydrated.existingPowers);
+      this.existingMonsterWeaknesses.set(hydrated.existingWeaknesses);
+      this.existingMonsterArmors.set(hydrated.existingArmors);
+    }
+
+    const minions = hydrated?.minions ?? [];
+    this.existingMinionIds.set(minions.map((minion) => minion.id).filter((id): id is string => id !== null));
+    this.minionDrafts.set(minions);
   }
 
   next(): void {
@@ -1084,67 +1027,67 @@ export class MysteryCreateStore {
   }
 
   addMonsterAttack(): void {
-    this.addAttackDraft(this.monsterAttacks, this.monsterAttackForm);
+    this.addAttackDraft(this.monsterAttacks, this.monsterAttackForm, 'attack');
   }
 
-  removeMonsterAttack(index: number): void {
-    this.removeDraft(this.monsterAttacks, index);
+  removeMonsterAttack(localKey: string): void {
+    this.removeDraft(this.monsterAttacks, localKey);
   }
 
   addMonsterPower(): void {
-    this.addNamedDraft(this.monsterPowers, this.monsterPowerForm);
+    this.addNamedDraft(this.monsterPowers, this.monsterPowerForm, 'trait');
   }
 
-  removeMonsterPower(index: number): void {
-    this.removeDraft(this.monsterPowers, index);
+  removeMonsterPower(localKey: string): void {
+    this.removeDraft(this.monsterPowers, localKey);
   }
 
   addMonsterWeakness(): void {
-    this.addNamedDraft(this.monsterWeaknesses, this.monsterWeaknessForm);
+    this.addNamedDraft(this.monsterWeaknesses, this.monsterWeaknessForm, 'trait');
   }
 
-  removeMonsterWeakness(index: number): void {
-    this.removeDraft(this.monsterWeaknesses, index);
+  removeMonsterWeakness(localKey: string): void {
+    this.removeDraft(this.monsterWeaknesses, localKey);
   }
 
   addMinionAttack(): void {
-    this.addAttackDraft(this.minionAttacks, this.minionAttackForm);
+    this.addAttackDraft(this.minionAttacks, this.minionAttackForm, 'attack');
   }
 
-  removeMinionAttack(index: number): void {
-    this.removeDraft(this.minionAttacks, index);
+  removeMinionAttack(localKey: string): void {
+    this.removeDraft(this.minionAttacks, localKey);
   }
 
   addMinionPower(): void {
-    this.addNamedDraft(this.minionPowers, this.minionPowerForm);
+    this.addNamedDraft(this.minionPowers, this.minionPowerForm, 'trait');
   }
 
-  removeMinionPower(index: number): void {
-    this.removeDraft(this.minionPowers, index);
+  removeMinionPower(localKey: string): void {
+    this.removeDraft(this.minionPowers, localKey);
   }
 
   addMinionWeakness(): void {
-    this.addNamedDraft(this.minionWeaknesses, this.minionWeaknessForm);
+    this.addNamedDraft(this.minionWeaknesses, this.minionWeaknessForm, 'trait');
   }
 
-  removeMinionWeakness(index: number): void {
-    this.removeDraft(this.minionWeaknesses, index);
+  removeMinionWeakness(localKey: string): void {
+    this.removeDraft(this.minionWeaknesses, localKey);
   }
 
   addMonsterArmor(): void {
-    this.addArmorDraft(this.monsterArmors, this.monsterArmorForm);
+    this.addArmorDraft(this.monsterArmors, this.monsterArmorForm, 'armor');
   }
 
-  removeMonsterArmor(index: number): void {
-    this.removeDraft(this.monsterArmors, index);
+  removeMonsterArmor(localKey: string): void {
+    this.removeDraft(this.monsterArmors, localKey);
   }
 
   addMinionArmor(): void {
-    this.addArmorDraft(this.minionArmors, this.minionArmorForm);
+    this.addArmorDraft(this.minionArmors, this.minionArmorForm, 'armor');
   }
 
-  removeMinionArmor(index: number): void {
-    this.removeDraft(this.minionArmors, index);
+  removeMinionArmor(localKey: string): void {
+    this.removeDraft(this.minionArmors, localKey);
   }
 
   // ---------------------------------------------------------------------------
@@ -1157,21 +1100,39 @@ export class MysteryCreateStore {
   // ---------------------------------------------------------------------------
 
   /**
-   * **Does a persisted membership exist for this draft?** The question the removal modal and the
-   * submit diff both ask, answered once (§7.1, decision 16).
+   * **Would removing this draft change anything on the server?** The question the removal modal and
+   * the submit diff both ask, answered once (§7.1, decision 16).
    *
-   * Not `id !== null`: that answers "does this entity exist", which is a different question and is
-   * true the moment an entity is attached. Removing an attached-but-unsubmitted draft changes no
-   * server state at all, so it gets a plain Remove — not a Detach against a membership that was
-   * never created, and emphatically not a Delete that destroys a catalogue entity.
+   * Renamed from `membershipPersisted` (§7.7b), because the old name was a lie for one of its four
+   * callers. For locations, bystanders and monsters the baseline holds **memberships**; for minions
+   * it holds **rows**, since a minion has no mystery membership at all. Read literally, "is the
+   * membership persisted" is false for every minion, which would classify every minion removal as a
+   * local discard and silently stop deleting them. One name for two referents was the defect.
+   *
+   * Note what this is *not*: `id !== null`. That answers "does this entity exist", which is true the
+   * moment an entity is attached — so keying on it offers **Delete** to a user undoing a mis-click.
+   * For minions the two agree, because minions are never attached (UX §16.4) and an id can only
+   * become non-null by being saved; the baseline form is used anyway, so all four collections
+   * resolve the same way and no path can set an id without the baseline and diverge.
+   *
+   * **A `switch`, not a ternary** (§7.7g, H5). The shipped ternary resolved anything that was not
+   * `'locations'` to the bystander baseline, so adding a member landed it on the wrong collection
+   * with no compile error, on the path that decides whether a destructive button appears. The
+   * exhaustive switch turns the fifth member into a build failure instead.
    */
-  membershipPersisted(collection: RemovalCollection, id: string | null): boolean {
+  persistedForRemoval(collection: RemovalCollection, id: string | null): boolean {
     if (id === null) {
       return false;
     }
 
-    const baseline = collection === 'locations' ? this.existingLocationIds() : this.existingBystanderIds();
-    return baseline.includes(id);
+    switch (collection) {
+      case 'locations':
+        return this.existingLocationIds().includes(id);
+      case 'bystanders':
+        return this.existingBystanderIds().includes(id);
+      case 'minions':
+        return this.existingMinionIds().includes(id);
+    }
   }
 
   /** Commit-on-advance for the locations composer — same three-way rule as the minion one. */
@@ -1297,7 +1258,7 @@ export class MysteryCreateStore {
       return;
     }
 
-    if (this.membershipPersisted('locations', draft.id)) {
+    if (this.persistedForRemoval('locations', draft.id)) {
       this.recordRemoval({ collection: 'locations', id: draft.id as string, action });
     }
 
@@ -1445,7 +1406,7 @@ export class MysteryCreateStore {
       return;
     }
 
-    if (this.membershipPersisted('bystanders', draft.id)) {
+    if (this.persistedForRemoval('bystanders', draft.id)) {
       this.recordRemoval({ collection: 'bystanders', id: draft.id as string, action });
     }
 
@@ -1527,10 +1488,10 @@ export class MysteryCreateStore {
       powers: [...this.minionPowers()],
       weaknesses: [...this.minionWeaknesses()],
       armors: [...this.minionArmors()],
-      existingAttackIds: existing?.existingAttackIds ?? [],
-      existingPowerIds: existing?.existingPowerIds ?? [],
-      existingWeaknessIds: existing?.existingWeaknessIds ?? [],
-      existingArmorIds: existing?.existingArmorIds ?? [],
+      existingAttacks: existing?.existingAttacks ?? [],
+      existingPowers: existing?.existingPowers ?? [],
+      existingWeaknesses: existing?.existingWeaknesses ?? [],
+      existingArmors: existing?.existingArmors ?? [],
     };
 
     this.minionDrafts.update((drafts) =>
@@ -1610,7 +1571,19 @@ export class MysteryCreateStore {
    * and then abandoning the wizard leaves it on the server.
    */
   removeMinionDraft(key: string): void {
-    this.minionDrafts.update((drafts) => drafts.filter((draft) => draft.localKey !== key));
+    const draft = this.minionDrafts().find((item) => item.localKey === key);
+    if (!draft) {
+      return;
+    }
+
+    // Decision 17: minions join the disposition drain, so a confirmed deletion survives a tracker
+    // jump instead of being silently discarded (§10's repro, G1 one step over). Delete-only — the
+    // `PendingRemoval` union will not carry `'detach'` for a minion.
+    if (this.persistedForRemoval('minions', draft.id)) {
+      this.recordRemoval({ collection: 'minions', id: draft.id as string, action: 'delete' });
+    }
+
+    this.minionDrafts.update((drafts) => drafts.filter((item) => item.localKey !== key));
 
     // `editingDraftKey` is an identity, not a position, so removing a *different* card cannot
     // invalidate it and there is nothing to re-index. The whole "editing > index, decrement"
@@ -1765,44 +1738,44 @@ export class MysteryCreateStore {
       ? this.monsterService.update(editingMonsterId, monsterRequest)
       : this.monsterService.create(mysteryId, monsterRequest);
 
-    monsterSave$
-      .pipe(
-        switchMap((monster) => {
-          this.editingMonsterId.set(monster.id);
+    const monsterAndMinions$ = monsterSave$.pipe(
+      switchMap((monster) => {
+        this.editingMonsterId.set(monster.id);
 
-          const deleteOps: Observable<void>[] = [
-            ...this.existingMonsterAttackIds().map((id) => this.monsterService.deleteAttack(monster.id, id)),
-            ...this.existingMonsterPowerIds().map((id) => this.monsterService.deletePower(monster.id, id)),
-            ...this.existingMonsterWeaknessIds().map((id) => this.monsterService.deleteWeakness(monster.id, id)),
-            ...this.existingMonsterArmorIds().map((id) => this.monsterService.deleteArmor(monster.id, id)),
-          ];
-          return this.runBatch(deleteOps).pipe(
-            switchMap(() =>
-              this.saveThreatCollections(
-                monster.id,
-                this.monsterAttacks(),
-                this.monsterPowers(),
-                this.monsterWeaknesses(),
-                this.monsterArmors()
-              )
-            ),
-            switchMap((saved) => {
-              this.existingMonsterAttackIds.set(saved.attacks.map((a) => a.id));
-              this.existingMonsterPowerIds.set(saved.powers.map((p) => p.id));
-              this.existingMonsterWeaknessIds.set(saved.weaknesses.map((w) => w.id));
-              this.existingMonsterArmorIds.set(saved.armors.map((a) => a.id));
+        // Was: delete every baseline id, then recreate every draft. Now a per-row diff — created,
+        // updated, deleted or left entirely alone (decisions 8 and 9).
+        return this.saveThreatCollections(monster.id).pipe(
+          switchMap((saved) => {
+            // The saved rows become the new baseline **and** are re-keyed onto the drafts in the
+            // same step. Refreshing one without the other is H2: the drafts could never match the
+            // baseline again, so every subsequent submit would delete and recreate the lot.
+            this.monsterAttacks.update((drafts) => rekeyDrafts(drafts, saved.attacks));
+            this.monsterPowers.update((drafts) => rekeyDrafts(drafts, saved.powers));
+            this.monsterWeaknesses.update((drafts) => rekeyDrafts(drafts, saved.weaknesses));
+            this.monsterArmors.update((drafts) => rekeyDrafts(drafts, saved.armors));
+            this.existingMonsterAttacks.set(saved.attacks);
+            this.existingMonsterPowers.set(saved.powers);
+            this.existingMonsterWeaknesses.set(saved.weaknesses);
+            this.existingMonsterArmors.set(saved.armors);
 
-              return this.saveMinionDrafts(monster.id);
-            }),
-            // Every phase drains (decision 15) — this is the one the G1 sequence actually lands on
-            // when a tracker jump goes backwards from Locations.
-            switchMap(() => this.applyPendingRemovals(mysteryId))
-          );
-        }),
-        takeUntilDestroyed(this.destroyRef)
-      )
+            return this.saveMinionDrafts(monster.id);
+          }),
+        );
+      }),
+    );
+
+    // **The drain is a sibling, not a link in the monster chain** (H6, §7.7h). Phases 2 and 3 have
+    // always drained this way; phase 1 nested it inside the monster save, which was invisible while
+    // the drain carried only locations and bystanders. Decision 17 makes minion deletions
+    // drain-borne, so a failed monster save would otherwise strand a confirmed deletion — G1 by
+    // another route. All four phases now drain identically, which is also what makes it reviewable.
+    forkJoin({
+      saved: monsterAndMinions$,
+      drained: this.applyPendingRemovals(mysteryId),
+    })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (drained) => {
+        next: ({ drained }) => {
           this.clearDrainedRemovals(drained);
           this.advancePhase();
         },
@@ -1917,11 +1890,14 @@ export class MysteryCreateStore {
   }
 
   /**
-   * Diffs `minionDrafts()` against the last-saved baseline and applies it (SS1.6):
-   * removed -> hard `DELETE /api/minions/{id}` (a minion belongs to exactly one monster, so there is
-   * nothing to unlink); `id !== null` -> update; `id === null` -> create. Each surviving minion then
-   * runs the existing delete-all/recreate-all sub-resource cycle against **its own** ID baseline —
-   * one cycle per minion, not one shared cycle across all of them.
+   * Diffs `minionDrafts()` against the last-saved baseline and applies it (§1.6): removed → hard
+   * `DELETE /api/minions/{id}` (a minion belongs to exactly one monster, so there is nothing to
+   * unlink); `id !== null` → update; `id === null` → create.
+   *
+   * Each surviving minion then runs the **same per-row sub-resource diff the monster runs**, against
+   * its own baseline — one diff per minion, not one shared across the roster. Before 5a this was a
+   * delete-all/recreate-all cycle, which is H1: the minion path was never the safe model one level
+   * down, it was the same bug with a second owner.
    */
   private saveMinionDrafts(monsterId: string): Observable<unknown> {
     const drafts = this.minionDrafts();
@@ -1932,7 +1908,10 @@ export class MysteryCreateStore {
       minionTypeId: draft.minionTypeId,
     });
 
-    const removedIds = this.idsToRemove(this.existingMinionIds(), drafts);
+    // `'minions'` is passed, and the parameter is required now (§7.7c): a confirmed minion deletion
+    // is drain-borne from 5a, so this diff must not fire a second `DELETE` for the same row. That
+    // second copy is not on the drain path and has no 404 handler, so it would fail the phase.
+    const removedIds = this.idsToRemove(this.existingMinionIds(), drafts, 'minions');
 
     return this.runBatch(removedIds.map((minionId) => this.minionService.delete(minionId))).pipe(
       switchMap(() =>
@@ -1942,35 +1921,36 @@ export class MysteryCreateStore {
               ? this.minionService.update(draft.id, toRequest(draft))
               : this.minionService.create(monsterId, toRequest(draft))
             ).pipe(
+              // Was: delete this minion's whole baseline, then recreate all four collections. Now
+              // the same per-row diff the monster uses — H1 corrected, the minion path was never
+              // the safe model one level down.
               switchMap((minion) =>
-                this.runBatch<void>([
-                  ...draft.existingAttackIds.map((id) => this.minionService.deleteAttack(minion.id, id)),
-                  ...draft.existingPowerIds.map((id) => this.minionService.deletePower(minion.id, id)),
-                  ...draft.existingWeaknessIds.map((id) => this.minionService.deleteWeakness(minion.id, id)),
-                  ...draft.existingArmorIds.map((id) => this.minionService.deleteArmor(minion.id, id)),
-                ]).pipe(
-                  switchMap(() =>
-                    this.saveMinionCollections(minion.id, draft.attacks, draft.powers, draft.weaknesses, draft.armors)
-                  ),
-                  map((savedCollections) => ({ index, minionId: minion.id, savedCollections }))
-                )
-              )
+                this.saveMinionCollections(minion.id, draft).pipe(
+                  map((savedCollections) => ({ index, minionId: minion.id, savedCollections })),
+                ),
+              ),
             )
           )
         )
       ),
       tap((results) => {
-        // Backfill server IDs and refresh each draft's own sub-resource baseline, so a revisit
-        // updates rather than duplicates (the Bug 2 shape) and deletes the right children.
+        // Backfill server ids **and** re-key the sub-resource drafts from the same saved rows that
+        // become the baseline. Refreshing the baseline alone is H2: the drafts could never match it
+        // again and every later submit would delete and recreate the lot.
         const saved = [...drafts];
         for (const { index, minionId, savedCollections } of results) {
+          const draft = saved[index];
           saved[index] = {
-            ...saved[index],
+            ...draft,
             id: minionId,
-            existingAttackIds: savedCollections.attacks.map((a) => a.id),
-            existingPowerIds: savedCollections.powers.map((power) => power.id),
-            existingWeaknessIds: savedCollections.weaknesses.map((w) => w.id),
-            existingArmorIds: savedCollections.armors.map((a) => a.id),
+            attacks: rekeyDrafts(draft.attacks, savedCollections.attacks),
+            powers: rekeyDrafts(draft.powers, savedCollections.powers),
+            weaknesses: rekeyDrafts(draft.weaknesses, savedCollections.weaknesses),
+            armors: rekeyDrafts(draft.armors, savedCollections.armors),
+            existingAttacks: savedCollections.attacks,
+            existingPowers: savedCollections.powers,
+            existingWeaknesses: savedCollections.weaknesses,
+            existingArmors: savedCollections.armors,
           };
         }
 
@@ -1995,7 +1975,12 @@ export class MysteryCreateStore {
   private idsToRemove(
     savedIds: string[],
     drafts: { id: string | null }[],
-    collection?: RemovalCollection,
+    // **Required since 5a** (§7.7c). It was optional, and an omitted argument filtered the
+    // disposition set on `undefined` — matching nothing, so the drain-versus-diff exclusion
+    // silently did not apply. The minion call site omitted it, which was harmless only while
+    // `'minions'` was not a `RemovalCollection`. Decision 17 closed that window, so the parameter
+    // closes with it: omitting it no longer compiles.
+    collection: RemovalCollection,
   ): string[] {
     const disposed = new Set(
       this.pendingRemovals()
@@ -2014,6 +1999,9 @@ export class MysteryCreateStore {
    * Emits what it drained, so the caller can do the bookkeeping in `clearDrainedRemovals`.
    */
   private applyPendingRemovals(mysteryId: string): Observable<PendingRemoval[]> {
+    // Discard anything that is no longer this drain's business *before* anything is sent (§7.7e/f).
+    this.pendingRemovals.update((list) => list.filter((removal) => this.stillTheRostersBusiness(removal)));
+
     const drained = this.pendingRemovals();
     if (drained.length === 0) {
       return of<PendingRemoval[]>([]);
@@ -2024,15 +2012,59 @@ export class MysteryCreateStore {
     );
   }
 
+  /**
+   * **"Is this disposition still the roster's business?"** — stated as intent rather than as a
+   * lookup, because the lookup is not the rule (§7.7e/f).
+   *
+   * Two ways it stops being so:
+   *
+   * 1. **The row is back on the roster.** Re-attaching cancels the removal (D9). Previously that
+   *    was an invariant maintained by hand in every attach method, which also left the drain racing
+   *    a concurrent link against the same bridge row. Here it is one place, so a future
+   *    `attachMonster` that forgets `cancelPendingRemoval` is harmless rather than a race.
+   * 2. **Its parent left the roster.** Delete a minion, then remove its monster: the minion's draft
+   *    leaves with its parent, so (1) no longer finds it and the disposition survives. Under a
+   *    monster **detach** it would then destroy that minion in every other mystery — while the
+   *    modal the user just read promised detach leaves minions alone. Under **delete** the FK
+   *    cascade already handles the children, so a separate delete is the duplicate request §7.7d
+   *    exists to prevent.
+   *
+   * **Dropped, not skipped.** A skipped disposition stays in the list and fires on a later submit,
+   * which converts a race into a delayed-action bug that is much harder to find.
+   */
+  private stillTheRostersBusiness(removal: PendingRemoval): boolean {
+    switch (removal.collection) {
+      case 'locations':
+        return !this.locations().some((draft) => draft.id === removal.id);
+      case 'bystanders':
+        return !this.bystanders().some((draft) => draft.id === removal.id);
+      case 'minions':
+        // A minion's parent is the wizard's single monster in 5a, so "its parent left the roster"
+        // is "there is no monster being edited". 5b replaces this with the monster roster lookup.
+        return this.editingMonsterId() !== null && !this.minionDrafts().some((draft) => draft.id === removal.id);
+    }
+  }
+
   private removalRequest(mysteryId: string, removal: PendingRemoval): Observable<unknown> {
-    const request =
-      removal.collection === 'locations'
-        ? removal.action === 'delete'
-          ? this.locationService.delete(removal.id)
-          : this.locationService.unlinkFromMystery(mysteryId, removal.id)
-        : removal.action === 'delete'
-          ? this.bystanderService.delete(removal.id)
-          : this.bystanderService.unlinkFromMystery(mysteryId, removal.id);
+    // A `switch`, for the reason §7.7g gives about `persistedForRemoval`: dispatch over this union
+    // decides whether a row is destroyed or merely unlinked, and a ternary chain resolves a newly
+    // added member to whichever arm happens to be last, with no compile error.
+    const request = ((): Observable<unknown> => {
+      switch (removal.collection) {
+        case 'locations':
+          return removal.action === 'delete'
+            ? this.locationService.delete(removal.id)
+            : this.locationService.unlinkFromMystery(mysteryId, removal.id);
+        case 'bystanders':
+          return removal.action === 'delete'
+            ? this.bystanderService.delete(removal.id)
+            : this.bystanderService.unlinkFromMystery(mysteryId, removal.id);
+        case 'minions':
+          // Delete-only, and `removal.action` is narrowed to `'delete'` by the union itself
+          // (decision 17): a minion has no mystery membership, so there is nothing to detach.
+          return this.minionService.delete(removal.id);
+      }
+    })();
 
     // §7.3 rule 2, and *only* here. A 404 on this path means the post-condition the user asked for
     // already holds — "this is not in this mystery", or "this does not exist" — which is exactly
@@ -2094,6 +2126,13 @@ export class MysteryCreateStore {
     if (deletedBystanders.size > 0) {
       this.catalogBystanders.update((items) => items.filter((item) => !deletedBystanders.has(item.id)));
     }
+
+    // Minions get the baseline update and **no catalogue prune** — there is no attach picker on the
+    // minion step and there never will be (UX §2.5), so there are no cached options to go stale.
+    const removedMinions = idsFor('minions');
+    if (removedMinions.size > 0) {
+      this.existingMinionIds.update((ids) => ids.filter((id) => !removedMinions.has(id)));
+    }
   }
 
   /**
@@ -2109,122 +2148,206 @@ export class MysteryCreateStore {
     return drafts.map((draft) => draft.id).filter((id): id is string => id !== null);
   }
 
+  /**
+   * The four sub-resource adapters for a minion. Each one is the small amount that differs between
+   * collections; everything else lives in `applySubResourceDiff`.
+   */
+  private readonly minionAttackService: SubResourceService<AttackDraft, UpsertMinionAttackRequest, MinionAttackResponse> = {
+    create: (id, request) => this.minionService.createAttack(id, request),
+    update: (id, attackId, request) => this.minionService.updateAttack(id, attackId, request),
+    delete: (id, attackId) => this.minionService.deleteAttack(id, attackId),
+    toRequest: (draft) => ({ name: draft.name, description: this.toNullable(draft.description), harm: draft.harm }),
+    isDirty: (draft, baseline) =>
+      draft.name.trim() !== baseline.name ||
+      draft.harm !== baseline.harm ||
+      !sameNullableText(draft.description, baseline.description) ||
+      !sameWeaponTags(draft.weaponTagIds, baseline.weaponTags),
+    afterSave: (minionId, saved, draft, baseline) =>
+      this.runBatch(
+        weaponTagOperations(
+          draft.weaponTagIds,
+          baseline?.weaponTags ?? null,
+          (tagId) => this.minionService.assignAttackWeaponTag(minionId, saved.id, tagId),
+          (tagId) => this.minionService.removeAttackWeaponTag(minionId, saved.id, tagId),
+        ),
+      ).pipe(map(() => ({ ...saved, weaponTags: this.weaponTagRefs(draft.weaponTagIds) }))),
+  };
+
+  private readonly minionPowerService: SubResourceService<PowerDraft, UpsertMinionPowerRequest, MinionPowerResponse> = {
+    create: (id, request) => this.minionService.createPower(id, request),
+    update: (id, powerId, request) => this.minionService.updatePower(id, powerId, request),
+    delete: (id, powerId) => this.minionService.deletePower(id, powerId),
+    toRequest: (draft) => ({ name: draft.name, description: this.toNullable(draft.description) }),
+    isDirty: (draft, baseline) =>
+      draft.name.trim() !== baseline.name || !sameNullableText(draft.description, baseline.description),
+  };
+
+  private readonly minionWeaknessService: SubResourceService<
+    WeaknessDraft,
+    UpsertMinionWeaknessRequest,
+    MinionWeaknessResponse
+  > = {
+    create: (id, request) => this.minionService.createWeakness(id, request),
+    update: (id, weaknessId, request) => this.minionService.updateWeakness(id, weaknessId, request),
+    delete: (id, weaknessId) => this.minionService.deleteWeakness(id, weaknessId),
+    toRequest: (draft) => ({ name: draft.name, description: this.toNullable(draft.description) }),
+    isDirty: (draft, baseline) =>
+      draft.name.trim() !== baseline.name || !sameNullableText(draft.description, baseline.description),
+  };
+
+  private readonly minionArmorService: SubResourceService<ArmorDraft, UpsertMinionArmorRequest, MinionArmorResponse> = {
+    create: (id, request) => this.minionService.createArmor(id, request),
+    update: (id, armorId, request) => this.minionService.updateArmor(id, armorId, request),
+    delete: (id, armorId) => this.minionService.deleteArmor(id, armorId),
+    toRequest: (draft) => ({
+      name: draft.name,
+      description: this.toNullable(draft.description),
+      harmSoak: draft.harmSoak,
+      isSpecial: draft.isSpecial,
+      specialDescription: this.toNullable(draft.specialDescription),
+    }),
+    isDirty: (draft, baseline) =>
+      draft.name.trim() !== baseline.name ||
+      draft.harmSoak !== baseline.harmSoak ||
+      draft.isSpecial !== baseline.isSpecial ||
+      !sameNullableText(draft.description, baseline.description) ||
+      !sameNullableText(draft.specialDescription, baseline.specialDescription),
+  };
+
+  /** The same four, for a monster. Identical shape, different service and request types. */
+  private readonly monsterAttackService: SubResourceService<
+    AttackDraft,
+    UpsertMonsterAttackRequest,
+    MonsterAttackResponse
+  > = {
+    create: (id, request) => this.monsterService.createAttack(id, request),
+    update: (id, attackId, request) => this.monsterService.updateAttack(id, attackId, request),
+    delete: (id, attackId) => this.monsterService.deleteAttack(id, attackId),
+    toRequest: (draft) => ({ name: draft.name, description: this.toNullable(draft.description), harm: draft.harm }),
+    isDirty: (draft, baseline) =>
+      draft.name.trim() !== baseline.name ||
+      draft.harm !== baseline.harm ||
+      !sameNullableText(draft.description, baseline.description) ||
+      !sameWeaponTags(draft.weaponTagIds, baseline.weaponTags),
+    afterSave: (monsterId, saved, draft, baseline) =>
+      this.runBatch(
+        weaponTagOperations(
+          draft.weaponTagIds,
+          baseline?.weaponTags ?? null,
+          (tagId) => this.monsterService.assignAttackWeaponTag(monsterId, saved.id, tagId),
+          (tagId) => this.monsterService.removeAttackWeaponTag(monsterId, saved.id, tagId),
+        ),
+      ).pipe(map(() => ({ ...saved, weaponTags: this.weaponTagRefs(draft.weaponTagIds) }))),
+  };
+
+  /**
+   * The tag set the server holds for an attack once `afterSave`'s operations have landed — i.e. the
+   * draft's own selection, resolved against the reference catalogue.
+   *
+   * This is the baseline half of `5a-U8`. `POST /attacks` answers before any tag is assigned, so
+   * without this a newly tagged attack would be reported dirty on every later submit and the wizard
+   * would re-PUT it and re-assign the same tag on every phase transition — the churn 5a exists to
+   * remove, surviving inside the one collection that has a follow-up call.
+   */
+  private weaponTagRefs(weaponTagIds: readonly string[]): WeaponTagRefResponse[] {
+    const catalogue = this.weaponTags();
+    return weaponTagIds
+      .map((id) => catalogue.find((tag) => tag.id === id))
+      .filter((tag): tag is WeaponTagRefResponse => tag !== undefined);
+  }
+
+  private readonly monsterPowerService: SubResourceService<PowerDraft, UpsertMonsterPowerRequest, MonsterPowerResponse> =
+    {
+      create: (id, request) => this.monsterService.createPower(id, request),
+      update: (id, powerId, request) => this.monsterService.updatePower(id, powerId, request),
+      delete: (id, powerId) => this.monsterService.deletePower(id, powerId),
+      toRequest: (draft) => ({ name: draft.name, description: this.toNullable(draft.description) }),
+      isDirty: (draft, baseline) =>
+        draft.name.trim() !== baseline.name || !sameNullableText(draft.description, baseline.description),
+    };
+
+  private readonly monsterWeaknessService: SubResourceService<
+    WeaknessDraft,
+    UpsertMonsterWeaknessRequest,
+    MonsterWeaknessResponse
+  > = {
+    create: (id, request) => this.monsterService.createWeakness(id, request),
+    update: (id, weaknessId, request) => this.monsterService.updateWeakness(id, weaknessId, request),
+    delete: (id, weaknessId) => this.monsterService.deleteWeakness(id, weaknessId),
+    toRequest: (draft) => ({ name: draft.name, description: this.toNullable(draft.description) }),
+    isDirty: (draft, baseline) =>
+      draft.name.trim() !== baseline.name || !sameNullableText(draft.description, baseline.description),
+  };
+
+  private readonly monsterArmorService: SubResourceService<ArmorDraft, UpsertMonsterArmorRequest, MonsterArmorResponse> =
+    {
+      create: (id, request) => this.monsterService.createArmor(id, request),
+      update: (id, armorId, request) => this.monsterService.updateArmor(id, armorId, request),
+      delete: (id, armorId) => this.monsterService.deleteArmor(id, armorId),
+      toRequest: (draft) => ({
+        name: draft.name,
+        description: this.toNullable(draft.description),
+        harmSoak: draft.harmSoak,
+        isSpecial: draft.isSpecial,
+        specialDescription: this.toNullable(draft.specialDescription),
+      }),
+      isDirty: (draft, baseline) =>
+        draft.name.trim() !== baseline.name ||
+        draft.harmSoak !== baseline.harmSoak ||
+        draft.isSpecial !== baseline.isSpecial ||
+        !sameNullableText(draft.description, baseline.description) ||
+        !sameNullableText(draft.specialDescription, baseline.specialDescription),
+    };
+
+  /**
+   * One minion's four collections, diffed against that minion's own baseline (decision 8).
+   *
+   * Was a delete-all/recreate-all cycle. The returned collections are the new baseline, which the
+   * caller stores back onto the draft — so a row nobody touched keeps the id it already had.
+   */
   private saveMinionCollections(
     minionId: string,
-    attacks: AttackDraft[],
-    powers: PowerDraft[],
-    weaknesses: WeaknessDraft[],
-    armors: ArmorDraft[]
+    draft: MinionDraft,
   ): Observable<SavedMinionCollections> {
     return forkJoin({
-      attacks: this.runBatch(
-        attacks.map((attack) =>
-          this.minionService.createAttack(minionId, {
-            name: attack.name,
-            description: this.toNullable(attack.description),
-            harm: attack.harm,
-          }).pipe(
-            switchMap((createdAttack) => {
-              const selectedTagIds = attack.weaponTagIds.filter((tagId) => tagId.length > 0);
-              if (selectedTagIds.length === 0) {
-                return of(createdAttack);
-              }
-
-              return forkJoin(
-                selectedTagIds.map((weaponTagId) =>
-                  this.minionService.assignAttackWeaponTag(minionId, createdAttack.id, weaponTagId)
-                )
-              ).pipe(switchMap(() => of(createdAttack)));
-            })
-          )
-        )
+      attacks: applySubResourceDiff(minionId, draft.attacks, draft.existingAttacks, this.minionAttackService),
+      powers: applySubResourceDiff(minionId, draft.powers, draft.existingPowers, this.minionPowerService),
+      weaknesses: applySubResourceDiff(
+        minionId,
+        draft.weaknesses,
+        draft.existingWeaknesses,
+        this.minionWeaknessService,
       ),
-      powers: this.runBatch(
-        powers.map((power) =>
-          this.minionService.createPower(minionId, {
-            name: power.name,
-            description: this.toNullable(power.description),
-          })
-        )
-      ),
-      weaknesses: this.runBatch(
-        weaknesses.map((weakness) =>
-          this.minionService.createWeakness(minionId, {
-            name: weakness.name,
-            description: this.toNullable(weakness.description),
-          })
-        )
-      ),
-      armors: this.runBatch(
-        armors.map((armor) =>
-          this.minionService.createArmor(minionId, {
-            name: armor.name,
-            description: this.toNullable(armor.description),
-            harmSoak: armor.harmSoak,
-            isSpecial: armor.isSpecial,
-            specialDescription: this.toNullable(armor.specialDescription),
-          })
-        )
-      ),
+      armors: applySubResourceDiff(minionId, draft.armors, draft.existingArmors, this.minionArmorService),
     });
   }
 
-  private saveThreatCollections(
-    monsterId: string,
-    attacks: AttackDraft[],
-    powers: PowerDraft[],
-    weaknesses: WeaknessDraft[],
-    armors: ArmorDraft[]
-  ): Observable<SavedThreatCollections> {
+  /** The monster's four collections, same diff, same contract. */
+  private saveThreatCollections(monsterId: string): Observable<SavedThreatCollections> {
     return forkJoin({
-      attacks: this.runBatch(
-        attacks.map((attack) =>
-          this.monsterService.createAttack(monsterId, {
-            name: attack.name,
-            description: this.toNullable(attack.description),
-            harm: attack.harm,
-          }).pipe(
-            switchMap((createdAttack) => {
-              const selectedTagIds = attack.weaponTagIds.filter((tagId) => tagId.length > 0);
-              if (selectedTagIds.length === 0) {
-                return of(createdAttack);
-              }
-
-              return forkJoin(
-                selectedTagIds.map((weaponTagId) =>
-                  this.monsterService.assignAttackWeaponTag(monsterId, createdAttack.id, weaponTagId)
-                )
-              ).pipe(switchMap(() => of(createdAttack)));
-            })
-          )
-        )
+      attacks: applySubResourceDiff(
+        monsterId,
+        this.monsterAttacks(),
+        this.existingMonsterAttacks(),
+        this.monsterAttackService,
       ),
-      powers: this.runBatch(
-        powers.map((power) =>
-          this.monsterService.createPower(monsterId, {
-            name: power.name,
-            description: this.toNullable(power.description),
-          })
-        )
+      powers: applySubResourceDiff(
+        monsterId,
+        this.monsterPowers(),
+        this.existingMonsterPowers(),
+        this.monsterPowerService,
       ),
-      weaknesses: this.runBatch(
-        weaknesses.map((weakness) =>
-          this.monsterService.createWeakness(monsterId, {
-            name: weakness.name,
-            description: this.toNullable(weakness.description),
-          })
-        )
+      weaknesses: applySubResourceDiff(
+        monsterId,
+        this.monsterWeaknesses(),
+        this.existingMonsterWeaknesses(),
+        this.monsterWeaknessService,
       ),
-      armors: this.runBatch(
-        armors.map((armor) =>
-          this.monsterService.createArmor(monsterId, {
-            name: armor.name,
-            description: this.toNullable(armor.description),
-            harmSoak: armor.harmSoak,
-            isSpecial: armor.isSpecial,
-            specialDescription: this.toNullable(armor.specialDescription),
-          })
-        )
+      armors: applySubResourceDiff(
+        monsterId,
+        this.monsterArmors(),
+        this.existingMonsterArmors(),
+        this.monsterArmorService,
       ),
     });
   }
@@ -2246,7 +2369,7 @@ export class MysteryCreateStore {
     this.isSubmitting.set(false);
   }
 
-  private addAttackDraft(target: WritableSignal<AttackDraft[]>, form: AttackFormGroup): void {
+  private addAttackDraft(target: WritableSignal<AttackDraft[]>, form: AttackFormGroup, prefix: string): void {
     if (form.invalid) {
       form.markAllAsTouched();
       return;
@@ -2255,6 +2378,8 @@ export class MysteryCreateStore {
     target.update((items) => [
       ...items,
       {
+        id: null,
+        localKey: createDraftKey(prefix),
         name: form.controls.name.value.trim(),
         harm: form.controls.harm.value,
         description: form.controls.description.value ?? '',
@@ -2264,7 +2389,7 @@ export class MysteryCreateStore {
     form.reset({ name: '', harm: 0, description: '', weaponTagIds: [] });
   }
 
-  private addNamedDraft(target: WritableSignal<PowerDraft[] | WeaknessDraft[]>, form: NamedDraftFormGroup): void {
+  private addNamedDraft(target: WritableSignal<PowerDraft[] | WeaknessDraft[]>, form: NamedDraftFormGroup, prefix: string): void {
     if (form.invalid) {
       form.markAllAsTouched();
       return;
@@ -2273,6 +2398,8 @@ export class MysteryCreateStore {
     target.update((items) => [
       ...items,
       {
+        id: null,
+        localKey: createDraftKey(prefix),
         name: form.controls.name.value.trim(),
         description: form.controls.description.value ?? '',
       },
@@ -2280,11 +2407,18 @@ export class MysteryCreateStore {
     form.reset({ name: '', description: '' });
   }
 
-  private removeDraft<T>(target: WritableSignal<T[]>, index: number): void {
-    target.update((items) => items.filter((_, itemIndex) => itemIndex !== index));
+  /**
+   * Drops a sub-resource draft **by its stable key**, not by position (§5.4).
+   *
+   * Index-based removal was the shape Phase 3 removed one level up: it addresses a row by where it
+   * happens to be, which is a different thing from which row it is. An unsaved row has no `id`, so
+   * `localKey` is the only identity available for the whole set.
+   */
+  private removeDraft<T extends SubResourceIdentity>(target: WritableSignal<T[]>, localKey: string): void {
+    target.update((items) => items.filter((item) => item.localKey !== localKey));
   }
 
-  private addArmorDraft(target: WritableSignal<ArmorDraft[]>, form: ArmorFormGroup): void {
+  private addArmorDraft(target: WritableSignal<ArmorDraft[]>, form: ArmorFormGroup, prefix: string): void {
     if (form.invalid) {
       form.markAllAsTouched();
       return;
@@ -2293,6 +2427,8 @@ export class MysteryCreateStore {
     target.update((items) => [
       ...items,
       {
+        id: null,
+        localKey: createDraftKey(prefix),
         name: form.controls.name.value.trim(),
         description: form.controls.description.value ?? '',
         harmSoak: form.controls.harmSoak.value,

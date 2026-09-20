@@ -60,6 +60,13 @@ export class MonsterService {
     );
   }
 
+  updateAttack(monsterId: string, attackId: string, request: UpsertMonsterAttackRequest): Observable<MonsterAttackResponse> {
+    return this.apiService.put<UpsertMonsterAttackRequest, MonsterAttackResponse>(
+      `/api/monsters/${monsterId}/attacks/${attackId}`,
+      request
+    );
+  }
+
   deleteAttack(monsterId: string, attackId: string): Observable<void> {
     return this.apiService.delete(`/api/monsters/${monsterId}/attacks/${attackId}`);
   }
@@ -72,9 +79,21 @@ export class MonsterService {
     );
   }
 
+  /** The remove half of the weapon-tag diff. Its assign twin shipped; this did not, so a tag taken off an attack in the wizard stayed on the server. */
+  removeAttackWeaponTag(monsterId: string, attackId: string, tagId: string): Observable<void> {
+    return this.apiService.delete(`/api/monsters/${monsterId}/attacks/${attackId}/weapon-tags/${tagId}`);
+  }
+
   createPower(monsterId: string, request: UpsertMonsterPowerRequest): Observable<MonsterPowerResponse> {
     return this.apiService.post<UpsertMonsterPowerRequest, MonsterPowerResponse>(
       `/api/monsters/${monsterId}/powers`,
+      request
+    );
+  }
+
+  updatePower(monsterId: string, powerId: string, request: UpsertMonsterPowerRequest): Observable<MonsterPowerResponse> {
+    return this.apiService.put<UpsertMonsterPowerRequest, MonsterPowerResponse>(
+      `/api/monsters/${monsterId}/powers/${powerId}`,
       request
     );
   }
@@ -90,6 +109,13 @@ export class MonsterService {
     );
   }
 
+  updateArmor(monsterId: string, armorId: string, request: UpsertMonsterArmorRequest): Observable<MonsterArmorResponse> {
+    return this.apiService.put<UpsertMonsterArmorRequest, MonsterArmorResponse>(
+      `/api/monsters/${monsterId}/armors/${armorId}`,
+      request
+    );
+  }
+
   deleteArmor(monsterId: string, armorId: string): Observable<void> {
     return this.apiService.delete(`/api/monsters/${monsterId}/armors/${armorId}`);
   }
@@ -97,6 +123,17 @@ export class MonsterService {
   createWeakness(monsterId: string, request: UpsertMonsterWeaknessRequest): Observable<MonsterWeaknessResponse> {
     return this.apiService.post<UpsertMonsterWeaknessRequest, MonsterWeaknessResponse>(
       `/api/monsters/${monsterId}/weaknesses`,
+      request
+    );
+  }
+
+  updateWeakness(
+    monsterId: string,
+    weaknessId: string,
+    request: UpsertMonsterWeaknessRequest
+  ): Observable<MonsterWeaknessResponse> {
+    return this.apiService.put<UpsertMonsterWeaknessRequest, MonsterWeaknessResponse>(
+      `/api/monsters/${monsterId}/weaknesses/${weaknessId}`,
       request
     );
   }

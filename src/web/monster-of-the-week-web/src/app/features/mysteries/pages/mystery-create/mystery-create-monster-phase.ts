@@ -86,15 +86,59 @@ export class MysteryCreateMonsterPhaseComponent {
   });
 
   /**
-   * Removing a roster card is not a deletion at confirm time — it drops a draft, and only a minion
-   * that was already saved (`id !== null`) turns into a real DELETE when the user continues. A
-   * never-saved draft destroys nothing, so it gets no permanence warning.
+   * **The minion predicate — `id !== null`, and deliberately not `persistedForRemoval`'s other
+   * members** (§16.4, decision 16).
+   *
+   * §7.1 rejected `id !== null` for locations and bystanders because an *attached* entity has an id
+   * the instant it is picked, so the test would offer permanent deletion to someone undoing a
+   * mis-click. **Minions are never attached** — there is no attach strip on the minion step and
+   * §2.5 says there never will be — so a minion's id can only become non-null by being saved. The
+   * test that was dangerous there is the correct one here, for exactly the reason it was wrong
+   * there.
+   *
+   * It is still routed through the store rather than written inline: `persistedForRemoval` is where
+   * the three collections' answers live, its `'minions'` arm *is* `id !== null`, and the store asks
+   * the same question again when it decides whether to record a pending removal. One implementation,
+   * so the modal and the drain cannot disagree about what the user was shown.
    */
-  readonly pendingRemoveNote = computed(() =>
-    this.pendingRemoveDraft()?.id
-      ? `The minion will be deleted ${this.store.deferredChangeTail()}.`
-      : '',
+  readonly pendingRemovePersisted = computed(() =>
+    this.store.persistedForRemoval('minions', this.pendingRemoveDraft()?.id ?? null),
   );
+
+  /**
+   * The cascade lead-in, which introduces the `items` list below it. Two variants, and both drop to
+   * `''` when there is nothing to cascade — (E) with no sub-resources is title plus footnote, which
+   * §16.4 rules is clear enough without filler.
+   */
+  readonly pendingRemoveMessage = computed(() => {
+    const hasItems = this.pendingRemoveItems().length > 0;
+
+    // (E) persisted — a real DELETE at submit. The title still says Remove; the button says Delete.
+    if (this.pendingRemovePersisted()) {
+      return hasItems ? 'Deleting it also removes:' : '';
+    }
+
+    // (A1-minion) never saved — nothing exists on the server, so nothing is destroyed but typing.
+    return hasItems
+      ? "This minion hasn't been saved yet. Removing it discards what you typed, including:"
+      : "This minion hasn't been saved yet. Removing it discards what you typed.";
+  });
+
+  /**
+   * Removing a roster card is not a deletion at confirm time — it drops a draft, and only a minion
+   * that was already saved turns into a real DELETE when the user continues. A never-saved draft
+   * destroys nothing, so it gets no permanence warning.
+   *
+   * The deferral clause is derived from `deferredChangeTail()` rather than written out (§15/G2):
+   * phase 1 is never last today, so it always resolves to "when you continue to the next step" —
+   * but this feature is reordering the phases, and a literal would go stale silently.
+   */
+  readonly pendingRemoveFootnote = computed(() =>
+    this.pendingRemovePersisted() ? `The minion will be deleted ${this.store.deferredChangeTail()}.` : '',
+  );
+
+  /** (E) names the consequence on the button. (A1-minion) leaves it unset and reads "Remove". */
+  readonly pendingRemoveConfirmLabel = computed(() => (this.pendingRemovePersisted() ? 'Delete' : null));
 
   tagsForAttack(tagIds: string[]) {
     return this.store.weaponTags().filter((t) => tagIds.includes(t.id));

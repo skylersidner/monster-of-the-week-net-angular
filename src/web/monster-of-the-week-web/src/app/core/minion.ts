@@ -45,6 +45,21 @@ export class MinionService {
     return this.apiService.put<UpsertMinionRequest, MinionDetailResponse>(`/api/minions/${minionId}`, request);
   }
 
+  /**
+   * Moves a minion to a different monster (decision 18).
+   *
+   * **It moves, it does not add** — the previous parent stops listing it. That is the semantic that
+   * differs from the membership verb it resembles, and the one a reader gets wrong by analogy: a
+   * minion has exactly one parent, because  is a required, non-nullable FK.
+   *
+   * Deliberately a verb of its own rather than a field on , which has no
+   *  and must not gain one: a plain  does not change the parent,
+   * and both documents wrongly assumed it did.
+   */
+  moveToMonster(monsterId: string, minionId: string): Observable<void> {
+    return this.apiService.put<null, void>(`/api/monsters/${monsterId}/minions/${minionId}`, null);
+  }
+
   delete(id: string): Observable<void> {
     return this.apiService.delete(`/api/minions/${id}`);
   }

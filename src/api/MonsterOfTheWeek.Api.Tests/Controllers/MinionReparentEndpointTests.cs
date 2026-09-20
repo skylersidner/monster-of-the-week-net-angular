@@ -217,6 +217,101 @@ public sealed class MinionReparentEndpointTests
         Assert.Single(await MinionsOfAsync(harness, harness.TargetMonsterId));
     }
 
+    /// <summary>
+    /// <b>5a-P5 — the regression guard.</b> A plain <c>PUT /api/minions/{id}</c> edits the minion
+    /// and leaves its parent exactly where it was.
+    ///
+    /// <para>
+    /// Peach's phrasing: this "pins the thing both documents wrongly assumed already worked."
+    /// Until 5a there was no test anywhere that issued this verb, so "updating a minion does not
+    /// re-parent it" was an assumption, not a covered behaviour. It matters now because 5b adds a
+    /// monster picker to the minion composer, and the cheap way to build that is to put a
+    /// <c>MonsterId</c> on the update body — which would make the plain update a silent re-parent
+    /// and give the same intention two verbs with different semantics (architecture §6.4).
+    /// </para>
+    ///
+    /// <para>
+    /// The rename is asserted alongside the parent on purpose. Without it, an endpoint that
+    /// rejected the body outright would also leave the parent alone and this would pass for the
+    /// wrong reason — the vacuous-setup shape 5a hunted elsewhere.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Put_ToThePlainMinionRoute_EditsTheMinion_AndLeavesItsParentAlone()
+    {
+        await using var harness = await MinionReparentApiHarness.StartAsync();
+
+        var response = await harness.Client.PutAsJsonAsync(
+            $"/api/minions/{harness.MinionId}",
+            new
+            {
+                name = "Grave Hand, Renamed",
+                description = "Still a Gravewalker minion.",
+                harmCapacity = 2,
+                minionTypeId = await AnyMinionTypeIdAsync(harness),
+            });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // The edit landed...
+        var updated = (await response.Content.ReadFromJsonAsync<MinionDetailResponse>())!;
+        Assert.Equal("Grave Hand, Renamed", updated.Name);
+        Assert.Equal(2, updated.HarmCapacity);
+
+        // ...and the parent did not move, in the response projection and in the row itself.
+        Assert.Equal(harness.OriginMonsterId, updated.MonsterId);
+        Assert.Equal(harness.OriginMonsterId, await harness.ParentOfAsync(harness.MinionId));
+        Assert.Contains(await MinionsOfAsync(harness, harness.OriginMonsterId), m => m.Id == harness.MinionId);
+        Assert.Empty(await MinionsOfAsync(harness, harness.TargetMonsterId));
+    }
+
+    /// <summary>
+    /// <b>5a-P5, the half that bites later.</b> A <c>monsterId</c> sent in the update body is
+    /// ignored rather than honoured.
+    ///
+    /// <para>
+    /// The test above passes against today's contract because <c>UpsertMinionRequest</c> has no
+    /// such member, so the property is simply dropped in deserialisation. This one states the
+    /// behaviour the contract is protecting, so that adding <i>and wiring</i> a <c>MonsterId</c>
+    /// fails here rather than in a browser. Paired with the contract assertion below, which fails
+    /// on the field being added at all — the two catch the change at different stages and neither
+    /// subsumes the other.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Put_ToThePlainMinionRoute_IgnoresAMonsterIdSmuggledIntoTheBody()
+    {
+        await using var harness = await MinionReparentApiHarness.StartAsync();
+
+        var response = await harness.Client.PutAsJsonAsync(
+            $"/api/minions/{harness.MinionId}",
+            new
+            {
+                name = "Grave Hand",
+                description = (string?)null,
+                harmCapacity = 1,
+                minionTypeId = await AnyMinionTypeIdAsync(harness),
+                monsterId = harness.TargetMonsterId,
+            });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(harness.OriginMonsterId, await harness.ParentOfAsync(harness.MinionId));
+        Assert.Empty(await MinionsOfAsync(harness, harness.TargetMonsterId));
+    }
+
+    /// <summary>
+    /// <b>5a-P5, stated against the contract.</b> <c>UpsertMinionRequest</c> "has no
+    /// <c>MonsterId</c> and must not gain one" (architecture §6.4), so say so where adding one
+    /// breaks a test rather than only a convention.
+    /// </summary>
+    [Fact]
+    public void UpsertMinionRequest_CarriesNoParent()
+    {
+        Assert.DoesNotContain(
+            typeof(UpsertMinionRequest).GetProperties(),
+            property => property.Name.Contains("Monster", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static async Task<Guid> AnyMinionTypeIdAsync(MinionReparentApiHarness harness)
     {
         await using var context = harness.NewContext();

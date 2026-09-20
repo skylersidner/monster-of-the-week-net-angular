@@ -72,7 +72,7 @@
     @if (store.monsterPreview().attacks.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Attacks</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (attack of store.monsterPreview().attacks; track $index) {
+        @for (attack of store.monsterPreview().attacks; track attack.localKey) {
           <li>{{ attack.name }} ({{ attack.harm }} harm)</li>
         }
       </ul>
@@ -80,7 +80,7 @@
     @if (store.monsterPreview().powers.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Powers</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (power of store.monsterPreview().powers; track $index) {
+        @for (power of store.monsterPreview().powers; track power.localKey) {
           <li>
             <span>{{ power.name }}</span>
             @if (power.description) {
@@ -93,7 +93,7 @@
     @if (store.monsterPreview().weaknesses.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Weaknesses</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (weakness of store.monsterPreview().weaknesses; track $index) {
+        @for (weakness of store.monsterPreview().weaknesses; track weakness.localKey) {
           <li>
             <span>{{ weakness.name }}</span>
             @if (weakness.description) {
@@ -106,7 +106,7 @@
     @if (store.monsterPreview().armors.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Armor</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (armor of store.monsterPreview().armors; track $index) {
+        @for (armor of store.monsterPreview().armors; track armor.localKey) {
           <li>
             <span>{{ armor.name }} ({{ armor.harmSoak }} harm soak)</span>
             @if (armor.description) {
@@ -170,7 +170,7 @@
     @if (store.minionPreview().attacks.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Attacks</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (attack of store.minionPreview().attacks; track $index) {
+        @for (attack of store.minionPreview().attacks; track attack.localKey) {
           <li>{{ attack.name }} ({{ attack.harm }} harm)</li>
         }
       </ul>
@@ -178,7 +178,7 @@
     @if (store.minionPreview().powers.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Powers</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (power of store.minionPreview().powers; track $index) {
+        @for (power of store.minionPreview().powers; track power.localKey) {
           <li>
             <span>{{ power.name }}</span>
             @if (power.description) {
@@ -191,7 +191,7 @@
     @if (store.minionPreview().weaknesses.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Weaknesses</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (weakness of store.minionPreview().weaknesses; track $index) {
+        @for (weakness of store.minionPreview().weaknesses; track weakness.localKey) {
           <li>
             <span>{{ weakness.name }}</span>
             @if (weakness.description) {
@@ -204,7 +204,7 @@
     @if (store.minionPreview().armors.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Armor</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (armor of store.minionPreview().armors; track $index) {
+        @for (armor of store.minionPreview().armors; track armor.localKey) {
           <li>
             <span>{{ armor.name }} ({{ armor.harmSoak }} harm soak)</span>
             @if (armor.description) {

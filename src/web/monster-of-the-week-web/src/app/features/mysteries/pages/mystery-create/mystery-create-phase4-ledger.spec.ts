@@ -434,7 +434,7 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
     // A catalogue entity in no mystery is a first-class state — the same one standalone creation
     // produces — so the picker must still offer it. Contrast §7.6: a *deleted* one is dropped.
     expect(store.attachableLocations().map((item) => item.id)).toContain('loc-b');
-    expect(store.membershipPersisted('locations', 'loc-b')).toBe(false);
+    expect(store.persistedForRemoval('locations', 'loc-b')).toBe(false);
   });
 
   it('S1: a stale mysteryIds snapshot changes the modal’s wording and never which buttons it has', () => {
@@ -446,7 +446,7 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
     // this field. That is why S1 is accepted: there is no branch to get wrong.
     store.locations.update((items) => items.map((item) => ({ ...item, mysteryIds: [] })));
 
-    expect(store.membershipPersisted('locations', 'loc-a')).toBe(true);
+    expect(store.persistedForRemoval('locations', 'loc-a')).toBe(true);
   });
 
   it('R5: attaching onto an empty roster collapses an untouched composer', () => {
