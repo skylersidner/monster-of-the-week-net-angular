@@ -92,7 +92,7 @@ export class MysteryCreateMonsterPhaseComponent {
    */
   readonly pendingRemoveNote = computed(() =>
     this.pendingRemoveDraft()?.id
-      ? 'The minion will be deleted when you continue to the next step.'
+      ? `The minion will be deleted ${this.store.deferredChangeTail()}.`
       : '',
   );
 

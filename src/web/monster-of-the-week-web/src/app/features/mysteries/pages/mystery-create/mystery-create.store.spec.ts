@@ -11,6 +11,72 @@ import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { MysteryCreateStore } from './mystery-create.store';
 
+/**
+ * The attach strips' catalogues. `location-1` / `bystander-1` deliberately match the ids the
+ * create mocks hand back, so a draft authored here and one attached from the catalogue are the same
+ * entity — which is what makes the "re-attach cancels a pending removal" case expressible.
+ */
+const catalogLocations = [
+  {
+    id: 'location-1',
+    mysteryIds: ['mystery-1', 'mystery-9'],
+    name: 'Saint Brigid Chapel',
+    description: 'Dusty pews.',
+    locationTypeId: 'location-type-1',
+    locationTypeName: 'Lair',
+    locationTypeMotivation: '',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'location-2',
+    mysteryIds: [],
+    name: 'The Old Mill',
+    description: '',
+    locationTypeId: 'location-type-1',
+    locationTypeName: 'Lair',
+    locationTypeMotivation: '',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+];
+
+const catalogBystanders = [
+  {
+    id: 'bystander-1',
+    mysteryIds: ['mystery-1'],
+    name: 'Father Hall',
+    description: 'Last priest on site.',
+    bystanderTypeId: 'bystander-type-1',
+    bystanderTypeName: 'Witness',
+    bystanderTypeMotivation: '',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+];
+
+const catalogMysteries = [
+  {
+    id: 'mystery-1',
+    name: 'The Hollow Choir',
+    concept: null,
+    hook: null,
+    adventureType: { id: 'adventure-type-1', name: 'Haunting', description: '' },
+    monsterCount: 0,
+    locationCount: 0,
+    bystanderCount: 0,
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'mystery-9',
+    name: 'Dust Bowl Nights',
+    concept: null,
+    hook: null,
+    adventureType: { id: 'adventure-type-1', name: 'Haunting', description: '' },
+    monsterCount: 0,
+    locationCount: 0,
+    bystanderCount: 0,
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+];
+
 describe('MysteryCreateStore', () => {
   let store: MysteryCreateStore;
   let router: { navigate: ReturnType<typeof vi.fn> };
@@ -19,6 +85,7 @@ describe('MysteryCreateStore', () => {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     upsertCountdown: ReturnType<typeof vi.fn>;
+    getMysteries: ReturnType<typeof vi.fn>;
   };
   let monsterService: {
     create: ReturnType<typeof vi.fn>;
@@ -51,11 +118,17 @@ describe('MysteryCreateStore', () => {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     unlinkFromMystery: ReturnType<typeof vi.fn>;
+    linkToMystery: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    getAll: ReturnType<typeof vi.fn>;
   };
   let bystanderService: {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     unlinkFromMystery: ReturnType<typeof vi.fn>;
+    linkToMystery: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    getAll: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -65,6 +138,7 @@ describe('MysteryCreateStore', () => {
       create: vi.fn(() => of({ id: 'mystery-1' })),
       update: vi.fn(() => of({ id: 'mystery-1' })),
       upsertCountdown: vi.fn(() => of({ id: 'countdown-1' })),
+      getMysteries: vi.fn(() => of(catalogMysteries)),
     };
     monsterService = {
       create: vi.fn(() => of({ id: 'monster-1' })),
@@ -97,11 +171,17 @@ describe('MysteryCreateStore', () => {
       create: vi.fn(() => of({ id: 'location-1' })),
       update: vi.fn(() => of({ id: 'location-1' })),
       unlinkFromMystery: vi.fn(() => of(undefined)),
+      linkToMystery: vi.fn(() => of(undefined)),
+      delete: vi.fn(() => of(undefined)),
+      getAll: vi.fn(() => of(catalogLocations)),
     };
     bystanderService = {
       create: vi.fn(() => of({ id: 'bystander-1' })),
       update: vi.fn(() => of({ id: 'bystander-1' })),
       unlinkFromMystery: vi.fn(() => of(undefined)),
+      linkToMystery: vi.fn(() => of(undefined)),
+      delete: vi.fn(() => of(undefined)),
+      getAll: vi.fn(() => of(catalogBystanders)),
     };
 
     TestBed.configureTestingModule({
@@ -234,7 +314,7 @@ describe('MysteryCreateStore', () => {
       description: 'Dusty pews and broken stained glass.',
       locationTypeId: 'location-type-1',
     });
-    store.addLocation();
+    store.saveLocationDraft();
     store.next();
 
     store.addBystanderForm.setValue({
@@ -242,7 +322,7 @@ describe('MysteryCreateStore', () => {
       description: 'Last priest on site.',
       bystanderTypeId: 'bystander-type-1',
     });
-    store.addBystander();
+    store.saveBystanderDraft();
     store.next();
 
     expect(mysteryService.create).toHaveBeenCalledWith({
@@ -318,7 +398,7 @@ describe('MysteryCreateStore', () => {
     store.next();
 
     store.addLocationForm.setValue({ name: 'Saint Brigid Chapel', description: '', locationTypeId: 'location-type-1' });
-    store.addLocation();
+    store.saveLocationDraft();
     store.next();
 
     expect(store.locations()[0].id).toBe('location-1');
@@ -360,11 +440,11 @@ describe('MysteryCreateStore', () => {
     store.currentPhase.set(2);
     store.currentStep.set(0);
     store.addLocationForm.setValue({ name: 'Saint Brigid Chapel', description: '', locationTypeId: 'location-type-1' });
-    store.addLocation();
+    store.saveLocationDraft();
     store.next();
 
     store.jumpToPhase(2);
-    store.removeLocation(0);
+    store.removeLocationDraft(store.locations()[0].localKey, 'detach');
     store.next();
 
     expect(locationService.unlinkFromMystery).toHaveBeenCalledWith('mystery-1', 'location-1');

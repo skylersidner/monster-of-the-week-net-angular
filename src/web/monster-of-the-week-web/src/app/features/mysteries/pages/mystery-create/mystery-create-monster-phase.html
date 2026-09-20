@@ -149,7 +149,7 @@
   <ul class="grid gap-2 list-none m-0 mb-3 p-0">
     @for (draft of store.minionDrafts(); track draft.localKey) {
       <li
-        class="flex items-center border rounded-lg gap-4 justify-between p-4"
+        class="roster-card flex items-center border rounded-lg gap-4 justify-between p-4"
         [class.bg-surface]="store.editingDraftKey() !== draft.localKey"
         [class.border-default]="store.editingDraftKey() !== draft.localKey"
         [class.bg-accent-subtle]="store.editingDraftKey() === draft.localKey"

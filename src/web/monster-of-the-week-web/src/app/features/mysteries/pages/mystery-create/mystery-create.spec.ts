@@ -78,6 +78,10 @@ class MockMysteryService {
     return of({ id: 'mystery-1' });
   }
 
+  getMysteries() {
+    return of([]);
+  }
+
   upsertCountdown() {
     return of({ id: 'countdown-1' });
   }
@@ -104,6 +108,11 @@ class MockMonsterService {
 class MockApiService {
   post() {
     return of({});
+  }
+
+  /** Phase 4: the store loads the attach catalogues and the mystery list through the real services. */
+  get() {
+    return of([]);
   }
 }
 

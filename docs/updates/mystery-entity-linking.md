@@ -1,12 +1,12 @@
 # Connecting Monsters, Locations and Bystanders to a Mystery — Architecture
 
 **Prepared by:** Yoshi (Architect)
-**Status:** **Revision 6 — fully answered; Phase 1 security-reviewed.** Skyler answered the original seven questions, then seven follow-ups, then Rosalina's remaining six — all on 2026-09-19. Every question raised in either document is decided; **nothing is open** (§10). Boo reviewed Phase 1 the same day and returned **ship as-is**, with one correction to this document (§4.1) and one gate moved onto Phase 2 (§9). Deferred work is collected in §12. Ready to be marked Accepted; Phases 1, 2 and 3 can start immediately.
-**Date:** 2026-09-19 (rev 6)
+**Status:** **Revision 7 — Phases 1–3 shipped; Phase 4 design-review findings folded in.** All questions from Skyler, Rosalina and Boo are decided (§3, §3.1, §10). Phases 1, 2 and 3 are committed and browser-verified (`72ebc5c`, `2814168`, `c9d554a`, `a063449`). Peach's Phase 4 acceptance review found two architectural gaps, now decided as decisions 15 and 16 (§3.2). Deferred work is in §12.
+**Date:** 2026-09-20 (rev 7)
 
 > Filed under `docs/updates/` alongside `docs/updates/multi-minion-support.md` and `docs/updates/standalone-creation-phase1-monsters.md`, which this work builds directly on. Supersedes nothing, and inherits nothing from the withdrawn hunter-advancement design.
 >
-> **Companion document:** `docs/updates/mystery-entity-linking-ux.md` (Rosalina) covers the re-edit affordance, the removal confirmation modal, the attach affordance, and the minion monster-picker. **All interaction and visual design lives there, not here.** This document is architecture, API, data flow, phasing and agent ownership only. Where the two overlap, the sections below name what the architecture *requires* of the UX without specifying how it looks. Her §13 ("Components Luigi should build on") is the authoritative build-on list; this document does not duplicate it.
+> **Companion documents — three now, one per question.** `docs/updates/mystery-entity-linking-acceptance.md` (Peach) is **what it must do**; this document is **how it does it**; `docs/updates/mystery-entity-linking-ux.md` (Rosalina) is **how it looks**. Ownership is strict: acceptance criteria and expected behaviours are Peach's, architecture / API / data flow / phasing are mine, interaction and visual design are Rosalina's. Each cross-references the others by section and none restates another's reasoning. Her §13 ("Components Luigi should build on") is the authoritative build-on list; this document does not duplicate it.
 
 ### 0.1 Reconciliation with the UX doc
 
@@ -130,6 +130,15 @@ Asymmetry worth recording, because it inverts an earlier note in Yoshi's history
 | 12 | **Removals apply at the next phase transition, not on confirm.** | The standing 2026-07-21 phase-transition submission decision survives intact. Abandoning the wizard applies nothing. Needs the `pendingRemovals` disposition record (§7.3). |
 | 13 | **Minion cascade confirmed.** Detach → monster and minions both survive untouched and merely stop appearing here. Delete → the monster's minions are FK-cascade-destroyed everywhere and the modal lists them. Attaching a monster always brings its minions. | §6.4 stands as written. Partly already shipped: `monsters-list.html:51` already passes `pendingDelete()?.minions ?? []` to the modal, so the cascade disclosure has a working precedent to copy. |
 | 14 | **The Detach / Delete modal extends to the non-wizard list and detail pages in the same change set**, not as a later sweep. | Rosalina's §7.5 position; my New Question 7 argued the other way and lost. Moves the work from Phase 6 into Phase 3 (§9), where the modal is already being hardened. |
+
+### 3.2 Third round (2026-09-20, from Peach's Phase 4 acceptance review)
+
+Her criteria are at `docs/updates/mystery-entity-linking-acceptance.md`. Two of her gaps are architectural and are decided here; the third (G4) is recorded as expected behaviour in §7.6.
+
+| # | Decision | Consequence |
+|---|---|---|
+| 15 | **`pendingRemovals` is wizard-scoped, not phase-scoped, and every phase submit drains the whole list.** | Closes G1 without touching `jumpToPhase`, `advancePhase` or tracker semantics. A confirmed removal survives an edit-mode tracker jump and is applied by whichever submit happens next. Decision 12's "abandoning applies nothing" is preserved exactly — a jump is no longer an abandon, and the code no longer has to tell them apart. §7.3. |
+| 16 | **The removal variant keys on the phase's baseline, not on `id`.** | Closes G3. An entity attached this session but not yet submitted has an `id` but no persisted membership, so it is a **local discard** — no modal choice, no disposition, no API call. Removes the path where an accidental attach offered permanent destruction of a catalogue entity. Needs no new store state: the `existing*Ids` signals already are the predicate. §7.1. |
 
 ---
 
@@ -344,17 +353,29 @@ Adding a new minion to an **attached** (shared) monster adds it to that monster 
 
 ## 7. Design — removal: Detach or Delete (decision 7)
 
-### 7.1 What the three cases are
+### 7.1 What the cases are — keyed on the baseline, not on `id` (decision 16)
 
-Removal in the wizard now resolves to one of three outcomes, determined by the draft's state:
+**Peach's G3 question was "should the diff key on the baseline rather than on `id`?" The answer is yes, and it is not a close call.**
+
+`id !== null` was the wrong predicate because it answers *"does this entity exist?"* when the question the modal actually needs answered is *"does this mystery's membership of it exist?"* Those came apart the moment attach existed: an attached entity has an `id` the instant it is picked, but its membership row is not created until the phase submits. Keying on `id` therefore offered a user who attached something by mistake a **Detach** that was a no-op against a membership that was never created (the absent-membership `DELETE`, 404, swallowed by §7.3 rule 2) and a **Delete** that permanently destroys a catalogue entity they only meant to un-attach. That is the most dangerous button in the feature, offered for the most trivial mistake in it.
+
+The right predicate already exists in the store and needs no new state: **is this `id` in this phase's baseline** (`existingLocationIds` / `existingBystanderIds` / `existingMinionIds` at `mystery-create.store.ts:330-331` and siblings, plus the monster roster's equivalent in Phase 5). Those signals are set on edit-mode load and after every successful phase submit, which is exactly "memberships that are persisted for this mystery."
 
 | Draft state | Offered | Meaning |
 |---|---|---|
-| `id === null` — never saved | **Remove** only | Pure in-memory list removal. No API call, nothing exists server-side. |
-| `id !== null`, linked only to this mystery | **Detach** + **Delete** (decision 10) | Detach leaves the entity in the catalog, linked to nothing — a first-class state that standalone creation already produces. Delete is `DELETE /api/{collection}/{id}`. |
-| `id !== null`, linked to other mysteries | **Detach** + **Delete** | Detach = `DELETE /api/mysteries/{mysteryId}/{collection}/{id}` (today's unlink, entity survives). Delete = hard delete, removing it from **every** mystery. |
+| `id === null` — authored here, never saved | **Remove** only | Pure in-memory discard. Nothing exists server-side. |
+| `id !== null`, **not in baseline** — attached this session, not yet submitted | **Remove** only | ← **new.** The entity exists; *this membership does not.* Undoing an un-submitted attach is a local discard, so there is nothing to detach and nothing that warrants offering deletion. No modal choice, no disposition recorded, no API call. |
+| `id !== null`, **in baseline**, linked only to this mystery | **Detach** + **Delete** (decision 10) | Detach leaves the entity in the catalog linked to nothing — a first-class state standalone creation already produces. Delete is `DELETE /api/{collection}/{id}`. |
+| `id !== null`, **in baseline**, linked to other mysteries | **Detach** + **Delete** | Detach = `DELETE /api/mysteries/{mysteryId}/{collection}/{id}`. Delete = hard delete, removing it from **every** mystery. |
 
-Detach is exactly the existing unlink endpoint. No new API is needed for removal — only for linking (§4.1).
+Two consequences worth naming:
+
+- **This is §7.3's remove-then-re-attach pair in the other order**, and collapsing the new case into "local discard" makes both orders symmetric: neither an attach-then-remove nor a remove-then-re-attach leaves a disposition behind.
+- **It shrinks §7.3 rule 2's exposure without retiring it.** The accidental-attach case was the main source of absent-membership detaches; rule 2 now covers only genuine partial-failure replay, which is still real.
+
+A user who genuinely wants to destroy a catalogue entity they just attached can still do it from `/locations` and friends, which is where decision 14 put that capability. Losing it from this one gesture is the correct trade.
+
+**Rosalina owns the copy for the new middle row** — variant (A)'s current sentence ("this hasn't been saved yet; removing it discards what you typed") is wrong for an attached entity, since nothing was typed. Flagged to her; the state model is settled here, the wording is hers.
 
 ### 7.2 Where "is it linked elsewhere?" comes from — no new API needed
 
@@ -387,6 +408,30 @@ readonly pendingRemovals = signal<{ id: string; action: 'detach' | 'delete' }[]>
 
 **toad:** the test is "make the first phase submit fail after some removals have landed, press Next again, confirm the phase completes." That is the case rule 1 does not cover and rule 2 exists for.
 
+**Correction to rule 1 (decision 15):** clearing `pendingRemovals` on a successful phase submit is right, but it must clear *what that submit drained*, not the whole list — see below, the list is now wizard-scoped and a submit may be draining removals that originated in another phase.
+
+### 7.3.1 `pendingRemovals` is wizard-scoped (decision 15) — closing Peach's G1
+
+**The gap.** Decision 12 says removals apply at the next phase transition. That holds only if every exit from a phase *is* a transition, and in edit mode one isn't: `jumpToPhase` (`mystery-create.store.ts:900`) sets `currentPhase` directly and never submits, and `isPhaseAccessible` (`:909`) returns `true` unconditionally in edit mode. So: edit a mystery → Locations → trash a location → confirm **Delete** → click the Bystanders bubble → **Finish**, and phase 2 never submits. `Back → Next` is safe because it re-enters and re-submits; the tracker is the only hole.
+
+**Why this is worse than the pre-existing bug it sits on.** Today's inferred unlink is lost through the same gesture, and unsubmitted *field* edits are lost too. But Phase 4 puts a confirmation dialog and the word **Delete** in front of it. Asking a user to confirm a destructive action, telling them it will happen, and then not doing it is a different category of defect from losing an edit they never confirmed. It is also the one failure mode that makes users stop trusting a confirmation dialog, which we need them to read.
+
+**Decided: make the disposition record wizard-scoped and drain it on every phase submit.** `pendingRemovals` becomes a flat list of `{ collection, id, action }` that does not belong to a phase, and *every* `submitPhaseN` applies the whole of it as part of its batch. A removal names an entity, a collection and a disposition; applying it has never actually depended on which phase is submitting.
+
+**Why this one and not the alternatives:**
+
+- **Submit on jump** — the obvious fix, and the most invasive. `submitCurrentPhase()` succeeds into `advancePhase()` (`:1633`), which hard-increments `currentPhase`; making it land on an arbitrary target phase is a real refactor of the navigation core. It also makes a tracker click fire a full monster-and-minion save as a side effect, and lets `validateCurrentStep()` block navigation, turning the tracker into a trap. Large blast radius on shipped behaviour, to fix a narrow problem.
+- **Block a jump while a disposition is pending** — cheap and hostile. "You cannot navigate because you deleted something" is a worse experience than the bug, and it fixes nothing else.
+- **Apply on the final submit only** — closes the tracker hole but delays every removal to the end, which contradicts decision 12's copy ("take effect when you continue to the next step") and makes a mid-wizard abandon lose more than it does today.
+
+Draining on every submit gets the same result as submit-on-jump with none of the navigation surgery, and it makes the shipped copy *more* true rather than less: the removal takes effect when you next continue, whichever phase you continue from.
+
+**Bookkeeping Luigi must get right.** When a drained removal is applied, **also remove its id from that collection's baseline signal** (`existingLocationIds` and siblings). Otherwise the owning phase's own `idsToRemove()` diff will later see an id that is in the baseline and not in the drafts, and fire a second removal — harmless, because §7.3 rule 2 swallows the 404, but it is a duplicate request produced by sloppy state. This is the completion of what §7.3 already said: `pendingRemovals` is authoritative and `idsToRemove()` is the consistency check, not the source of truth.
+
+**What this does not fix, deliberately.** An edit-mode tracker jump still discards unsubmitted *field* edits and newly authored drafts in the phase being left. That is pre-existing, unchanged, and out of scope — logged as **F9** in §12. The resulting asymmetry is intentional and defensible: a removal was confirmed through a modal that promised it would happen; a half-typed location never made that promise.
+
+**Decision 12 is preserved exactly.** Abandoning the wizard still applies nothing. What changes is that a tracker jump is no longer an abandon — and the code no longer needs to tell the two apart, which is the part it could not do.
+
 **This keeps the standing phase-transition submission decision intact** (decision 12), at the cost of a modal that says "Delete" and does not delete until Next — and of a user who abandons the wizard never having their deletion applied. The second property is a feature: nothing is destroyed until you advance. Rosalina carries the semantics in copy rather than mechanism (her §7.3).
 
 **Applies to all four entity types**, monsters and minions included, with §6.4's cascade rules folded into the monster modal's `items` list.
@@ -413,6 +458,14 @@ I checked whether any mystery-scoped route could offer it instead. The scoped de
 **Resolution, by construction rather than preference: outside the wizard the modal is Delete-only, and the sweep is a *disclosure* upgrade — the `[items]` list and the mystery names — not a Detach upgrade.** That is the half with the real safety value anyway: after this feature the flat-list delete is the highest-consequence destructive action in the app, and today it says nothing at all about what it takes with it.
 
 This narrows decision 14 slightly from its plain reading, so it is called out rather than folded in silently. If Skyler wants Detach reachable outside the wizard, the natural home is the mystery detail page's rosters, paired with the attach affordance already queued for Phase 6 — that page *does* know which mystery it is.
+
+### 7.6 The attach picker's options go stale within a session (Peach's G4)
+
+Recorded as expected behaviour rather than decided, because it needs no architectural choice. The picker's options are a page-load snapshot from `getAll()`, so an entity deleted earlier in the same session can still be offered after a `Back`. Picking it produces a membership `PUT` against a row that no longer exists, which 404s and fails the phase with its generic error band. Nothing is destroyed and nothing is silently wrong.
+
+**§7.3 rule 2 deliberately does not cover the link path, and should not be extended to it.** A 404 on *detach* means the post-condition the user asked for already holds. A 404 on *link* means the thing being linked does not exist — the opposite of the requested post-condition. Mapping it to success would report a membership that was never created, and §5.1 has the wizard trusting exactly that answer. This is the same reasoning that rejected the blanket `DbUpdateException` catch in §9's Phase 2 gate: an honest failure beats a false success.
+
+**Recommended cheap fix, Luigi's call per Peach:** when a `delete` disposition drains successfully, drop that id from the cached picker options as part of the same bookkeeping that already updates the baseline signal (§7.3.1). Three lines, exact, and it reuses a code path the drain needs anyway. The alternative — refetching `getAll()` on every phase entry — costs a round trip per navigation to fix a narrow case.
 
 ---
 
@@ -448,7 +501,9 @@ Ceremony triggers per `.squad/ceremonies.md`: **design-review** (Rosalina, with 
 
 ### Phase 0 — Decide — **complete**
 
-Fourteen decisions recorded in §3 and §3.1, filed to `.squad/decisions/inbox/`. No architectural question remains open (§10).
+Sixteen decisions recorded in §3, §3.1 and §3.2, filed to `.squad/decisions/inbox/`. No architectural question remains open (§10).
+
+**peach:** acceptance criteria and expected behaviours are at **`docs/updates/mystery-entity-linking-acceptance.md`** — the third companion doc, and the authority on *what it must do*. Her Phase 4 review produced decisions 15 and 16 (§3.2) and the G4 behaviour note (§7.6). Read it alongside this document and Rosalina's before starting any phase.
 
 **peach:** acceptance criteria for "connect an existing object to a mystery" on both surfaces, and for the Detach/Delete removal contract in §7.1.
 
@@ -500,11 +555,15 @@ Independently shippable, and **parallel to Phase 4 rather than gating it** — t
 
 ### Phase 4 — Wizard: attach, re-edit, and removal, Locations & Bystanders (rosalina → luigi, toad)
 
-Implements decisions 10, 11 and 12. Depends on Phase 3's modal.
+Implements decisions 10, 11, 12, 15 and 16. Depends on Phase 3's modal. Acceptance criteria in Peach's doc.
 
-- **rosalina:** attach affordance, re-edit affordance, and the Detach/Delete modal variants — all in `mystery-entity-linking-ux.md`.
-- **luigi:** unconditional membership `PUT` in `submitPhase2`/`submitPhase3` (§5.1); roster + composer generalised from the minion shape to both phases, including `commitComposerIfValid` (§5.3); `mysteryIds` retained through hydration and carried onto drafts (§7.2, her §10.3); `pendingRemovals` disposition in the store (§7.3, her §10.4); attach control excluding already-listed entities.
-- **toad:** the load-bearing regressions are **"attach an existing location, press Next, confirm it is now linked to the mystery"** and **"…confirm its own fields are unchanged if untouched."** Plus: attach-then-remove before Next; re-edit a hydrated draft; Detach offered per whatever NQ2 decides; Delete removes it from all mysteries; remove-then-re-attach cancels the pending removal; abandoning the wizard applies nothing.
+- **rosalina:** attach affordance, re-edit affordance, and the Detach/Delete modal variants — all in `mystery-entity-linking-ux.md`. Note the new middle row in §7.1 needs copy she has not written yet.
+- **luigi:** unconditional membership `PUT` in `submitPhase2`/`submitPhase3` (§5.1); roster + composer generalised from the minion shape to both phases, including `commitComposerIfValid` (§5.3); `mysteryIds` retained through hydration and carried onto drafts (§7.2, her §10.3); attach control excluding already-listed entities.
+- **luigi — the three things most likely to be got wrong, all new in rev 7:**
+  1. **`pendingRemovals` is wizard-scoped, not per-phase, and every `submitPhaseN` drains all of it** (§7.3.1, decision 15). Scoping it to a phase is the natural implementation and it reintroduces G1.
+  2. **When a drained removal is applied, drop its id from the owning collection's baseline signal** (`existingLocationIds` and siblings) — and, if you take §7.6's cheap fix, from the cached picker options too. Same bookkeeping step, two consumers.
+  3. **The removal variant keys on the baseline, not on `id`** (§7.1, decision 16). `id !== null` is the intuitive predicate and it is the wrong one: it offers **Delete** for an entity the user attached by mistake ten seconds ago.
+- **toad:** load-bearing regressions are **"attach an existing location, press Next, confirm it is now linked"** and **"…confirm its own fields are unchanged if untouched."** Plus the two new gap tests: **G1 — edit a mystery, trash a location, confirm Delete, jump to Bystanders via the tracker, Finish, confirm the location is actually deleted**; and **G3 — attach an existing location, trash it before pressing Next, confirm no Delete button is offered and the catalogue entity survives.** Plus: re-edit a hydrated draft; Detach offered whenever `id` is in the baseline; Delete removes it from all mysteries; remove-then-re-attach cancels the pending removal; abandoning the wizard still applies nothing; and §7.6's stale-picker case failing loudly rather than silently.
 
 ### Phase 5 — Monster roster, sub-resource upsert, minion picker (rosalina → luigi, toad, yoshi) — highest risk
 
@@ -570,6 +629,7 @@ Rosalina's `mystery-entity-linking-ux.md` carries a matching section. **Ownershi
 | **F6** | **Retire the scoped create endpoints** | After decision 3 the create pages no longer call `POST /api/mysteries/{id}/{locations,bystanders,monsters}`; only the wizard does. If Phase 4 moves the wizard to `createStandalone` + membership `PUT` as well, three endpoints become dead and could be removed. Deliberately *not* done inside this work — deleting endpoints while three phases are still landing on them is how you get a bad week. |
 | **F7** | **Revisit the picker when catalog volumes grow** | §8.4. `getAll()` is unpaged and every picker in this design loads the full catalog. Fine now; the searchable select absorbs a lot. **This is the trigger condition for her browse-panel item (below) — same threshold, two responses:** paging is mine, the richer browse UI is hers. Whoever hits it first should ping the other. |
 | **F8** | **Two-sided authorization for `LinkToMysteryAsync`, if per-user ownership ever lands** | From Boo's Phase 1 review. **Not a current defect** — there is no per-user ownership model, and that is a deliberate, documented exclusion (`docs/simple-authentication-update/architecture.md:601`: "No per-user data ownership. No `owner_id`, no `ICurrentUser`… explicitly out of scope"). The point is structural: `LinkToMysteryAsync` is **the first write verb in this codebase that joins two objects.** Every other write touches one, so every service's guard idiom is a one-object check — and that idiom will silently under-check here. A user permitted to edit mystery A but not monster B could link B into A, or the reverse, and a copy-pasted single-object guard would pass. Whoever implements ownership needs to know this verb wants the mystery **and** the entity checked. Recorded so it is not rediscovered by an audit. |
+| **F9** | **An edit-mode tracker jump still discards unsubmitted field edits** | The other half of Peach's G1. Decision 15 makes confirmed *removals* survive a tracker jump; typed-but-unsubmitted field edits and newly authored drafts in the phase being left are still lost, exactly as they are today. Pre-existing, unchanged by this work, and deliberately left — see §7.3.1 for why the asymmetry is defensible (a removal was confirmed through a modal that promised it would happen; a half-typed location made no such promise). The real fixes are submit-on-jump — which needs `advancePhase` (`mystery-create.store.ts:1633`) to land on an arbitrary target rather than `phase + 1` — or a dirty-check guard on `jumpToPhase`. Both are navigation-core surgery and neither belongs inside this feature. Worth pairing with F4, since mid-wizard persistence addresses the same class of loss. |
 
 ### Owned by `mystery-entity-linking-ux.md`
 

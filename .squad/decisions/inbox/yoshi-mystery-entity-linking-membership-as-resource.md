@@ -262,3 +262,68 @@ objects; every other write touches one. Not a defect today — per-user ownershi
 documented exclusion (`docs/simple-authentication-update/architecture.md:601`). But if ownership ever
 lands, this verb needs a **two-sided** check (the mystery *and* the entity), and the one-object guard
 idiom every other service uses will silently under-check it.
+
+---
+
+## Rev 7 addendum (2026-09-20) — Peach's Phase 4 acceptance review: decisions 15 and 16
+
+Phases 1–3 shipped (`72ebc5c`, `2814168`, `c9d554a`, `a063449`). Peach's criteria are at
+`docs/updates/mystery-entity-linking-acceptance.md`, now the third companion doc: **what it must do**
+(hers) / **how it does it** (mine) / **how it looks** (Rosalina's).
+
+**Decision 15 — `pendingRemovals` is wizard-scoped, and every phase submit drains all of it.**
+
+Her G1: in edit mode, trash a location, confirm **Delete**, click a tracker bubble, Finish — phase 2
+never submits and the location survives. `jumpToPhase` (`mystery-create.store.ts:900`) sets the phase
+directly without submitting, and `isPhaseAccessible` (`:909`) returns `true` unconditionally in edit
+mode. So decision 12's "removals apply at the next phase transition" held only because every exit was
+assumed to be a transition, and the tracker isn't one. `Back -> Next` is safe; the tracker is the only hole.
+
+The mechanism is pre-existing — today's inferred unlink is lost identically, as are unsubmitted field
+edits — but Phase 4 puts a confirmation dialog and the word **Delete** in front of the same gesture.
+Asking someone to confirm a destructive action, promising it will happen, and then not doing it is a
+different category of defect, and it is the one that teaches users to stop reading confirmations.
+
+Fix: make the disposition record wizard-scoped rather than phase-scoped, as a flat
+`{ collection, id, action }` list, and have *every* `submitPhaseN` drain the whole thing. Applying a
+removal never actually depended on which phase was submitting. Rejected: **submit-on-jump** (needs
+`advancePhase` at `:1633` to land on an arbitrary target rather than `phase + 1`, makes a tracker click
+fire a full monster-and-minion save, and lets `validateCurrentStep()` turn the tracker into a trap);
+**blocking the jump** (hostile, and fixes nothing else); **apply-on-final-submit-only** (contradicts the
+shipped "takes effect when you continue to the next step" copy and loses more on abandon).
+
+Draining on every submit gets submit-on-jump's result with none of the navigation surgery, and makes
+the shipped copy more true rather than less. **Decision 12 is preserved exactly** — abandoning still
+applies nothing; what changed is that a tracker jump is no longer an abandon, which is precisely the
+distinction the code could not draw.
+
+Bookkeeping: a drained removal must also drop its id from the owning collection's baseline signal, or
+the owning phase's `idsToRemove()` will later fire a duplicate removal (harmless — rule 2 swallows the
+404 — but sloppy). This completes what §7.3 already asserted: `pendingRemovals` is authoritative and
+`idsToRemove()` is the consistency check.
+
+Not fixed, deliberately: a tracker jump still discards unsubmitted *field* edits (F9).
+
+**Decision 16 — the removal variant keys on the phase's baseline, not on `id`.**
+
+Her G3, and her question to me was the right one. `id !== null` answers *"does this entity exist?"*
+when the modal needs *"does this mystery's membership of it exist?"* Those came apart the moment
+attach existed: an attached entity has an `id` immediately, but no membership row until the phase
+submits. So attaching by mistake and trashing it a second later offered **Detach** (a no-op against a
+membership never created) and **Delete** (permanent destruction of a catalogue entity) — the most
+dangerous button in the feature, for the most trivial mistake in it.
+
+The right predicate needs no new state: **is this id in this phase's baseline** (`existingLocationIds`
+and siblings, `:330-331`), which is set on edit-load and after each successful submit and therefore
+means exactly "memberships persisted for this mystery." An attached-but-unsubmitted draft becomes a
+**local discard** — no modal choice, no disposition, no API call.
+
+This makes attach-then-remove and remove-then-re-attach symmetric (neither leaves a disposition), and
+shrinks rule 2's exposure without retiring it. A user who genuinely wants to destroy a just-attached
+catalogue entity can still do it from the list pages, which is where decision 14 put that capability.
+
+**G4 recorded as expected behaviour (§7.6), not decided.** Stale picker options can re-offer a
+session-deleted entity; the membership `PUT` 404s and fails the phase loudly. **Rule 2 must not be
+extended to the link path**: a 404 on detach means the requested post-condition already holds, while a
+404 on link means the opposite, and reporting success for a membership that was never created is the
+same false-204 failure the Phase 2 gate rejects.

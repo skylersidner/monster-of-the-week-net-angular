@@ -3,6 +3,8 @@ import {
   mysteryUsageMessage,
   mysteryUsageUnavailableMessage,
   resolveMysteryNames,
+  wizardMysteryUsageMessage,
+  wizardRemovalFootnote,
 } from './mystery-usage';
 
 describe('mysteryUsageMessage', () => {
@@ -24,6 +26,34 @@ describe('mysteryUsageMessage', () => {
   it('has a distinct sentence for zero, with no trailing colon and no list to introduce', () => {
     expect(mysteryUsageMessage('monster', 0)).toBe("This monster isn't used by any mystery.");
     expect(mysteryUsageMessage('monster', 0)).not.toContain(':');
+  });
+
+  it('states the count and says only the names are missing when they could not be resolved', () => {
+    // §15.1. The count and the names are two facts from two sources: the count is the entity's own
+    // `mysteryIds` and is always available, the names need the mystery lookup. Collapsing them made
+    // a failed lookup render as "isn't used by any mystery" — the opposite of the truth.
+    expect(mysteryUsageMessage('location', 2, false)).toBe(
+      "This location is used by 2 mysteries. Their names couldn't be loaded.",
+    );
+    expect(mysteryUsageMessage('location', 1, false)).toBe(
+      "This location is used by 1 mystery. Their names couldn't be loaded.",
+    );
+  });
+
+  it('ends the names-missing variant in a full stop, because a colon promises a list', () => {
+    const missing = mysteryUsageMessage('location', 2, false);
+
+    expect(missing).not.toContain('mysteries:');
+    expect(missing.endsWith('.')).toBe(true);
+  });
+
+  it('never claims nothing uses it just because the names are missing', () => {
+    expect(mysteryUsageMessage('location', 2, false)).not.toContain("isn't used by any");
+  });
+
+  it('still says "isn’t used by any mystery" for a real zero, whatever the names flag says', () => {
+    // Zero names for zero memberships is not a failure, and must not be reported as one.
+    expect(mysteryUsageMessage('location', 0, false)).toBe("This location isn't used by any mystery.");
   });
 
   it('carries the entity noun into the sentence', () => {
@@ -100,5 +130,47 @@ describe('resolveMysteryNames', () => {
 
   it('tolerates an empty mystery list without claiming anything', () => {
     expect(resolveMysteryNames(['m1', 'm2'], [])).toEqual([]);
+  });
+});
+
+describe('wizardMysteryUsageMessage', () => {
+  it('says "other mysteries", which the list-page wording never does', () => {
+    // Inside the wizard there *is* a current mystery, so the others really are other. On a flat
+    // catalogue route there is not, and "other" there makes the count read as off-by-one.
+    expect(wizardMysteryUsageMessage('location', 2)).toBe('This location is also used by 2 other mysteries:');
+    expect(wizardMysteryUsageMessage('location', 1)).toBe('This location is also used by 1 other mystery:');
+  });
+
+  it('has its own zero sentence', () => {
+    expect(wizardMysteryUsageMessage('bystander', 0)).toBe("This bystander isn't used by any other mystery.");
+  });
+
+  it('states the count and flags only the missing names — the §15.1 fix', () => {
+    expect(wizardMysteryUsageMessage('location', 2, false)).toBe(
+      "This location is also used by 2 other mysteries. Their names couldn't be loaded.",
+    );
+    expect(wizardMysteryUsageMessage('location', 2, false)).not.toContain("isn't used by any other mystery");
+    expect(wizardMysteryUsageMessage('location', 2, false)).not.toContain('mysteries:');
+  });
+
+  it('reports a real zero as a zero even when the names flag is false', () => {
+    expect(wizardMysteryUsageMessage('location', 0, false)).toBe("This location isn't used by any other mystery.");
+  });
+});
+
+describe('wizardRemovalFootnote', () => {
+  it('names the cross-mystery consequence only when the entity is used elsewhere', () => {
+    expect(wizardRemovalFootnote('location', true, 'when you press Finish')).toBe(
+      'Detach removes it from this mystery only. Delete removes it from those mysteries too. Either way, the change takes effect when you press Finish.',
+    );
+    expect(wizardRemovalFootnote('location', false, 'when you continue to the next step')).toBe(
+      'Detach keeps it in your locations list. Delete removes it for good. Either way, the change takes effect when you continue to the next step.',
+    );
+  });
+
+  it('never says "cannot be undone", because a wizard removal has not happened yet', () => {
+    // §7.3: the list pages use the hard permanence line; here it would be false at the moment it
+    // is read, and this sentence is the only thing carrying the deferred model to the user.
+    expect(wizardRemovalFootnote('location', true, 'when you press Finish')).not.toContain('cannot be undone');
   });
 });

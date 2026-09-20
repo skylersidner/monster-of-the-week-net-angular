@@ -162,9 +162,10 @@ describe('MonstersListComponent', () => {
     component.requestDelete(monsters[0]);
     fixture.detectChanges();
 
-    expect(dialog()!.textContent).toContain("Couldn't check which mysteries use this monster.");
-    expect(dialog()!.textContent).not.toContain('is used by');
-    // The cascade half is unaffected by a mystery-lookup failure.
+    // §15.1: the count survives a failed lookup, because it comes from the row's own `mysteryIds`.
+    expect(dialog()!.textContent).toContain("This monster is used by 1 mystery. Their names couldn't be loaded.");
+    expect(dialog()!.textContent).not.toContain("Couldn't check which mysteries use this monster.");
+    // The usage block withholds its bullets; the cascade half is unaffected either way.
     expect(dialogLists()).toEqual([['Grave-Wight', 'Pale Choir']]);
 
     const confirm = Array.from(dialog()!.querySelectorAll('button')).at(-1) as HTMLButtonElement;
@@ -182,7 +183,7 @@ describe('MonstersListComponent', () => {
 
     component.requestDelete(monsters[0]);
     fixture.detectChanges();
-    expect(dialog()!.textContent).toContain("Couldn't check which mysteries use this monster.");
+    expect(dialog()!.textContent).toContain("This monster is used by 1 mystery. Their names couldn't be loaded.");
     // The minion cascade does not wait on the mystery list either.
     expect(dialogLists()).toEqual([['Grave-Wight', 'Pale Choir']]);
 

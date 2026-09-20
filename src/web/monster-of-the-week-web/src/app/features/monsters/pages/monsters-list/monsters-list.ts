@@ -12,7 +12,6 @@ import { IconComponent } from '../../../../shared/icons/icon.component';
 import {
   mysteryUsageFootnote,
   mysteryUsageMessage,
-  mysteryUsageUnavailableMessage,
   resolveMysteryNames,
 } from '../../../../shared/mystery-usage';
 
@@ -46,11 +45,6 @@ export class MonstersListComponent implements OnInit {
   readonly isLoadingMinions = signal(false);
 
   private readonly mysteries = signal<MysteryListItemResponse[]>([]);
-  /**
-   * Whether the mystery list has arrived. Until it has — whether because it failed or because it is
-   * still in flight — the dialog says so rather than reporting an unverified zero (§7.7).
-   */
-  private readonly mysteriesAvailable = signal(false);
 
   constructor(
     private readonly monsterService: MonsterService,
@@ -61,8 +55,8 @@ export class MonstersListComponent implements OnInit {
   /**
    * Two independent loads, deliberately not a `forkJoin`. The mystery list is **disclosure data for
    * the delete dialog, not page data**, so gating `isLoading` on it would let a slow
-   * `/api/mysteries` delay the monsters list itself. It fills the usage block in when it arrives,
-   * and until then the dialog says the check has not come back.
+   * `/api/mysteries` delay the monsters list itself. The dialog reports the *count* either way —
+   * that comes from each row's own `mysteryIds` — and fills in the names when they arrive (§15.1).
    */
   ngOnInit(): void {
     this.monsterService
@@ -86,10 +80,10 @@ export class MonstersListComponent implements OnInit {
       .subscribe({
         next: (mysteries) => {
           this.mysteries.set(mysteries);
-          this.mysteriesAvailable.set(true);
         },
-        // Swallowed on purpose: this failure must not put an error band over a list that loaded.
-        error: () => this.mysteriesAvailable.set(false),
+        // Swallowed on purpose: this failure must not put an error band over a list that loaded, and
+        // the count is not lost with it — it comes from each row's own `mysteryIds` (§15.1).
+        error: () => {},
       });
   }
 
@@ -110,27 +104,26 @@ export class MonstersListComponent implements OnInit {
       });
   }
 
+  /**
+   * **The count comes from `mysteryIds`, the names from the mystery lookup** (§15.1). They are two
+   * facts from two sources, and deriving the count from the names made a failed lookup assert that
+   * the monster was in no mystery at all — the opposite of the truth, on an irreversible action.
+   *
+   * Bullets render only when *every* id resolved, so the number in the sentence and the length of
+   * the list can never disagree.
+   */
   private toPending(monster: MonsterListItemResponse, minions: string[]): PendingMonsterDelete {
-    if (!this.mysteriesAvailable()) {
-      return {
-        id: monster.id,
-        name: monster.name,
-        minions,
-        usage: [],
-        usageMessage: mysteryUsageUnavailableMessage('monster'),
-        footnote: mysteryUsageFootnote(0),
-      };
-    }
+    const count = monster.mysteryIds.length;
+    const names = resolveMysteryNames(monster.mysteryIds, this.mysteries());
+    const namesResolved = names.length === count;
 
-    // Count from the resolved names, never from `mysteryIds` — see `resolveMysteryNames`.
-    const usage = resolveMysteryNames(monster.mysteryIds, this.mysteries());
     return {
       id: monster.id,
       name: monster.name,
       minions,
-      usage,
-      usageMessage: mysteryUsageMessage('monster', usage.length),
-      footnote: mysteryUsageFootnote(usage.length),
+      usage: namesResolved ? names : [],
+      usageMessage: mysteryUsageMessage('monster', count, namesResolved),
+      footnote: mysteryUsageFootnote(count),
     };
   }
 

@@ -2,12 +2,16 @@ import { DestroyRef, Injectable, WritableSignal, computed, inject, signal } from
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Observable, forkJoin, map, of, startWith, switchMap, tap } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, forkJoin, map, of, startWith, switchMap, tap, throwError } from 'rxjs';
 
 import { BystanderService } from '../../../../core/bystander';
 import { LocationService } from '../../../../core/location';
 import {
   AdventureTypeResponse,
+  BystanderListItemResponse,
+  LocationListItemResponse,
+  MysteryListItemResponse,
   MinionArmorResponse,
   MinionAttackResponse,
   MinionDetailResponse,
@@ -62,17 +66,49 @@ export interface ArmorDraft {
 export interface LocationDraft {
   /** `null` until this draft has been saved at least once in this session (or hydrated from an existing mystery). */
   id: string | null;
+  /** Stable client identity — see `MinionDraft.localKey`. Minted at author, attach and hydration. */
+  localKey: string;
   name: string;
   description: string;
   locationTypeId: string;
+  /**
+   * The mysteries this entity belonged to when it was hydrated or attached. Read only by the
+   * removal modal, to name the *other* mysteries a Delete would take it out of (§7.2). A page-load
+   * snapshot, and accepted as such — S1 says staleness changes the wording and never the buttons.
+   */
+  mysteryIds: string[];
 }
 
 export interface BystanderDraft {
   /** `null` until this draft has been saved at least once in this session (or hydrated from an existing mystery). */
   id: string | null;
+  /** Stable client identity — see `MinionDraft.localKey`. Minted at author, attach and hydration. */
+  localKey: string;
   name: string;
   description: string;
   bystanderTypeId: string;
+  /** See `LocationDraft.mysteryIds`. */
+  mysteryIds: string[];
+}
+
+/** Which catalogue a pending removal belongs to. Monsters and minions join in Phase 5. */
+export type RemovalCollection = 'locations' | 'bystanders';
+
+/**
+ * A removal the user confirmed through the modal, waiting for a phase submit to apply it
+ * (decision 12 — nothing is destroyed until you continue).
+ *
+ * **Wizard-scoped, not per-phase** (decision 15, architecture §7.3.1). Scoping it to the phase that
+ * recorded it is the natural implementation and it reintroduces Peach's G1: in edit mode
+ * `jumpToPhase` sets the phase without submitting and `isPhaseAccessible` allows any phase, so
+ * trashing a location, confirming **Delete**, clicking the Bystanders bubble and pressing Finish
+ * would never submit phase 2 — and the confirmed deletion would silently not happen. A removal
+ * names a collection, an id and a disposition; applying it never depended on which phase submits.
+ */
+export interface PendingRemoval {
+  collection: RemovalCollection;
+  id: string;
+  action: 'detach' | 'delete';
 }
 
 /**
@@ -84,6 +120,10 @@ export const MINION_DEFAULT_HARM_CAPACITY = 3;
 
 /** Error-band copy when the open composer holds work that cannot be committed yet (Rosalina §1.4). */
 const COMPOSER_BLOCKED_MESSAGE = "Finish or clear the minion you're editing before continuing.";
+
+/** The same rule, per entity — UX §2.3 asks all four phases to behave identically here. */
+const LOCATION_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the location you're editing before continuing.";
+const BYSTANDER_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the bystander you're editing before continuing.";
 
 /**
  * One minion under the wizard's monster. Unlike `LocationDraft`/`BystanderDraft` — flat leaf
@@ -277,6 +317,22 @@ export class MysteryCreateStore {
   readonly lastPhaseIndex = this.phases.length - 1;
 
   readonly currentPhase = signal(0);
+
+  /**
+   * How the deferred-execution copy names the button that will apply the change (§7.1, G2).
+   *
+   * Bystanders is `lastPhaseIndex`, so its control reads **Finish**, not `Next →` — "continue to
+   * the next step" names a step that does not exist there, and this sentence is the only thing
+   * carrying the deferred-execution model to the user, so it cannot simply be dropped.
+   *
+   * **Derived, not hardcoded per phase component.** Locations is never last and Bystanders always
+   * is, so each component could state its own — and that silently rots the first time a phase is
+   * inserted, which Phase 5 does. One expression beats two strings that can go stale. Both the
+   * removal modal's footnote and the minion phase's note read from here.
+   */
+  readonly deferredChangeTail = computed(() =>
+    this.currentPhase() === this.lastPhaseIndex ? 'when you press Finish' : 'when you continue to the next step',
+  );
   readonly currentStep = signal(0);
   readonly isSubmitting = signal(false);
   readonly submitError = signal<string | null>(null);
@@ -327,8 +383,45 @@ export class MysteryCreateStore {
   private readonly existingMonsterArmorIds = signal<string[]>([]);
   /** Minion IDs on the server as of the last phase-1 save; anything missing from `minionDrafts()` gets hard-deleted. */
   private readonly existingMinionIds = signal<string[]>([]);
+  /**
+   * The memberships this mystery actually has on the server, as of the last successful submit.
+   *
+   * **This is the one fact the removal modal and the submit diff both key on**, and it is exposed
+   * through `membershipPersisted()` so there is exactly one implementation of the question (§7.1,
+   * decision 16). `id !== null` is the intuitive predicate and it is the wrong one: an attached
+   * entity has an id the instant it is picked, and no membership row until the phase submits — so
+   * keying on the id offers **Delete** to a user undoing a mis-click ten seconds old.
+   */
   private readonly existingLocationIds = signal<string[]>([]);
   private readonly existingBystanderIds = signal<string[]>([]);
+
+  /** `localKey` of the roster card each phase's composer is editing; `null` when authoring a new one. */
+  readonly editingLocationKey = signal<string | null>(null);
+  readonly editingBystanderKey = signal<string | null>(null);
+  /** Whether each composer panel is rendered. Same non-derivable invariant as `composerOpen`. */
+  readonly locationComposerOpen = signal(true);
+  readonly bystanderComposerOpen = signal(true);
+
+  /** The catalogues the attach strips offer from, and the mystery names the removal modal needs. */
+  private readonly catalogLocations = signal<LocationListItemResponse[]>([]);
+  private readonly catalogBystanders = signal<BystanderListItemResponse[]>([]);
+  readonly mysteries = signal<MysteryListItemResponse[]>([]);
+
+  /** Everything in the catalogue that is not already on the roster (A2). */
+  readonly attachableLocations = computed(() => {
+    const onRoster = new Set(this.locations().map((draft) => draft.id));
+    return this.catalogLocations().filter((item) => !onRoster.has(item.id));
+  });
+  readonly attachableBystanders = computed(() => {
+    const onRoster = new Set(this.bystanders().map((draft) => draft.id));
+    return this.catalogBystanders().filter((item) => !onRoster.has(item.id));
+  });
+  /** A1/A3: an empty catalogue hides the strip entirely; a fully-attached one keeps it, with its empty state. */
+  readonly locationCatalogEmpty = computed(() => this.catalogLocations().length === 0);
+  readonly bystanderCatalogEmpty = computed(() => this.catalogBystanders().length === 0);
+
+  /** Confirmed removals waiting for any phase submit to apply them. See `PendingRemoval`. */
+  readonly pendingRemovals = signal<PendingRemoval[]>([]);
 
   readonly conceptForm = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required, Validators.minLength(1)]),
@@ -438,6 +531,35 @@ export class MysteryCreateStore {
   );
   private readonly monsterValue = toSignal(this.monsterForm.valueChanges.pipe(startWith(this.monsterForm.getRawValue())));
   private readonly minionValue = toSignal(this.minionForm.valueChanges.pipe(startWith(this.minionForm.getRawValue())));
+
+  private readonly locationValue = toSignal(
+    this.addLocationForm.valueChanges.pipe(startWith(this.addLocationForm.getRawValue())),
+  );
+  private readonly bystanderValue = toSignal(
+    this.addBystanderForm.valueChanges.pipe(startWith(this.addBystanderForm.getRawValue())),
+  );
+
+  /**
+   * "The user has started something here." Deliberately wider than `form.valid`, for the same
+   * reason `composerDirty` is: a composer holding a name and no type must block `Next` rather than
+   * be silently discarded. A type picked with no name counts too.
+   */
+  readonly locationComposerDirty = computed(() => {
+    const value = this.locationValue();
+    return (
+      (value?.name ?? '').trim().length > 0 ||
+      (value?.description ?? '').trim().length > 0 ||
+      (value?.locationTypeId ?? '').length > 0
+    );
+  });
+  readonly bystanderComposerDirty = computed(() => {
+    const value = this.bystanderValue();
+    return (
+      (value?.name ?? '').trim().length > 0 ||
+      (value?.description ?? '').trim().length > 0 ||
+      (value?.bystanderTypeId ?? '').length > 0
+    );
+  });
 
   private readonly monsterAttackTagIds = toSignal(
     this.monsterAttackForm.controls.weaponTagIds.valueChanges.pipe(
@@ -677,6 +799,7 @@ export class MysteryCreateStore {
       this.mysteryId.set(mysteryId);
       this.phaseComplete.set([true, true, true, true]);
       this.loadEditData(mysteryId);
+      this.loadAttachCatalogues();
     } else {
       this.loadReferenceData();
     }
@@ -702,6 +825,33 @@ export class MysteryCreateStore {
         this.bystanderTypes.set(bystanderTypes);
         this.weaponTags.set(weaponTags);
       });
+
+    this.loadAttachCatalogues();
+  }
+
+  /**
+   * The attach strips' options and the removal modal's mystery names (decision 11).
+   *
+   * Loaded separately from the reference data, and each failure swallowed on its own: none of this
+   * is page data. A catalogue that does not arrive hides its attach strip, which is the same state
+   * as an empty catalogue and is already specified (§3); a mystery list that does not arrive costs
+   * the removal modal its usage names and nothing else.
+   */
+  private loadAttachCatalogues(): void {
+    this.locationService
+      .getAll()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: (locations) => this.catalogLocations.set(locations), error: () => {} });
+
+    this.bystanderService
+      .getAll()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: (bystanders) => this.catalogBystanders.set(bystanders), error: () => {} });
+
+    this.mysteryService
+      .getMysteries()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: (mysteries) => this.mysteries.set(mysteries), error: () => {} });
   }
 
   private loadEditData(mysteryId: string): void {
@@ -746,9 +896,13 @@ export class MysteryCreateStore {
           this.locations.set(
             locations.map((l) => ({
               id: l.id,
+              localKey: createDraftKey('location'),
               name: l.name,
               description: l.description ?? '',
               locationTypeId: l.locationTypeId,
+              // Retained through hydration (§7.2) — the list response already carries it, and the
+              // removal modal has no other source for "which other mysteries use this".
+              mysteryIds: [...l.mysteryIds],
             }))
           );
 
@@ -756,11 +910,17 @@ export class MysteryCreateStore {
           this.bystanders.set(
             bystanders.map((b) => ({
               id: b.id,
+              localKey: createDraftKey('bystander'),
               name: b.name,
               description: b.description ?? '',
               bystanderTypeId: b.bystanderTypeId,
+              mysteryIds: [...b.mysteryIds],
             }))
           );
+
+          // Edit mode opens on a populated roster, so both composers start collapsed (§2.3).
+          this.locationComposerOpen.set(locations.length === 0);
+          this.bystanderComposerOpen.set(bystanders.length === 0);
 
           const pureMonster = monsters[0] ?? null;
 
@@ -873,6 +1033,16 @@ export class MysteryCreateStore {
       return;
     }
 
+    // The same rule for the other two rosters (§5.3, R4). Valid but uncommitted → commit silently,
+    // then submit; started but invalid → block with that phase's own message and issue nothing.
+    if (this.currentPhase() === 2 && !this.commitLocationComposerIfValid()) {
+      return;
+    }
+
+    if (this.currentPhase() === 3 && !this.commitBystanderComposerIfValid()) {
+      return;
+    }
+
     const phase = this.currentPhase();
     const step = this.currentStep();
     const stepsInPhase = this.phases[phase]?.steps ?? 0;
@@ -977,48 +1147,332 @@ export class MysteryCreateStore {
     this.removeDraft(this.minionArmors, index);
   }
 
-  addLocation(): void {
+  // ---------------------------------------------------------------------------
+  // Locations and Bystanders: roster + composer + attach + removal (Phase 4)
+  //
+  // The minion shape of §5.3, generalised. Everything below has a twin one entity over; the pair
+  // is kept as two explicit copies rather than one generic helper because the forms, the services
+  // and the signals are all distinctly typed, and a generic that erased that would be harder to
+  // read than the duplication it removed (OQ9).
+  // ---------------------------------------------------------------------------
+
+  /**
+   * **Does a persisted membership exist for this draft?** The question the removal modal and the
+   * submit diff both ask, answered once (§7.1, decision 16).
+   *
+   * Not `id !== null`: that answers "does this entity exist", which is a different question and is
+   * true the moment an entity is attached. Removing an attached-but-unsubmitted draft changes no
+   * server state at all, so it gets a plain Remove — not a Detach against a membership that was
+   * never created, and emphatically not a Delete that destroys a catalogue entity.
+   */
+  membershipPersisted(collection: RemovalCollection, id: string | null): boolean {
+    if (id === null) {
+      return false;
+    }
+
+    const baseline = collection === 'locations' ? this.existingLocationIds() : this.existingBystanderIds();
+    return baseline.includes(id);
+  }
+
+  /** Commit-on-advance for the locations composer — same three-way rule as the minion one. */
+  commitLocationComposerIfValid(): boolean {
+    if (!this.locationComposerOpen() || !this.locationComposerDirty()) {
+      return true;
+    }
+
+    if (this.addLocationForm.invalid) {
+      this.addLocationForm.markAllAsTouched();
+      this.submitError.set(LOCATION_COMPOSER_BLOCKED_MESSAGE);
+      return false;
+    }
+
+    this.saveLocationDraft();
+    return true;
+  }
+
+  /** Commits the composer into the roster — replacing the edited slot, or appending a new location. */
+  saveLocationDraft(): void {
     if (this.addLocationForm.invalid) {
       this.addLocationForm.markAllAsTouched();
       return;
     }
 
+    const key = this.editingLocationKey();
+    const existing = key !== null ? this.locations().find((item) => item.localKey === key) ?? null : null;
+
+    const draft: LocationDraft = {
+      id: existing?.id ?? null,
+      localKey: existing?.localKey ?? createDraftKey('location'),
+      name: this.addLocationForm.controls.name.value.trim(),
+      description: this.addLocationForm.controls.description.value ?? '',
+      locationTypeId: this.addLocationForm.controls.locationTypeId.value,
+      mysteryIds: existing?.mysteryIds ?? [],
+    };
+
+    this.locations.update((items) =>
+      existing !== null ? items.map((item) => (item.localKey === draft.localKey ? draft : item)) : [...items, draft],
+    );
+
+    this.resetLocationComposer();
+    this.editingLocationKey.set(null);
+    this.locationComposerOpen.set(this.locations().length === 0);
+    this.submitError.set(null);
+  }
+
+  /** Loads a roster card back into the composer. Returns whether the composer actually moved. */
+  editLocationDraft(key: string): boolean {
+    if (!this.commitLocationComposerIfValid()) {
+      return false;
+    }
+
+    const draft = this.locations().find((item) => item.localKey === key);
+    if (!draft) {
+      return false;
+    }
+
+    this.addLocationForm.reset({
+      name: draft.name,
+      description: draft.description,
+      locationTypeId: draft.locationTypeId,
+    });
+    this.editingLocationKey.set(key);
+    this.locationComposerOpen.set(true);
+    return true;
+  }
+
+  /** "+ Add Another Location". Returns whether the composer opened. */
+  startNewLocationDraft(): boolean {
+    if (!this.commitLocationComposerIfValid()) {
+      return false;
+    }
+
+    this.resetLocationComposer();
+    this.editingLocationKey.set(null);
+    this.locationComposerOpen.set(true);
+    return true;
+  }
+
+  /** Abandons the composer's contents without touching the roster. No confirmation (R2). */
+  cancelLocationComposer(): void {
+    this.resetLocationComposer();
+    this.editingLocationKey.set(null);
+    this.locationComposerOpen.set(this.locations().length === 0);
+  }
+
+  /**
+   * Appends a catalogue location to the roster (A2, A4). Local only — no request is issued, and
+   * abandoning the wizard here leaves the mystery, the entity and their membership untouched.
+   *
+   * Re-attaching something with a pending removal cancels that removal (D9). This matters most for
+   * the `delete` disposition: a cancelled deletion that still deletes is the worst outcome here.
+   */
+  attachLocation(locationId: string): void {
+    const item = this.catalogLocations().find((candidate) => candidate.id === locationId);
+    if (!item || this.locations().some((draft) => draft.id === locationId)) {
+      return;
+    }
+
+    this.cancelPendingRemoval('locations', locationId);
     this.locations.update((items) => [
       ...items,
       {
-        id: null,
-        name: this.addLocationForm.controls.name.value.trim(),
-        description: this.addLocationForm.controls.description.value ?? '',
-        locationTypeId: this.addLocationForm.controls.locationTypeId.value,
+        id: item.id,
+        localKey: createDraftKey('location'),
+        name: item.name,
+        description: item.description ?? '',
+        locationTypeId: item.locationTypeId,
+        mysteryIds: [...item.mysteryIds],
       },
     ]);
+    this.collapseComposerIfUntouched(this.locationComposerOpen, this.locationComposerDirty());
+  }
+
+  /**
+   * Drops a roster card, and records the disposition when — and only when — a persisted membership
+   * exists to dispose of. Nothing is sent now; the drain happens at the next phase submit (D5).
+   */
+  removeLocationDraft(key: string, action: 'detach' | 'delete'): void {
+    const draft = this.locations().find((item) => item.localKey === key);
+    if (!draft) {
+      return;
+    }
+
+    if (this.membershipPersisted('locations', draft.id)) {
+      this.recordRemoval({ collection: 'locations', id: draft.id as string, action });
+    }
+
+    this.locations.update((items) => items.filter((item) => item.localKey !== key));
+
+    if (this.editingLocationKey() === key) {
+      this.resetLocationComposer();
+      this.editingLocationKey.set(null);
+      this.locationComposerOpen.set(this.locations().length === 0);
+    }
+  }
+
+  private resetLocationComposer(): void {
     this.addLocationForm.reset({ name: '', description: '', locationTypeId: '' });
   }
 
-  removeLocation(index: number): void {
-    this.removeDraft(this.locations, index);
+  /** Bystanders: the same eight members, one noun over. */
+  commitBystanderComposerIfValid(): boolean {
+    if (!this.bystanderComposerOpen() || !this.bystanderComposerDirty()) {
+      return true;
+    }
+
+    if (this.addBystanderForm.invalid) {
+      this.addBystanderForm.markAllAsTouched();
+      this.submitError.set(BYSTANDER_COMPOSER_BLOCKED_MESSAGE);
+      return false;
+    }
+
+    this.saveBystanderDraft();
+    return true;
   }
 
-  addBystander(): void {
+  saveBystanderDraft(): void {
     if (this.addBystanderForm.invalid) {
       this.addBystanderForm.markAllAsTouched();
       return;
     }
 
+    const key = this.editingBystanderKey();
+    const existing = key !== null ? this.bystanders().find((item) => item.localKey === key) ?? null : null;
+
+    const draft: BystanderDraft = {
+      id: existing?.id ?? null,
+      localKey: existing?.localKey ?? createDraftKey('bystander'),
+      name: this.addBystanderForm.controls.name.value.trim(),
+      description: this.addBystanderForm.controls.description.value ?? '',
+      bystanderTypeId: this.addBystanderForm.controls.bystanderTypeId.value,
+      mysteryIds: existing?.mysteryIds ?? [],
+    };
+
+    this.bystanders.update((items) =>
+      existing !== null ? items.map((item) => (item.localKey === draft.localKey ? draft : item)) : [...items, draft],
+    );
+
+    this.resetBystanderComposer();
+    this.editingBystanderKey.set(null);
+    this.bystanderComposerOpen.set(this.bystanders().length === 0);
+    this.submitError.set(null);
+  }
+
+  editBystanderDraft(key: string): boolean {
+    if (!this.commitBystanderComposerIfValid()) {
+      return false;
+    }
+
+    const draft = this.bystanders().find((item) => item.localKey === key);
+    if (!draft) {
+      return false;
+    }
+
+    this.addBystanderForm.reset({
+      name: draft.name,
+      description: draft.description,
+      bystanderTypeId: draft.bystanderTypeId,
+    });
+    this.editingBystanderKey.set(key);
+    this.bystanderComposerOpen.set(true);
+    return true;
+  }
+
+  startNewBystanderDraft(): boolean {
+    if (!this.commitBystanderComposerIfValid()) {
+      return false;
+    }
+
+    this.resetBystanderComposer();
+    this.editingBystanderKey.set(null);
+    this.bystanderComposerOpen.set(true);
+    return true;
+  }
+
+  cancelBystanderComposer(): void {
+    this.resetBystanderComposer();
+    this.editingBystanderKey.set(null);
+    this.bystanderComposerOpen.set(this.bystanders().length === 0);
+  }
+
+  attachBystander(bystanderId: string): void {
+    const item = this.catalogBystanders().find((candidate) => candidate.id === bystanderId);
+    if (!item || this.bystanders().some((draft) => draft.id === bystanderId)) {
+      return;
+    }
+
+    this.cancelPendingRemoval('bystanders', bystanderId);
     this.bystanders.update((items) => [
       ...items,
       {
-        id: null,
-        name: this.addBystanderForm.controls.name.value.trim(),
-        description: this.addBystanderForm.controls.description.value ?? '',
-        bystanderTypeId: this.addBystanderForm.controls.bystanderTypeId.value,
+        id: item.id,
+        localKey: createDraftKey('bystander'),
+        name: item.name,
+        description: item.description ?? '',
+        bystanderTypeId: item.bystanderTypeId,
+        mysteryIds: [...item.mysteryIds],
       },
     ]);
+    this.collapseComposerIfUntouched(this.bystanderComposerOpen, this.bystanderComposerDirty());
+  }
+
+  /**
+   * Attach re-derives composer-open — **but only when the composer holds nothing** (§15.2).
+   *
+   * §2.3 states the open/closed rule as a function of roster emptiness, so after an attach the
+   * composer should collapse. Doing that unconditionally would silently discard typed contents in a
+   * plausible flow — start typing "the old mill", realise you already made one, pick it from the
+   * strip — and that breaks the rule the composer has followed since the minion work: **nothing
+   * discards its contents implicitly.** That rule is why `commitComposerIfValid` exists instead of a
+   * discard-confirmation modal.
+   *
+   * The dirtiness test is the one the composer already owns for deciding whether `Next` may
+   * proceed, passed in rather than re-derived, so there is no second notion of "empty".
+   *
+   * **No focus move here, deliberately.** §8.6's contract fires when the *focused* element unmounts;
+   * on this path focus is in the attach select and stays there, which is what you want when
+   * attaching several in a row. The composer that collapses never had focus.
+   */
+  private collapseComposerIfUntouched(open: WritableSignal<boolean>, dirty: boolean): void {
+    if (open() && !dirty) {
+      open.set(false);
+    }
+  }
+
+  removeBystanderDraft(key: string, action: 'detach' | 'delete'): void {
+    const draft = this.bystanders().find((item) => item.localKey === key);
+    if (!draft) {
+      return;
+    }
+
+    if (this.membershipPersisted('bystanders', draft.id)) {
+      this.recordRemoval({ collection: 'bystanders', id: draft.id as string, action });
+    }
+
+    this.bystanders.update((items) => items.filter((item) => item.localKey !== key));
+
+    if (this.editingBystanderKey() === key) {
+      this.resetBystanderComposer();
+      this.editingBystanderKey.set(null);
+      this.bystanderComposerOpen.set(this.bystanders().length === 0);
+    }
+  }
+
+  private resetBystanderComposer(): void {
     this.addBystanderForm.reset({ name: '', description: '', bystanderTypeId: '' });
   }
 
-  removeBystander(index: number): void {
-    this.removeDraft(this.bystanders, index);
+  private recordRemoval(removal: PendingRemoval): void {
+    this.pendingRemovals.update((list) => [
+      ...list.filter((item) => !(item.collection === removal.collection && item.id === removal.id)),
+      removal,
+    ]);
+  }
+
+  private cancelPendingRemoval(collection: RemovalCollection, id: string): void {
+    this.pendingRemovals.update((list) =>
+      list.filter((item) => !(item.collection === collection && item.id === id)),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -1216,6 +1670,12 @@ export class MysteryCreateStore {
       this.submitError.set(null);
     }
 
+    // Phases 2 and 3 deliberately have no branch here. The minion phase carries one *and* the
+    // matching `commitComposerIfValid()` call in `next()`, and for a single-step phase the pair is
+    // redundant: both set the same message and both refuse. The commit rule is the one that has to
+    // exist — it is what commits a valid composer — so the blocked case lives with it rather than
+    // being stated twice. A negative control confirmed the duplicate was unobservable.
+
     return true;
   }
 
@@ -1268,12 +1728,19 @@ export class MysteryCreateStore {
             midnight: this.toNullable(this.countdownForm.controls.midnight.value),
           };
 
-          return this.mysteryService.upsertCountdown(mystery.id, countdownRequest);
+          // Every phase drains, including this one (decision 15). Reachable in edit mode: trash a
+          // location, confirm Delete, jump back to the Mystery phase on the tracker, press Next.
+          return this.mysteryService
+            .upsertCountdown(mystery.id, countdownRequest)
+            .pipe(switchMap(() => this.applyPendingRemovals(mystery.id)));
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: () => this.advancePhase(),
+        next: (drained) => {
+          this.clearDrainedRemovals(drained);
+          this.advancePhase();
+        },
         error: () => this.handleSubmitError('Could not save mystery. Please try again.'),
       });
   }
@@ -1326,13 +1793,19 @@ export class MysteryCreateStore {
               this.existingMonsterArmorIds.set(saved.armors.map((a) => a.id));
 
               return this.saveMinionDrafts(monster.id);
-            })
+            }),
+            // Every phase drains (decision 15) — this is the one the G1 sequence actually lands on
+            // when a tracker jump goes backwards from Locations.
+            switchMap(() => this.applyPendingRemovals(mysteryId))
           );
         }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: () => this.advancePhase(),
+        next: (drained) => {
+          this.clearDrainedRemovals(drained);
+          this.advancePhase();
+        },
         error: () => this.handleSubmitError('Could not save monster. Please try again.'),
       });
   }
@@ -1352,8 +1825,9 @@ export class MysteryCreateStore {
     });
 
     forkJoin({
+      drained: this.applyPendingRemovals(mysteryId),
       unlinked: this.runBatch(
-        this.idsToRemove(this.existingLocationIds(), drafts).map((locationId) =>
+        this.idsToRemove(this.existingLocationIds(), drafts, 'locations').map((locationId) =>
           this.locationService.unlinkFromMystery(mysteryId, locationId)
         )
       ),
@@ -1362,13 +1836,23 @@ export class MysteryCreateStore {
           .filter((draft): draft is LocationDraft & { id: string } => draft.id !== null)
           .map((draft) => this.locationService.update(draft.id, toRequest(draft)))
       ),
+      // §5.1 Concern A. `update` carries no mystery in its URL, so without this an attached
+      // location has its fields written and is never added to the mystery — a silent no-op that
+      // makes the whole feature look like it works. Fired for every draft with an id,
+      // unconditionally: the verb is idempotent in effect, so no branch is needed or wanted.
+      linked: this.runBatch(
+        drafts
+          .filter((draft): draft is LocationDraft & { id: string } => draft.id !== null)
+          .map((draft) => this.locationService.linkToMystery(mysteryId, draft.id))
+      ),
       created: this.runBatch(
         drafts.filter((draft) => draft.id === null).map((draft) => this.locationService.create(mysteryId, toRequest(draft)))
       ),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ created }) => {
+        next: ({ created, drained }) => {
+          this.clearDrainedRemovals(drained);
           const saved = this.backfillDraftIds(drafts, created);
           this.locations.set(saved);
           this.existingLocationIds.set(this.savedDraftIds(saved));
@@ -1393,8 +1877,9 @@ export class MysteryCreateStore {
     });
 
     forkJoin({
+      drained: this.applyPendingRemovals(mysteryId),
       unlinked: this.runBatch(
-        this.idsToRemove(this.existingBystanderIds(), drafts).map((bystanderId) =>
+        this.idsToRemove(this.existingBystanderIds(), drafts, 'bystanders').map((bystanderId) =>
           this.bystanderService.unlinkFromMystery(mysteryId, bystanderId)
         )
       ),
@@ -1402,6 +1887,12 @@ export class MysteryCreateStore {
         drafts
           .filter((draft): draft is BystanderDraft & { id: string } => draft.id !== null)
           .map((draft) => this.bystanderService.update(draft.id, toRequest(draft)))
+      ),
+      // §5.1 Concern A — see the locations twin.
+      linked: this.runBatch(
+        drafts
+          .filter((draft): draft is BystanderDraft & { id: string } => draft.id !== null)
+          .map((draft) => this.bystanderService.linkToMystery(mysteryId, draft.id))
       ),
       created: this.runBatch(
         drafts
@@ -1411,7 +1902,8 @@ export class MysteryCreateStore {
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ created }) => {
+        next: ({ created, drained }) => {
+          this.clearDrainedRemovals(drained);
           const saved = this.backfillDraftIds(drafts, created);
           this.bystanders.set(saved);
           this.existingBystanderIds.set(this.savedDraftIds(saved));
@@ -1489,8 +1981,119 @@ export class MysteryCreateStore {
   }
 
   /** IDs present as of the last save that are no longer present in the draft array. */
-  private idsToRemove(savedIds: string[], drafts: { id: string | null }[]): string[] {
-    return savedIds.filter((savedId) => !drafts.some((draft) => draft.id === savedId));
+  /**
+   * Baseline ids no longer on the roster.
+   *
+   * **`pendingRemovals` is authoritative and this is the consistency check** (§7.3), so anything
+   * that collection has a recorded disposition for is excluded here. Without that exclusion a
+   * confirmed **Delete** would also fire this path's blind `unlinkFromMystery` in the same
+   * `forkJoin` — two calls for one removal, racing, with the unlink liable to 404 against the row
+   * the delete just destroyed and fail the whole phase.
+   *
+   * `collection` is optional because the minion diff has no dispositions to reconcile against.
+   */
+  private idsToRemove(
+    savedIds: string[],
+    drafts: { id: string | null }[],
+    collection?: RemovalCollection,
+  ): string[] {
+    const disposed = new Set(
+      this.pendingRemovals()
+        .filter((removal) => removal.collection === collection)
+        .map((removal) => removal.id),
+    );
+
+    return savedIds.filter((savedId) => !disposed.has(savedId) && !drafts.some((draft) => draft.id === savedId));
+  }
+
+  /**
+   * Applies every confirmed removal, whichever phase recorded it (decision 15). Folded into *every*
+   * `submitPhaseN`'s batch, which is what closes G1: an edit-mode tracker jump out of Locations
+   * still leaves the disposition recorded, and the next phase the user submits applies it.
+   *
+   * Emits what it drained, so the caller can do the bookkeeping in `clearDrainedRemovals`.
+   */
+  private applyPendingRemovals(mysteryId: string): Observable<PendingRemoval[]> {
+    const drained = this.pendingRemovals();
+    if (drained.length === 0) {
+      return of<PendingRemoval[]>([]);
+    }
+
+    return this.runBatch(drained.map((removal) => this.removalRequest(mysteryId, removal))).pipe(
+      map(() => drained),
+    );
+  }
+
+  private removalRequest(mysteryId: string, removal: PendingRemoval): Observable<unknown> {
+    const request =
+      removal.collection === 'locations'
+        ? removal.action === 'delete'
+          ? this.locationService.delete(removal.id)
+          : this.locationService.unlinkFromMystery(mysteryId, removal.id)
+        : removal.action === 'delete'
+          ? this.bystanderService.delete(removal.id)
+          : this.bystanderService.unlinkFromMystery(mysteryId, removal.id);
+
+    // §7.3 rule 2, and *only* here. A 404 on this path means the post-condition the user asked for
+    // already holds — "this is not in this mystery", or "this does not exist" — which is exactly
+    // what a replayed disposition after a partial fan-out failure looks like. The rule is scoped to
+    // the removal path on purpose: a 404 on the *link* path means the opposite (the thing being
+    // linked is gone), and mapping that to success would report a membership never created.
+    return request.pipe(catchError((error) => (this.isNotFound(error) ? of(undefined) : throwError(() => error))));
+  }
+
+  private isNotFound(error: unknown): boolean {
+    return error instanceof HttpErrorResponse && error.status === 404;
+  }
+
+  /**
+   * Bookkeeping after a drain lands. Three consumers of one step:
+   *
+   * 1. **Clear what this submit drained**, not the whole list — the list is wizard-scoped now, and
+   *    a concurrent record is not this submit's to discard (rule 1, as corrected by decision 15).
+   * 2. **Drop the id from the owning collection's baseline.** Otherwise that phase's own
+   *    `idsToRemove()` later sees an id in the baseline and not in the drafts and fires a second
+   *    removal. Harmless — rule 2 swallows the 404 — but it is a duplicate request from sloppy
+   *    state, and `pendingRemovals` is meant to be authoritative with `idsToRemove()` as the check.
+   * 3. **Drop a deleted entity from the cached attach options** (§7.6): the picker's options are a
+   *    page-load snapshot, so without this a `Back` re-offers something that no longer exists and
+   *    attaching it fails the whole phase on a 404 that rule 2 deliberately does not cover.
+   */
+  private clearDrainedRemovals(drained: PendingRemoval[]): void {
+    if (drained.length === 0) {
+      return;
+    }
+
+    const key = (removal: PendingRemoval): string => `${removal.collection}:${removal.id}`;
+    const drainedKeys = new Set(drained.map(key));
+    this.pendingRemovals.update((list) => list.filter((removal) => !drainedKeys.has(key(removal))));
+
+    const idsFor = (collection: RemovalCollection, action?: 'detach' | 'delete'): Set<string> =>
+      new Set(
+        drained
+          .filter((removal) => removal.collection === collection && (!action || removal.action === action))
+          .map((removal) => removal.id),
+      );
+
+    const removedLocations = idsFor('locations');
+    if (removedLocations.size > 0) {
+      this.existingLocationIds.update((ids) => ids.filter((id) => !removedLocations.has(id)));
+    }
+
+    const removedBystanders = idsFor('bystanders');
+    if (removedBystanders.size > 0) {
+      this.existingBystanderIds.update((ids) => ids.filter((id) => !removedBystanders.has(id)));
+    }
+
+    const deletedLocations = idsFor('locations', 'delete');
+    if (deletedLocations.size > 0) {
+      this.catalogLocations.update((items) => items.filter((item) => !deletedLocations.has(item.id)));
+    }
+
+    const deletedBystanders = idsFor('bystanders', 'delete');
+    if (deletedBystanders.size > 0) {
+      this.catalogBystanders.update((items) => items.filter((item) => !deletedBystanders.has(item.id)));
+    }
   }
 
   /**

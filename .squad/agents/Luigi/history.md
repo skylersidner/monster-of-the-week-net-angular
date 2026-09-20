@@ -1744,3 +1744,74 @@ Five items, all in my files. Two production bugs Toad measured in Chromium, one 
 - **Modified:** `shared/confirm-delete-modal.component.{ts,html,spec.ts}`; `shared/mystery-usage.{ts,spec.ts}`; `mystery-create-monster-phase.{ts,html}`; `mystery-create.store.ts` (comment only); `{locations,bystanders,monsters}-list.{ts,spec.ts}`; `monsters-list.focus.spec.ts` and `mystery-create-roster-keyboard.spec.ts` (Toad's, flipped).
 
 Not committed.
+
+## 2026-09-20: Mystery Entity Linking Phase 4 — wizard attach, re-edit and removal (Locations & Bystanders)
+
+### Task
+`mystery-entity-linking.md` rev 7 §9 Phase 4, against Peach's acceptance criteria (A1–A9, R1–R5, D1–D13, S1–S5) and Rosalina's restructured §7.1 variant table and §14 binding table. Phase 3 committed as `c9d554a`/`a063449`. Monsters excluded — Phase 5. Not committed.
+
+### Reusable technical facts
+- **`pendingRemovals` is wizard-scoped and every `submitPhaseN` drains all of it.** Per-phase is the natural implementation and reintroduces Peach's G1: `jumpToPhase` sets the phase without submitting and `isPhaseAccessible` returns `true` unconditionally in edit mode, so a confirmed Delete on Locations followed by a tracker jump to Bystanders and Finish would never submit phase 2. Draining everywhere costs four one-line `switchMap`s and no navigation surgery.
+- **The removal variant keys on the *baseline*, never on `id`.** `id !== null` answers "does this entity exist"; the modal needs "does *this mystery's membership of it* exist". They are the same answer right up until attach exists, and then keying on `id` offers **Delete** — permanent catalogue destruction — to someone undoing a mis-click. Exposed once as `membershipPersisted(collection, id)` over the same `existing*Ids` signal the submit diff uses: one fact, two consumers.
+- **A disposition and the blind baseline diff will both fire for the same id unless you stop them.** `idsToRemove()` sees an id in the baseline and gone from the drafts and issues `unlinkFromMystery`; `pendingRemovals` issues the `delete`. Both land in the same `forkJoin`, racing, and the unlink can 404 against the row the delete just destroyed and fail the whole phase. `idsToRemove` now excludes anything that collection has a disposition for — it is the consistency check, not the source of truth.
+- **404-as-success belongs to the removal path only.** On detach it means the requested post-condition already holds; on link it means the thing being linked is gone — the opposite. A negative control that extends the rule to the link path is worth keeping, because the symmetry is tempting and the failure is a false success.
+- **A no-op `PUT` of identical values is correct in Phase 4.** Peach's A6 asserts *field values*, not the absence of a request; the dirty check is Phase 5 and monsters-only. A test written as "no PUT is issued" would red-flag a correct implementation.
+- **`deferredChangeTail` on the store, not a string per phase component.** Bystanders is `lastPhaseIndex` and its button says Finish, so "continue to the next step" names a step that does not exist. Derived from `currentPhase() === lastPhaseIndex`; the minion phase's existing note reads from the same helper, so there is one place the wording lives.
+- **`message` still defaults to `'This cannot be undone.'`** — Phase 3 emptied `footnote`'s default and not this one. Every wizard removal must pass `message=""` explicitly or the dialog silently renders a sentence that is false, because wizard removals are deferred. Asserted, not trusted to care.
+- **Section order is load-bearing for focus.** `focusSurroundingSurface()` restores to the first focus stop in the modal host's parent, so roster-before-attach-strip is what puts a confirmed removal back on a roster pencil. A control that inserts any focusable element above the roster fails the focus test — which is the point.
+- **Adding a store dependency breaks every spec that stubs `ApiService` with a partial object.** `loadAttachCatalogues` made the store call `LocationService.getAll()` etc., and three wizard specs provided `{ post: () => of({}) }` with no `get`, producing `TypeError: this.apiService.get is not a function` at `init()`. Adding `get: () => of([])` to those stubs is the fix; the class of breakage is worth expecting whenever a store gains a load.
+- **A redundant guard is worth deleting, not annotating.** I mirrored the minion phase's `validateCurrentStep` branch for phases 2 and 3 alongside the `commitComposerIfValid` call in `next()`. For a single-step phase the pair is redundant — both set the same message and both refuse — and the negative control proved it unobservable. Removed, with a comment saying why the asymmetry with phase 1 is deliberate.
+
+### Decisions
+- **§7.6 taken (Peach's G4, Luigi's call):** a successfully drained `delete` drops that id from the cached attach options, in the same bookkeeping step that updates the baseline. Three lines, reuses a path the drain needs anyway, and it closes the case where a `Back` re-offers a deleted entity whose membership `PUT` then 404s and fails the phase.
+- **The wizard's "other mysteries" copy lives in `shared/mystery-usage.ts`** beside the list-page functions rather than in a new file, so the one-word difference between the two surfaces is visible in one place. `wizardMysteryUsageMessage` and `wizardRemovalFootnote`; the latter takes the deferral tail as a parameter so the file stays free of wizard state.
+- **Two phase components as explicit copies, not one generic** (OQ9, unchanged from Phase 2): the forms, services and signals are distinctly typed, and a generic that erased that would be harder to read than the duplication it removed. The bystander pair is generated from the locations pair by a scripted noun substitution, which is also how it is kept in sync.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npm test`: 83 files / **1007** tests, from a 951 baseline.
+- `dotnet test`: **533 passed**; `git status -- src/api` empty.
+- **24 negative controls, all caught**, including: attach never linking (A5's silent no-op), attach firing a request (A4), the variant keyed on `id` (G3), the drain scoped per-phase and missing from phases 0 and 3 (G1), the baseline bookkeeping dropped, `idsToRemove` ignoring dispositions, the stale-picker prune dropped, re-attach not cancelling, 404 not swallowed on removal, 404 swallowed on link, the commit rule removed, the deferral clause hardcoded, `message=""` dropped, `confirmLabel`/`secondaryLabel` always set, `track $index`, a focusable element above the roster, usage including the current mystery, (A2) falling back to (A1)'s copy, and both halves of the Escape-nesting mechanism.
+- **One MISSED**, resolved by deleting the redundant code rather than by weakening the control: the duplicated blocked-composer branch in `validateCurrentStep`.
+- **Escape nesting holds in the wizard**, which is the first place a select and a dialog share a screen: two presses close the dropdown then the dialog, one press closes the dialog when no dropdown is open, and removing the select's `stopPropagation()` now fails 19 tests.
+
+### Files
+- **New:** `mystery-create-phase4.store.spec.ts`, `mystery-create-phase4.spec.ts`.
+- **Modified:** `mystery-create.store.{ts,spec.ts}`; `mystery-create-{locations,bystanders}-phase.{ts,html}` (rewritten as roster + attach + composer + modal); `mystery-create-monster-phase.{ts,html}` (deferral tail, roster-card class); `shared/mystery-usage.ts` (wizard copy); `shared/wizard/wizard-layout.scss` (row entrance motion); `mystery-create.spec.ts`, `mystery-create-roster-keyboard.spec.ts`, `shared/custom-select-escape-surfaces.spec.ts` (catalogue stubs).
+
+### Left for later phases
+- **Monsters and minions** — Phase 5, on §6.2's sequencing constraint.
+- **A8 and D6/D7's cross-mystery halves** ("verify from the *second* mystery") need a live backend; the client half is asserted here and Phase 1's 36 endpoint tests cover the verb.
+- **§8 items 2 and 3** (the `sr-only` status region and `role="group"` on the composer) — still unbuilt, and §14.3's decision rule now applies: if the composer heading's announcement is still unverified when Phase 5 starts, ship the status region rather than carry the risk into a third and fourth replication.
+
+Not committed.
+
+## 2026-09-20 (same day, follow-up): Phase 4 QA rulings — the count/names split, and the attach guard
+
+### Task
+Rosalina's §15 of `mystery-entity-linking-ux.md`, both build changes: §15.1 the wizard's removal modal asserting "isn't used by any other mystery" when only the *names* failed to load, and §15.2 attach leaving an open composer beside a non-empty roster. Plus her list-page consistency recommendation, taken in the same change set. Not committed.
+
+### Reusable technical facts
+- **Two facts from two sources must not be collapsed into one number.** `usage.length` was doing duty as both "how many other mysteries" and "how many names we resolved". The count comes from the entity's own `mysteryIds`, which rides on every list and detail response and owes nothing to the mystery lookup; the names need the lookup. Collapsing them made a failed lookup render as *"isn't used by any other mystery"* — the opposite of the truth, on the sentence an irreversible decision is made from. The fix is a sourcing change, not new copy: `otherCount` drives the sentence, the buttons and the footnote; `resolveMysteryNames` decides only whether bullets render.
+- **A partial resolution takes the names-missing wording.** Rosalina's table has two states for count > 0; partial is neither. Rendering one bullet under "2 other mysteries:" would be the count and the list disagreeing, which is the invariant Phase 3 established for this block, so bullets render only when *every* id resolved.
+- **Punctuation is load-bearing in this block.** The colon promises a list, so the names-missing variant ends in a full stop. There is a control for it, because the two strings are one character apart and a copy edit would not notice.
+- **Two surfaces holding identical data must make identical claims.** The list pages had the same conflation behind a coarser `mysteriesAvailable` boolean. Aligning them deleted that boolean entirely — with the count sourced correctly, "we cannot say how many" no longer arises — and left `mysteryUsageUnavailableMessage` exported but uncalled, retained per §15.1 with a comment saying so.
+- **"Collapse the composer on attach" is the naive fix and it destroys input.** Start typing "the old mill", realise you already made one, pick it from the strip — an unconditional collapse silently discards what was typed, which breaks the rule the composer has followed since the minion work: nothing discards its contents implicitly. The guard is *collapse only when the composer holds nothing*, reusing `locationComposerDirty` — the same signal `commitComposerIfValid` uses for `Next` — rather than inventing a second notion of "empty".
+- **The dirtiness test matters more than form validity here.** A composer holding a type and no name is invalid but *started*, and that is the case most likely to be lost; a control that swaps `locationComposerDirty()` for `addLocationForm.valid` is caught.
+- **A guard framed as "re-derive" invites the wrong one-liner.** `open.set(dirty)` reads equivalently and additionally *reopens* a composer the user had closed. That was MISSED until the test was reframed from "an already-collapsed composer is left alone" to **"attach only ever collapses — it never opens"**, which is the actual invariant.
+- **No focus move on the attach path**, deliberately: §8.6's contract fires when the *focused* element unmounts, and here focus is in the attach select and stays there, which is right for attaching several in a row.
+
+### Toad's rule, absorbed
+**Assert the complete sorted multiset of calls, not the presence of the right one**, wherever two code paths can reach the same endpoint. He found the hole in my own D6: `toContain('location.unlink(…)')` plus "no delete" both stay true if the unlink goes out **twice** — which is exactly what reverting `idsToRemove`'s disposition exclusion does on the detach path, and a duplicate unlink is worse than a duplicate delete because the drain's copy maps 404 to success and the diff's copy does not. Converted D6/D7 to his `expectLedger` form and moved the recording to `defer()` so it happens at subscribe rather than at method call — `HttpClient` is cold, so a request built and dropped must not reach the ledger. Measurable: the `idstoremove-ignores-dispositions` control went from **2 failing to 7**.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npm test`: 87 files / **1053** tests, from a 1039 baseline.
+- `dotnet test`: **548 passed**, untouched (the one untracked file under `src/api` is Toad's).
+- **14 negative controls, all caught:** count from names in the wizard and on both list shapes, the footnote following the names instead of the count, partial bullets rendered in either place, the colon kept on the names-missing variant, names-missing collapsed back to a zero claim (both functions), attach not collapsing, attach collapsing unconditionally, the guard keyed on form validity instead of dirtiness, and the guard reopening a closed composer.
+- **One MISSED**, fixed by reframing the assertion rather than weakening the control: `attach-reopens-a-collapsed-composer`.
+
+### Files
+- **Modified:** `shared/mystery-usage.{ts,spec.ts}` (`namesResolved` on both message functions, wizard copy unit tests); `mystery-create-{locations,bystanders}-phase.ts` (count/names split); `mystery-create.store.ts` (`collapseComposerIfUntouched`); `{locations,bystanders,monsters}-list.{ts,spec.ts}` (same split, `mysteriesAvailable` deleted); `mystery-create-phase4.store.spec.ts` (ledger form for D6/D7); and Toad's `mystery-create-phase4-ledger.spec.ts` and `mystery-create-phase4-usage-unavailable.spec.ts`, whose characterisations this round flips.
+
+Not committed.

@@ -114,15 +114,16 @@ describe('BystandersListComponent', () => {
     expect(dialog()!.textContent).toContain('This cannot be undone.');
   });
 
-  it('counts the mysteries it can actually name, not the raw mysteryIds', () => {
-    // A stale id would otherwise make the sentence claim a number the list beneath it does not
-    // show — the count and the list have to come from the same array.
+  it('counts from mysteryIds, and withholds the bullets when an id will not resolve', () => {
+    // §15.1 inverts the old rule here. The count is the entity's own `mysteryIds`, which is always
+    // available; the names are the part that can be missing. Showing one bullet under "2" would be
+    // the count and the list disagreeing, so a partial resolution takes the names-missing wording.
     component.requestDelete(bystanders[2]);
     fixture.detectChanges();
 
-    expect(dialog()!.textContent).toContain('This bystander is used by 1 mystery:');
-    expect(dialog()!.textContent).not.toContain('2 mysteries');
-    expect(dialogLists()).toEqual([['Dust Bowl Nights']]);
+    expect(dialog()!.textContent).toContain("This bystander is used by 2 mysteries. Their names couldn't be loaded.");
+    expect(dialog()!.textContent).not.toContain('2 mysteries:');
+    expect(dialogLists()).toEqual([]);
   });
 
   it('says "This cannot be undone." exactly once', () => {
@@ -156,8 +157,10 @@ describe('BystandersListComponent', () => {
     component.requestDelete(bystanders[0]);
     fixture.detectChanges();
 
-    expect(dialog()!.textContent).toContain("Couldn't check which mysteries use this bystander.");
-    expect(dialog()!.textContent).not.toContain('is used by');
+    // §15.1: the count survives a failed lookup, because it comes from the row's own `mysteryIds`.
+    // Saying "couldn't check" threw that away and told the user less than the page already knew.
+    expect(dialog()!.textContent).toContain("This bystander is used by 2 mysteries. Their names couldn't be loaded.");
+    expect(dialog()!.textContent).not.toContain("Couldn't check which mysteries use this bystander.");
     expect(dialog()!.textContent).not.toContain("isn't used by any mystery");
     expect(dialogLists()).toEqual([]);
     expect(dialog()!.textContent).toContain('This cannot be undone.');
@@ -178,10 +181,10 @@ describe('BystandersListComponent', () => {
     expect(component.isLoading()).toBe(false);
     expect(component.bystanders().length).toBe(3);
 
-    // Before it arrives the dialog says the check has not come back, rather than claiming zero.
+    // Before it arrives the dialog still states the count — only the names are missing.
     component.requestDelete(bystanders[0]);
     fixture.detectChanges();
-    expect(dialog()!.textContent).toContain("Couldn't check which mysteries use this bystander.");
+    expect(dialog()!.textContent).toContain("This bystander is used by 2 mysteries. Their names couldn't be loaded.");
 
     component.onDeleteCancelled();
     mysteriesLater.next(mysteries);

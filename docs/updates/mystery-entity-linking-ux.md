@@ -1,7 +1,7 @@
 # Editing, Attaching and Removing Entities in the Mystery Wizard — UX / Visual Design
 
 **Prepared by:** Rosalina (Designer)
-**Status:** **Settled — Phase 3 shipped; the rest is ready for implementation.** Every question in §12 is answered; **nothing in this document is waiting on Skyler.** Phase 3 (Luigi) implemented the modal's new input surface (§7.7), the `Escape` fix (§8.7) and accessibility items 1, 4, 5 and 7; two claims of mine were wrong in implementation and are corrected in place, with the reasoning, in §7.1 and §7.6. One new requirement (§8.6, focus after the composer collapses) was identified during that phase and is scoped to the roster replication. Each decision is folded into the section it affects and left in §12 struck through, so cross-references from Yoshi's doc still resolve. OQ9 is Luigi's call at implementation time and blocks nothing. OQ10 is deliberately deferred and has a durable home in §12.1, per Skyler's instruction to record it for after the final phase.
+**Status:** **Settled — Phase 3 shipped and browser-verified; Phase 4 built and QA'd, with two rulings outstanding for Luigi in §15.** Every question in §12 is answered; **nothing in this document is waiting on Skyler.** Phase 3 (Luigi) implemented the modal's new input surface (§7.7), the `Escape` fix (§8.7) and accessibility items 1, 4, 5 and 7; two claims of mine were wrong in implementation and are corrected in place, with the reasoning, in §7.1 and §7.6. One new requirement (§8.6, focus after the composer collapses) was identified during that phase and is scoped to the roster replication. Each decision is folded into the section it affects and left in §12 struck through, so cross-references from Yoshi's doc still resolve. OQ9 is Luigi's call at implementation time and blocks nothing. OQ10 is deliberately deferred and has a durable home in §12.1, per Skyler's instruction to record it for after the final phase.
 **Date:** 2026-09-19 · **Reconciled against Yoshi's `mystery-entity-linking.md` rev 3, then against Skyler's answers to Yoshi's seven questions, then against his answers to the six remaining questions here** — see the dated notes in §2.2, §2.3, §7.1, §7.2, §8.7, §9.3, §9.5, §10.1 and §12. **§9.5 (added 2026-09-19, after Phase 2 landed) rules on the two partial-failure strings Luigi introduced and flagged; it carries two behaviour requirements for him, not only copy.**
 
 > Filed under `docs/updates/` alongside `docs/updates/mystery-entity-linking.md` (Yoshi's architecture proposal for the same feature) and `docs/updates/multi-minion-wizard-design.md`, whose roster-plus-composer pattern this generalises to all four entity types. This document covers **only** the interaction and visual half. Where it requires something Yoshi's doc does not currently allow, that is called out explicitly in §10 rather than left for Luigi to discover.
@@ -254,13 +254,39 @@ One further fix required: `permanenceNote` currently only renders **inside** the
 
 #### The variants
 
-**(A) Wizard · never persisted** — `id === null`. Nothing exists on the server; the draft is local typing.
+> **Corrected 2026-09-20 from Peach's acceptance criteria (G3).** The key below used to be `id === null` versus `id !== null`, and that was wrong the moment attach existed: **an attached entity has an `id` the instant it is attached.** So attaching a location by mistake and trashing it a second later offered `Detach` (a no-op against a membership that was never created) and `Delete` (which permanently destroys a catalogue entity the user only meant to un-attach). Peach's product position — plain **Remove**, no call, no disposition, catalogue deletion stays on `/locations` — is right, and is adopted as variant (A2).
+>
+> **The variant is now keyed on consequence, not on provenance:** *is there a persisted membership that removal would actually change?* That is the baseline question, not the `id` question. Two of the three variants fall out of it.
+>
+> Same shape as the trap in §14.2, pointed the other way: there a stale default made the dialog say something false, here a stale key made it offer something dangerous. Both were rules that were correct when written and stopped being *complete* when a new state appeared. **When a feature adds a state, re-derive every table that keys on the old ones** — the table will not fail loudly.
+
+| Condition | What removal actually does | Variant |
+|---|---|---|
+| `id === null` — authored here, never saved | discards local typing | **(A1)** Cancel · Remove |
+| `id !== null`, membership **not** in the phase baseline — attached in this session, not yet submitted | un-attaches something that was never attached server-side; the entity is untouched | **(A2)** Cancel · Remove |
+| `id !== null`, membership **in** the phase baseline | a real detach or a real delete is available | **(B)** / **(C)** Cancel · Detach · Delete |
+
+**Coordinate the predicate with Yoshi rather than assuming it.** He is deciding whether the submit diff keys on the baseline instead of on `id`; if it does, the modal reads the same predicate as the diff, which is the outcome to want — one fact, two consumers, no chance of them disagreeing about what removal will do. If he keys the diff differently, the modal still needs *"is this membership in the baseline"* exposed to the phase component. Either way the variant table above is the design; only its input plumbing is open.
+
+One thing that already works in our favour: **a successful phase submit refreshes the baseline** (`existingBystanderIds` at `mystery-create.store.ts:1417`, and its locations twin). So an entity attached this session, submitted with Next, and then removed on a revisit correctly moves from (A2) to (B)/(C) — by then a real membership does exist. No extra work; worth knowing it is load-bearing so it is not "tidied away."
+
+**(A1) Wizard · never persisted** — authored here, `id === null`. Nothing exists on the server; the draft is local typing.
 
 > **Remove “Ferris Mill”?**
 > This location hasn't been saved yet. Removing it discards what you typed.
 > `[ Cancel ]  [ Remove ]`
 
 `verb="Remove"`, everything else empty. Matches the shipped minion logic at `mystery-create-monster-phase.ts:67-71`, which already returns an empty permanence note for unsaved drafts.
+
+**(A2) Wizard · attached this session, not yet submitted.** The entity is real and stays real; only a not-yet-created membership goes away. Nothing is deferred, because there is nothing to defer — so, like (A1), no footnote.
+
+> **Remove “Sheriff Dalton”?**
+> This bystander stays in your bystanders list — it just won't be part of this mystery.
+> `[ Cancel ]  [ Remove ]`
+
+`verb="Remove"`, `message=""`, `usageMessage` as above, `usage=[]`, `footnote=""`, no `secondaryLabel`.
+
+Note the sentence does the work the missing `Detach` button would have done: it states the outcome the user almost certainly wants ("it stays in your list") rather than making them choose between two verbs to get it. **This is the one variant where offering fewer buttons is the safer design, not the lazier one** — and it removes the only path by which a mistaken attach could destroy someone's catalogue entity.
 
 **(B) Wizard · persisted, no other mysteries.** Detach is offered here — this is the case Skyler's answer 2 opened up.
 
@@ -271,6 +297,21 @@ One further fix required: `permanenceNote` currently only renders **inside** the
 
 `usageMessage = "This location isn't used by any other mystery."`, `usage = []`, `footnote` as italicised above.
 
+> **Corrected 2026-09-20 from Peach's acceptance criteria (G2) — the deferral clause is false on the last phase.** Bystanders is `lastPhaseIndex` (`mystery-create.store.ts:273-277`), so its button reads **Finish**, not `Next →` (`mystery-create.html:34`), and `submitPhase3` submits, toasts, and `router.navigate`s to the mystery detail page (`:1421`). There is no next step to continue to.
+>
+> The sentence cannot simply be dropped: **it is the only thing carrying the deferred-execution model to the user**, and §7.3 rules out replacing it with "This cannot be undone," which is false at the moment it is read. So the last clause of the footnote branches, and only that clause:
+>
+> | Phase | Closing clause |
+> |---|---|
+> | not the last | `Either way, the change takes effect when you continue to the next step.` |
+> | the last (Bystanders) | `Either way, the change takes effect when you press Finish.` |
+>
+> **Derive the branch from `store.currentPhase() === store.lastPhaseIndex`, don't hardcode it per phase component.** Hardcoding is tempting — Locations is never last and Bystanders always is, so each component could just state its own — but it silently rots the first time a phase is inserted or reordered, and this feature is *already* adding a monster roster in Phase 5. One expression that cannot go stale beats two strings that can.
+>
+> Naming the button in the copy is deliberate: it matches the literal control the user is looking at, which is stronger than a generic "when you continue." The minion phase's existing note (`'The minion will be deleted when you continue to the next step.'`) is unaffected — phase 1 is never last — but it should read from the same helper so there is one place this wording lives.
+>
+> **This does not disturb the `message=""` binding from §14.2.** The deferral clause lives in `footnote`, which now defaults to `''`; `message` still defaults to `'This cannot be undone.'` and must still be passed explicitly as `""` on every wizard variant. The two are adjacent and easy to conflate, which is exactly why both are called out.
+
 **(C) Wizard · persisted, used by other mysteries.**
 
 > **Remove “Sheriff Dalton”?**
@@ -280,7 +321,7 @@ One further fix required: `permanenceNote` currently only renders **inside** the
 > *Detach removes it from this mystery only. Delete removes it from those mysteries too. Either way, the change takes effect when you continue to the next step.*
 > `[ Cancel ]  [ Detach ]  [ Delete ]`
 
-`usageMessage = "This bystander is also used by {n} other {mystery|mysteries}:"`, `usage = [names]`. **Both halves of Skyler's condition are met by one string:** he asked that the modal indicate *how many* other mysteries (answer 2) and separately approved fetching the list so we can *name* them (answer 3). The count is stated in the sentence and the names are listed beneath it, so naming does not replace counting — a user who only wants the number gets it without reading the list. Pluralisation must be real (`1 other mystery` / `2 other mysteries`); `pendingRemoveItems` at `mystery-create-monster-phase.ts:44-60` is the shipped singular/plural helper to copy.
+`usageMessage = "This bystander is also used by {n} other {mystery|mysteries}:"`, `usage = [names]`. The closing clause branches on the last phase exactly as in (B) above — and note that **the bystander example here is the one that hits it**, since Bystanders *is* the last phase: in the running wizard this dialog ends "…when you press Finish." **Both halves of Skyler's condition are met by one string:** he asked that the modal indicate *how many* other mysteries (answer 2) and separately approved fetching the list so we can *name* them (answer 3). The count is stated in the sentence and the names are listed beneath it, so naming does not replace counting — a user who only wants the number gets it without reading the list. Pluralisation must be real (`1 other mystery` / `2 other mysteries`); `pendingRemoveItems` at `mystery-create-monster-phase.ts:44-60` is the shipped singular/plural helper to copy.
 
 A monster in this state carries both lists:
 
@@ -377,9 +418,9 @@ If that copy is unwelcome, suppression remains a defensible fallback; it degrade
 
 ## 8. Accessibility requirements
 
-These are requirements, not polish. Items 1, **6** and 5 are live defects in the shipped minion roster that get four times worse when replicated to four phases — item 6 was identified during Phase 3 and belongs to that same set.
+These are requirements, not polish. Items 1, **6** and 5 were live defects in the shipped minion roster that would have got four times worse when replicated to four phases — item 6 was identified during Phase 3 and belongs to that same set.
 
-**Phase 3 shipped items 1, 4, 5 and 7.** Items 2, 3 and 6 remain, and all three should land with the roster replication rather than after it.
+**Phase 3 shipped items 1, 4, 5, 6 and 7.** **Items 2 and 3 remain**, and both should land with the roster replication rather than after it.
 
 1. **Focus when a row is pulled into the composer.** Activating the pencil **unmounts that pencil** (it is replaced by the static `Editing` label), so keyboard focus is currently orphaned to `<body>` and the user is dropped at the top of the document. Required: give the composer header `tabindex="-1"` and, in `afterNextRender({ write })`, call `heading.focus({ preventScroll: true })` — the exact idiom already in `wizard-layout.ts:54-60`. Focusing the *heading* rather than the name input is deliberate: the heading text is "Editing “Sheriff Dalton”", so taking focus announces the mode change with no `aria-live` needed, and `Tab` from there lands on the first field.
 2. **Announce roster changes.** One visually-hidden polite status region per phase (`<p class="sr-only" aria-live="polite" role="status">`), written on save / attach / remove: "Sheriff Dalton added." / "Sheriff Dalton updated." / "Sheriff Dalton removed." Without it, attach-on-pick is completely silent to a screen reader — the only feedback is a card appearing elsewhere on the page.
@@ -396,7 +437,9 @@ These are requirements, not polish. Items 1, **6** and 5 are live defects in the
 
    OQ2 settled that the composer **always** collapses after save, for all four entities, so the "if it stays open, focus the name input" branch I originally wrote here is dead — there is one path, not two.
 
-   **Deliberately deferred out of Phase 3, and it belongs with the roster replication, not in §12.1.** Phase 3 was scoped to items 1, 4 and 5; this one wasn't in that set. It should not slide to the post-phase follow-up list, though, because the argument that got the other three scheduled applies to it identically: it is a defect in the *already-shipped* minion composer, and replicating the composer to three more entities multiplies it by four. §12.1 is for work deliberately deferred past the whole feature; this is work the feature makes worse. Fix it in the same phase that replicates the composer, and treat items 1 and 6 as one pair — they are the entry and exit of the same focus contract, and fixing only one leaves a keyboard user able to get into the composer but not out.
+   **Shipped in Phase 3** (`mystery-create-monster-phase.ts`, `saveDraft` / `cancelDraft` / `afterComposerCollapse`), alongside item 1 rather than after it. The reasoning is kept because it is the rule, not just the outcome: this item was *not* in Phase 3's original scope, and the argument for pulling it in was that it is a defect in the **already-shipped** composer which replicating the composer would multiply by four. §12.1 is for work deferred past the whole feature; this was work the feature makes worse. Items 1 and 6 are one pair — the entry and exit of the same focus contract — and fixing only one would have left a keyboard user able to get into the composer but not out.
+
+   **Phase 4 replicates both halves.** The contract for each new phase is: pencil and `+ Add Another {Noun}` focus the composer heading; `Save` and `Cancel` focus `+ Add Another {Noun}`. Both guarded on the composer having actually changed state, so a refused commit leaves focus on the button the user pressed.
 7. **Keyboard access to the attach select — `Escape` closes and restores focus. In scope; settled 2026-09-19 (OQ8):** *"Include Escape closes and restores focus as part of this scope."* Yoshi is placing it in his Phase 3 alongside the other roster foundations.
 
    `CustomSelectComponent` is operable today — the trigger is a real `<button>` with `aria-expanded` and the options are real `<button>`s — but the panel can only be dismissed by clicking elsewhere (`handleDocumentClick`, `custom-select.component.ts:87-92`), which a keyboard user cannot do. The fix, concretely:
@@ -619,6 +662,7 @@ Skyler asked for OQ10 to be recorded for after the final phase rather than dropp
 2. **The rest of `CustomSelectComponent`'s ARIA.** Out of scope of OQ8, which covered only `Escape`-closes-and-restores-focus. Still open afterwards: `role="listbox"` sits over children that are not `role="option"`, there is no `aria-activedescendant`, and there is no arrow-key navigation between options. Listed so the Phase 3 fix is not mistaken for having made this control conformant — it makes it *dismissable*, which is the part this feature depends on.
 3. **An "Appears in: …" read-only links line on the entity detail pages** (from §9.3). The chips in the membership control make sharing legible but are deliberately not links. If cross-navigation is wanted later it belongs in a separate read-only line using `.entity-link--inline`, and — since these routes have no `CanDeactivate` guard — it should land with a second registration of the shipped `hunter-draft.guard.ts` pattern rather than on its own.
 4. **Composer stay-open for Locations and Bystanders**, if the extra click per item proves annoying in practice (from OQ2). One line, no dependencies.
+4b. **A reactive usage block in the removal modal** (from §14.1). `pendingDelete` currently snapshots its copy at open time, so a mystery list that arrives while the dialog is open never fills the block in. Holding the entity id and computing `usage`/`usageMessage`/`footnote` over the mysteries signal would let a late arrival update the dialog in place — which also removes any reason to distinguish "still checking" from "couldn't check" in copy.
 5. **Relabelling `Detach`**, if a misclick against `Delete` is ever reported (from OQ4). `Unlink` is the ready alternative.
 6. **`WeaponTagSelectComponent`'s stale-`computed()` defect.** Found by Toad during the Phase 2 pass and fixed in `MysterySelectComponent` only. `selectedTags` is a `computed()` reading a plain `@Input() options` field — a non-signal read never invalidates a computed, so options arriving *after* a value has been written leave the chips permanently empty. Unreachable on its current call sites (the monster and minion sub-resource forms load their options once), which is why it was left alone rather than swept in mid-phase. The fix is the eight lines already applied to `MysterySelectComponent`: back the field with a `signal` behind a setter/getter pair so no call site moves. Worth doing before any future path refreshes a tag list independently.
 7. **The `errorMessage` page-wipe on the four entity detail pages** (from §9.5.3 D2). `@else if (errorMessage())` sits *ahead of* `@else if (location())`, so setting it unmounts the form and leaves nothing to retry into. Phase 2 worked around it by making every recoverable caveat toast-only, but Luigi's `runAndRefresh` adoption added a new entry point: a *refetch* failure after a successful write still reaches `error:` and wipes the page, exactly as the shipped `monster-detail` idiom does today. Pre-existing and app-wide; the sweep is the fix.
@@ -659,3 +703,138 @@ Named explicitly so nothing gets invented:
 | Button weights in the wizard column | outline-accent for every non-`Next` action; `Next →` stays the only filled accent control | `mystery-create.html:32-35`, `mystery-create-monster-phase.html:64` |
 
 There is no new visual language in this proposal. Every class string above already ships.
+
+---
+
+## 14. Phase 4 design review (ceremony, 2026-09-20)
+
+**Facilitator:** Rosalina. **Participants:** Luigi, Peach (acceptance criteria, in the architecture doc). **Scope under review:** attach an existing Location or Bystander, re-edit an already-associated one, remove one via the Detach/Delete modal. Monsters are Phase 5.
+
+Verified by reading the Phase 3 code as committed (`c9d554a`), not the plan for it.
+
+### 14.1 Ruling — the in-flight mystery lookup keeps one string
+
+Decoupling the list pages' loads created a third state §7.7 didn't name: the mystery lookup is neither failed nor available but **still in flight**. Both currently say *"Couldn't check which mysteries use this location."* Luigi flagged it rather than inventing a string. **Ruling: keep one string. Do not add "Still checking…".** Four reasons, in descending weight:
+
+1. **A second string would be a permanently-stuck progress message, not a progress message.** `pendingDelete` is a **snapshot** captured at `requestDelete` (`locations-list.ts:87-107`) — the copy is computed once, at open time, and does not recompute when the mystery list lands. So a dialog that said "Still checking…" would go on saying it forever, with the answer sitting in a signal one layer away. That is worse than the current honest sentence.
+2. **The user-facing consequence is identical** — no verified usage, cancel and retry — so a second string is a distinction that leads to no different decision.
+3. **"Still checking…" implies it will resolve while you watch,** which invites waiting. If the request has already failed, that is simply false, and the component cannot tell the two apart anyway: `mysteriesAvailable` is one boolean that starts `false`, and the error branch sets it `false` again (`:83`). The state doesn't exist in the code either, only in the timeline.
+4. The window is small — the dialog is normally opened well after the page settled.
+
+**If we ever want the distinction, the right fix is not a string.** It is to make the usage block **reactive**: hold the entity id in `pendingDelete` and compute `usage`/`usageMessage`/`footnote` from a `computed` over the mysteries signal, so a late arrival simply fills the block in while the dialog is open. At that point no in-flight copy is needed, because the block updates instead of narrating. Recorded in §12.1 as a follow-up, not scheduled.
+
+> **The general rule, since I have now hit it twice:** a state that exists in the implementation does not earn copy unless it changes what the user should *do*. This is the same error as the "loaded versus committed" rule in §10.1 — implementation structure leaking into interaction semantics.
+
+### 14.2 Do the Phase 4 variants still compose with the as-built modal? Yes — with four bindings Luigi must get explicitly right
+
+They compose. The three-button shape, the focus restore and the Escape nesting all survive. But the as-built component has two defaults and one DOM-derived behaviour that make Phase 4 easy to get subtly wrong:
+
+**(a) `message` still defaults to `'This cannot be undone.'` — the wizard must pass `message=""` explicitly.** This is the §7.1 footnote trap pointed the other way. `footnote`'s default became `''`, but **`message`'s did not** (`confirm-delete-modal.component.ts:47`). A Location or Bystander removal has no cascade, so the natural thing is to pass no `message` at all — and that silently renders *"This cannot be undone."* in a dialog where §7.3 says it is **false**, because removal is deferred to the next phase transition. Pass `message=""`. Worth a spec assertion, not just care.
+
+**(b) The `verb` / `confirmLabel` split differs between the A variants and B/C.** `confirmLabel` falls back to `verb`, so:
+
+| Variant | `verb` | `confirmLabel` | `secondaryLabel` | `footnote` | Title / buttons |
+|---|---|---|---|---|---|
+| (A1) never persisted | `Remove` | *(unset)* | *(unset)* | `''` | `Remove "…"?` · Cancel · **Remove** |
+| (A2) attached this session | `Remove` | *(unset)* | *(unset)* | `''` | `Remove "…"?` · Cancel · **Remove** |
+| (B) persisted, no other mysteries | `Remove` | `Delete` | `Detach` | deferral clause | `Remove "…"?` · Cancel · **Detach** · **Delete** |
+| (C) persisted, shared | `Remove` | `Delete` | `Detach` | deferral clause | `Remove "…"?` · Cancel · **Detach** · **Delete** |
+
+The title stays "Remove" in all four — the user is removing it from the mystery — while the destructive button says what it actually does. That is precisely what `confirmLabel` was added for, and the two A variants are the ones that must *not* set it.
+
+**(b2) Two corrections from Peach's acceptance criteria landed in §7.1 after this review and change what you build here.** Both are small, and both are easy to get wrong in the same file:
+
+- **The variant predicate is the baseline, not `id`** (G3). `id !== null` is true the instant an entity is attached, so keying on it offers `Delete` — permanent catalogue destruction — to a user undoing a mis-click. The phase component needs *"is this membership in the phase baseline"*, and **that predicate should be the same one Yoshi's submit diff uses**, not a second implementation of the same question. Confirm the shape with him before wiring it; if the diff ends up keyed differently, the fact still has to be exposed to the component.
+- **The footnote's closing clause branches on the last phase** (G2). Bystanders is `lastPhaseIndex` and its button says **Finish**, so "continue to the next step" is false there. Derive from `store.currentPhase() === store.lastPhaseIndex` rather than hardcoding per component, and put the wording in one helper that the minion phase's existing note can also read.
+
+**(c) §2.1's section order is now load-bearing for focus, not just for reading.**
+
+**(c) §2.1's section order is now load-bearing for focus, not just for reading.** `focusSurroundingSurface()` (`:248-257`) restores focus after a confirmed removal by taking the modal host's `parentElement` and focusing **the first focus stop inside it**. With §2.1's order — roster → attach strip → composer — that is the first roster card's pencil, which is correct. **If the attach strip were moved above the roster, every confirmed removal would dump focus into the attach select instead.** So: keep the order, and put the `<app-confirm-delete-modal>` at the end of the phase template so its parent is the phase root. Two edge cases both land well: removing the last row leaves no roster buttons, so focus goes to the attach select or — when the catalogue is empty and the strip is hidden — to the auto-opened composer's first field.
+
+**(d) The roster `@for` must track `localKey`, never `$index`.** `LocationDraft` and `BystanderDraft` do not have one yet; `createDraftKey()` already takes a prefix (`mystery-create.store.ts:102`), so this is `createDraftKey('location')`. Beyond §10.2's original reasons there is now a sharper one: the modal restores focus to `lastFocusedOutside` **if `opener?.isConnected`** (`:234`). Under `track $index` Angular recycles DOM nodes, so after removing a row the opener trash button is still connected — but it now belongs to a **different entity**, and focus silently restores onto the wrong row's control with no error anywhere. Stable keys are what make that check mean what it says.
+
+Also confirmed unchanged by the as-built: variant A needs no `footnote` (default is `''`); the `usage`/`usageMessage` pair carries the wizard's "**other** mysteries" wording, which `shared/mystery-usage.ts` deliberately does **not** provide — its header says so explicitly, and Phase 4 adds the wizard wording rather than reusing the list-page functions.
+
+**One Phase 3 mechanism change Phase 4 must not regress:** the dialog's Escape/Tab handler moved from the backdrop element to `document` (`:177`). The reason is worth knowing — the dialog's own title and padding are not focusable, so a single stray click on them dropped `activeElement` to `<body>`, and a keydown on `<body>` never propagates *down* into a backdrop listener, so Escape silently died after one click on every call site. The §8.7 nesting property is unaffected: `CustomSelectComponent` still `stopPropagation()`s while its panel is open, halting the event at the select's host so it never reaches `document` either. First Escape closes the dropdown, second closes the dialog. Phase 4 puts a select and a dialog on the same screen for the first time in the wizard, so this is the phase that will actually exercise it.
+
+### 14.3 Open risk on Phase 4 — the composer heading may not announce
+
+**Closed by browser verification (`a063449`):** all four wizard focus destinations work in real Chromium — pencil → the heading reading `Editing "…"`, `+ Add Another Minion` → the same heading reading `Add a Minion`, and both `Save` and `Cancel` → back to `+ Add Another Minion`. Toad also **retracted his earlier finding** that a confirmed delete orphans focus: it does not, it lands on the next row's pencil.
+
+**Still open, and now an explicit Phase 4 risk rather than an ambient one:** nobody has confirmed with an actual screen reader that **focusing the composer heading announces its text**. §8 item 1 rests entirely on that — the whole reason focus goes to the heading rather than the first field is that the heading reads "Editing “Sheriff Dalton”" and therefore announces the mode change *without* needing `aria-live`. If a `tabindex="-1"` heading is instead swallowed as a non-interactive focus target, the mode change is announced nowhere and a screen-reader user cannot tell create from edit.
+
+Phase 4 replicates this composer into two more phases, which triples the exposure. **Decision rule, so it does not drift:** if the announcement is still unverified when Phase 4 is otherwise complete, **ship §8 item 2 (the `sr-only` `aria-live="polite"` status region) regardless** rather than carrying the risk into Phase 5. It is one element and three strings per phase, it is already specified, and it makes the announcement question moot instead of load-bearing. Verifying is cheaper than insuring, but insuring is cheap.
+
+### 14.4 One assertion shape worth protecting (from Peach's A6)
+
+Primarily Toad's, recorded here because the wording originates in my §5.2/§10.1 framing and a paraphrase of it would fail a correct implementation.
+
+**A6 asserts the attached entity's field values, not the absence of a `PUT`.** In Phase 4 a no-op `PUT` of identical values is **expected and correct** — the dirty check that suppresses it is Phase 5 and monsters-only (§10.1: write amplification only bites for monsters, where delete-all/recreate-all re-keys eight sub-resource collections). The architecture doc's Toad line, "confirm its own fields are unchanged if untouched," is accurate but sits one paraphrase away from "confirm no `PUT` is issued" — which would red-flag a Phase 4 implementation that is doing exactly what this design asks of it.
+
+The load-bearing regression for Phase 4 is the one already stated in §5.2: **attach an existing location, press Next, and confirm the location's own fields are byte-for-byte what they were.** That is a value assertion. Keep it one.
+
+### 14.5 What Phase 4 inherits and must not re-litigate
+
+Settled and not open for rediscovery during implementation: the roster card markup and `Editing` state (§2.2), the composer's three mode signals (§2.3), collapse-after-save for all four entities (OQ2), the strip-to-card upgrade (OQ3), `Detach`/`Delete` labels (OQ4), no sharing marker on the card (OQ5), and the attach strip's commit-on-pick behaviour with no Add button (§3). Yoshi's baseline-snapshot diff (§10.1) is the store-side contract; nothing in this section depends on how it is implemented.
+
+---
+
+## 15. Phase 4 QA rulings (2026-09-20)
+
+Two findings from Toad's Phase 4 pass. Both change what Luigi builds.
+
+### 15.1 The wizard asserts "isn't used by any other mystery" when only the *names* failed to load
+
+**This is a production bug and the copy fix is not the one it looks like.**
+
+Repro: `getMysteries()` errors (swallowed at `mystery-create.store.ts:854`), trash a location that is in two other mysteries, and the dialog says *"This location isn't used by any other mystery"* — the opposite of the truth, on the sentence the Detach-vs-Delete decision is made from, for an irreversible action.
+
+**The important detail, which reframes the whole question:** `pendingRemoveUsage` is `resolveMysteryNames(otherIds, store.mysteries())`, and `otherIds` comes from **the draft's own `mysteryIds`** (`mystery-create-locations-phase.ts:71-73`). That array is populated at attach or hydrate and does not depend on `getMysteries()` at all. So:
+
+| What | Source | Reliable when `getMysteries()` fails? |
+|---|---|---|
+| **How many** other mysteries | `draft.mysteryIds`, minus the current one | **Yes — always** |
+| **Which** mysteries, by name | `resolveMysteryNames(…, mysteries())` | No |
+
+**The count was never the unreliable part.** Reading `usage.length` as the count conflates "no other mysteries" with "no names resolved", and those are different facts from different sources. So the fix is not to admit ignorance — it is to **stop deriving the count from the names**:
+
+```
+otherCount  = otherIds.length                    ← decides the sentence and the buttons
+usage       = resolveMysteryNames(otherIds, …)   ← decides only whether bullets render
+```
+
+**Copy.** Three states, keyed on `otherCount` and on whether names resolved:
+
+| State | `usageMessage` | `usage` |
+|---|---|---|
+| `otherCount === 0` | `This location isn't used by any other mystery.` | `[]` |
+| `otherCount > 0`, names resolved | `This location is also used by 2 other mysteries:` | names |
+| `otherCount > 0`, names missing | `This location is also used by 2 other mysteries. Their names couldn't be loaded.` | `[]` |
+
+Note the punctuation carries weight: the colon promises a list, so the names-missing variant must end in a full stop instead. A trailing colon above an empty block is its own small lie.
+
+**Buttons: keep all three, unchanged.** The question "if the count can't be trusted, is the three-button row still right?" dissolves once the count is sourced correctly — **the count can be trusted, and the count is the only thing the Detach-vs-Delete choice needs.** Names are colour: they help a user recognise *which* mysteries, but the decision is "is this used elsewhere, yes or no," and that is answered reliably. Degrading to two buttons would remove the safe option precisely when the user has least information, which is backwards.
+
+**One string, not two — and for a different reason than the list pages.** §14.1 ruled against a "Still checking…" state because `pendingDelete` snapshots its copy at open time, so the message could never progress. **That reasoning does not transfer**: the wizard's copy is a `computed`, so a late arrival fills the names in while the dialog is open. The wizard reason is simpler and stronger: **the names are supplementary, not decisional.** The user can act correctly on the count alone, so a "loading names…" state would invite waiting for information they do not need — and if the names do arrive, the computed already renders them with no copy needed. The best in-flight behaviour here is the one that says nothing and fills in.
+
+> Recording this explicitly so nobody generalises the wrong rule: **the list-page and wizard rulings agree on the outcome and disagree on the reason.** One string in both cases; snapshot-can't-progress there, supplementary-not-decisional here.
+
+**Consistency follow-up, recommended for the same change set.** The list pages have the same `mysteryIds` available and also derive their count from resolved names, guarding with a coarse `mysteriesAvailable` boolean that collapses to *"Couldn't check which mysteries use this location."* Under the insight above they could say *"used by 2 mysteries. Their names couldn't be loaded."* — strictly more useful, and from data they already hold. Leaving it produces two surfaces making **different claims from identical data**, which is the same "two modals that disagree" problem §7.5 used to argue for doing the sweep in one change set. Same shape, three call sites, and `mysteryUsageUnavailableMessage` stays for the genuinely-unknowable case. If it doesn't ride along, it belongs in §12.1.
+
+### 15.2 R5 — attach leaves the composer open. It is a bug, but the obvious fix is worse
+
+`attachLocation`/`attachBystander` don't re-derive composer-open, so in create mode the first attach leaves a non-empty roster *and* an open composer. §2.3's rule is stated as a function of roster emptiness, so strictly the composer should collapse — and Toad is right that the state was never intended.
+
+**But "collapse on attach" unconditionally would destroy user input.** Consider the likely flow: a user starts typing *"the old mill"* into the composer, realises they already made one, and picks it from the attach strip. Collapsing would silently discard what they typed. That is a worse bug than the one being fixed, and it violates the rule the composer has followed since the minion work — **nothing discards the composer's contents implicitly** (which is why `commitComposerIfValid` exists rather than a discard-confirmation modal).
+
+**Ruling: attach re-derives composer-open, but only when the composer holds nothing.**
+
+- Composer open and **untouched** → collapse to `+ Add Another {Noun}`. The roster is no longer empty, so §2.3's rule applies and the ambiguity of two live "add" affordances goes away.
+- Composer open and **dirty** → leave it exactly as it is. The user's work outranks the tidiness rule.
+- Composer already collapsed → no change.
+
+The dirtiness test is the one the composer already owns for deciding whether `Next` may proceed; reuse it rather than inventing a second notion of "empty".
+
+**No focus move.** §8.6's contract fires when *the focused element unmounts*; here focus is in the attach select and stays there, which is correct for attaching several in a row. The composer that collapses never had focus. Do not add an `afterNextRender` focus call to this path.
+
+**Edit mode is unaffected** and this explains why Toad saw it only in create mode: hydration leaves the roster non-empty, so the composer starts collapsed and there is nothing to re-derive.

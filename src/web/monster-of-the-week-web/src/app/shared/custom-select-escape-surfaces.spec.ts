@@ -352,11 +352,15 @@ describe('Escape closes the panel and restores focus — on every surface that r
         providers: [
           provideRouter([]),
           { provide: ReferenceDataService, useClass: MockReferenceDataService },
-          { provide: MysteryService, useValue: { create: () => of({ id: 'mystery-1' }), upsertCountdown: () => of({}) } },
+          {
+            provide: MysteryService,
+            useValue: { create: () => of({ id: 'mystery-1' }), upsertCountdown: () => of({}), getMysteries: () => of([]) },
+          },
           { provide: MonsterService, useValue: { create: () => of({ id: 'monster-1' }) } },
-          { provide: ApiService, useValue: { post: () => of({}) } },
+          // Phase 4: the store loads the attach catalogues through the real Location service.
+          { provide: ApiService, useValue: { post: () => of({}), get: () => of([]) } },
           { provide: NotificationService, useValue: notifications },
-          { provide: BystanderService, useValue: {} },
+          { provide: BystanderService, useValue: { getAll: () => of([]) } },
         ],
       }).compileComponents();
 

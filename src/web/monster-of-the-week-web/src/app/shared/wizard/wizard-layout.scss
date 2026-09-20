@@ -11,8 +11,18 @@
   animation: fadeSlideIn 0.3s ease forwards;
 }
 
+/*
+  A newly attached roster row should arrive visibly: the user is looking at the attach select, not
+  at the roster above it (UX §3). Reuses the one keyframe this wizard already has. Requires the
+  roster @for to track a stable key rather than , or every row re-animates when one is removed.
+*/
+.wizard-layout .roster-card {
+  animation: fadeSlideIn 0.2s ease forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .wizard-layout .dossier-section {
+  .wizard-layout .dossier-section,
+  .wizard-layout .roster-card {
     animation: none;
   }
 }

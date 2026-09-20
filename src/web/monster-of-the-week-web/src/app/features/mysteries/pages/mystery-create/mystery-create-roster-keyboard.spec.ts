@@ -95,9 +95,13 @@ describe('The minion roster, keyboard-only and by its ARIA', () => {
       providers: [
         provideRouter([]),
         { provide: ReferenceDataService, useClass: MockReferenceDataService },
-        { provide: MysteryService, useValue: { create: () => of({ id: 'mystery-1' }), upsertCountdown: () => of({}) } },
+        {
+          provide: MysteryService,
+          useValue: { create: () => of({ id: 'mystery-1' }), upsertCountdown: () => of({}), getMysteries: () => of([]) },
+        },
         { provide: MonsterService, useValue: { create: () => of({ id: 'monster-1' }) } },
-        { provide: ApiService, useValue: { post: () => of({}) } },
+        // Phase 4: the store loads the attach catalogues through the real Location/Bystander services.
+        { provide: ApiService, useValue: { post: () => of({}), get: () => of([]) } },
         { provide: NotificationService, useValue: { success: () => {} } },
       ],
     }).compileComponents();

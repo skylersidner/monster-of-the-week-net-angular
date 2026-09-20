@@ -37,17 +37,37 @@ export function resolveMysteryNames(
  * The sentence above the usage list. `noun` is the entity's own noun — "location", "bystander",
  * "monster" — so the copy reads about the thing the user is deleting.
  *
- * Pluralisation is real, not a bare `(s)`.
+ * **`count` and `namesResolved` are two facts from two sources, and collapsing them was a bug
+ * (§15.1).** The count comes from the entity's own `mysteryIds`, which is carried on the list and
+ * detail responses and does not depend on the mystery lookup at all. The *names* come from that
+ * lookup. Deriving the count from the resolved names made "is in no mystery" and "could not resolve
+ * any name" render as the same positive sentence — the second of which is the opposite of the truth,
+ * on the sentence an irreversible decision is made from.
+ *
+ * Pluralisation is real, not a bare `(s)`. The punctuation carries weight too: the colon promises a
+ * list, so the names-missing variant ends in a full stop. A trailing colon above an empty block is
+ * its own small lie.
  */
-export function mysteryUsageMessage(noun: string, count: number): string {
+export function mysteryUsageMessage(noun: string, count: number, namesResolved = true): string {
   if (count === 0) {
     return `This ${noun} isn't used by any mystery.`;
   }
 
-  return `This ${noun} is used by ${count} ${count === 1 ? 'mystery' : 'mysteries'}:`;
+  const plural = `${count} ${count === 1 ? 'mystery' : 'mysteries'}`;
+  return namesResolved
+    ? `This ${noun} is used by ${plural}:`
+    : `This ${noun} is used by ${plural}. Their names couldn't be loaded.`;
 }
 
 /**
+ * **Currently uncalled, and retained deliberately (§15.1).** Every shipped surface now takes its
+ * count from the entity's own `mysteryIds`, which is always available wherever the entity is, so
+ * "we cannot say how many" no longer arises: a failed name lookup degrades to the
+ * `namesResolved: false` variants above, which are strictly more useful. This stays for a case
+ * where even the **count** is unknowable — a surface that has an entity id and no `mysteryIds` —
+ * because the reasoning below is the part worth keeping, and it is cheaper to keep than to
+ * rediscover.
+ *
  * What the usage block says when we have **no verified answer** — the mystery list failed to load,
  * or has not arrived yet.
  *
@@ -63,6 +83,46 @@ export function mysteryUsageMessage(noun: string, count: number): string {
  */
 export function mysteryUsageUnavailableMessage(noun: string): string {
   return `Couldn't check which mysteries use this ${noun}.`;
+}
+
+/**
+ * The wizard's variants (B) and (C) — the **"other mysteries"** wording, and the one place the
+ * difference from the list-page functions above is visible.
+ *
+ * Inside the wizard there *is* a current mystery, so the others really are other; on a flat
+ * catalogue route there is not, and saying "other" there makes the count read as off-by-one. Two
+ * sentences, one file, so nobody has to remember which surface they are on — they pick the
+ * function named after it.
+ */
+export function wizardMysteryUsageMessage(noun: string, count: number, namesResolved = true): string {
+  if (count === 0) {
+    return `This ${noun} isn't used by any other mystery.`;
+  }
+
+  const plural = `${count} other ${count === 1 ? 'mystery' : 'mysteries'}`;
+  return namesResolved
+    ? `This ${noun} is also used by ${plural}:`
+    : `This ${noun} is also used by ${plural}. Their names couldn't be loaded.`;
+}
+
+/**
+ * The wizard's deferral footnote for variants (B) and (C).
+ *
+ * `tail` comes from `MysteryCreateStore.deferredChangeTail` — "when you press Finish" on the last
+ * phase, "when you continue to the next step" everywhere else (§7.1, G2). It is passed in rather
+ * than derived here so this file stays free of wizard state, and so there is exactly one place the
+ * branch is computed.
+ *
+ * Note what this deliberately does **not** say: "This cannot be undone." A wizard removal has not
+ * happened yet at the moment the user reads this, so the hard permanence line the list pages use
+ * would be false here (§7.3).
+ */
+export function wizardRemovalFootnote(noun: string, sharedWithOthers: boolean, tail: string): string {
+  const consequence = sharedWithOthers
+    ? `Detach removes it from this mystery only. Delete removes it from those mysteries too.`
+    : `Detach keeps it in your ${noun}s list. Delete removes it for good.`;
+
+  return `${consequence} Either way, the change takes effect ${tail}.`;
 }
 
 /**

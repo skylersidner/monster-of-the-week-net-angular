@@ -1,30 +1,133 @@
-<div class="flex flex-col gap-[0.4rem] mb-3">
-  @for (bystander of store.bystanders(); track $index) {
-    <div class="flex items-center bg-surface-sunken border border-default rounded-md text-primary text-[0.9rem] justify-between px-3 py-2">
-      <span>{{ bystander.name }}</span>
-      <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeBystander($index)">×</button>
+<!--
+  UX §2.1's order is roster → attach strip → composer, and it is load-bearing twice over: the
+  roster is the state of the mystery so it reads first, and §14.2(c) makes it the thing that decides
+  where focus lands after a confirmed removal — the modal restores to the first focus stop in this
+  component's root. Move the attach strip above the roster and every removal dumps focus into the
+  select instead of onto a roster pencil.
+-->
+<ul class="grid gap-2 list-none m-0 mb-3 p-0">
+  @for (draft of store.bystanders(); track draft.localKey) {
+    <li
+      class="roster-card flex items-center border rounded-lg gap-4 justify-between p-4"
+      [class.bg-surface]="store.editingBystanderKey() !== draft.localKey"
+      [class.border-default]="store.editingBystanderKey() !== draft.localKey"
+      [class.bg-accent-subtle]="store.editingBystanderKey() === draft.localKey"
+      [class.border-accent]="store.editingBystanderKey() === draft.localKey">
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-baseline gap-2 mb-1">
+          <span class="text-primary font-semibold">{{ draft.name }}</span>
+          @if (bystanderTypeLabel(draft.bystanderTypeId); as typeLabel) {
+            <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-bystander text-on-badge-bystander">{{ typeLabel }}</span>
+          }
+        </div>
+        <small class="text-muted block truncate">{{ draft.description || '—' }}</small>
+      </div>
+      <div class="flex items-center shrink-0 gap-1">
+        @if (store.editingBystanderKey() === draft.localKey) {
+          <span class="text-accent text-[0.72rem] font-semibold uppercase tracking-[0.04em]">Editing</span>
+        } @else {
+          <button
+            type="button"
+            class="action-btn action-btn--edit flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] no-underline transition-colors"
+            title="Edit bystander"
+            [attr.aria-label]="'Edit ' + draft.name"
+            (click)="editDraft(draft.localKey)">
+            <app-icon name="pencil" class="h-5 w-5" />
+          </button>
+        }
+        <button
+          type="button"
+          class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] no-underline transition-colors"
+          title="Remove bystander"
+          [attr.aria-label]="'Remove ' + draft.name"
+          (click)="requestRemove(draft.localKey)">
+          <app-icon name="trash" class="h-5 w-5" />
+        </button>
+      </div>
+    </li>
+  }
+</ul>
+@if (store.bystanders().length === 0) {
+  <p class="text-muted text-sm italic">No bystanders added yet.</p>
+}
+
+<!-- A3: an empty catalogue hides the strip entirely; a fully-attached one keeps it, with its own empty state. -->
+@if (!store.bystanderCatalogEmpty()) {
+  <div class="flex flex-wrap items-center bg-surface-sunken border border-default rounded-md gap-2 mb-3 mt-3 px-3 py-2">
+    <label class="text-muted text-sm shrink-0" for="attach-bystander">Add an existing bystander</label>
+    <app-custom-select
+      id="attach-bystander"
+      class="flex-1 min-w-[12rem]"
+      [formControl]="attachControl"
+      [options]="store.attachableBystanders()"
+      [searchable]="true"
+      size="compact"
+      placeholder="Search your bystanders…"
+      emptyText="Every bystander you've made is already in this mystery."
+    ></app-custom-select>
+  </div>
+}
+
+@if (store.bystanderComposerOpen()) {
+  <div class="border border-default rounded-lg mt-4 p-4">
+    <div class="flex items-center justify-between gap-3 mb-4">
+      <h4 #composerHeading tabindex="-1" class="text-primary text-sm font-bold m-0 min-w-0 focus:outline-none">
+        @if (store.editingBystanderKey() !== null) {
+          <span class="block truncate">Editing “{{ store.addBystanderForm.controls.name.value }}”</span>
+        } @else {
+          Add a Bystander
+        }
+      </h4>
     </div>
-  }
-  @if (store.bystanders().length === 0) {
-    <p class="text-muted text-sm italic">No bystanders added yet.</p>
-  }
-</div>
 
-<form [formGroup]="store.addBystanderForm" class="border border-default rounded-lg mt-4 p-4">
-  <div class="mb-4">
-    <label class="text-primary block text-sm font-semibold mb-[0.35rem]">Bystander Name <span class="text-danger">*</span></label>
-    <input formControlName="name" placeholder="The sheriff, the missing teen, the witness..."
-      class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
-  </div>
-  <div class="mb-4">
-    <label class="text-primary block text-sm font-semibold mb-[0.35rem]">Description</label>
-    <textarea formControlName="description" rows="3"
-      class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-accent focus:outline-none focus:ring-focus"></textarea>
-  </div>
-  <div class="mb-4">
-    <label class="text-primary block text-sm font-semibold mb-[0.35rem]">Type <span class="text-danger">*</span></label>
-    <app-custom-select formControlName="bystanderTypeId" [options]="store.bystanderTypes()" placeholder="Select a type..."></app-custom-select>
-  </div>
-  <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addBystander()">+ Add Bystander</button>
-</form>
+    <form [formGroup]="store.addBystanderForm">
+      <div class="mb-4">
+        <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="bystanderName">Bystander Name <span class="text-danger">*</span></label>
+        <input id="bystanderName" formControlName="name" placeholder="The sheriff, the worried neighbour..."
+          class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
+      </div>
+      <div class="mb-4">
+        <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="bystanderDescription">Description</label>
+        <textarea id="bystanderDescription" formControlName="description" rows="3"
+          class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-accent focus:outline-none focus:ring-focus"></textarea>
+      </div>
+      <div class="mb-4">
+        <label class="text-primary block text-sm font-semibold mb-[0.35rem]">Type <span class="text-danger">*</span></label>
+        <app-custom-select formControlName="bystanderTypeId" [options]="store.bystanderTypes()" placeholder="Select a type..."></app-custom-select>
+      </div>
 
+      <div class="flex items-center justify-end gap-3">
+        @if (store.editingBystanderKey() !== null) {
+          <button type="button" class="bg-transparent border border-strong rounded-lg text-muted cursor-pointer font-[inherit] text-[0.9rem] px-5 py-[0.55rem] transition-colors" (click)="cancelDraft()">Cancel</button>
+        }
+        <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="saveDraft()">
+          @if (store.editingBystanderKey() !== null) { Save Changes } @else { Save Bystander }
+        </button>
+      </div>
+    </form>
+  </div>
+} @else {
+  <button #addAnotherButton type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="startNewDraft()">+ Add Another Bystander</button>
+}
+
+<!--
+  `message=""` is deliberate and must stay (§14.2a). `message` still defaults to
+  'This cannot be undone.', which is **false** here: a wizard removal is deferred to the next phase
+  submit. `footnote` is where the deferral sentence lives, and it defaults to '' so the A variants
+  correctly show none.
+-->
+<app-confirm-delete-modal
+  [visible]="pendingRemoveKey() !== null"
+  [itemName]="pendingRemoveName()"
+  verb="Remove"
+  [confirmLabel]="pendingRemoveConfirmLabel()"
+  [secondaryLabel]="pendingRemoveSecondaryLabel()"
+  [usageMessage]="pendingRemoveUsageMessage()"
+  [usage]="pendingRemoveUsage()"
+  message=""
+  [items]="[]"
+  [footnote]="pendingRemoveFootnote()"
+  (confirmed)="onRemoveConfirmed()"
+  (secondary)="onDetachConfirmed()"
+  (cancelled)="onRemoveCancelled()"
+/>
