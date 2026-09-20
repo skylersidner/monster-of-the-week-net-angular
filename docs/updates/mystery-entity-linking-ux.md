@@ -1,7 +1,7 @@
 # Editing, Attaching and Removing Entities in the Mystery Wizard — UX / Visual Design
 
 **Prepared by:** Rosalina (Designer)
-**Status:** **Settled — Phase 3 shipped and browser-verified; Phase 4 built and QA'd, with two rulings outstanding for Luigi in §15.** Every question in §12 is answered; **nothing in this document is waiting on Skyler.** Phase 3 (Luigi) implemented the modal's new input surface (§7.7), the `Escape` fix (§8.7) and accessibility items 1, 4, 5 and 7; two claims of mine were wrong in implementation and are corrected in place, with the reasoning, in §7.1 and §7.6. One new requirement (§8.6, focus after the composer collapses) was identified during that phase and is scoped to the roster replication. Each decision is folded into the section it affects and left in §12 struck through, so cross-references from Yoshi's doc still resolve. OQ9 is Luigi's call at implementation time and blocks nothing. OQ10 is deliberately deferred and has a durable home in §12.1, per Skyler's instruction to record it for after the final phase.
+**Status:** **Settled — Phases 3 and 4 shipped; Phase 5 rulings in §16 (a monster is no longer required), with §15's two Phase 4 fixes still outstanding for Luigi.** Every question in §12 is answered; **nothing in this document is waiting on Skyler.** Phase 3 (Luigi) implemented the modal's new input surface (§7.7), the `Escape` fix (§8.7) and accessibility items 1, 4, 5 and 7; two claims of mine were wrong in implementation and are corrected in place, with the reasoning, in §7.1 and §7.6. One new requirement (§8.6, focus after the composer collapses) was identified during that phase and is scoped to the roster replication. Each decision is folded into the section it affects and left in §12 struck through, so cross-references from Yoshi's doc still resolve. OQ9 is Luigi's call at implementation time and blocks nothing. OQ10 is deliberately deferred and has a durable home in §12.1, per Skyler's instruction to record it for after the final phase.
 **Date:** 2026-09-19 · **Reconciled against Yoshi's `mystery-entity-linking.md` rev 3, then against Skyler's answers to Yoshi's seven questions, then against his answers to the six remaining questions here** — see the dated notes in §2.2, §2.3, §7.1, §7.2, §8.7, §9.3, §9.5, §10.1 and §12. **§9.5 (added 2026-09-19, after Phase 2 landed) rules on the two partial-failure strings Luigi introduced and flagged; it carries two behaviour requirements for him, not only copy.**
 
 > Filed under `docs/updates/` alongside `docs/updates/mystery-entity-linking.md` (Yoshi's architecture proposal for the same feature) and `docs/updates/multi-minion-wizard-design.md`, whose roster-plus-composer pattern this generalises to all four entity types. This document covers **only** the interaction and visual half. Where it requires something Yoshi's doc does not currently allow, that is called out explicitly in §10 rather than left for Luigi to discover.
@@ -219,7 +219,11 @@ Two calls worth naming:
 
 - **First field, not last.** It is the minion's parent; every other field is meaningless without it, and putting it last invites filling in a whole minion before discovering it is unassigned. The wizard's own field order elsewhere is identity-first (name, then type), and "which monster" is more identity than "what type."
 - **The picker's options are wizard-local drafts, not the monster catalogue.** A roster monster may have `id: null`. So the control's value cannot be a server ID — see §10.2.
-- **Reparenting is allowed.** Re-editing a minion and changing its monster is just a field edit; no special treatment, no confirmation. It is a `PUT` of `MonsterId` at submit.
+- **Reparenting is allowed, and the picker stays enabled for already-saved minions.** ~~It is a `PUT` of `MonsterId` at submit.~~
+
+  > **Corrected 2026-09-20 — that mechanism never existed.** `UpsertMinionRequest` carries no `MonsterId` and `MinionService.UpdateAsync` never sets one, so the "field edit" I described would have returned `200` and silently done nothing — a reparent that reports success and changes nothing is worse than one that fails. Bowser is building a **dedicated reparent verb**; the picker's change is applied by that call at submit, not by the minion `PUT`. Skyler's answer 2 ("we should build it now") is what makes this reachable, so there is no locked-picker fallback for saved minions and no "a minion stays with the monster it was made under" sentence to write.
+  >
+  > **Not affected:** the one-monster prose fallback two rows above. That one is about *how many options exist*, not about whether the minion is persisted — with a single monster on the roster there is nothing to choose, saved or not. The two are easy to conflate; only the persistence-based lock is gone.
 - **Removing a monster removes its minions.** The monster's removal modal must list them in `[items]` (§7), and the minion roster must drop them. This is the one cascade in the design and it must not be silent.
 
 ---
@@ -840,3 +844,98 @@ The dirtiness test is the one the composer already owns for deciding whether `Ne
 **No focus move.** §8.6's contract fires when *the focused element unmounts*; here focus is in the attach select and stays there, which is correct for attaching several in a row. The composer that collapses never had focus. Do not add an `afterNextRender` focus call to this path.
 
 **Edit mode is unaffected** and this explains why Toad saw it only in create mode: hydration leaves the roster non-empty, so the composer starts collapsed and there is nothing to re-derive.
+
+---
+
+## 16. Phase 5 rulings — a monster is no longer required (2026-09-20)
+
+Skyler: *"Monster should not be required for mystery wizard flow."* Today `validateCurrentStep` hard-blocks phase 1 / step 0 on `monsterForm.invalid` (`mystery-create.store.ts:1656-1659`), and the form requires name, type and archetype. That check goes. An empty monster roster must advance, and a mystery must be saveable with zero monsters.
+
+### 16.1 The empty state is the ordinary one — the orientation goes in the blurb
+
+Two things are being asked at once and they want different homes.
+
+**Empty state: identical to Locations and Bystanders, no special pleading.**
+
+```html
+<p class="text-muted text-sm italic">No monsters added yet.</p>
+```
+
+**Orientation: the blurb, which is the wizard's existing mechanism for exactly this.** `stepBlurb()['1-0']` is currently all imperatives — *"Give it a name… Choose a monster type…"* — which reads as mandatory and will be wrong the moment the block is removed. It needs the same treatment `1-1` already got for minions. Append:
+
+> Most mysteries have one monster, though you can add several — or none, if the threat isn't a creature.
+
+The imperatives above it then describe the **composer** ("when you do add one, here's what to fill in") rather than the phase, which is the same relationship `2-0` and `3-0` already have with their own volume guidance.
+
+**Why the blurb and not the empty state, stated as a rule:** the blurb is *orientation* — what this step is for, what's typical. The empty state is *status* — what's here right now. Putting the norm in both would say it twice on one screen, and a hint repeated is a nag, which is where a nudge starts reading as a warning. One statement, in the always-visible position at the top of the step.
+
+### 16.2 Yes to the nudge — and it is not a warning under decision 4
+
+Ruling: **the blurb sentence above is the nudge, and there is nothing else.** No confirmation on Finish, no "this mystery has no monster" band, no asterisk, no tracker gating.
+
+The principle that makes this consistent with decision 4 rather than an exception to it: **decision 4 governs verdicts on choices already made; this is orientation offered before any choice exists.** At the moment the blurb is read the user has decided nothing — it is a label on a blank slate, not a comment on their work.
+
+Two things keep it on the right side of that line, and both are load-bearing:
+
+1. **It states a norm, in a voice this app already uses.** `2-0` says *"Most mysteries have 4–6 core locations"* and `3-0` *"Most mysteries have 5–10 bystanders."* Monsters getting the same treatment is the consistent choice; *not* having it is the anomaly.
+2. **It gives zero a reason** — *"if the threat isn't a creature."* A haunted place, a curse, a conspiracy are real MotW mysteries. Legitimising the empty case with an example is what turns it from "you forgot something" into "this is a supported option," and that is the whole difference between a nudge and a warning.
+
+**Field-level `required` stays; phase-level required goes.** The composer's Name, Type and Archetype keep their `*` and their inline errors — if you start a monster you must finish it, which is the standing composer rule (`commitComposerIfValid`) and not a gate on the phase. The distinction matters because deleting the `validateCurrentStep` branch must not also strip the validators.
+
+**Do not gate the phase-1 tracker dot on monster count.** Completeness is set on submit; requiring a monster for the dot would reintroduce "required" through the back door, visibly.
+
+### 16.3 Read surfaces — verified, no design needed
+
+Both already handle it, and neither needs a change:
+
+| Surface | With zero monsters | Verdict |
+|---|---|---|
+| `mystery-detail.html:91-92` | `@if (pureMonsters().length === 0) { <p>No monsters.</p> }` | **Already correct** — same shape as its Minions, Locations and Bystanders siblings |
+| `mystery-create-dossier.html:56` | Guard is `currentPhase() >= 1 && monsterPreview().name`, so the section simply doesn't render | **Correct, and the established dossier convention** — Locations (`:223`) and Bystanders (`:239`) also only appear once non-empty |
+
+The dossier's guard will need widening to `monsterDrafts().length > 0 || monsterPreview().name` under the roster, mirroring the minion section at `:125`. That is a roster change, not an empty-state change: absence stays the right rendering for zero, because the dossier's job is "what you've built so far" and sections appear as you build.
+
+### 16.4 Minion removal — variant (E), and the predicate is *not* `membershipPersisted`
+
+Minions join the disposition drain, so the minion phase's modal moves onto the `confirmLabel` shape the other collections use. **It never gets a `secondaryLabel`:** a minion has no mystery membership, so there is nothing to detach.
+
+**The predicate first, because it is where the bug would be.** §7.1 keys on *"is this mystery's membership persisted"*. A minion has no membership — **the row itself is the thing** — so the equivalent question is *"is this row persisted"*, i.e. `draft.id !== null`. Yoshi is right that `membershipPersisted` is misnamed here: read literally it would classify **every** minion removal as a local discard, so a persisted minion dropped from the roster would never be recorded for deletion and would silently survive. Give minions their own predicate rather than widening that function — for locations "persisted" means *the membership row* exists, for minions *the entity row*; one name for two referents is the defect.
+
+> **And `id !== null` is correct here for precisely the reason it was wrong there.** §7.1 rejected it because an *attached* entity has an id the instant it is picked. **Minions are never attached** — there is no attach strip on the minion step and there never will be (§2.5) — so the id can only become non-null by being saved. A reader who remembers "we decided `id !== null` is dangerous" should read this note before flagging it as a regression.
+
+**Variants.** Two, both without Detach:
+
+**(A1-minion) never saved** — `id === null`. Local discard.
+
+> **Remove “Grave-Wight”?**
+> This minion hasn't been saved yet. Removing it discards what you typed, including:
+> • 2 attacks
+> • 1 power
+> `[ Cancel ]  [ Remove ]`
+
+`verb="Remove"`, **no `confirmLabel`**, no `secondaryLabel`, `usageMessage=""`, `usage=[]`, `footnote=""`. With no sub-resources the lead-in drops its last clause and ends *"…discards what you typed."*
+
+**(E) persisted** — `id !== null`. A real `DELETE` at submit.
+
+> **Remove “Grave-Wight”?**
+> Deleting it also removes:
+> • 2 attacks
+> • 1 power
+> *The minion will be deleted when you continue to the next step.*
+> `[ Cancel ]  [ Delete ]`
+
+`verb="Remove"`, **`confirmLabel="Delete"`**, no `secondaryLabel`, `usageMessage=""`, `usage=[]`. With no sub-resources, `message=""` and the dialog is title + footnote — clear and sufficient, so don't invent filler.
+
+Three notes on the copy:
+
+- **The title stays "Remove" in both**, with the button saying what actually happens. Same split as (B)/(C), same reason: the user's action is removing it from the roster; the consequence is what the button names.
+- **`message` keeps its shipped cascade-lead-in meaning** and is worded to introduce the list that follows. Resist putting the situational sentence in `usageMessage` — it renders in the right place but the name would then mean "usage" on three surfaces and "whatever sentence we had spare" on this one.
+- **The deferral clause comes from `deferredChangeTail()`** (§15 / G2), not a literal. Phase 1 is never last, so it always resolves to *"when you continue to the next step"* today — derive it anyway, for the same reason G2 gave: the phase order is being changed by this very feature.
+
+### 16.5 Beyond copy — what Luigi needs
+
+- Remove the `phase === 1 && step === 0` branch of `validateCurrentStep` **without** touching the composer's validators (§16.2).
+- A minion-specific persistence predicate, not a widened `membershipPersisted` (§16.4).
+- Minions added to the pending-removal drain, with `action: 'delete'` only — there is no `'detach'` for a minion, and the type should say so rather than accepting a value it will never receive.
+- The reparent call is a **dedicated verb**, not a field on the minion `PUT` (§6). Wire the picker to it.
+- The zero-monster minion state (§6, *"Add a monster first — minions belong to a monster."*) stops being an edge case and becomes a reachable path. The copy stands; keep it in the ordinary `text-muted text-sm italic` empty-state treatment so it reads as a state, not an error.

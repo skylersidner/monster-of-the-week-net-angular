@@ -53,6 +53,67 @@ public sealed class MinionServiceTests
         Assert.False(result);
     }
 
+    [Fact]
+    public async Task MoveToMonsterAsync_MovesTheMinion_AndWritesOnce()
+    {
+        var repository = new FakeMinionRepository { MonsterExists = true };
+        var service = new MinionService(repository);
+        var oldMonsterId = Guid.NewGuid();
+        var newMonsterId = Guid.NewGuid();
+        var minion = await repository.SeedMinionAsync(oldMonsterId);
+
+        var moved = await service.MoveToMonsterAsync(newMonsterId, minion.Id, CancellationToken.None);
+
+        Assert.True(moved);
+        // The *move* half: it arrives at the new monster and, because there is exactly one
+        // single-valued FK, it has left the old one by construction.
+        Assert.Equal(newMonsterId, minion.MonsterId);
+        Assert.NotEqual(oldMonsterId, minion.MonsterId);
+        Assert.Equal(1, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task MoveToMonsterAsync_IsIdempotent_AndWritesNothing_WhenAlreadyOnThatMonster()
+    {
+        var repository = new FakeMinionRepository { MonsterExists = true };
+        var service = new MinionService(repository);
+        var monsterId = Guid.NewGuid();
+        var minion = await repository.SeedMinionAsync(monsterId);
+
+        Assert.True(await service.MoveToMonsterAsync(monsterId, minion.Id, CancellationToken.None));
+        Assert.True(await service.MoveToMonsterAsync(monsterId, minion.Id, CancellationToken.None));
+
+        Assert.Equal(monsterId, minion.MonsterId);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task MoveToMonsterAsync_ReturnsFalse_WhenMonsterDoesNotExist()
+    {
+        var repository = new FakeMinionRepository { MonsterExists = false };
+        var service = new MinionService(repository);
+        var oldMonsterId = Guid.NewGuid();
+        var minion = await repository.SeedMinionAsync(oldMonsterId);
+
+        var moved = await service.MoveToMonsterAsync(Guid.NewGuid(), minion.Id, CancellationToken.None);
+
+        Assert.False(moved);
+        Assert.Equal(oldMonsterId, minion.MonsterId);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task MoveToMonsterAsync_ReturnsFalse_WhenMinionDoesNotExist()
+    {
+        var repository = new FakeMinionRepository { MonsterExists = true, MinionExists = false };
+        var service = new MinionService(repository);
+
+        var moved = await service.MoveToMonsterAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(moved);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
     // Upsert*Request records carry their DataAnnotations on the primary constructor's
     // parameters ([param: Required, MaxLength]/[param: Range]), matching
     // UpsertMonsterRequest's established precedent (see MonsterServiceTests.cs) — so these
@@ -158,8 +219,13 @@ public sealed class MinionServiceTests
                     MinionType = new MinionType { Name = "Type", Motivation = "Mot" }
                 });
 
+        // Honours `MinionExists` so the not-found branch is reachable; it defaults to true, so the
+        // canned fallback every pre-existing test relies on is unchanged.
         public Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
-            Task.FromResult<Minion?>(_minions.FirstOrDefault(x => x.Id == id) ?? new Minion { Name = "Minion" });
+            Task.FromResult<Minion?>(
+                MinionExists
+                    ? _minions.FirstOrDefault(x => x.Id == id) ?? new Minion { Name = "Minion" }
+                    : null);
 
         public Task AddAsync(Minion minion, CancellationToken cancellationToken)
         {
@@ -167,6 +233,25 @@ public sealed class MinionServiceTests
             minion.MinionType = new MinionType { Id = minion.MinionTypeId, Name = "Type", Motivation = "Mot" };
             _minions.Add(minion);
             return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Puts a real minion in the store on a named monster, so the move tests can assert the FK
+        /// itself changed rather than only reading the service's return value. Deliberately does
+        /// not call <see cref="SaveChangesAsync"/>, so <see cref="SaveChangesCalls"/> counts only
+        /// what the verb under test wrote.
+        /// </summary>
+        public async Task<Minion> SeedMinionAsync(Guid monsterId)
+        {
+            var minion = new Minion
+            {
+                Name = "Grunt",
+                MonsterId = monsterId,
+                MinionTypeId = Guid.NewGuid(),
+                HarmCapacity = 1,
+            };
+            await AddAsync(minion, CancellationToken.None);
+            return minion;
         }
 
         public Task<int> DeleteMinionAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(DeleteMinionResult);

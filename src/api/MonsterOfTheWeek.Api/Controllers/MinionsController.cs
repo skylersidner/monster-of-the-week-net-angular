@@ -38,6 +38,20 @@ public sealed class MinionsController(IMinionService minionService) : Controller
     public async Task<ActionResult<MinionDetailResponse>> Update(Guid id, [FromBody] UpsertMinionRequest request, CancellationToken cancellationToken) =>
         ToActionResult(await minionService.UpdateAsync(id, request, cancellationToken));
 
+    /// <summary>
+    /// Re-parents a minion. No body, 204 on success, 404 when either id is unknown.
+    ///
+    /// <para>
+    /// Shaped on the membership verb at <c>PUT /api/mysteries/{mysteryId}/monsters/{id}</c>, but
+    /// it is a <b>move</b> rather than an add — see <see cref="MinionService.MoveToMonsterAsync"/>
+    /// for why the two are not the same verb. Sits beside the <c>GET</c> and <c>POST</c> that
+    /// already own this path; there was no <c>PUT</c> on it before.
+    /// </para>
+    /// </summary>
+    [HttpPut("api/monsters/{monsterId:guid}/minions/{id:guid}")]
+    public async Task<IActionResult> MoveToMonster(Guid monsterId, Guid id, CancellationToken cancellationToken) =>
+        await minionService.MoveToMonsterAsync(monsterId, id, cancellationToken) ? NoContent() : NotFound();
+
     [HttpDelete("api/minions/{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
         await minionService.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();

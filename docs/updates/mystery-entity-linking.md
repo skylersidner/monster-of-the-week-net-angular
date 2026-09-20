@@ -1,8 +1,12 @@
 # Connecting Monsters, Locations and Bystanders to a Mystery — Architecture
 
 **Prepared by:** Yoshi (Architect)
-**Status:** **Revision 7 — Phases 1–3 shipped; Phase 4 design-review findings folded in.** All questions from Skyler, Rosalina and Boo are decided (§3, §3.1, §10). Phases 1, 2 and 3 are committed and browser-verified (`72ebc5c`, `2814168`, `c9d554a`, `a063449`). Peach's Phase 4 acceptance review found two architectural gaps, now decided as decisions 15 and 16 (§3.2). Deferred work is in §12.
-**Date:** 2026-09-20 (rev 7)
+**Status:** **Revision 9 — three-stage review closed; Phase 5 fully specified.** Phases 1–4 committed and green (`72ebc5c`, `2814168`, `c9d554a`, `a063449`, `b47c3dc`, `cb1eae3`; 1053 frontend / 548 backend). Rev 8 was my pre-Phase-5 re-review; Bowser and Luigi reviewed after me and found real defects in it, now fixed. Skyler answered the three questions the review raised — **decisions 17, 18 and 19 (§3.3)**. Nothing is open (§10).
+**Date:** 2026-09-20 (rev 9)
+
+> **The one with reach beyond its own sentence is decision 19: a monster is no longer required to complete the wizard.** §6.5 works through what that changes on the write side, the tracker, and the read side. Read it before 5b.
+>
+> **Corrections to rev 8, all found by Luigi:** §6.1 contradicted §5.4 about `MonsterDraft`'s baselines — §5.4 was right, §6.1 is fixed. §5.2's hazard (ii) was framed as an attach problem; it is a hydration problem too, and the shipped code is already on the wrong side of it (§5.2). `draftState` is dead production code and must not be grown to four composers (§5.5). Phase 5a is **≈ Phase 4 in size, not half of it**, and 5b is larger (§9).
 
 > Filed under `docs/updates/` alongside `docs/updates/multi-minion-support.md` and `docs/updates/standalone-creation-phase1-monsters.md`, which this work builds directly on. Supersedes nothing, and inherits nothing from the withdrawn hunter-advancement design.
 >
@@ -94,7 +98,7 @@ Three facts drive the whole of §5 and §6:
 
 **(c) Sub-resources do NOT upsert by ID presence — they delete-all and recreate-all.** `AttackDraft` / `PowerDraft` / `WeaknessDraft` / `ArmorDraft` (`mystery-create.store.ts:37-60`) **have no `id` field at all.** `submitPhase1` (`:1244`) deletes every attack/power/armor/weakness named in `existingMonster*Ids` and then recreates the lot from the drafts via `saveThreatCollections` (`:1532`). `saveMinionDrafts` (`:1400-1425`) does the same thing per minion, against each draft's own `existingAttackIds`/etc. baseline. **This is the one place Skyler's upsert rule does not already hold, and it is the subject of §5.2.**
 
-Asymmetry worth recording, because it inverts an earlier note in Yoshi's history: `MinionService` (Angular) now has the full set of sub-resource update methods (`updateAttack:59`, `updatePower:89`, `updateArmor:107`, `updateWeakness:125`, `removeAttackWeaponTag:78`). **`MonsterService` has none of them** — it has `createAttack`/`deleteAttack` and no `updateAttack`, despite `MonstersController` exposing every PUT. Five Angular methods are missing on the monster side.
+Asymmetry worth recording, because it inverts an earlier note in Yoshi's history: `MinionService` (Angular) now has the full set of sub-resource update methods (`updateAttack:59`, `updatePower:89`, `updateArmor:107`, `updateWeakness:125`, `removeAttackWeaponTag:78`). **`MonsterService` has none of them** — it has `createAttack`/`deleteAttack` and no `updateAttack`, despite `MonstersController` exposing every PUT. **Seven** Angular methods are missing on the monster side, not five — the five updaters plus `linkToMystery` and `unlinkFromMystery`, which `LocationService` and `BystanderService` both have and `MonsterService` does not. Corrected in rev 8; see §5.2.
 
 ---
 
@@ -123,7 +127,7 @@ Asymmetry worth recording, because it inverts an earlier note in Yoshi's history
 
 | # | Decision | Consequence |
 |---|---|---|
-| 8 | **Monster and minion sub-resources upsert by ID presence.** | `AttackDraft` / `PowerDraft` / `WeaknessDraft` / `ArmorDraft` gain `id: string | null`; `saveThreatCollections` and `saveMinionDrafts` stop deleting-all and recreating-all (§5.2). The silent-data-loss path is closed by construction. Costs five Angular `MonsterService` methods and a weapon-tag assign/remove diff. |
+| 8 | **Monster and minion sub-resources upsert by ID presence.** | `AttackDraft` / `PowerDraft` / `WeaknessDraft` / `ArmorDraft` gain `id: string | null`; `saveThreatCollections` and `saveMinionDrafts` stop deleting-all and recreating-all (§5.2). The silent-data-loss path is closed by construction. Costs Angular `MonsterService` methods and a weapon-tag assign/remove diff — **seven methods, not five; corrected in rev 8, see §5.2.** |
 | 9 | **Dirty-tracking is in, on top of decision 8.** | Not a fallback for a declined upsert — an affirmative requirement. With upsert approved its job is **write amplification, not data safety**: it stops a roster of N monsters reissuing N identical subtrees of PUTs on every phase transition. Mechanism is the derived per-row baseline diff of §5.4 — *not* a stored `edited` flag and *not* `origin`. |
 | 10 | **Detach is offered whenever the entity exists in the catalog**, not only when it is linked elsewhere; the modal states how many other mysteries are involved so the choice is informed. | Widens decision 7. Closes Rosalina's OQ1. See §7.5 — outside the wizard there is no current mystery, so this has a boundary. |
 | 11 | **The wizard fetches the mystery list** to resolve membership IDs to names for the modal. | One `getMysteries()` added to the wizard's reference-data `forkJoin`. **No DTO change** — `mysteryIds: Guid[]` stays as it is on all six shipped contracts. Closes Rosalina's OQ7. |
@@ -139,6 +143,14 @@ Her criteria are at `docs/updates/mystery-entity-linking-acceptance.md`. Two of 
 |---|---|---|
 | 15 | **`pendingRemovals` is wizard-scoped, not phase-scoped, and every phase submit drains the whole list.** | Closes G1 without touching `jumpToPhase`, `advancePhase` or tracker semantics. A confirmed removal survives an edit-mode tracker jump and is applied by whichever submit happens next. Decision 12's "abandoning applies nothing" is preserved exactly — a jump is no longer an abandon, and the code no longer has to tell them apart. §7.3. |
 | 16 | **The removal variant keys on the phase's baseline, not on `id`.** | Closes G3. An entity attached this session but not yet submitted has an `id` but no persisted membership, so it is a **local discard** — no modal choice, no disposition, no API call. Removes the path where an accidental attach offered permanent destruction of a catalogue entity. Needs no new store state: the `existing*Ids` signals already are the predicate. §7.1. |
+
+### 3.3 Fourth round (2026-09-20, closing the three-stage pre-Phase-5 review)
+
+| # | Decision | Consequence |
+|---|---|---|
+| 17 | **Minions join the disposition drain.** | `'minions'` becomes a `RemovalCollection` member with a delete-only disposition. Closes the G1 hole on the minion roster — the one I failed to sweep when decision 15 closed it for two collections. Costs more than the store change I estimated: the minion modal today passes `verb="Remove"` with sub-resource counts and does not use the `confirmLabel`/disposition shape at all, so it needs `confirmLabel="Delete"` when persisted and **never** a `secondaryLabel` (a minion has no membership to detach). Real UI work; Rosalina is specifying it. §7.7. |
+| 18 | **Minion re-parenting is built now, not deferred — as a dedicated verb.** | `PUT /api/monsters/{monsterId}/minions/{minionId}` → 204 \| 404. **Not** `MonsterId` on `UpsertMinionRequest`. Bowser is building it. §6.4. |
+| 19 | **A monster is not required to complete the wizard.** | An empty monster roster must advance, and a mystery must be saveable with zero monsters. Reaches `validateCurrentStep`, `phaseComplete`, the tracker, `submitPhase1`, and the read side. The backend already permits `monsterCount: 0`. §6.5. |
 
 ---
 
@@ -235,12 +247,35 @@ Fix is one line per phase, and it is cheap precisely because the new endpoint is
 Now press Next. `submitPhase1` runs: `update()` the monster row, then **delete every ID in `existingMonsterAttackIds()` / `…PowerIds()` / `…ArmorIds()` / `…WeaknessIds()`**, then `saveThreatCollections()` **creates all four collections fresh from the draft arrays**. Three ways the attach can hydrate, three outcomes:
 
 - **(i) Hydrate the fields only** — set `editingMonsterId`, leave the draft arrays and the ID baselines empty. Next deletes nothing and creates nothing. Gravewalker is intact. But Mystery B's wizard shows a monster with **zero attacks and zero powers** while the mystery detail page (which re-fetches) shows all of them. Confusing, not destructive.
-- **(ii) Hydrate the ID baselines but not the draft arrays.** This is the trap, and it is the *natural* thing to write, because it is what `loadEditData` does — it sets `existingMonster*Ids` from the fetched monster. Next deletes attacks A1, A2, A3, both powers, the armor and the weakness **from the real Gravewalker row**, then recreates nothing. Result: **Gravewalker is stripped bare, in Mystery A too.** No error, no warning, not recoverable. This is the failure mode I want a named invariant and a test against.
+- **(ii) Hydrate the ID baselines but not the draft arrays.** This is the trap. Next deletes attacks A1, A2, A3, both powers, the armor and the weakness **from the real Gravewalker row**, then recreates nothing. Result: **Gravewalker is stripped bare, in Mystery A too.** No error, no warning, not recoverable.
+
+> **Rev 9 — this is not an attach hazard. It is a hazard of any path that populates one side and not the other, and the shipped code is already on the wrong side of it.** Luigi's finding, and it is the sharpest single line in 5a.
+>
+> `loadEditData` sets `existingMonsterAttackIds` from the fetched monster (`mystery-create.store.ts:952`) and builds the `monsterAttacks` drafts **with no `id`** — because `AttackDraft` has no `id` field to put one in. Under delete-all/recreate-all that is harmless: the baseline is the delete list and the drafts are the create list, and both are used wholesale. **The moment 5a turns it into a diff, "baseline populated, draft ids absent" means every attack is in the delete set and none is in the update set — outcome (ii), on a plain edit-mode revisit, with no attach anywhere in the story.**
+>
+> So the invariant is not "attach must hydrate both." It is: **the ID baseline and the drafts' ids are two halves of one fact and must be written in the same place, every time.** Under §5.4's rev-8 shape that is enforced structurally rather than by discipline — once the baseline *is* the response array, the drafts are built from the same objects in the same step, and there is no way to populate one without the other.
+>
+> Minions are already safe here and show what right looks like: `saveMinionDrafts` backfills `id` onto each draft alongside refreshing its baseline, which is why the per-minion cycle has never had this bug. 5a's job is to make the monster path do what the minion path already does.
 - **(iii) Hydrate both correctly.** Next deletes all seven sub-resources and recreates seven new ones with **new primary keys**, re-assigning "Grave Chill"'s weapon tags from `weaponTagIds`. Content is preserved. But every sub-resource row churns its ID on every single Next — and with a roster of N monsters, that is N monsters' worth of churn per phase transition, forever.
 
 **So: his rule is right, and the honest answer is that the code obeys it at the monster row and not one level below.** The recommendation is therefore to *apply his own rule more consistently than the code does today*: give `AttackDraft` / `PowerDraft` / `WeaknessDraft` / `ArmorDraft` an `id: string | null` and diff them exactly like `LocationDraft` — `id === null` → create, `id !== null` → `PUT`, in the baseline but gone → delete. That makes outcome (ii) structurally impossible (nothing is deleted unless the user removed it) and eliminates (iii)'s churn.
 
-The backend PUTs already exist (`MonstersController.cs:70/104/120/136`). `MinionService` (Angular) already has the matching methods. **`MonsterService` needs five added** (`updateAttack`, `updatePower`, `updateArmor`, `updateWeakness`, `removeAttackWeaponTag`). Weapon tags on an updated attack need a small assign/remove diff of their own rather than the current assign-only path.
+The backend PUTs already exist (`MonstersController.cs:70/104/120/136`). `MinionService` (Angular) already has the matching methods. Weapon tags on an updated attack need a small assign/remove diff of their own rather than the current assign-only path.
+
+#### `MonsterService` needs **seven** methods, not five — corrected in rev 8
+
+Rev 3 counted the five sub-resource updaters and missed two. Toad found the others during the Phase 4 review, and I verified all seven against `core/monster.ts` at `b47c3dc`:
+
+| Method | Why | Which half of Phase 5 |
+|---|---|---|
+| `updateAttack`, `updatePower`, `updateArmor`, `updateWeakness` | decision 8's upsert | 5b |
+| `removeAttackWeaponTag` | the tag diff on an updated attack | 5b |
+| **`linkToMystery`** | **attach an existing monster — there is no client method for it at all** | **5a** |
+| **`unlinkFromMystery`** | **detach a monster from the roster — likewise absent** | **5a** |
+
+The last two are the important correction. **Phase 1 shipped the link verb on the backend for all three collections** (`MonstersController.cs:53`, `LocationsController.cs:101`, `BystandersController.cs:96` — all three `HttpPut` routes exist and are green). **Phase 2 shipped the client half for two.** `LocationService` and `BystanderService` have `linkToMystery` *and* `unlinkFromMystery` (`location.ts:48,52`, `bystander.ts:48,52`); `MonsterService` has neither. That was correct at the time — Phase 2 deliberately excluded monsters (§6.2) — but it means the monster roster cannot attach or detach anything until both are added, and neither appears in rev 7's Phase 5 list.
+
+Nothing is needed on the backend. The gap is entirely in `core/monster.ts`.
 
 **This was a scope increase, and Skyler approved it (decision 8).** Worth keeping the rejected floor on record: had it been declined, the minimum would have been to make *"attach hydrates the full sub-resource graph and its ID baseline atomically, or sets neither"* a written invariant with a dedicated Toad test — because the codebase's own history says this class of bug lands here. The Bug 2 fix of 2026-08-04 was the same shape: an ID baseline populated on one path and not another. Upsert removes the invariant's reason to exist by making the delete list a *diff* rather than a *baseline*.
 
@@ -279,12 +314,25 @@ This is the same derive-don't-store move that settled hunter completeness and pi
 
 **Decided (decision 9):** build the derived per-row dirty check as part of the monster roster, where amplification is real. Skip it for Locations and Bystanders, where one no-op PUT per row does not justify a mechanism. `origin` stays retracted.
 
+#### Rev 8 — Phases 2–4 gave this a better shape than rev 5 specified
+
+Rev 5 said "snapshot the hydrated values onto the draft as a `baseline`," which reads as *adding* a field alongside the four `existing*Ids` arrays each `MinionDraft` already carries (`mystery-create.store.ts:129-138`). Having now read the shipped code, there is a cleaner move that costs less, not more:
+
+> **Replace `existing*Ids: string[]` with `existing*: <Response>[]`.** The hydrated server responses *are* the baseline. The ID list is `.map(x => x.id)` off them, so the delete-detection the arrays exist for is unchanged, and the value comparison decision 9 needs comes free in the same field. Net change to `MinionDraft` is zero new fields, four retyped ones.
+
+Two things this buys beyond tidiness. It keeps **one** baseline per collection rather than an ID baseline and a value baseline that can disagree — the failure mode where a row is in one and not the other is exactly the Bug 2 shape this file has already been bitten by twice. And it makes the weapon-tag diff tractable: `MonsterAttackResponse.weaponTags` is on the response and nowhere else, so comparing an updated attack's tags against what the server last returned needs the response object anyway.
+
+**Also, and separately: the sub-resource drafts should gain `localKey`, not only `id`.** Rev 3's §5.2 asked for `id` alone, which is enough for upsert and not enough for anything else. Phase 3 learned this the hard way one level up, and the reasoning is written into the shipped code (`MinionDraft.localKey`): *"The array index was standing in for identity, and that is a bug source rather than a shortcut."* Sub-resource drafts are still exactly where the roster was before Phase 3 — `@for (attack of store.monsterAttacks(); track $index)` and `removeDraft(signal, index)` — and an unsaved row has `id: null`, so `id` cannot address it. `createDraftKey(prefix)` (`:141`) already exists and takes a prefix; `createDraftKey('attack')` is the whole cost.
+
+This is a small scope addition to 5b and it is the difference between the diff being addressable and it being index-addressed under a roster that can reorder.
+
 ### 5.5 Store consequences of "collapse the composer after save" (Rosalina's OQ2, decided yes)
 
 Checked against the store design, because it is the only one of her interaction answers that could have reached it. **It does not change submit timing, the diff, or `commitComposerIfValid`** — committing a draft into the roster has always been a local operation, and API submission still happens at the phase transition. Two small store-shape consequences, both mechanical:
 
 - **Locations and Bystanders need composer-open state they do not have today.** Their add-form is unconditionally rendered; minions already have `composerOpen` (`mystery-create.store.ts:294`). Collapsing after save means two more instances of the same signal, which is what decision 6's consistency implies anyway.
-- **`MysteryCreateDraftState.composer` generalises from one composer to four.** The block at `mystery-create.store.ts:171` is `{ open, editingDraftIndex }` — the shipped shape for "where the composer is pointed," and part of the serialisable draft snapshot. With four entity types it becomes per-entity, and `editingDraftIndex` is already being renamed to `editingDraftKey` in Phase 3 (§9). Do both renames in one pass rather than two.
+- ~~**`MysteryCreateDraftState.composer` generalises from one composer to four.**~~ **Withdrawn in rev 9 — do not do this.** Luigi checked what actually consumes `draftState` and the answer is: one assertion in `mystery-create.store.spec.ts:940`. No template, no persistence, no route, no other reader. It is a `computed` that exists to be asserted against, which makes it **dead production code**, and rev 5 was proposing to quadruple it on the strength of a name.
+  **Do one of two things in 5a, not a third:** wire it to **F4** (mid-wizard persistence), which is the job it was clearly shaped for and would make it live — or delete it and the assertion with it. Growing it to four composers is the only option that is definitely wrong, because it doubles the maintenance of something with no consumer at exactly the moment the store is hardest to change. My recommendation is delete; F4 can reintroduce a snapshot shaped to what persistence actually needs rather than to what the store happened to look like in July.
 
 Also worth stating so it is not rediscovered: with the composer collapsing, `commitComposerIfValid` becomes *more* load-bearing, not less. A collapsed composer cannot hold uncommitted work, but a re-opened one can, and the rule ("an open composer is committed if it can be, and you're stopped if it can't") is what makes the roster safe to click around in. §5.3 already requires it for all four types.
 
@@ -320,7 +368,18 @@ export interface MonsterDraft {
 }
 ```
 
-This is `MinionDraft`'s shape (`mystery-create.store.ts:94`) with the four `existing*Ids` baselines dropped, because §5.2's recommendation puts the ID on each sub-resource draft instead. If §5.2 is declined, `MonsterDraft` carries the four baseline arrays exactly as `MinionDraft` does today.
+> **Corrected in rev 9 — this sketch contradicted §5.4, and §5.4 is the one that is right.** Rev 3 wrote that `MonsterDraft` drops the four `existing*Ids` baselines "because §5.2's recommendation puts the ID on each sub-resource draft instead." That was true when the only job was delete-detection. It stopped being true in rev 8, when §5.4 changed the baseline from ids to **responses**: the dirty check needs *values*, and the weapon-tag diff needs `weaponTags`, which exists only on `MonsterAttackResponse` and nowhere on a draft. Ids on the drafts give you delete-detection and nothing else.
+>
+> **So `MonsterDraft` carries the four baselines after all, retyped:**
+>
+> ```ts
+>   existingAttacks: MonsterAttackResponse[];
+>   existingPowers: MonsterPowerResponse[];
+>   existingWeaknesses: MonsterWeaknessResponse[];
+>   existingArmors: MonsterArmorResponse[];
+> ```
+>
+> `MinionDraft`'s four `existing*Ids: string[]` are retyped the same way in 5a. This is the same count of fields the shipped `MinionDraft` already has — the change is their type, not their number. Luigi caught the contradiction; two sections disagreeing about the central type of the riskiest phase is exactly the kind of thing a three-stage review is for.
 
 `loadEditData` stops at `monsters[0]` and hydrates the full list. `submitPhase1` becomes: diff the roster (removal per §7, `id !== null` → update + membership `PUT`, `id === null` → create + link), then for each surviving monster run the sub-resource diff, then the minions.
 
@@ -334,6 +393,10 @@ A minion must name its monster, but a monster authored in this session has **no 
 
 `localKey` is stable for the life of the draft and is never sent to the server. It is generated for hydrated monsters too, so there is exactly one addressing scheme.
 
+> **Rev 8 — this shipped in Phase 3 and needs no new design.** `createDraftKey(prefix)` (`mystery-create.store.ts:141`) already mints keys and already takes a prefix, and `MinionDraft`, `LocationDraft` and `BystanderDraft` all carry `localKey` today. `MonsterDraft` uses `createDraftKey('monster')`; that is the entire cost of this section. The reasoning the shipped comment records is worth re-reading before 5b, because it is the same argument §5.4 now makes one level further down for the sub-resource drafts: *"The array index was standing in for identity, and that is a bug source rather than a shortcut."*
+>
+> **One thing this section left ambiguous, settled here: minions stay a flat array with a `monsterKey`, not a nested collection under `MonsterDraft`.** §6.1's `MonsterDraft` sketch lists the four sub-resource collections and deliberately does not list minions, but it never said why. The reason is that Rosalina's §5 keeps the two-step split (step 0 monsters, step 1 minions) — nesting the minion roster inside the monster composer would put a composer inside a composer at `md:w-[42%]`, which she rejected explicitly. A flat `minionDrafts()` filtered by `monsterKey` also keeps `existingMinionIds` and `saveMinionDrafts`'s diff working as one collection rather than N, which is what the drain and the ledger both want.
+
 ### 6.4 Minion → monster pinning (Skyler is right, §6.3 of rev 1 was wrong)
 
 With one monster, `saveMinionDrafts(monster.id)` could pin implicitly. With a roster it cannot. `MinionDraft` gains `monsterKey: string`, and the wizard's minion composer gains a **monster picker over the current roster** — the same affordance `/monsters/:monsterId/minions/new` already has, sourced from the in-memory roster rather than an API call. Visual treatment is Rosalina's.
@@ -345,9 +408,50 @@ Two rules fall out of `Minion.MonsterId` being required and non-nullable:
   - **Detach** — the bridge row goes; the monster and every one of its minions survive untouched and remain visible in the other mysteries. Nothing is destroyed. The minions simply stop appearing here, because they were only ever here *through* their monster.
   - **Delete** — `DELETE /api/monsters/{id}` FK-cascades the minions. **They are destroyed, everywhere.** The removal modal must list them (`ConfirmDeleteModalComponent`'s `items` input exists for exactly this and is passed `[]` everywhere today).
 
-  Reassigning orphaned minions to a different monster is deliberately *not* offered *on removal*: silently re-parenting a minion would be a surprising mutation of a shared entity. Re-parenting deliberately, by editing a minion and changing its monster picker, is just a field edit and needs no special treatment (her §6). **Confirmed by decision 13.**
+  Reassigning orphaned minions to a different monster is deliberately *not* offered *on removal*: silently re-parenting a minion would be a surprising mutation of a shared entity. **Confirmed by decision 13.**
+
+  > **Corrected 2026-09-20 — "just a field edit" was wrong, and the same sentence stood in Rosalina's §6.** `UpsertMinionRequest` carries no `MonsterId` and `MinionService.UpdateAsync` never sets one, so the field edit described here would have returned **200 and silently done nothing** — the §5.1 Concern A shape one level down, with the wizard's local state disagreeing with the server until something refetched. Neither author had reason to check the request record. Bowser found it during the pre-Phase-5 review and built a **dedicated verb** instead: `PUT /api/monsters/{monsterId}/minions/{id}` → 204 | 404, no body, no DTO change, no migration (decision 18). `MonsterId` on `UpsertMinionRequest` was rejected — that DTO is sent by three shipped pages, non-nullable would re-parent every caller to `Guid.Empty` and trip the FK, and `Guid?` meaning "leave alone" is PATCH semantics inside a PUT, which §2 principle 1 exists to avoid.
+  >
+  > **The two verbs look identical and are not.** Mystery membership is M:N, so its `PUT` **adds** a row. Minion→monster is a required 1:N, so this `PUT` **moves** one in place. Both are idempotent and both return 204 — but a re-parent issued against a stale `monsterId` silently *relocates* a minion rather than failing, which the membership verb cannot do. Bowser named the service method `MoveToMonsterAsync` rather than `LinkToMonsterAsync` for that reason, and its tests assert both ends of every move: the minion arrives under the target **and** leaves the origin.
 
 Adding a new minion to an **attached** (shared) monster adds it to that monster in every mystery. That follows directly from decision 1 and needs no special handling — **confirmed by decision 13.**
+
+#### Re-parenting is built now, as a dedicated verb (decision 18)
+
+```
+PUT /api/monsters/{monsterId}/minions/{minionId}   → 204 | 404
+```
+
+Bowser is building it. **Explicitly not** `MonsterId` on `UpsertMinionRequest` — Luigi's reasoning, which is right and which §2 principle 1 already implies. That DTO is sent by `minion-form`, `minion-create` and `minion-detail`; a non-nullable `MonsterId` would re-parent every existing caller to `Guid.Empty` and trip the FK, and a `Guid?` with "null means leave it alone" is PATCH semantics smuggled inside a PUT. This is the same argument that kept `MysteryIds` out of the three `Upsert…Request` records in §4.1: a field that half the callers do not know about, whose absence silently means something, is a foot-gun regardless of how tidy it reads.
+
+**Bowser's semantic caveat, recorded because the two verbs look identical and are not.** Mystery membership is M:N, so `PUT /api/mysteries/{id}/locations/{id}` **adds** a row and leaves any others alone. Minion→monster is a required 1:N, so `PUT /api/monsters/{id}/minions/{id}` **moves** the minion — the previous parent loses it. Both are idempotent, both are 204, and they are not the same operation. Do not reason about one from the other; in particular, a replayed re-parent is safe but a re-parent issued against a stale `monsterId` silently relocates a minion rather than failing.
+
+---
+
+### 6.5 A monster is optional (decision 19) — what it reaches
+
+Skyler's answer is one sentence with the widest blast radius in this feature: **an empty monster roster must advance, and a mystery must be saveable with zero monsters.** The backend already permits it (`monsterCount: 0` is a valid `MysteryListItemResponse`), so this is entirely a wizard change. Luigi had already established that `validateCurrentStep`'s hard block could not survive the roster unchanged; decision 19 means it does not merely change, it goes.
+
+**Write side.**
+
+1. **`validateCurrentStep` loses its phase-1/step-0 branch** (`mystery-create.store.ts:1656-1659`). `if (phase === 1 && step === 0 && this.monsterForm.invalid)` is the hard block, and under a roster the phase's validity is a property of the roster, not of one form. The composer's own three-way commit rule (§5.3) replaces it: an open composer holding invalid work still blocks, an empty one does not. That is the same rule the minion step at `:1661` already uses, so this is a deletion plus a generalisation, not new logic.
+2. **`submitPhase1` must be a no-op-and-advance when the roster is empty** — drain `pendingRemovals`, apply the roster diff (which may still contain removals on an edit-mode revisit), and advance. It must not synthesise a monster from an empty form, which is what today's unconditional `monsterService.create(mysteryId, monsterRequest)` would do.
+3. **Step 1 with zero monsters** is now reachable. Rosalina's §6 already specifies it: suppress the composer, show "Add a monster first — minions belong to a monster." Nothing to decide, but `validateCurrentStep` must not block there either — with no monsters there can be no minions (`Minion.MonsterId` is a required FK), so the step is trivially satisfied.
+
+**The tracker, and what `phaseComplete` means now.**
+
+`phaseComplete[1]` drives two things: the tracker's `finished`/`unreached` bubble, and `isPhaseAccessible` in create mode. With monsters optional, **"complete" has to mean "satisfied", not "has content"** — otherwise a mystery that legitimately has no monster shows a permanently unfinished phase.
+
+- **Create mode already behaves correctly** once the hard block is removed: `advancePhase()` marks the current phase complete on submit, so pressing Next through an empty Monsters phase completes it.
+- **Edit mode needs a small correction that is worth making anyway.** `init()` sets `phaseComplete` to `[true, true, true, true]`, and then `loadEditData` overwrites it with data presence — `pureMonster != null`, `locations.length > 0`, `bystanders.length > 0`. Under decision 19 the monster predicate is simply wrong, and the other two have always been questionable for the same reason: locations and bystanders were never required either. **Drop the data-presence recomputation in edit mode and let `init()`'s `[true, true, true, true]` stand.** Nothing else depends on it — `isPhaseAccessible` already returns `true` unconditionally in edit mode — so this only affects which bubbles render as finished, and it makes them tell the truth. Phase 0 remains the only genuinely required phase, enforced by `conceptForm`.
+
+**Read side — better than it looks; check it, don't rebuild it.**
+
+- **`mystery-detail` already handles zero monsters.** `@if (pureMonsters().length === 0) { <p>No monsters.</p> }`, and the minion fan-out already short-circuits on `monsters.length === 0`. No change.
+- **The dossier's monster block is guarded by `store.monsterPreview().name`** (`mystery-create-dossier.html:56`), so an empty monster renders nothing today. That guard degenerates correctly, but it is guarding the *single-monster* shape; 5b replaces the block with the roster rendering Rosalina's §5 specifies (one Monsters section, one compact entry per draft, exactly one expanded), and that rendering needs its own empty state.
+- **`monsterPreview()` itself becomes roster-shaped or goes.** It reads `monsterValue()` — the single `monsterForm` — and every one of its `?? ''` fallbacks exists to make an unfilled form render as blank. Under a roster it has no single subject.
+
+**toad:** the case that proves decision 19 end to end is **create a mystery, press Next straight through the Monsters phase without touching anything, finish, and confirm the mystery saves with zero monsters and the detail page renders.** It should also confirm no monster row was created — a synthesised empty monster is the failure mode here, and it would be invisible on the detail page.
 
 ---
 
@@ -467,6 +571,30 @@ Recorded as expected behaviour rather than decided, because it needs no architec
 
 **Recommended cheap fix, Luigi's call per Peach:** when a `delete` disposition drains successfully, drop that id from the cached picker options as part of the same bookkeeping that already updates the baseline signal (§7.3.1). Three lines, exact, and it reuses a code path the drain needs anyway. The alternative — refetching `getAll()` on every phase entry — costs a round trip per navigation to fix a narrow case.
 
+### 7.7 Generalising the removal machinery to a fourth collection (rev 8, for Phase 5)
+
+Decision 15's machinery shipped in Phase 4 and generalises well, but not for free. Three things Phase 5 must get right, verified against `b47c3dc`.
+
+**(a) `RemovalCollection` is `'locations' | 'bystanders'` today** (`mystery-create.store.ts:95`). **Both monsters and minions join it** — monsters because 5b builds monster removal with both dispositions, minions by decision 17. `'monsters'` carries both dispositions; `'minions'` carries `delete` only, because a minion has no membership to detach.
+
+> **Decision 17 costs more than the "roughly a day" I estimated, and the extra is UI.** Luigi's finding: the minion phase's modal does not use the disposition shape at all today — it passes `verb="Remove"` and sub-resource counts in `[items]`. Joining the drain means `confirmLabel="Delete"` when the minion is persisted, and **never** a `secondaryLabel`. Rosalina is specifying it. Budget the minion modal as real UI work in 5a, not as a store change with a template following along.
+
+**(b) `membershipPersisted()` generalises to monsters but is *misnamed* for minions.** Its implementation is "is this id in the collection's baseline" (`:1168`), which is the right question for all four. But its *meaning* differs: for locations, bystanders and monsters the baseline holds **memberships**; for minions, `existingMinionIds` holds **rows**, because a minion has no mystery membership at all (`Minion.MonsterId` is a required FK). A minion with an id and no membership is fully persisted; a location in the same position is not. Read literally, `membershipPersisted('minions', id)` would be false for every minion and decision 16 would classify all minion removals as local discards — which is wrong and would silently stop deleting minions. If minions join the type, **rename it** (`persistedForRemoval`, or similar) and document the two meanings. The predicate is right; the name is load-bearing and would mislead.
+
+**(c) There is a silent trap in `idsToRemove`, and Phase 5 walks straight at it.** The signature is `idsToRemove(savedIds, drafts, collection?)` (`:1995`) and the `collection` parameter is **optional**. When it is omitted, the `disposed` set is built by filtering on `removal.collection === undefined`, which matches nothing — so the drain-versus-diff exclusion silently does not apply. The locations and bystanders call sites pass it (`:1830`, `:1882`). **The minion call site does not** (`:1935`), which is harmless today only because `'minions'` is not a `RemovalCollection`.
+
+That is precisely the double-path hazard Toad's exact-call-ledger rule was written for (`.squad/decisions/inbox/toad-exact-call-ledger-over-positive-assertions.md`), and her analysis of why it is not survivable applies unchanged: *"A duplicate delete is survivable — the drain maps 404 to success. A duplicate unlink is not: the second copy comes from the diff, which is not on the drain path and has no `catchError`, so it 404s and fails the whole phase."*
+
+**Make the parameter required as the first act of 5a**, not 5b — decision 17 puts a real `'minions'` member behind that call site immediately, so the window where the omission is harmless closes in 5a. It is a compile-time fix for a class of bug that is otherwise invisible until a fan-out an order of magnitude wider than Phase 4's produces a 404 nobody can place. Toad's rule that the ledger "is meant to carry into Phase 5" is the right call, and this is the specific thing it protects.
+
+**(e) Harden the drain-versus-link same-row race structurally, not by discipline (rev 9).** Bowser found that `submitPhase2`'s `forkJoin` fires the drain, the diff-unlinks and the links **concurrently**, so a row that is both pending-removal and freshly-attached is a race. It is safe today only because every attach path calls `cancelPendingRemoval` first — an invariant maintained by hand at three call sites, and 5a/5b make it four and five.
+
+Luigi's fix, which I endorse: **have `applyPendingRemovals` drop any disposition whose id is in that collection's current drafts.** Roughly three lines, it puts D9's semantics in one place instead of at every call site, and `attachMonster` forgetting the `cancelPendingRemoval` call becomes harmless rather than a race.
+
+**Drop, not skip** — and the distinction is the whole point. A *skipped* disposition stays in `pendingRemovals` and fires on a later submit, which turns a race into a delayed-action bug that is far harder to find than the one it replaced. The invariant to state plainly: **a draft present in the roster and a disposition for that same id cannot both be live; the roster wins, and the disposition is discarded rather than deferred.**
+
+**(d) Monster delete cascades minions — do not also record minion dispositions for them.** Decision 13 has `DELETE /api/monsters/{id}` FK-cascading its minions. If a monster's removal is drained with `action: 'delete'`, the database destroys its minions; recording separate `'minions'` dispositions for the same children would issue deletes for rows that are already gone. Harmless under §7.3 rule 2, but it is the duplicate-request sloppiness (c) exists to prevent. Removing a monster drops its minion drafts from the local roster and records **one** disposition, for the monster.
+
 ---
 
 ## 8. Risks and sharp edges
@@ -479,6 +607,7 @@ Recorded as expected behaviour rather than decided, because it needs no architec
 
 **8.4 Unbounded picker option lists.** `getAll()` has no paging. Fine at current volumes, absorbed by the `searchable` custom-select for a long while. Monitor, don't pre-solve.
 
+
 **8.5 Hunters are untouched.** No hunter entity gains or loses a mystery relationship here. Stated so that nobody infers otherwise from the wizard work.
 
 **8.6 Replicating the roster replicates three shipped accessibility defects.** Rosalina's §8 identifies them in the minion roster that ships today, and the architectural point is that this feature is about to copy that roster to three more phases, so each defect multiplies by four:
@@ -488,6 +617,8 @@ Recorded as expected behaviour rather than decided, because it needs no architec
 3. **`ConfirmDeleteModalComponent` has `role="dialog" aria-modal="true"` and nothing else** — no initial focus, no trap, no `Escape`, no focus restore, and a hardcoded `id="modal-title"`. This one is not merely replicated but *made worse* by this feature, which adds a third button and turns the dialog into a genuinely consequential three-way choice. Initial focus must land on the least destructive actionable control, never on Delete.
 
 These are pre-existing, so nothing here is a regression — but "pre-existing" stops being a defence the moment we quadruple the surface. **§9 gives them their own phase, ahead of the replication**, rather than leaving them as a note in the UX doc for whoever gets there last. Fixing them first also means the fix ships as a standalone improvement to the minion roster that exists today.
+
+**8.7 The wizard's client-side load fan-out is 29 calls, not 26 (rev 9).** Phase 4's `loadAttachCatalogues` added three. Luigi's framing is the one to keep: it is **three rounds**, not 29 sequential round trips — 14 parallel, then 6, then 9 — so the real exposure is the browser's six-connections-per-host limit splitting round three. **Budget it, do not pre-solve it.** Both he and Bowser flag that the proper fix is an expand-style endpoint, and nobody should take that on inside the risk-centre phase. Recorded so that a slow wizard load in 5b is recognised rather than diagnosed from scratch. F7's threshold is the trigger for revisiting.
 
 ---
 
@@ -565,16 +696,48 @@ Implements decisions 10, 11, 12, 15 and 16. Depends on Phase 3's modal. Acceptan
   3. **The removal variant keys on the baseline, not on `id`** (§7.1, decision 16). `id !== null` is the intuitive predicate and it is the wrong one: it offers **Delete** for an entity the user attached by mistake ten seconds ago.
 - **toad:** load-bearing regressions are **"attach an existing location, press Next, confirm it is now linked"** and **"…confirm its own fields are unchanged if untouched."** Plus the two new gap tests: **G1 — edit a mystery, trash a location, confirm Delete, jump to Bystanders via the tracker, Finish, confirm the location is actually deleted**; and **G3 — attach an existing location, trash it before pressing Next, confirm no Delete button is offered and the catalogue entity survives.** Plus: re-edit a hydrated draft; Detach offered whenever `id` is in the baseline; Delete removes it from all mysteries; remove-then-re-attach cancels the pending removal; abandoning the wizard still applies nothing; and §7.6's stale-picker case failing loudly rather than silently.
 
-### Phase 5 — Monster roster, sub-resource upsert, minion picker (rosalina → luigi, toad, yoshi) — highest risk
+### Phase 5 — **split in rev 8 into 5a then 5b, in that order**
 
-Implements decisions 2, 8, 9 and 13. Feature branch, per the precedent for wizard-touching work in Yoshi's history. Template work is a lift from the shipped minion roster (§6.1); the store work is not, which is why this stays the risk centre.
+> **This is the change Bowser and Luigi most need to read.** Rev 7 had Phase 5 as one block doing seven service methods, a monster roster, sub-resource upsert, a dirty check, `monsterKey` resolution, `RemovalCollection` growth, the `monsters[0]` fix and monster edit-form linking — on a feature branch, in the most entangled state in the app, against a fan-out an order of magnitude wider than Phase 4's. It is too much to review in one piece, and the pieces have a **dependency direction** that rev 7 did not exploit.
 
-- **bowser/luigi:** the five missing `MonsterService` methods (§1.5).
-- **luigi:** `MonsterDraft` + roster (§6.1), fourth instance of the pattern Phase 3 hardened; `localKey` (§6.3); `MinionDraft.monsterKey` + monster picker (§6.4); `loadEditData` past `monsters[0]`; `submitPhase1` rewritten as roster diff → sub-resource diff → minion diff; sub-resource drafts gain `id` and upsert (§5.2, subject to NQ1); the derived per-row dirty check (§5.4); monster linking in `MonsterFormComponent` (§6.2).
-- **yoshi:** re-review before this starts — Phases 1–4 will have taught us things, and the minion composer nested inside the monster roster is the most entangled state in the app.
-- **toad:** hardest cases — **attach an existing monster with 3 attacks and 2 minions into a mystery that already has a monster, press Next, and confirm not one sub-resource was deleted or re-keyed**; delete a monster and confirm its minions are listed in the modal and cascade; detach the same monster and confirm its minions survive.
+**The ordering argument.** §5.2's worked example is the whole reason decision 8 exists: under today's delete-all/recreate-all, attaching an existing monster and pressing Next re-keys its entire sub-resource subtree, and the natural-looking variant of that implementation strips it bare in every mystery. **So the roster cannot safely ship attach-an-existing-monster on top of the current sub-resource layer.** Put the safety fix first, on the simple single-monster structure that exists today, and build the roster on ground that is already safe. That is exactly the "foundations before replication" sequencing that made Phase 3 work, applied one level down.
 
-> **Phase 5 is the final implementation phase.** Rev 4 had a "Phase 6 — Follow-ups" that was a deferred-work bucket wearing a phase's clothes; rev 5 dissolves it into §12, which is the durable home Skyler asked for. Nothing was dropped — every item moved.
+#### Phase 5a — Sub-resource upsert, the dirty check, and minions in the drain (bowser/luigi, toad)
+
+Implements decisions 8, 9, 17 and 18. **No roster.** The monster phase keeps its single-monster shape throughout; only the sub-resource layer and the minion removal path change.
+
+> **Sizing, corrected in rev 9: 5a is ≈ Phase 4, not half of it.** Luigi's calibration, and he is right — eight draft arrays gaining `id` and `localKey`, eight baselines retyped, eight `track $index` loops and their index-based removals, two diff implementations, a weapon-tag sub-diff for two owners, the dirty check, the minion modal's disposition shape, and heavy spec churn. Nothing about "5a is the foundations half" should be read as "5a is the small half."
+
+- **bowser:** the re-parent verb `PUT /api/monsters/{monsterId}/minions/{minionId}` (decision 18, §6.4). The only backend work in Phase 5.
+- **bowser/luigi:** five `MonsterService` methods — `updateAttack`, `updatePower`, `updateArmor`, `updateWeakness`, `removeAttackWeaponTag` (§5.2). No backend work; those PUTs shipped long ago.
+- **luigi, the sub-resource layer:** `AttackDraft` / `PowerDraft` / `WeaknessDraft` / `ArmorDraft` gain `id: string | null` **and `localKey`** (§5.4); `existing*Ids: string[]` become `existing*: <Response>[]` on `MinionDraft` and in the store (§5.4); `saveThreatCollections` and `saveMinionCollections` become diffs; the weapon-tag assign/remove diff; the derived per-row dirty check; the eight `track $index` loops move to `localKey` and their index-based removals become filters.
+- **luigi, and this one is a requirement rather than a style note:** **the sub-resource diff must be a parameterised function over a small service adapter**, not inlined against `store.monsterAttacks()` and siblings. 5a writes it twice anyway — monster and minion — so the generic pays for itself inside 5a without appealing to 5b. And if it is inlined, 5b relocates the state it reads onto `MonsterDraft` and the whole thing is rewritten in the riskiest phase.
+- **luigi, ordering within the phase:** **first act is making `idsToRemove`'s `collection` parameter required** (§7.7c) — decision 17 puts a real `'minions'` member behind that call site, so the window where omitting it is harmless closes here. Then `'minions'` joins `RemovalCollection`, the minion removal path moves onto `pendingRemovals`, and `membershipPersisted` is renamed (§7.7b).
+- **luigi, the minion modal:** `confirmLabel="Delete"` when persisted, never a `secondaryLabel` (§7.7a). Rosalina is specifying it.
+- **luigi, the race:** `applyPendingRemovals` drops dispositions whose id is in the current drafts (§7.7e).
+- **luigi, `draftState`:** delete it, or wire it to F4. Do not grow it (§5.5).
+- **toad:** carry the exact-call-ledger rule in — this is the phase it was written for. The load-bearing assertion is that a submit with **nothing edited issues no sub-resource writes at all**, which is both decision 9's whole point and the cheapest possible proof that the recreate-all is gone. Expect the existing Phase 1 ledgers to churn heavily; that churn is the feature.
+  - **An expectation deliberately inverts here, and it will look like a contradiction if it isn't flagged.** Rosalina's §10.1 warns that in Phase 4 a no-op `PUT` of identical values is *expected and correct*, and that "confirm its own fields are unchanged if untouched" sits one paraphrase away from "confirm no `PUT` is issued" — which would wrongly red-flag a correct Phase 4 implementation. She is right about Phase 4. **5a is the phase where that flips**, because 5a is where the dirty check lands. After 5a, "no writes when nothing changed" is the assertion; before it, it is a false failure. The Location and Bystander paths keep Phase 4's behaviour either way — decision 9 is monsters-and-minions only (§5.4).
+
+Ships independently and improves behaviour that is live today: sub-resources stop re-keying on every Next, whether or not anyone ever attaches a monster.
+
+#### Phase 5b — The monster roster (rosalina → luigi, toad) — highest risk
+
+Implements decisions 2, 13 and 19. Feature branch, per the precedent for wizard-touching work. Template work is a lift from the shipped minion roster (§6.1); the store work is not, which is why this stays the risk centre.
+
+> **Sizing: 5b is larger than Phase 4.** Luigi's calibration. The roster is a lift; `submitPhase1`, the `monsterKey` resolution, decision 19's validation and completeness changes, and the dossier's roster rendering are not.
+
+- **luigi, before the monster composer exists:** rename the four unprefixed composer signals — `composerOpen`, `composerDirty`, `composerValid`, `editingDraftKey` — to `minion…`. They are the minion composer's, and they read as the store's only composer right up until 5b adds a second one. Four files, mechanical, and it is not currently in anyone's estimate.
+- **luigi, sweep:** `mystery-create-dossier.html:232,248` still `track $index` for locations and bystanders, which have carried `localKey` since Phase 4.
+- **luigi, decision 19 (§6.5):** drop `validateCurrentStep`'s phase-1/step-0 branch; make `submitPhase1` a drain-and-advance on an empty roster without synthesising a monster; let `init()`'s `[true, true, true, true]` stand in edit mode instead of `loadEditData` recomputing from data presence; replace or retire `monsterPreview()`; give the dossier's roster rendering an empty state.
+
+- **luigi, client gap:** `MonsterService.linkToMystery` and `unlinkFromMystery` — **absent today, and not in rev 7's list** (§5.2). Nothing is needed on the backend.
+- **luigi:** `MonsterDraft` + roster (§6.1), using the shipped `createDraftKey('monster')` (§6.3); `existingMonsterIds` as the roster baseline; `'monsters'` added to `RemovalCollection`, with `membershipPersisted` renamed if §10's question goes the way I recommend (§7.7b); `MinionDraft.monsterKey` + the monster picker (§6.4); `loadEditData` past `monsters[0]` (`:925`); `submitPhase1` rewritten as roster diff → sub-resource diff → minion diff; monster linking in `MonsterFormComponent` (§6.2).
+- **toad:** hardest cases — **attach an existing monster with 3 attacks and 2 minions into a mystery that already has a monster, press Next, and confirm not one sub-resource was deleted or re-keyed** (5a is what makes this passable); delete a monster and confirm its minions are listed in the modal and cascade *without a second delete being issued for them* (§7.7d); detach the same monster and confirm its minions survive; and the G1 case on the monster roster — trash a monster, confirm Delete, jump via the tracker, Finish.
+- **peach:** her acceptance doc is scoped "out of scope for Phase 4" (§6 there) and does not cover the roster. **Phase 5b needs its own acceptance pass** before Luigi starts, on the same three-doc split.
+- **rosalina:** §5 of her doc already specifies the monster roster. Per Skyler's waiver (`cb1eae3`), her §8 items 2 and 3 stay follow-ups — **Phase 5 must not re-raise the screen-reader announcement as a blocker.**
+
+> **Phase 5b is the final implementation phase.** Rev 4 had a "Phase 6 — Follow-ups" that was a deferred-work bucket wearing a phase's clothes; rev 5 dissolved it into §12. Nothing was dropped — every item moved.
 
 ### Phase 6 — Retrospective (koopa)
 
@@ -584,7 +747,28 @@ The wizard store has now been extended five times. Worth asking whether phase-tr
 
 ## 10. Open questions
 
-**None, in either document.**
+**None.** Nineteen decisions across four rounds (§3, §3.1, §3.2, §3.3). The three questions the pre-Phase-5 review raised were answered on 2026-09-20 and are decisions 17, 18 and 19.
+
+The question below is kept for its reasoning, which is still the argument for decision 17.
+
+---
+
+### Answered as decision 17 — minions and the removal drain
+
+**Decision 15 closed the silent-discard hole for locations and bystanders. The identical hole is open for minions today, and nobody has noticed because minions were never in scope for the drain.**
+
+Repro, against `b47c3dc`: edit a mystery → Monsters → Minions → trash a minion → confirm **Delete** → the card vanishes → click the Locations bubble in the tracker → **Finish**. Phase 1 never submits, `saveMinionDrafts` never runs its `idsToRemove` diff (`:1935`), and the minion is still there. That is Peach's G1 exactly, on a confirmed destructive action, one step away from the two phases where it was just fixed.
+
+Monsters are not in question — Phase 5b builds monster removal with both dispositions, so decision 15 applies and `'monsters'` joins `RemovalCollection` regardless. **The question is whether minions join it too.**
+
+- **Bring them in (recommended).** Adds `'minions'` to `RemovalCollection` with a delete-only disposition, routes minion removal through `pendingRemovals`, requires the `idsToRemove` fix at `:1935` (§7.7c) and the `membershipPersisted` rename (§7.7b). Roughly a day with tests. Closes the hole and makes all four collections behave identically.
+- **Leave them.** Phase 5b is smaller. But it ships a wizard where trashing a **monster** survives a tracker jump and trashing a **minion** does not — on adjacent steps of the same phase, with the same modal, in the same session. That is a hard inconsistency to explain to a user who hits it, and a hard one to remember when someone next edits this file.
+
+**Why this was his rather than mine:** it is a scope call on pre-existing behaviour, and he has taken every one of those. **Answered: bring them in** (decision 17). The cost was higher than I estimated — the minion modal needs real UI work, not just store plumbing (§7.7a) — and the work moved into 5a, where the `idsToRemove` fix it depends on now also lands.
+
+### Everything else
+
+**Nothing, in any of the three documents.**
 
 Three rounds, all on 2026-09-19: seven questions answered in §3, seven follow-ups in §3.1, and Rosalina's remaining six answered against her doc. Three more were resolved between her and me without troubling Skyler — chip links on the edit form (§4.4), whether `origin` / `edited` draft state is needed (§5.4 — neither; derive it), and where the accessibility and stable-key work sits (§9).
 
@@ -605,7 +789,11 @@ Of her six, two reach this document and are folded in: **OQ8** (`CustomSelectCom
 
 **Phase 4 — frontend:** `mystery-create.store.ts` (`submitPhase2`/`submitPhase3`, roster + composer state for two more entity types, `pendingRemovals`, hydration keeps `mysteryIds`, reference load gains `getMysteries()`) + spec; `mystery-create-{locations,bystanders}-phase.html`/`.ts`.
 
-**Phase 5 — frontend:** `core/monster.ts` (five methods); `mystery-create.store.ts` (draft interfaces, `loadEditData`, `submitPhase1`, `saveThreatCollections`, `saveMinionDrafts`, `saveMinionCollections`, baseline snapshots for the derived dirty check) + spec; `mystery-create-monster-phase.html`/`.ts`; `mystery-create-dossier.html`; `monster-form`/`monster-detail`/`monster-create`.
+**Phase 5a — backend:** `Controllers/MinionsController.cs`, `Services/IMinionService.cs` + impl, `Repositories/IMinionRepository.cs` + impl, `Tests/Services/MinionServiceTests.cs` — the re-parent verb (decision 18). No migration.
+
+**Phase 5a — frontend:** `core/monster.ts` (five sub-resource updaters); `core/minion.ts` (`reparent`); `mystery-create.store.ts` (the four sub-resource draft interfaces gain `id` + `localKey`; all eight `existing*Ids` → `existing*` responses; `saveThreatCollections`, `saveMinionCollections`, `saveMinionDrafts`; the parameterised diff + service adapter; `idsToRemove`'s `collection` becomes required; `'minions'` joins `RemovalCollection`; `membershipPersisted` renamed; `applyPendingRemovals` drops live-draft dispositions; `draftState` deleted or wired to F4) + spec; `mystery-create-monster-phase.html`/`.ts` (eight `track $index` → `localKey`, index-removals → filters, the minion modal's disposition shape); `mystery-create-dossier.html` (six sub-resource `track $index`); the Phase 1 and Phase 4 ledger specs churn.
+
+**Phase 5b — frontend:** `core/monster.ts` (`linkToMystery`, `unlinkFromMystery`); `mystery-create.store.ts` (`MonsterDraft` + its four response baselines, `existingMonsterIds`, `'monsters'` in `RemovalCollection` + `removalRequest`, `MinionDraft.monsterKey`, `loadEditData` past `monsters[0]`, `submitPhase1`, `validateCurrentStep`, `phaseComplete` in edit mode, `monsterPreview` retired, the four `minion…` composer-signal renames) + spec; `mystery-create-monster-phase.html`/`.ts`; `mystery-create-dossier.html` (roster rendering + empty state; locations/bystanders `track $index` sweep); `monster-form`/`monster-detail`/`monster-create`.
 
 Phase 3 also touches `shared/custom-select.component.ts`/`.html` + spec (`Escape` closes and restores focus, her OQ8).
 

@@ -77,6 +77,61 @@ public sealed class MinionService(IMinionRepository minionRepository) : IMinionS
         return ServiceResult<MinionDetailResponse>.Success(detail!);
     }
 
+    /// <summary>
+    /// Re-parents a minion onto <paramref name="monsterId"/>. Backs
+    /// <c>PUT /api/monsters/{monsterId}/minions/{id}</c>.
+    ///
+    /// <para>
+    /// **This is a move, not an add, and it is deliberately not the same verb as
+    /// <c>LinkToMysteryAsync</c> even though the route reads alike.** Mystery membership is M:N
+    /// across a bridge table, so asserting it *adds* a row and leaves every other membership
+    /// alone. <c>Minion.MonsterId</c> is a required, non-nullable, single-valued FK, so asserting
+    /// "this minion belongs to this monster" necessarily means it no longer belongs to the one it
+    /// belonged to before. There is one row and it is updated in place — which is also why the
+    /// duplicate-key guard behind the membership verb has no analogue here: nothing is inserted,
+    /// so there is no composite primary key to violate. Two concurrent re-parents of the same
+    /// minion are a plain last-writer-wins update, and both land the minion on a real monster.
+    /// </para>
+    ///
+    /// <para>
+    /// The minion's own sub-resources are untouched by construction: attacks, powers, armors,
+    /// weaknesses and custom moves all hang off <c>MinionId</c>, never off the monster, so they
+    /// travel with the minion rather than needing to be moved alongside it.
+    /// </para>
+    ///
+    /// <para>
+    /// Idempotent: re-parenting to the monster it already belongs to returns success and writes
+    /// nothing. Returns false only when the monster or the minion does not exist, which the
+    /// controller surfaces as 404 — the same ordering as the membership verb: parent first, then
+    /// child, then the already-there short-circuit.
+    /// </para>
+    /// </summary>
+    public async Task<bool> MoveToMonsterAsync(Guid monsterId, Guid id, CancellationToken cancellationToken)
+    {
+        if (!await minionRepository.MonsterExistsAsync(monsterId, cancellationToken))
+        {
+            return false;
+        }
+
+        // Doubles as the existence check the membership verb spends a separate `…ExistsAsync` on:
+        // this verb has to mutate the row, so it needs the entity either way and a null is the
+        // same answer.
+        var minion = await minionRepository.GetForUpdateAsync(id, cancellationToken);
+        if (minion is null)
+        {
+            return false;
+        }
+
+        if (minion.MonsterId == monsterId)
+        {
+            return true;
+        }
+
+        minion.MonsterId = monsterId;
+        await minionRepository.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
         await minionRepository.DeleteMinionAsync(id, cancellationToken) > 0;
 
