@@ -11,19 +11,19 @@
     <p class="text-primary font-semibold">Creating monster...</p>
   }
 
-  <label class="grid font-medium gap-1 mt-4 max-w-md">
-    Attach to Mystery (optional)
-    <app-custom-select
-      [formControl]="mysteryControl"
-      [options]="mysteries()"
-      placeholder="No mystery — create unattached"
-    ></app-custom-select>
-  </label>
+<!--
+    The single-mystery `Attach to Mystery` control is gone (5b, §6.2). Membership is now the form's
+    own multi-select last field, exactly as Locations and Bystanders have had since Phase 2: it
+    participates in the form's dirty/valid state and is committed by the one Save button, instead of
+    being a bolted-on control beside it. Zero mysteries is still valid and still creates a standalone
+    monster.
+  -->
 
   <app-monster-form
     [monster]="null"
     [monsterTypes]="monsterTypes()"
     [monsterArchetypes]="monsterArchetypes()"
+    [mysteries]="mysteries()"
     [isSaving]="isSaving()"
     submitLabel="Create Monster"
     (save)="onCreate($event)"

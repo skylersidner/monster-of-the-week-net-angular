@@ -132,7 +132,7 @@ describe('G1 — a confirmed Delete survives an edit-mode tracker jump', () => {
             upsertCountdown: () => of({ id: 'countdown-1' }),
           },
         },
-        { provide: MonsterService, useValue: { getByMystery: () => of([]), create: () => of({ id: 'monster-1' }) } },
+        { provide: MonsterService, useValue: { getAll: () => of([]), getByMystery: () => of([]), create: () => of({ id: 'monster-1' }) } },
         { provide: MinionService, useValue: { getByMonster: () => of([]) } },
         {
           provide: ReferenceDataService,

@@ -18,4 +18,13 @@ export class MysteryCreateDossierComponent {
   minionTypeName(minionTypeId: string): string {
     return this.store.minionTypes().find((item) => item.id === minionTypeId)?.name ?? '';
   }
+
+  monsterTypeName(monsterTypeId: string): string {
+    return this.store.monsterTypes().find((item) => item.id === monsterTypeId)?.name ?? '';
+  }
+
+  /** §17.2: derived from the wizard's own drafts, never a list response's `minionCount`. */
+  minionCountFor(monsterKey: string): number {
+    return this.store.minionDrafts().filter((minion) => minion.monsterKey === monsterKey).length;
+  }
 }

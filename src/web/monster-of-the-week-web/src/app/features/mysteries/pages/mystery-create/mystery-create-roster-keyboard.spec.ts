@@ -46,10 +46,15 @@ class MockReferenceDataService {
   getWeaponTags = () => of([{ id: 'weapon-tag-1', name: 'Bladed', description: '' }]);
 }
 
+/** One monster, so the minion composer needs no picker and every fixture minion has a parent. */
+const MONSTER_KEY = 'monster-fixture';
+
 function minionDraft(name: string, overrides: Partial<MinionDraft> = {}): MinionDraft {
   return {
     id: null,
     localKey: createDraftKey(),
+    monsterKey: MONSTER_KEY,
+    existingMonsterId: null,
     name,
     description: '',
     harmCapacity: 3,
@@ -99,7 +104,7 @@ describe('The minion roster, keyboard-only and by its ARIA', () => {
           provide: MysteryService,
           useValue: { create: () => of({ id: 'mystery-1' }), upsertCountdown: () => of({}), getMysteries: () => of([]) },
         },
-        { provide: MonsterService, useValue: { create: () => of({ id: 'monster-1' }) } },
+        { provide: MonsterService, useValue: { getAll: () => of([]), create: () => of({ id: 'monster-1' }) } },
         // Phase 4: the store loads the attach catalogues through the real Location/Bystander services.
         { provide: ApiService, useValue: { post: () => of({}), get: () => of([]) } },
         { provide: NotificationService, useValue: { success: () => {} } },
@@ -129,9 +134,32 @@ describe('The minion roster, keyboard-only and by its ARIA', () => {
     // hydrator makes unreachable in production, so keep the two in step here too. Bracket access
     // because the baseline is private and should stay that way — the store owns it; this is a
     // fixture standing in for a load.
-    store['existingMinionIds'].set(drafts.map((draft) => draft.id).filter((id): id is string => id !== null));
-    store.editingDraftKey.set(null);
-    store.composerOpen.set(false);
+    // The minion baseline is derived from the roster (J1), so a persisted minion fixture needs its
+    // monster on the roster carrying its id. That is also the production invariant: a minion id can
+    // only be in the baseline because its monster hydrated with it.
+    store.monsterDrafts.set([
+      {
+        id: 'monster-1',
+        localKey: MONSTER_KEY,
+        name: 'The Hollow Man',
+        description: '',
+        harmCapacity: 8,
+        monsterTypeId: 'monster-type-1',
+        monsterArchetypeId: 'monster-archetype-1',
+        attacks: [],
+        powers: [],
+        weaknesses: [],
+        armors: [],
+        existingAttacks: [],
+        existingPowers: [],
+        existingWeaknesses: [],
+        existingArmors: [],
+        existingMinionIds: drafts.map((draft) => draft.id).filter((id): id is string => id !== null),
+        mysteryIds: [],
+      },
+    ]);
+    store.editingMinionKey.set(null);
+    store.minionComposerOpen.set(false);
     await settle();
   }
 
@@ -191,6 +219,11 @@ describe('The minion roster, keyboard-only and by its ARIA', () => {
       ...rows().flatMap((row) => Array.from(row.querySelectorAll<HTMLElement>('button'))),
       addAnother(),
     ];
+
+    // §8.8: an "every one of them" loop over a derived set passes vacuously when the set is empty,
+    // which is the same silent-narrowing shape the Escape sweep had. Two rows, two controls each,
+    // plus + Add Another Minion.
+    expect(controls).toHaveLength(5);
 
     for (const control of controls) {
       // No negative tabindex, and not disabled — the two ways a control drops out of the tab ring.

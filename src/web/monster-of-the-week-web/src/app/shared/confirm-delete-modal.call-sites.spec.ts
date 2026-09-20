@@ -218,27 +218,58 @@ const untouched: ReadonlyArray<{ site: string; shape: HostShape; inputs: CallSit
  * The two call sites that **do** change, and the change is the §7.1 fix rather than a regression:
  * both pass a footnote explicitly, and it used to be swallowed whenever `items` was empty.
  */
-describe('ConfirmDeleteModalComponent · the 13 shipped call sites', () => {
-  it('there are 13 of them, in 12 templates — not the 12 of §7.4 nor the 14 of §7.5', () => {
-    // Pinned as data rather than by globbing the templates from a unit test: the count is a claim
-    // this file's coverage rests on, and it belongs where a reader of the coverage can see it.
-    const perTemplate = {
-      'bystanders-list.html': 1,
-      'hunter-create.html': 2,
-      'hunter-detail.html': 1,
-      'hunters-list.html': 1,
-      'locations-list.html': 1,
-      'minion-detail.html': 1,
-      'minions-list.html': 1,
-      'monster-detail.html': 1,
-      'monsters-list.html': 1,
-      'mysteries-list.html': 1,
-      'mystery-create-monster-phase.html': 1,
-      'playbook-admin.html': 1,
-    };
+describe('ConfirmDeleteModalComponent · the shipped call sites', () => {
+  /**
+   * **This census had rotted, and the way it was asserted is why** (§8.8, rev 12).
+   *
+   * It read `expect(Object.keys(perTemplate)).toHaveLength(12)` and `…reduce(…)).toBe(13)` — both
+   * of which are facts about the literal directly above them, compared against themselves. No
+   * change anywhere in the app could make either fail. Phase 4 added two wizard call sites and 5b
+   * added a third, and the census sat at 13-in-12 through all of them, passing.
+   *
+   * The comment justifying it — *"pinned as data rather than by globbing the templates from a unit
+   * test"* — is still right about *where the census belongs*. It was wrong that pinning is enough:
+   * a written-down N needs something derived to check it against, or it only ever records what was
+   * true when it was written.
+   *
+   * **The derived half now lives where the harness for it already exists**:
+   * `mystery-create-phase5b-monster-phase.spec.ts` renders the wizard and counts the modals each
+   * phase contributes, so the three wizard rows below cannot drift again without a failure. The ten
+   * non-wizard rows stay pinned and are each exercised individually further down this file.
+   */
+  const perTemplate = {
+    'bystanders-list.html': 1,
+    'hunter-create.html': 2,
+    'hunter-detail.html': 1,
+    'hunters-list.html': 1,
+    'locations-list.html': 1,
+    'minion-detail.html': 1,
+    'minions-list.html': 1,
+    'monster-detail.html': 1,
+    'monsters-list.html': 1,
+    'mysteries-list.html': 1,
+    // The wizard's three, derived in the phase-5b spec.
+    'mystery-create-monster-phase.html': 2,
+    'mystery-create-locations-phase.html': 1,
+    'mystery-create-bystanders-phase.html': 1,
+    'playbook-admin.html': 1,
+  };
 
-    expect(Object.keys(perTemplate)).toHaveLength(12);
-    expect(Object.values(perTemplate).reduce((a, b) => a + b, 0)).toBe(13);
+  /** Exported shape of the census, so the wizard spec checks the rows it can derive. */
+  const wizardCensus = {
+    'mystery-create-monster-phase.html': perTemplate['mystery-create-monster-phase.html'],
+    'mystery-create-locations-phase.html': perTemplate['mystery-create-locations-phase.html'],
+    'mystery-create-bystanders-phase.html': perTemplate['mystery-create-bystanders-phase.html'],
+  };
+
+  it('there are 16 of them, in 14 templates — and the wizard now carries four, not one', () => {
+    expect(Object.keys(perTemplate)).toHaveLength(14);
+    expect(Object.values(perTemplate).reduce((a, b) => a + b, 0)).toBe(16);
+
+    // The half that is a real claim rather than arithmetic: the wizard's share. Phase 4 gave
+    // Locations and Bystanders one each and 5b gave the monster phase a second, and the census
+    // recorded none of it.
+    expect(Object.values(wizardCensus).reduce((a, b) => a + b, 0)).toBe(4);
   });
 
   describe('the eight that must render byte-identically', () => {

@@ -80,7 +80,7 @@ describe('The wizard’s Locations phase — Phase 4', () => {
             getMysteries: () => of(MYSTERIES),
           },
         },
-        { provide: MonsterService, useValue: { create: () => of({ id: 'monster-1' }) } },
+        { provide: MonsterService, useValue: { getAll: () => of([]), create: () => of({ id: 'monster-1' }) } },
         { provide: MinionService, useValue: {} },
         {
           provide: LocationService,

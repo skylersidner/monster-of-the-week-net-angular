@@ -124,7 +124,7 @@ describe('MysteryCreateStore · Phase 4 — attach, re-edit, removal', () => {
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: NotificationService, useValue: { success: vi.fn() } },
         { provide: MysteryService, useValue: mysteryService },
-        { provide: MonsterService, useValue: { create: vi.fn(() => of({ id: 'monster-1' })) } },
+        { provide: MonsterService, useValue: { getAll: () => of([]), create: vi.fn(() => of({ id: 'monster-1' })) } },
         { provide: MinionService, useValue: {} },
         { provide: LocationService, useValue: locationService },
         { provide: BystanderService, useValue: bystanderService },
@@ -242,10 +242,17 @@ describe('MysteryCreateStore · Phase 4 — attach, re-edit, removal', () => {
     expect(calls).toContain('location.link(mystery-1,loc-existing)');
   });
 
-  it('A9: nothing here attaches a monster — that affordance is Phase 5', () => {
-    expect((store as unknown as Record<string, unknown>)['attachableMonsters']).toBeUndefined();
-    expect((store as unknown as Record<string, unknown>)['attachMonster']).toBeUndefined();
+  it('5b-T9: the Locations phase attaches with zero requests, and gains no busy or error state', () => {
+    // UX §17.5: the monster strip's two transient states are monsters-only, because only a monster
+    // needs a fetch before its card can exist. A state that can never trigger is dead code.
+    expect(store.monsterAttachInFlight()).toBe(false);
+    expect(store.monsterAttachError()).toBeNull();
   });
+
+  // **A9 is retired, not weakened.** It asserted `attachableMonsters` and `attachMonster` did not
+  // exist, which was Phase 4's way of pinning "monster attach is Phase 5's job." Phase 5b built them,
+  // so the criterion has been overtaken; what survives it is `5b-T9` above, which pins the part that
+  // is still true — the *locations* strip gains nothing from the monster work.
 
   // --- R: re-edit ----------------------------------------------------------------------
 

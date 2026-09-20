@@ -53,6 +53,22 @@ export class MonsterService {
     return this.apiService.delete(`/api/monsters/${monsterId}`);
   }
 
+  /**
+   * The mystery-membership verbs. The backend shipped them in Phase 1; the client did not, which is
+   * why `mystery-membership-wire.spec.ts` had a monsters row missing until 5b.
+   *
+   * **M:N, so this `PUT` *adds* a bridge row and leaves any others alone.** Not to be confused with
+   * `MinionService.moveToMonster`, whose URL is the same shape and which *moves* a required 1:N
+   * parent — a stale id there silently relocates a minion rather than failing.
+   */
+  linkToMystery(mysteryId: string, monsterId: string): Observable<void> {
+    return this.apiService.put<null, void>(`/api/mysteries/${mysteryId}/monsters/${monsterId}`, null);
+  }
+
+  unlinkFromMystery(mysteryId: string, monsterId: string): Observable<void> {
+    return this.apiService.delete(`/api/mysteries/${mysteryId}/monsters/${monsterId}`);
+  }
+
   createAttack(monsterId: string, request: UpsertMonsterAttackRequest): Observable<MonsterAttackResponse> {
     return this.apiService.post<UpsertMonsterAttackRequest, MonsterAttackResponse>(
       `/api/monsters/${monsterId}/attacks`,

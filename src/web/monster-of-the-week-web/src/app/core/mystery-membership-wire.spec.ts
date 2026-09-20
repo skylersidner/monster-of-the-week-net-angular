@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { environment } from '../../environments/environment';
 import { BystanderService } from './bystander';
 import { LocationService } from './location';
+import { MonsterService } from './monster';
 
 /**
  * **The seam between the two halves of A5, A8, D6 and D7.**
@@ -45,13 +46,18 @@ describe('The membership verbs, on the wire', () => {
   }[] = [
     { name: 'locations', segment: 'locations', service: () => TestBed.inject(LocationService) },
     { name: 'bystanders', segment: 'bystanders', service: () => TestBed.inject(BystanderService) },
-    // **No monsters row, and that is a finding rather than an omission.** Phase 1 shipped
+    // **The monsters row, added in 5b.** The note below explains why it was absent.
+    { name: 'monsters', segment: 'monsters', service: () => TestBed.inject(MonsterService) },
+    // **Was: no monsters row, and that was a finding rather than an omission.** Phase 1 shipped
     // `PUT/DELETE /api/mysteries/{id}/monsters/{id}` and `MysteryLinkEndpointTests` exercises all
     // three collections from the wire — but Angular's `MonsterService` has no `linkToMystery` or
     // `unlinkFromMystery` at all, so the monster half of the verb has no client. Correct for
-    // Phase 4 (monsters are Phase 5, architecture §6.2) and harmless today; noted because §9's
-    // Phase 5 list names *five* missing `MonsterService` methods — the sub-resource updaters — and
-    // these two are not among them.
+    // Phase 4 (monsters are Phase 5, architecture §6.2) and harmless then; noted because §9's
+    // Phase 5 list named *five* missing `MonsterService` methods — the sub-resource updaters — and
+    // these two were not among them. **5b added the client half**, which is what the row above pins:
+    // monster linking waited for the wizard roster (§6.2's one hard sequencing constraint), because
+    // until the roster shipped, attaching a second monster would have made monsters 2..N silently
+    // absent from the mystery's own editing surface.
   ];
 
   for (const { name, segment, service } of collections) {

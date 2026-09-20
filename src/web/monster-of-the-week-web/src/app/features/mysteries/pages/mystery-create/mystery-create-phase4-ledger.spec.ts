@@ -151,7 +151,7 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
             ),
           },
         },
-        { provide: MonsterService, useValue: { create: record('monster.create', () => of({ id: 'monster-1' })) } },
+        { provide: MonsterService, useValue: { getAll: () => of([]), create: record('monster.create', () => of({ id: 'monster-1' })) } },
         { provide: MinionService, useValue: {} },
         { provide: LocationService, useValue: locationService },
         { provide: BystanderService, useValue: bystanderService },
@@ -595,7 +595,7 @@ describe('The wizard’s phase submit — S3, a fan-out failure is never "none o
             getMysteries: vi.fn(() => of([{ id: 'mystery-1', name: 'The Hollow Choir' }])),
           },
         },
-        { provide: MonsterService, useValue: { create: vi.fn(() => of({ id: 'monster-1' })) } },
+        { provide: MonsterService, useValue: { getAll: () => of([]), create: vi.fn(() => of({ id: 'monster-1' })) } },
         { provide: MinionService, useValue: {} },
         { provide: LocationService, useValue: locationService },
         {

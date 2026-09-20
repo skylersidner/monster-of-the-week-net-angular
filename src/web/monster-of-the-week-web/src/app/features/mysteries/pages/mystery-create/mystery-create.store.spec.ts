@@ -113,11 +113,19 @@ describe('MysteryCreateStore', () => {
     ReturnType<typeof vi.fn>
   >;
 
-  let monsterService: { create: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> } & SubResourceMocks;
+  let monsterService: {
+    getAll: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+    linkToMystery: ReturnType<typeof vi.fn>;
+    unlinkFromMystery: ReturnType<typeof vi.fn>;
+  } & SubResourceMocks;
   let minionService: {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
+    moveToMonster: ReturnType<typeof vi.fn>;
   } & SubResourceMocks;
   let locationService: {
     create: ReturnType<typeof vi.fn>;
@@ -156,8 +164,12 @@ describe('MysteryCreateStore', () => {
       vi.fn((_ownerId: string, _id: string, request: unknown) => of({ id, weaponTags: [], ...(request as object) }));
 
     monsterService = {
+      getAll: vi.fn(() => of([])),
       create: vi.fn(() => of({ id: 'monster-1' })),
       update: vi.fn(() => of({ id: 'monster-1' })),
+      delete: vi.fn(() => of(undefined)),
+      linkToMystery: vi.fn(() => of(undefined)),
+      unlinkFromMystery: vi.fn(() => of(undefined)),
       createAttack: echo('attack-1'),
       updateAttack: echoUpdate('attack-1'),
       assignAttackWeaponTag: vi.fn(() => of({})),
@@ -177,6 +189,7 @@ describe('MysteryCreateStore', () => {
       create: vi.fn(() => of({ id: 'minion-1' })),
       update: vi.fn(() => of({ id: 'minion-1' })),
       delete: vi.fn(() => of(undefined)),
+      moveToMonster: vi.fn(() => of(undefined)),
       createAttack: echo('minion-attack-1'),
       updateAttack: echoUpdate('minion-attack-1'),
       assignAttackWeaponTag: vi.fn(() => of({})),
@@ -251,11 +264,14 @@ describe('MysteryCreateStore', () => {
       monsterTypeId: 'monster-type-1',
       monsterArchetypeId: 'monster-archetype-1',
     });
-    store.currentStep.set(1);
+    // 5b: `Next` off step 0 commits the composer into the roster. A minion cannot be saved without a
+    // monster to belong to, so the roster has to have one before the minion step means anything.
+    store.currentStep.set(0);
+    store.next();
   }
 
   function fillComposer(name: string, minionTypeId = 'minion-type-1'): void {
-    store.minionForm.setValue({ name, description: '', harmCapacity: 3, minionTypeId });
+    store.minionForm.patchValue({ name, description: '', harmCapacity: 3, minionTypeId });
   }
 
   /**
@@ -328,7 +344,7 @@ describe('MysteryCreateStore', () => {
     store.addMonsterWeakness();
     store.next();
 
-    store.minionForm.setValue({
+    store.minionForm.patchValue({
       name: 'Choir Thrall',
       description: 'Possessed singer',
       harmCapacity: 3,
@@ -417,13 +433,14 @@ describe('MysteryCreateStore', () => {
     });
     store.monsterPowerForm.setValue({ name: 'Shadow Step', description: '' });
     store.addMonsterPower();
-    store.minionForm.setValue({
+    // 5b: step 0's Next commits the composer into the roster; step 1's submits the phase.
+    store.next();
+    store.minionForm.patchValue({
       name: 'Choir Thrall',
       description: '',
       harmCapacity: 3,
       minionTypeId: 'minion-type-1',
     });
-    store.currentStep.set(1);
     store.next();
 
     store.addLocationForm.setValue({ name: 'Saint Brigid Chapel', description: '', locationTypeId: 'location-type-1' });
@@ -456,7 +473,7 @@ describe('MysteryCreateStore', () => {
     expect(monsterService.createPower).toHaveBeenCalledTimes(1);
     expect(monsterService.updatePower).not.toHaveBeenCalled();
     expect(monsterService.deletePower).not.toHaveBeenCalled();
-    expect(store.monsterPowers()[0].id).toBe('power-1');
+    expect(store.monsterDrafts()[0].powers[0].id).toBe('power-1');
     expect(locationService.create).toHaveBeenCalledTimes(1);
     expect(locationService.update).toHaveBeenCalledWith('location-1', {
       name: 'Saint Brigid Chapel',
@@ -488,7 +505,7 @@ describe('MysteryCreateStore', () => {
   it('advances past the minion step with an empty composer and creates nothing', () => {
     advanceToMinionStep();
 
-    expect(store.composerDirty()).toBe(false);
+    expect(store.minionComposerDirty()).toBe(false);
 
     store.next();
 
@@ -521,8 +538,8 @@ describe('MysteryCreateStore', () => {
     advanceToMinionStep();
     store.minionForm.controls.name.setValue('Choir Thrall');
 
-    expect(store.composerDirty()).toBe(true);
-    expect(store.composerValid()).toBe(false);
+    expect(store.minionComposerDirty()).toBe(true);
+    expect(store.minionComposerValid()).toBe(false);
 
     store.next();
 
@@ -538,8 +555,8 @@ describe('MysteryCreateStore', () => {
     store.minionAttackForm.setValue({ name: 'Jagged Hymn', harm: 1, description: '', weaponTagIds: [] });
     store.addMinionAttack();
 
-    expect(store.composerDirty()).toBe(true);
-    expect(store.composerValid()).toBe(false);
+    expect(store.minionComposerDirty()).toBe(true);
+    expect(store.minionComposerValid()).toBe(false);
 
     store.next();
 
@@ -554,7 +571,7 @@ describe('MysteryCreateStore', () => {
     advanceToMinionStep();
     store.minionForm.controls.harmCapacity.setValue(5);
 
-    expect(store.composerDirty()).toBe(true);
+    expect(store.minionComposerDirty()).toBe(true);
 
     store.next();
 
@@ -575,24 +592,24 @@ describe('MysteryCreateStore', () => {
   it('opens the composer only when the roster is empty or the user asks for it', () => {
     advanceToMinionStep();
 
-    expect(store.composerOpen()).toBe(true);
+    expect(store.minionComposerOpen()).toBe(true);
 
     fillComposer('Alpha');
     store.saveMinionDraftToList();
-    expect(store.composerOpen()).toBe(false);
-    expect(store.editingDraftKey()).toBeNull();
+    expect(store.minionComposerOpen()).toBe(false);
+    expect(store.editingMinionKey()).toBeNull();
 
-    // "Collapsed" and "open on a blank new draft" both have editingDraftKey() === null.
+    // "Collapsed" and "open on a blank new draft" both have editingMinionKey() === null.
     store.startNewMinionDraft();
-    expect(store.composerOpen()).toBe(true);
-    expect(store.editingDraftKey()).toBeNull();
+    expect(store.minionComposerOpen()).toBe(true);
+    expect(store.editingMinionKey()).toBeNull();
 
     store.editMinionDraft(keyAt(0));
-    expect(store.composerOpen()).toBe(true);
-    expect(store.editingDraftKey()).toBe(keyAt(0));
+    expect(store.minionComposerOpen()).toBe(true);
+    expect(store.editingMinionKey()).toBe(keyAt(0));
 
     store.cancelComposerEdit();
-    expect(store.composerOpen()).toBe(false);
+    expect(store.minionComposerOpen()).toBe(false);
   });
 
   it('round-trips a roster draft through the composer, sub-resources included', () => {
@@ -682,7 +699,7 @@ describe('MysteryCreateStore', () => {
     // sits *before* the one being edited, and the next save must still write to the card the user
     // is looking at, not to a bystander.
     //
-    // What changed is the mechanism. `editingDraftKey` is an identity rather than a position, so
+    // What changed is the mechanism. `editingMinionKey` is an identity rather than a position, so
     // the splice cannot invalidate it and `removeMinionDraft` no longer has to decrement anything.
     // The assertion is therefore "the pointer is *the same value* afterwards", where it used to be
     // "the pointer was correctly adjusted".
@@ -698,11 +715,11 @@ describe('MysteryCreateStore', () => {
     const gammaKey = keyAt(2);
 
     store.editMinionDraft(gammaKey);
-    expect(store.editingDraftKey()).toBe(gammaKey);
+    expect(store.editingMinionKey()).toBe(gammaKey);
 
     store.removeMinionDraft(alphaKey);
 
-    expect(store.editingDraftKey()).toBe(gammaKey);
+    expect(store.editingMinionKey()).toBe(gammaKey);
     expect(store.minionDrafts().map((draft) => draft.name)).toEqual(['Beta', 'Gamma']);
     // Gamma has moved from index 2 to index 1 and its key has not moved at all.
     expect(keyAt(1)).toBe(gammaKey);
@@ -773,6 +790,8 @@ describe('MysteryCreateStore', () => {
           provide: MonsterService,
           useValue: {
             ...monsterService,
+            linkToMystery: () => of(undefined),
+            unlinkFromMystery: () => of(undefined),
             getByMystery: () => of([{ id: 'monster-1' }]),
             getById: () =>
               of({
@@ -793,6 +812,7 @@ describe('MysteryCreateStore', () => {
           provide: MinionService,
           useValue: {
             ...minionService,
+            moveToMonster: () => of(undefined),
             getByMonster: () => of(minions),
             getById: (id: string) => of(detail(id, minions.find((m) => m.id === id)!.name)),
           },
@@ -812,7 +832,7 @@ describe('MysteryCreateStore', () => {
 
     // And the keys address the roster: the pencil works on a hydrated card.
     expect(editStore.editMinionDraft(keys[1])).toBe(true);
-    expect(editStore.editingDraftKey()).toBe(keys[1]);
+    expect(editStore.editingMinionKey()).toBe(keys[1]);
     expect(editStore.minionForm.controls.name.value).toBe('Beta');
   });
 
@@ -848,7 +868,7 @@ describe('MysteryCreateStore', () => {
     store.minionForm.controls.description.setValue('Half-typed second minion');
 
     store.editMinionDraft(keyAt(0));
-    expect(store.editingDraftKey()).toBeNull();
+    expect(store.editingMinionKey()).toBeNull();
     expect(store.minionForm.controls.description.value).toBe('Half-typed second minion');
     expect(store.submitError()).toBe("Finish or clear the minion you're editing before continuing.");
 
@@ -870,10 +890,10 @@ describe('MysteryCreateStore', () => {
     store.editMinionDraft(betaKey);
     store.removeMinionDraft(betaKey);
 
-    expect(store.editingDraftKey()).toBeNull();
+    expect(store.editingMinionKey()).toBeNull();
     expect(store.minionForm.controls.name.value).toBe('');
     expect(store.minionForm.controls.harmCapacity.value).toBe(3);
-    expect(store.composerOpen()).toBe(false);
+    expect(store.minionComposerOpen()).toBe(false);
     expect(store.minionDrafts().map((draft) => draft.name)).toEqual(['Alpha']);
   });
 
@@ -890,7 +910,7 @@ describe('MysteryCreateStore', () => {
     store.editMinionDraft(alphaKey);
     store.removeMinionDraft(keyAt(2));
 
-    expect(store.editingDraftKey()).toBe(alphaKey);
+    expect(store.editingMinionKey()).toBe(alphaKey);
     expect(store.minionDrafts().map((draft) => draft.name)).toEqual(['Alpha', 'Beta']);
   });
 
@@ -909,7 +929,7 @@ describe('MysteryCreateStore', () => {
     store.removeMinionDraft('minion-does-not-exist');
 
     expect(store.minionDrafts().map((draft) => draft.name)).toEqual(['Alpha', 'Beta']);
-    expect(store.editingDraftKey()).toBe(alphaKey);
+    expect(store.editingMinionKey()).toBe(alphaKey);
   });
 
   it('refuses to load a roster card whose key is unknown, and says so to its caller', () => {
@@ -918,7 +938,7 @@ describe('MysteryCreateStore', () => {
     store.saveMinionDraftToList();
 
     expect(store.editMinionDraft('minion-does-not-exist')).toBe(false);
-    expect(store.editingDraftKey()).toBeNull();
+    expect(store.editingMinionKey()).toBeNull();
   });
 
   it('adds and removes armor drafts independently for monster and minion', () => {
@@ -995,7 +1015,7 @@ describe('MysteryCreateStore', () => {
       expect.objectContaining({ name: 'Leather Vest', harmSoak: 1, specialDescription: 'Only vital organs' }),
     ]);
     expect(store.minionDrafts()).toEqual([]);
-    expect(store.composerOpen()).toBe(true);
-    expect(store.editingDraftKey()).toBeNull();
+    expect(store.minionComposerOpen()).toBe(true);
+    expect(store.editingMinionKey()).toBeNull();
   });
 });

@@ -53,34 +53,71 @@
   </section>
 }
 
-@if (store.currentPhase() >= 1 && store.monsterPreview().name) {
+@if (store.currentPhase() >= 1) {
   <section class="dossier-section bg-surface border border-default rounded-lg mb-5 p-5">
     <h3 class="border-b border-default text-accent text-[0.8rem] font-bold tracking-[0.06em] m-0 mb-[0.85rem] pb-2 uppercase">
       <span class="inline-flex items-center gap-[0.45rem]">
         <app-mystery-section-icon kind="monster" />
-        <span>The Monster</span>
+        <span>Monsters</span>
       </span>
     </h3>
-    <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Name</span> {{ store.monsterPreview().name }}</p>
-    @if (store.monsterPreview().typeName) {
-      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Type</span> {{ store.monsterPreview().typeName }}</p>
+    <!--
+      UX §5: one compact entry per roster draft, with **exactly one expanded** — the one loaded in
+      the composer. Rendering N full monster blocks would make the dossier taller than the form.
+    -->
+    @for (draft of store.monsterDrafts(); track draft.localKey) {
+      @if (store.editingMonsterKey() === draft.localKey) {
+        <ng-container [ngTemplateOutlet]="monsterComposerEntry" />
+      } @else {
+        <div class="border-b border-default last:border-b-0 mb-2 pb-2 last:mb-0 last:pb-0">
+          <p class="text-primary text-[0.9rem] leading-[1.5] mb-1">{{ draft.name }}</p>
+          @if (monsterTypeName(draft.monsterTypeId); as typeName) {
+            <span class="inline-block rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-monster text-on-badge-monster">{{ typeName }}</span>
+          }
+          <small class="text-muted block mt-1">
+            Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
+            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Minions:
+            {{ minionCountFor(draft.localKey) }}
+          </small>
+        </div>
+      }
     }
-    <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Harm Capacity</span> {{ store.monsterPreview().harmCapacity }}</p>
-    @if (store.monsterPreview().description) {
-      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Description</span> {{ store.monsterPreview().description }}</p>
+    @if (store.monsterComposerOpen() && store.editingMonsterKey() === null && store.monsterComposerPreview().name) {
+      <ng-container [ngTemplateOutlet]="monsterComposerEntry" />
     }
-    @if (store.monsterPreview().attacks.length > 0) {
+    @if (store.monsterDrafts().length === 0 && !store.monsterComposerPreview().name) {
+      <p class="text-muted text-sm italic m-0">No monsters added yet.</p>
+    }
+  </section>
+}
+
+<!--
+  The one expanded monster: whichever is loaded in the composer. Every read below is
+  store.monsterComposerPreview() — the composer's own state — never a raw store.monster*() signal,
+  which under a roster would leak one monster's sub-resources into another's block.
+-->
+<ng-template #monsterComposerEntry>
+  <div class="border-b border-default last:border-b-0 mb-2 pb-2 last:mb-0 last:pb-0">
+    <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Name</span> {{ store.monsterComposerPreview().name }}</p>
+    @if (store.monsterComposerPreview().typeName) {
+      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Type</span> {{ store.monsterComposerPreview().typeName }}</p>
+    }
+    <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Harm Capacity</span> {{ store.monsterComposerPreview().harmCapacity }}</p>
+    @if (store.monsterComposerPreview().description) {
+      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Description</span> {{ store.monsterComposerPreview().description }}</p>
+    }
+    @if (store.monsterComposerPreview().attacks.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Attacks</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (attack of store.monsterPreview().attacks; track attack.localKey) {
+        @for (attack of store.monsterComposerPreview().attacks; track attack.localKey) {
           <li>{{ attack.name }} ({{ attack.harm }} harm)</li>
         }
       </ul>
     }
-    @if (store.monsterPreview().powers.length > 0) {
+    @if (store.monsterComposerPreview().powers.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Powers</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (power of store.monsterPreview().powers; track power.localKey) {
+        @for (power of store.monsterComposerPreview().powers; track power.localKey) {
           <li>
             <span>{{ power.name }}</span>
             @if (power.description) {
@@ -90,10 +127,10 @@
         }
       </ul>
     }
-    @if (store.monsterPreview().weaknesses.length > 0) {
+    @if (store.monsterComposerPreview().weaknesses.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Weaknesses</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (weakness of store.monsterPreview().weaknesses; track weakness.localKey) {
+        @for (weakness of store.monsterComposerPreview().weaknesses; track weakness.localKey) {
           <li>
             <span>{{ weakness.name }}</span>
             @if (weakness.description) {
@@ -103,10 +140,10 @@
         }
       </ul>
     }
-    @if (store.monsterPreview().armors.length > 0) {
+    @if (store.monsterComposerPreview().armors.length > 0) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Armor</span></p>
       <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-        @for (armor of store.monsterPreview().armors; track armor.localKey) {
+        @for (armor of store.monsterComposerPreview().armors; track armor.localKey) {
           <li>
             <span>{{ armor.name }} ({{ armor.harmSoak }} harm soak)</span>
             @if (armor.description) {
@@ -119,8 +156,8 @@
         }
       </ul>
     }
-  </section>
-}
+  </div>
+</ng-template>
 
 @if (store.currentPhase() >= 1 && (store.minionDrafts().length > 0 || store.minionPreview().name)) {
   <section class="dossier-section bg-surface border border-default rounded-lg mb-5 p-5">
@@ -131,7 +168,7 @@
       </span>
     </h3>
     @for (draft of store.minionDrafts(); track draft.localKey) {
-      @if (store.editingDraftKey() === draft.localKey) {
+      @if (store.editingMinionKey() === draft.localKey) {
         <ng-container [ngTemplateOutlet]="composerEntry" />
       } @else {
         <div class="border-b border-default last:border-b-0 mb-2 pb-2 last:mb-0 last:pb-0">
@@ -146,7 +183,7 @@
         </div>
       }
     }
-    @if (store.composerOpen() && store.editingDraftKey() === null && store.minionPreview().name) {
+    @if (store.minionComposerOpen() && store.editingMinionKey() === null && store.minionPreview().name) {
       <ng-container [ngTemplateOutlet]="composerEntry" />
     }
   </section>
@@ -229,7 +266,7 @@
       </span>
     </h3>
     <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-      @for (location of store.locations(); track $index) {
+      @for (location of store.locations(); track location.localKey) {
         <li>{{ location.name }}</li>
       }
     </ul>
@@ -245,7 +282,7 @@
       </span>
     </h3>
     <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
-      @for (bystander of store.bystanders(); track $index) {
+      @for (bystander of store.bystanders(); track bystander.localKey) {
         <li>{{ bystander.name }}</li>
       }
     </ul>

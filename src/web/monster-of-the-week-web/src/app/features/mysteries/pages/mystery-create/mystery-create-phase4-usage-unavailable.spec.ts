@@ -73,7 +73,7 @@ describe('The wizard’s removal modal when the mystery lookup did not answer', 
           provide: MysteryService,
           useValue: { create: () => of({ id: 'mystery-1' }), upsertCountdown: () => of({}), getMysteries },
         },
-        { provide: MonsterService, useValue: { create: () => of({ id: 'monster-1' }) } },
+        { provide: MonsterService, useValue: { getAll: () => of([]), create: () => of({ id: 'monster-1' }) } },
         { provide: MinionService, useValue: {} },
         {
           provide: LocationService,

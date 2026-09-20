@@ -7,9 +7,8 @@ import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
-import { CustomSelectComponent } from '../../../../shared/custom-select.component';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
-import { MonsterFormComponent } from '../../shared/monster-form/monster-form';
+import { MonsterFormComponent, MonsterFormSubmit } from '../../shared/monster-form/monster-form';
 import {
   MonsterArchetypeResponse,
   MysteryListItemResponse,
@@ -58,7 +57,6 @@ export interface WeaknessDraft {
     ReactiveFormsModule,
     RouterLink,
     MonsterFormComponent,
-    CustomSelectComponent,
     WeaponTagSelectComponent,
   ],
   templateUrl: './monster-create.html',
@@ -82,7 +80,6 @@ export class MonsterCreateComponent implements OnInit {
   readonly weaknessDrafts = signal<WeaknessDraft[]>([]);
 
   /** Optional "attach to mystery" picker. Blank is the valid "create unattached" path. */
-  readonly mysteryControl = this.formBuilder.nonNullable.control('');
 
   readonly attackDraftForm = this.formBuilder.group({
     name: this.formBuilder.nonNullable.control('', [Validators.required]),
@@ -257,22 +254,27 @@ export class MonsterCreateComponent implements OnInit {
    * Emitted by `MonsterFormComponent` only once its own validation has passed, so no
    * core-field validity check is needed here.
    */
-  onCreate(payload: UpsertMonsterRequest): void {
-    const mysteryId = this.mysteryControl.value;
+  onCreate(submit: MonsterFormSubmit): void {
+    const mysteryIds = submit.mysteryIds;
 
     this.isSaving.set(true);
     this.errorMessage.set(null);
 
-    const create$ = mysteryId
-      ? this.monsterService.create(mysteryId, payload)
-      : this.monsterService.createStandalone(payload);
-
-    create$
+    // Always standalone, then one membership PUT per selection — the shape Locations and
+    // Bystanders have had since Phase 2. Zero selections is valid and creates an unattached monster,
+    // which is a first-class state under decision 1.
+    this.monsterService
+      .createStandalone(submit.monster)
       .pipe(
         switchMap((monster) =>
           // The monster now exists. A failure past this point must not look like a
           // total failure, so it is caught here rather than reaching the error handler.
-          this.saveSubResourceDrafts(monster.id).pipe(
+          forkJoin({
+            drafts: this.saveSubResourceDrafts(monster.id),
+            links: this.runBatch(
+              mysteryIds.map((mysteryId) => this.monsterService.linkToMystery(mysteryId, monster.id)),
+            ),
+          }).pipe(
             map(() => ({ monsterId: monster.id, draftsFailed: false })),
             catchError(() => of({ monsterId: monster.id, draftsFailed: true }))
           )
@@ -291,7 +293,7 @@ export class MonsterCreateComponent implements OnInit {
             this.notificationService.success('Monster created.');
           }
 
-          void this.router.navigate(this.detailLink(monsterId, mysteryId));
+          void this.router.navigate(draftsFailed ? ['/monsters', monsterId] : this.detailLink(monsterId, mysteryIds));
         },
         error: () => {
           this.isSaving.set(false);
@@ -301,8 +303,13 @@ export class MonsterCreateComponent implements OnInit {
       });
   }
 
-  private detailLink(monsterId: string, mysteryId: string): unknown[] {
-    return mysteryId ? ['/mysteries', mysteryId, 'monsters', monsterId] : ['/monsters', monsterId];
+  /**
+   * With exactly one mystery selected there is an unambiguous scoped route to land on. Zero or many
+   * have no single referent, so they fall back to the flat catalogue route — and so does the
+   * partial-failure branch, where the scoped route would assert a membership we no longer know holds.
+   */
+  private detailLink(monsterId: string, mysteryIds: string[]): unknown[] {
+    return mysteryIds.length === 1 ? ['/mysteries', mysteryIds[0], 'monsters', monsterId] : ['/monsters', monsterId];
   }
 
   /**

@@ -1,159 +1,305 @@
 @if (store.currentStep() === 0) {
-  <form [formGroup]="store.monsterForm">
-    <div class="mb-4">
-      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterName">Monster Name <span class="text-danger">*</span></label>
-      <input id="monsterName" type="text" formControlName="name" placeholder="The creature's name"
-        class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
-      @if (store.monsterForm.controls.name.invalid && store.monsterForm.controls.name.touched) {
-        <span class="text-danger block text-[0.8rem] mt-1">Name is required</span>
+  <!--
+    UX §2.1's order is roster → attach strip → composer, and it is load-bearing twice over: the
+    roster is the state of the mystery so it reads first, and §14.2(c) makes it the thing that
+    decides where focus lands after a confirmed removal.
+  -->
+  <ul class="grid gap-2 list-none m-0 mb-3 p-0">
+    @for (draft of store.monsterDrafts(); track draft.localKey) {
+      <li
+        class="roster-card flex items-center border rounded-lg gap-4 justify-between p-4"
+        [class.bg-surface]="store.editingMonsterKey() !== draft.localKey"
+        [class.border-default]="store.editingMonsterKey() !== draft.localKey"
+        [class.bg-accent-subtle]="store.editingMonsterKey() === draft.localKey"
+        [class.border-accent]="store.editingMonsterKey() === draft.localKey">
+        <div class="flex-1 min-w-0">
+          <div class="flex flex-wrap items-baseline gap-2 mb-1">
+            <span class="text-primary font-semibold">{{ draft.name }}</span>
+            @if (monsterTypeLabel(draft.monsterTypeId); as typeLabel) {
+              <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-monster text-on-badge-monster">{{ typeLabel }}</span>
+            }
+          </div>
+          <!--
+            §17.2: **every count below comes from the draft's own collections**, never from
+            `MonsterListItemResponse.attackCount`. A card and its composer reading two sources that
+            agree only by coincidence is how "card says Attacks: 4, composer shows none" becomes
+            reachable — the §15.1 defect shape, where a summary and its detail came from two places.
+            The minion count is the link between the two steps and is worth its cross-reference.
+          -->
+          <small class="text-muted">
+            Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
+            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Minions:
+            {{ minionCountFor(draft.localKey) }}
+          </small>
+        </div>
+        <div class="flex items-center shrink-0 gap-1">
+          @if (store.editingMonsterKey() === draft.localKey) {
+            <span class="text-accent text-[0.72rem] font-semibold uppercase tracking-[0.04em]">Editing</span>
+          } @else {
+            <button
+              type="button"
+              class="action-btn action-btn--edit flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] no-underline transition-colors"
+              title="Edit monster"
+              [attr.aria-label]="'Edit ' + draft.name"
+              (click)="editMonster(draft.localKey)">
+              <app-icon name="pencil" class="h-5 w-5" />
+            </button>
+          }
+          <button
+            type="button"
+            class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] no-underline transition-colors"
+            title="Remove monster"
+            [attr.aria-label]="'Remove ' + draft.name"
+            (click)="requestRemoveMonster(draft.localKey)">
+            <app-icon name="trash" class="h-5 w-5" />
+          </button>
+        </div>
+      </li>
+    }
+  </ul>
+  @if (store.monsterDrafts().length === 0) {
+    <p class="text-muted text-sm italic">No monsters added yet.</p>
+  }
+
+  <!-- A3: an empty catalogue hides the strip entirely; a fully-attached one keeps it, with its own empty state. -->
+  @if (!store.monsterCatalogEmpty()) {
+    <div class="bg-surface-sunken border border-default rounded-md mb-3 mt-3 px-3 py-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="text-muted text-sm shrink-0" for="attach-monster">Add an existing monster</label>
+        @if (store.attachingMonsterName(); as pending) {
+          <!--
+            §17.1's busy state: disabled, showing the picked name, and the feedback lives in the
+            strip rather than in a half-drawn roster card. Copies the shipped treatment at
+            `app.html:47-49` — spinner glyph plus a text label inside a disabled control.
+          -->
+          <span class="flex flex-1 items-center gap-2 text-muted text-sm min-w-[12rem]">
+            <app-icon name="spinner" class="h-4 w-4 shrink-0 animate-spin" />
+            <span class="truncate">Loading “{{ pending }}”…</span>
+          </span>
+        } @else {
+          <app-custom-select
+            id="attach-monster"
+            class="flex-1 min-w-[12rem]"
+            [formControl]="attachControl"
+            [options]="store.attachableMonsters()"
+            [searchable]="true"
+            size="compact"
+            placeholder="Search your monsters…"
+            emptyText="Every monster you've made is already in this mystery."
+          ></app-custom-select>
+        }
+      </div>
+      @if (store.monsterAttachError(); as attachError) {
+        <!-- §17.2: local to the control that failed, not the wizard's footer band. -->
+        <p class="text-danger text-sm mt-2 mb-0">{{ attachError }}</p>
       }
     </div>
-    <div class="mb-4">
-      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterDescription">Description</label>
-      <textarea id="monsterDescription" formControlName="description" rows="3" placeholder="What does it look like? How does it move?"
-        class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-accent focus:outline-none focus:ring-focus"></textarea>
-    </div>
-    <div class="mb-4">
-      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterHarmCapacity">Harm Capacity <span class="text-danger">*</span></label>
-      <input id="monsterHarmCapacity" type="number" formControlName="harmCapacity" min="0"
-        class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
-    </div>
-    <div class="mb-4">
-      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterType">Monster Type <span class="text-danger">*</span></label>
-      <app-custom-select id="monsterType" formControlName="monsterTypeId" [options]="store.monsterTypes()" placeholder="Select a type..."></app-custom-select>
-    </div>
-    <div class="mb-4">
-      <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterArchetype">Monster Archetype <span class="text-danger">*</span></label>
-      <app-custom-select id="monsterArchetype" formControlName="monsterArchetypeId" [options]="store.monsterArchetypes()" placeholder="Select an archetype..."></app-custom-select>
-      @if (store.monsterForm.controls.monsterArchetypeId.invalid && store.monsterForm.controls.monsterArchetypeId.touched) {
-        <span class="text-danger block text-[0.8rem] mt-1">Archetype is required</span>
+  }
+
+  @if (store.monsterComposerOpen()) {
+    <div class="border border-default rounded-lg mt-4 p-4">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <h4 #monsterComposerHeading tabindex="-1" class="text-primary text-sm font-bold m-0 min-w-0 focus:outline-none">
+          @if (store.editingMonsterKey() !== null) {
+            <span class="block truncate">Editing “{{ store.monsterComposerPreview().name }}”</span>
+          } @else {
+            Add a Monster
+          }
+        </h4>
+      </div>
+
+    <form [formGroup]="store.monsterForm">
+      <div class="mb-4">
+        <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterName">Monster Name <span class="text-danger">*</span></label>
+        <input id="monsterName" type="text" formControlName="name" placeholder="The creature's name"
+          class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
+        @if (store.monsterForm.controls.name.invalid && store.monsterForm.controls.name.touched) {
+          <span class="text-danger block text-[0.8rem] mt-1">Name is required</span>
+        }
+      </div>
+      <div class="mb-4">
+        <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterDescription">Description</label>
+        <textarea id="monsterDescription" formControlName="description" rows="3" placeholder="What does it look like? How does it move?"
+          class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full min-h-[100px] resize-y focus:border-accent focus:outline-none focus:ring-focus"></textarea>
+      </div>
+      <div class="mb-4">
+        <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterHarmCapacity">Harm Capacity <span class="text-danger">*</span></label>
+        <input id="monsterHarmCapacity" type="number" formControlName="harmCapacity" min="0"
+          class="bg-surface border border-strong rounded-lg text-primary font-[inherit] px-3 py-[0.6rem] w-full focus:border-accent focus:outline-none focus:ring-focus" />
+      </div>
+      <div class="mb-4">
+        <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterType">Monster Type <span class="text-danger">*</span></label>
+        <app-custom-select id="monsterType" formControlName="monsterTypeId" [options]="store.monsterTypes()" placeholder="Select a type..."></app-custom-select>
+      </div>
+      <div class="mb-4">
+        <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="monsterArchetype">Monster Archetype <span class="text-danger">*</span></label>
+        <app-custom-select id="monsterArchetype" formControlName="monsterArchetypeId" [options]="store.monsterArchetypes()" placeholder="Select an archetype..."></app-custom-select>
+        @if (store.monsterForm.controls.monsterArchetypeId.invalid && store.monsterForm.controls.monsterArchetypeId.touched) {
+          <span class="text-danger block text-[0.8rem] mt-1">Archetype is required</span>
+        }
+      </div>
+    </form>
+
+    <div class="border border-default rounded-lg mb-4 p-3">
+      <h4 class="text-primary text-sm font-bold m-0 mb-3">Attacks</h4>
+      @for (attack of store.monsterAttacks(); track attack.localKey) {
+        <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
+          <div class="flex flex-1 flex-col gap-[0.2rem]">
+            <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
+            @if (attack.weaponTagIds.length > 0) {
+              <div class="flex flex-1 flex-wrap gap-[0.35rem]">
+                @for (tag of tagsForAttack(attack.weaponTagIds); track tag.id) {
+                  <span class="bg-weapon-chip border border-weapon-chip-line rounded-full text-on-weapon-chip text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
+                }
+              </div>
+            }
+            @if (attack.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ attack.description }}</div>
+            }
+          </div>
+          <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterAttack(attack.localKey)">×</button>
+        </div>
       }
-    </div>
-  </form>
-
-  <div class="border border-default rounded-lg mb-4 p-3">
-    <h4 class="text-primary text-sm font-bold m-0 mb-3">Attacks</h4>
-    @for (attack of store.monsterAttacks(); track attack.localKey) {
-      <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
-        <div class="flex flex-1 flex-col gap-[0.2rem]">
-          <span>{{ attack.name }} (Harm {{ attack.harm }})</span>
-          @if (attack.weaponTagIds.length > 0) {
-            <div class="flex flex-1 flex-wrap gap-[0.35rem]">
-              @for (tag of tagsForAttack(attack.weaponTagIds); track tag.id) {
-                <span class="bg-weapon-chip border border-weapon-chip-line rounded-full text-on-weapon-chip text-xs leading-none px-[0.6rem] py-1">{{ tag.name }}</span>
-              }
-            </div>
-          }
-          @if (attack.description) {
-            <div class="text-muted text-[0.8rem] leading-[1.4]">{{ attack.description }}</div>
-          }
+      <form [formGroup]="store.monsterAttackForm" class="flex flex-wrap items-center gap-2 mt-2">
+        <div class="flex flex-1 items-center gap-2">
+          <input formControlName="name" placeholder="Attack name"
+            class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+          <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px"
+            class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
         </div>
-        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterAttack(attack.localKey)">×</button>
-      </div>
-    }
-    <form [formGroup]="store.monsterAttackForm" class="flex flex-wrap items-center gap-2 mt-2">
-      <div class="flex flex-1 items-center gap-2">
-        <input formControlName="name" placeholder="Attack name"
-          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
-        <input formControlName="harm" type="number" placeholder="Harm" style="width: 80px"
-          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
-      </div>
-      <app-weapon-tag-select formControlName="weaponTagIds" [options]="store.weaponTags()" [compact]="true" style="flex: 0 1 160px"></app-weapon-tag-select>
-      <textarea formControlName="description" rows="2" placeholder="What does this attack do?"
-        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
-      <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterAttack()">+ Add</button>
-    </form>
-  </div>
-
-  <div class="border border-default rounded-lg mb-4 p-3">
-    <h4 class="text-primary text-sm font-bold m-0 mb-3">Powers</h4>
-    @for (power of store.monsterPowers(); track power.localKey) {
-      <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
-        <div class="flex flex-1 flex-col gap-[0.2rem]">
-          <span>{{ power.name }}</span>
-          @if (power.description) {
-            <div class="text-muted text-[0.8rem] leading-[1.4]">{{ power.description }}</div>
-          }
-        </div>
-        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterPower(power.localKey)">×</button>
-      </div>
-    }
-    <form [formGroup]="store.monsterPowerForm" class="flex flex-wrap items-center gap-2 mt-2">
-      <input formControlName="name" placeholder="Power name"
-        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
-      <textarea formControlName="description" rows="2" placeholder="What does this power do?"
-        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
-      <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterPower()">+ Add</button>
-    </form>
-  </div>
-
-  <div class="border border-default rounded-lg mb-4 p-3">
-    <h4 class="text-primary text-sm font-bold m-0 mb-3">Weaknesses</h4>
-    @for (weakness of store.monsterWeaknesses(); track weakness.localKey) {
-      <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
-        <div class="flex flex-1 flex-col gap-[0.2rem]">
-          <span>{{ weakness.name }}</span>
-          @if (weakness.description) {
-            <div class="text-muted text-[0.8rem] leading-[1.4]">{{ weakness.description }}</div>
-          }
-        </div>
-        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterWeakness(weakness.localKey)">×</button>
-      </div>
-    }
-    <form [formGroup]="store.monsterWeaknessForm" class="flex flex-wrap items-center gap-2 mt-2">
-      <input formControlName="name" placeholder="Weakness name"
-        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
-      <textarea formControlName="description" rows="2" placeholder="What makes this weakness matter?"
-        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
-      <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterWeakness()">+ Add</button>
-    </form>
-  </div>
-
-  <div class="border border-default rounded-lg mb-4 p-3">
-    <h4 class="text-primary text-sm font-bold m-0 mb-3">Armor</h4>
-    @for (armor of store.monsterArmors(); track armor.localKey) {
-      <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
-        <div class="flex flex-1 flex-col gap-[0.2rem]">
-          <span>{{ armor.name }} (Soak {{ armor.harmSoak }})</span>
-          @if (armor.description) {
-            <div class="text-muted text-[0.8rem] leading-[1.4]">{{ armor.description }}</div>
-          }
-          @if (armor.isSpecial && armor.specialDescription) {
-            <div class="text-muted text-[0.8rem] leading-[1.4]"><em class="italic">Special:</em> {{ armor.specialDescription }}</div>
-          }
-        </div>
-        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterArmor(armor.localKey)">×</button>
-      </div>
-    }
-    <form [formGroup]="store.monsterArmorForm" class="flex flex-wrap items-center gap-2 mt-2">
-      <input formControlName="name" placeholder="Armor name"
-        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
-      <input formControlName="harmSoak" type="number" placeholder="Harm Soak" style="width: 100px"
-        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
-      <label class="flex items-center gap-2 text-sm text-primary">
-        <input type="checkbox" formControlName="isSpecial" />
-        <span>Special</span>
-      </label>
-      <textarea formControlName="description" rows="2" placeholder="Description"
-        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
-      @if (store.monsterArmorForm.controls.isSpecial.value) {
-        <textarea formControlName="specialDescription" rows="2" placeholder="Special description"
+        <app-weapon-tag-select formControlName="weaponTagIds" [options]="store.weaponTags()" [compact]="true" style="flex: 0 1 160px"></app-weapon-tag-select>
+        <textarea formControlName="description" rows="2" placeholder="What does this attack do?"
           class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterAttack()">+ Add</button>
+      </form>
+    </div>
+
+    <div class="border border-default rounded-lg mb-4 p-3">
+      <h4 class="text-primary text-sm font-bold m-0 mb-3">Powers</h4>
+      @for (power of store.monsterPowers(); track power.localKey) {
+        <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
+          <div class="flex flex-1 flex-col gap-[0.2rem]">
+            <span>{{ power.name }}</span>
+            @if (power.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ power.description }}</div>
+            }
+          </div>
+          <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterPower(power.localKey)">×</button>
+        </div>
       }
-      <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterArmor()">+ Add</button>
-    </form>
-  </div>
+      <form [formGroup]="store.monsterPowerForm" class="flex flex-wrap items-center gap-2 mt-2">
+        <input formControlName="name" placeholder="Power name"
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        <textarea formControlName="description" rows="2" placeholder="What does this power do?"
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterPower()">+ Add</button>
+      </form>
+    </div>
+
+    <div class="border border-default rounded-lg mb-4 p-3">
+      <h4 class="text-primary text-sm font-bold m-0 mb-3">Weaknesses</h4>
+      @for (weakness of store.monsterWeaknesses(); track weakness.localKey) {
+        <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
+          <div class="flex flex-1 flex-col gap-[0.2rem]">
+            <span>{{ weakness.name }}</span>
+            @if (weakness.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ weakness.description }}</div>
+            }
+          </div>
+          <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterWeakness(weakness.localKey)">×</button>
+        </div>
+      }
+      <form [formGroup]="store.monsterWeaknessForm" class="flex flex-wrap items-center gap-2 mt-2">
+        <input formControlName="name" placeholder="Weakness name"
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        <textarea formControlName="description" rows="2" placeholder="What makes this weakness matter?"
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterWeakness()">+ Add</button>
+      </form>
+    </div>
+
+    <div class="border border-default rounded-lg mb-4 p-3">
+      <h4 class="text-primary text-sm font-bold m-0 mb-3">Armor</h4>
+      @for (armor of store.monsterArmors(); track armor.localKey) {
+        <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm">
+          <div class="flex flex-1 flex-col gap-[0.2rem]">
+            <span>{{ armor.name }} (Soak {{ armor.harmSoak }})</span>
+            @if (armor.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ armor.description }}</div>
+            }
+            @if (armor.isSpecial && armor.specialDescription) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]"><em class="italic">Special:</em> {{ armor.specialDescription }}</div>
+            }
+          </div>
+          <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1" (click)="store.removeMonsterArmor(armor.localKey)">×</button>
+        </div>
+      }
+      <form [formGroup]="store.monsterArmorForm" class="flex flex-wrap items-center gap-2 mt-2">
+        <input formControlName="name" placeholder="Armor name"
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        <input formControlName="harmSoak" type="number" placeholder="Harm Soak" style="width: 100px"
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem]" />
+        <label class="flex items-center gap-2 text-sm text-primary">
+          <input type="checkbox" formControlName="isSpecial" />
+          <span>Special</span>
+        </label>
+        <textarea formControlName="description" rows="2" placeholder="Description"
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        @if (store.monsterArmorForm.controls.isSpecial.value) {
+          <textarea formControlName="specialDescription" rows="2" placeholder="Special description"
+            class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        }
+        <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterArmor()">+ Add</button>
+      </form>
+    </div>
+
+      <div class="flex items-center justify-end gap-3">
+        @if (store.editingMonsterKey() !== null) {
+          <button type="button" class="bg-transparent border border-strong rounded-lg text-muted cursor-pointer font-[inherit] text-[0.9rem] px-5 py-[0.55rem] transition-colors" (click)="cancelMonster()">Cancel</button>
+        }
+        <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="saveMonster()">
+          @if (store.editingMonsterKey() !== null) { Save Changes } @else { Save Monster }
+        </button>
+      </div>
+    </div>
+  } @else {
+    <button #addAnotherMonsterButton type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="startNewMonster()">+ Add Another Monster</button>
+  }
+
+  <app-confirm-delete-modal
+    [visible]="pendingRemoveMonsterKey() !== null"
+    [itemName]="pendingRemoveMonsterName()"
+    verb="Remove"
+    [confirmLabel]="monsterConfirmLabel()"
+    [secondaryLabel]="monsterSecondaryLabel()"
+    [usageMessage]="monsterUsageMessage()"
+    [usage]="monsterUsage()"
+    [message]="monsterCascadeMessage()"
+    [items]="monsterCascadeItems()"
+    [footnote]="monsterFootnote()"
+    (confirmed)="onMonsterRemoveConfirmed()"
+    (secondary)="onMonsterDetachConfirmed()"
+    (cancelled)="onMonsterRemoveCancelled()"
+  />
 }
 
 @if (store.currentStep() === 1) {
+  @if (store.monsterDrafts().length === 0) {
+    <!--
+      UX §6, third row: with no monsters the step cannot do anything useful, because a minion needs
+      a monster (`Minion.MonsterId` is a required FK). Ordinary empty-state treatment, so it reads
+      as a state rather than as an error — and `Next` is not blocked (`5b-O7`).
+    -->
+    <p class="text-muted text-sm italic">Add a monster first — minions belong to a monster.</p>
+  } @else {
   <ul class="grid gap-2 list-none m-0 mb-3 p-0">
     @for (draft of store.minionDrafts(); track draft.localKey) {
       <li
         class="roster-card flex items-center border rounded-lg gap-4 justify-between p-4"
-        [class.bg-surface]="store.editingDraftKey() !== draft.localKey"
-        [class.border-default]="store.editingDraftKey() !== draft.localKey"
-        [class.bg-accent-subtle]="store.editingDraftKey() === draft.localKey"
-        [class.border-accent]="store.editingDraftKey() === draft.localKey">
+        [class.bg-surface]="store.editingMinionKey() !== draft.localKey"
+        [class.border-default]="store.editingMinionKey() !== draft.localKey"
+        [class.bg-accent-subtle]="store.editingMinionKey() === draft.localKey"
+        [class.border-accent]="store.editingMinionKey() === draft.localKey">
         <div class="flex-1 min-w-0">
           <div class="flex flex-wrap items-baseline gap-2 mb-1">
             <span class="text-primary font-semibold">{{ draft.name }}</span>
@@ -161,13 +307,20 @@
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-minion text-on-badge-minion">{{ typeLabel }}</span>
             }
           </div>
-          <small class="text-muted">
+          <small class="text-muted block">
             Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
             {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }}
           </small>
+          @if (store.monsterDrafts().length > 1) {
+            <!--
+              `5b-K6`: reads `monsterKey`, so a re-parent committed to the draft shows here before
+              the submit rather than after it. Only rendered when there is a choice to have made.
+            -->
+            <small class="text-muted block">Belongs to {{ store.monsterNameForKey(draft.monsterKey) }}</small>
+          }
         </div>
         <div class="flex items-center shrink-0 gap-1">
-          @if (store.editingDraftKey() === draft.localKey) {
+          @if (store.editingMinionKey() === draft.localKey) {
             <span class="text-accent text-[0.72rem] font-semibold uppercase tracking-[0.04em]">Editing</span>
           } @else {
             <button
@@ -195,11 +348,11 @@
     <p class="text-muted text-sm italic">No minions added yet — this step is optional.</p>
   }
 
-  @if (store.composerOpen()) {
+  @if (store.minionComposerOpen()) {
     <div class="border border-default rounded-lg mt-4 p-4">
       <div class="flex items-center justify-between gap-3 mb-4">
         <h4 #composerHeading tabindex="-1" class="text-primary text-sm font-bold m-0 min-w-0 focus:outline-none">
-          @if (store.editingDraftKey() !== null) {
+          @if (store.editingMinionKey() !== null) {
             <span class="block truncate">Editing “{{ store.minionPreview().name }}”</span>
           } @else {
             Add a Minion
@@ -208,6 +361,26 @@
       </div>
 
       <form [formGroup]="store.minionForm">
+        <!--
+          **The parent picker, and it is the composer's first field** (UX §6). It is the minion's
+          parent and every other field is meaningless without it; putting it last invites filling in
+          a whole minion before discovering it is unassigned.
+
+          With exactly one monster there is nothing to choose, so the prose line renders instead and
+          the store fills the control in — `isMonsterLocked()`'s shipped behaviour, which keeps the
+          common case at zero extra clicks. The required validator applies on both branches.
+        -->
+        @if (store.soleMonsterKey() !== null) {
+          <p class="text-muted text-sm mb-4">Belongs to <strong>{{ store.soleMonsterName() }}</strong></p>
+        } @else {
+          <div class="mb-4">
+            <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="minionMonster">Belongs to Monster <span class="text-danger">*</span></label>
+            <app-custom-select id="minionMonster" formControlName="monsterKey" [options]="store.monsterPickerOptions()" placeholder="Select a monster..."></app-custom-select>
+            @if (store.minionForm.controls.monsterKey.invalid && store.minionForm.controls.monsterKey.touched) {
+              <span class="text-danger block text-[0.8rem] mt-1">A minion must belong to a monster.</span>
+            }
+          </div>
+        }
         <div class="mb-4">
           <label class="text-primary block text-sm font-semibold mb-[0.35rem]" for="minionName">Minion Name <span class="text-danger">*</span></label>
           <input id="minionName" type="text" formControlName="name" placeholder="The minion's name"
@@ -349,11 +522,11 @@
       </div>
 
       <div class="flex items-center justify-end gap-3">
-        @if (store.editingDraftKey() !== null) {
+        @if (store.editingMinionKey() !== null) {
           <button type="button" class="bg-transparent border border-strong rounded-lg text-muted cursor-pointer font-[inherit] text-[0.9rem] px-5 py-[0.55rem] transition-colors" (click)="cancelDraft()">Cancel</button>
         }
         <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="saveDraft()">
-          @if (store.editingDraftKey() !== null) { Save Changes } @else { Save Minion }
+          @if (store.editingMinionKey() !== null) { Save Changes } @else { Save Minion }
         </button>
       </div>
     </div>
@@ -374,4 +547,5 @@
     (confirmed)="onRemoveConfirmed()"
     (cancelled)="onRemoveCancelled()"
   />
+  }
 }

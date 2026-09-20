@@ -8,10 +8,41 @@ import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { MysteryCreateComponent } from './mystery-create';
-import { MinionDraft, createDraftKey } from './mystery-create.store';
+import { MinionDraft, MonsterDraft, createDraftKey } from './mystery-create.store';
+
+/** The one monster every fixture minion belongs to. */
+const MONSTER_KEY = 'monster-fixture';
 
 /** Fresh sub-resource identity: unsaved (`id: null`) with a unique addressable key. */
 const identity = (prefix: string) => ({ id: null, localKey: createDraftKey(prefix) });
+
+/**
+ * A complete roster monster. 5b makes a minion impossible without one — `Minion.MonsterId` is a
+ * required FK and the minion step renders its empty state with an empty roster — so any fixture
+ * that puts minions on the roster has to put their parent there too.
+ */
+function rosterMonster(overrides: Partial<MonsterDraft> = {}): MonsterDraft {
+  return {
+    id: null,
+    localKey: MONSTER_KEY,
+    name: 'The Hollow Man',
+    description: '',
+    harmCapacity: 8,
+    monsterTypeId: 'monster-type-1',
+    monsterArchetypeId: 'monster-archetype-1',
+    attacks: [],
+    powers: [],
+    weaknesses: [],
+    armors: [],
+    existingAttacks: [],
+    existingPowers: [],
+    existingWeaknesses: [],
+    existingArmors: [],
+    existingMinionIds: [],
+    mysteryIds: [],
+    ...overrides,
+  };
+}
 
 function minionDraft(name: string, counts: Partial<Record<'attacks' | 'powers' | 'weaknesses' | 'armors', number>> = {}): MinionDraft {
   const named = (prefix: string, count: number) =>
@@ -24,6 +55,8 @@ function minionDraft(name: string, counts: Partial<Record<'attacks' | 'powers' |
   return {
     id: null,
     localKey: createDraftKey(),
+    monsterKey: 'monster-fixture',
+    existingMonsterId: null,
     name,
     description: '',
     harmCapacity: 3,
@@ -97,6 +130,10 @@ class MockMysteryService {
 }
 
 class MockMonsterService {
+  getAll() {
+    return of([]);
+  }
+
   create() {
     return of({ id: 'monster-1' });
   }
@@ -236,6 +273,7 @@ describe('MysteryCreateComponent', () => {
   it("lists the removed minion's own sub-resources in the confirm modal, not the composer's", () => {
     component.store.currentPhase.set(1);
     component.store.currentStep.set(1);
+    component.store.monsterDrafts.set([rosterMonster()]);
     component.store.minionDrafts.set([
       minionDraft('Cultist', { attacks: 2, powers: 1 }),
       minionDraft('Thrall', { weaknesses: 3 }),
@@ -267,6 +305,7 @@ describe('MysteryCreateComponent', () => {
   it('shows one compact dossier entry per minion and expands only the one in the composer', () => {
     component.store.currentPhase.set(1);
     component.store.currentStep.set(1);
+    component.store.monsterDrafts.set([rosterMonster()]);
     component.store.minionDrafts.set([
       minionDraft('Cultist', { attacks: 2 }),
       minionDraft('Thrall', { weaknesses: 1 }),
@@ -309,7 +348,8 @@ describe('MysteryCreateComponent', () => {
   it('keeps the minion dossier section visible after a saved minion resets the composer', () => {
     component.store.currentPhase.set(1);
     component.store.currentStep.set(1);
-    component.store.minionForm.setValue({
+    component.store.monsterDrafts.set([rosterMonster()]);
+    component.store.minionForm.patchValue({
       name: 'Choir Thrall',
       description: '',
       harmCapacity: 3,
@@ -328,6 +368,7 @@ describe('MysteryCreateComponent', () => {
   function showRoster(names: string[]): void {
     component.store.currentPhase.set(1);
     component.store.currentStep.set(1);
+    component.store.monsterDrafts.set([rosterMonster()]);
     component.store.minionDrafts.set(names.map((name) => minionDraft(name)));
     fixture.detectChanges();
   }
@@ -401,7 +442,7 @@ describe('MysteryCreateComponent', () => {
 
   it('moves focus to the composer heading from + Add Another Minion, which also unmounts', async () => {
     showRoster(['Cultist']);
-    component.store.composerOpen.set(false);
+    component.store.minionComposerOpen.set(false);
     await settle();
 
     const element = fixture.nativeElement as HTMLElement;
@@ -433,7 +474,7 @@ describe('MysteryCreateComponent', () => {
     await settle();
 
     // Nothing moved, so nothing should have taken focus off the control the user is on.
-    expect(component.store.editingDraftKey()).toBeNull();
+    expect(component.store.editingMinionKey()).toBeNull();
     expect(document.activeElement).toBe(pencil);
   });
 });

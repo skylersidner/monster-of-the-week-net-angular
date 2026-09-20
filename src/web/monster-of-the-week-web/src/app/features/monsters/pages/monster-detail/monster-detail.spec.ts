@@ -2,15 +2,25 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { convertToParamMap, provideRouter } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { MonsterDetailResponse, UpsertMonsterRequest } from '../../../../core/models';
 import { MonsterService } from '../../../../core/monster';
 import { MinionService } from '../../../../core/minion';
+import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { MonsterFormComponent } from '../../shared/monster-form/monster-form';
 import { MonsterDetailComponent } from './monster-detail';
+
+/** The body half of a save, shaped exactly as `PUT /api/monsters/{id}` takes it. */
+const monsterBody: UpsertMonsterRequest = {
+  name: 'Monster',
+  description: null,
+  harmCapacity: 7,
+  monsterTypeId: 'monster-type-1',
+  monsterArchetypeId: 'monster-archetype-1',
+};
 
 const loadedMonster: MonsterDetailResponse = {
   id: 'mo1',
@@ -33,10 +43,18 @@ describe('MonsterDetailComponent', () => {
   let fixture: ComponentFixture<MonsterDetailComponent>;
   let deleteAttackCalls = 0;
   let updateCalls: { monsterId: string; payload: UpsertMonsterRequest }[] = [];
+  /** The membership ledger `5b-L1` needs: add, remove, both in one save, and none when unchanged. */
+  let membershipCalls: string[] = [];
+  let membershipShouldFail = false;
+  /** Server truth, mutated by `update` and read back by the post-save refetch. */
+  let currentMonster: MonsterDetailResponse = loadedMonster;
 
   beforeEach(async () => {
     deleteAttackCalls = 0;
     updateCalls = [];
+    currentMonster = loadedMonster;
+    membershipCalls = [];
+    membershipShouldFail = false;
     await TestBed.configureTestingModule({
       imports: [MonsterDetailComponent],
       providers: [
@@ -50,10 +68,22 @@ describe('MonsterDetailComponent', () => {
         {
           provide: MonsterService,
           useValue: {
-            getById: () => of(loadedMonster),
+            // **The save now ends in a refetch** (5b), so this double has to behave like a server:
+            // what `getById` returns after an update must be what the update wrote. A stub that kept
+            // answering the original would make the refetch look like it had lost the user's edit.
+            getById: () => of(currentMonster),
             update: (monsterId: string, payload: UpsertMonsterRequest) => {
               updateCalls.push({ monsterId, payload });
-              return of({ ...loadedMonster, ...payload, monsterArchetype: loadedMonster.monsterArchetype });
+              currentMonster = { ...currentMonster, ...payload, monsterArchetype: loadedMonster.monsterArchetype };
+              return of(currentMonster);
+            },
+            linkToMystery: (mysteryId: string, monsterId: string) => {
+              membershipCalls.push(`link(${mysteryId},${monsterId})`);
+              return membershipShouldFail ? throwError(() => new Error('boom')) : of(undefined);
+            },
+            unlinkFromMystery: (mysteryId: string, monsterId: string) => {
+              membershipCalls.push(`unlink(${mysteryId},${monsterId})`);
+              return of(undefined);
             },
             createAttack: () => of({ id: 'a1' }),
             assignAttackWeaponTag: () => of({}),
@@ -81,6 +111,12 @@ describe('MonsterDetailComponent', () => {
           provide: MinionService,
           useValue: {
             getByMonster: () => of([]),
+          },
+        },
+        {
+          provide: MysteryService,
+          useValue: {
+            getMysteries: () => of([{ id: 'm1', name: 'The Hollow Choir' }]),
           },
         },
         {
@@ -130,6 +166,7 @@ describe('MonsterDetailComponent', () => {
       harmCapacity: 9,
       monsterTypeId: 'monster-type-1',
       monsterArchetypeId: 'monster-archetype-1',
+      mysteryIds: [],
     });
 
     const form = fixture.nativeElement.querySelector('app-monster-form form') as HTMLFormElement;
@@ -159,7 +196,7 @@ describe('MonsterDetailComponent', () => {
       monsterArchetypeId: 'monster-archetype-1',
     };
 
-    component.saveMonster(payload);
+    component.saveMonster({ monster: payload, mysteryIds: [] });
 
     expect(updateCalls).toEqual([{ monsterId: 'mo1', payload }]);
     expect(component.monster()!.name).toBe('Renamed');
@@ -170,14 +207,42 @@ describe('MonsterDetailComponent', () => {
     component.monster.set(null);
 
     component.saveMonster({
-      name: 'Renamed',
-      description: null,
-      harmCapacity: 9,
-      monsterTypeId: 'monster-type-1',
-      monsterArchetypeId: 'monster-archetype-1',
+      monster: {
+        name: 'Renamed',
+        description: null,
+        harmCapacity: 9,
+        monsterTypeId: 'monster-type-1',
+        monsterArchetypeId: 'monster-archetype-1',
+      },
+      mysteryIds: [],
     });
 
     expect(updateCalls).toEqual([]);
+  });
+
+  it('5b-L1: unchanged membership issues no membership calls at all', () => {
+    component.saveMonster({ monster: monsterBody, mysteryIds: ['m1'] });
+
+    // The common "just renamed it" save stays two round trips (the PUT and the refetch).
+    expect(membershipCalls).toEqual([]);
+  });
+
+  it('5b-L1: an add and a remove in one save produce one PUT and one DELETE', () => {
+    component.saveMonster({ monster: monsterBody, mysteryIds: ['m2'] });
+
+    expect([...membershipCalls].sort()).toEqual(['link(m2,mo1)', 'unlink(m1,mo1)']);
+  });
+
+  it('5b-L1: a membership failure is a success with a caveat, and the form stays mounted', () => {
+    membershipShouldFail = true;
+
+    component.saveMonster({ monster: monsterBody, mysteryIds: ['m1', 'm2'] });
+
+    // `errorMessage` would unmount the form, leaving nothing to retry into; the re-rendered
+    // membership control above the Save button is itself the answer to "which ones failed?".
+    expect(component.errorMessage()).toBeNull();
+    expect(component.activeMutation()).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-monster-form')).toBeTruthy();
   });
 
   it('requires specialDescription on the armor form only while isSpecial is checked', () => {

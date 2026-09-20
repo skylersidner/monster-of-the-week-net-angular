@@ -890,7 +890,9 @@ Two things keep it on the right side of that line, and both are load-bearing:
 
 **Field-level `required` stays; phase-level required goes.** The composer's Name, Type and Archetype keep their `*` and their inline errors — if you start a monster you must finish it, which is the standing composer rule (`commitComposerIfValid`) and not a gate on the phase. The distinction matters because deleting the `validateCurrentStep` branch must not also strip the validators.
 
-**Do not gate the phase-1 tracker dot on monster count.** Completeness is set on submit; requiring a monster for the dot would reintroduce "required" through the back door, visibly.
+**Do not gate the phase-1 tracker *bubble* on monster count.** Completeness is set on submit; requiring a monster for the bubble would reintroduce "required" through the back door, visibly.
+
+> **Clarified 2026-09-20 (Peach's J3).** This sentence originally said "tracker dot", which is one level too coarse: the **bubble** (`phaseComplete`) and the per-step **dot** (`phaseStepComplete`) are different indicators answering different questions, and applying this rule to the dot produces a permanently-lit one. The bubble rule above is unchanged; the dot is ruled on separately in **§18**.
 
 ### 16.3 Read surfaces — verified, no design needed
 
@@ -1027,3 +1029,61 @@ Two things for him specifically, beyond the data flow he is already deciding:
 **The visual vocabulary is unchanged.** Same strip, same position above the composer (§14.2(c) still governs focus), same single-select, same commit-on-pick, same exclusion of roster members, same hide-when-catalogue-empty rule. **One control gains two transient states — busy and error — and both are monsters-only.**
 
 Locations and Bystanders do **not** get them; they have no fetch, and a state that can never trigger is dead code. If the markup is shared, the two states should be driven by inputs those phases simply never set.
+
+---
+
+## 18. Phase 5b — what the step dot means (J3), and two notes on promises (2026-09-20)
+
+### 18.1 The two mechanisms mean different things, and that is the resolution
+
+J3 is real and it comes from my §16.2 being read one level too far down. There are two indicators and they answer different questions:
+
+| Indicator | Driven by | Question it answers |
+|---|---|---|
+| **Phase bubble** | `phaseComplete`, set on submit | *Have I been through this phase?* |
+| **Step dot** | `phaseStepComplete` (`:585-611`) | *Does this step have anything in it?* |
+
+§16.2's "don't gate the phase-1 tracker dot on monster count" was about the **bubble**, and stands unchanged. Applied to the **dot** it does produce a permanently-lit indicator, which is why J3 caught it. The two are not in tension once they are allowed to mean different things.
+
+### 18.2 Ruling: the dot means *has content*, and the monster step reads its roster
+
+**`monsterDrafts().length > 0`.** Nothing else changes, and the meaning is uniform across all eight dots.
+
+**This isn't a choice so much as a convergence — "has content" is already what every dot in the wizard means.** Phase 0's four read name/hook/overview/countdown non-empty; Locations and Bystanders read `…().length > 0`; and the minion dot already reads `minionDrafts().length > 0` with the comment *"The step stays optional — an empty roster still advances."* **The wizard has had an optional step whose dot means "has content" since the multi-minion work, and it has never implied the step was required.** Monsters becoming optional makes them the second such step, not a new case.
+
+**Rejecting the other two readings explicitly**, since the constraint is that whatever I pick applies to all eight:
+
+- **"Visited"** duplicates information the tracker already carries twice over — the bubble's `visited` state and the dot's own `active` state — and it would destroy the dots' only job. A row of dots that lights up as you walk past them tells you nothing about what you filled in, which is precisely the glance they exist to serve.
+- **"Satisfied"** is either vacuous or identical. For an optional step it is always true (the permanently-lit dot J3 describes); for a required step it collapses into "has content" anyway. It cannot be informative for both kinds of step at once.
+
+**Two things that make a dark dot harmless, and are worth recording so this isn't relitigated:**
+
+1. **The dots are `aria-hidden="true"`** (`wizard-tracker.html:35`). They are decorative progress texture, not a claim any assistive technology reads. Nothing about a user's understanding of "required" rests on them.
+2. **The current step's dot renders `active`, not incomplete** — `[class.active]="isCurrentDot(i, d)"` takes precedence over `complete` (`:39-40`). So standing on the monster step with an empty roster shows *you are here*, never *you have failed to do something*. The unlit-while-you're-on-it state that would read as a reproach cannot occur.
+
+**One thing that falls out of this rather than being decided by it:** the old form at `:601` read `monsterPreview().name && monsterArchetypeId` — i.e. **the composer**, not the roster. That is exactly the flicker the minion dot's comment already warns about (lights on the first keystroke, drops again on Next). Reading the roster fixes that as a side effect, and is a second, independent reason the answer is forced.
+
+### 18.3 On the minion-destruction bug — what my copy promises, stated as the acceptance target
+
+Nothing needed from me, but Yoshi should have the promise in my words rather than a paraphrase, because it is the thing the fix has to satisfy:
+
+> **Detach promises that the monster and everything it owns survive everywhere else.** §7.1's monster variant ties the cascade to **Delete only**: *"Delete removes it from those mysteries too, along with its minions."* Detach's clause deliberately says nothing about minions, because under detach nothing happens to them.
+
+The assertion that follows: **detach a monster that has persisted minions from a mystery that shares it with another; afterwards those minions still exist and still belong to that monster.** If the fix ever makes that unachievable, the copy has to change before the behaviour ships — come to me and I'll rewrite it rather than letting the sentence quietly become false.
+
+### 18.4 J4 — the re-parented minion is the one place her call and my copy can disagree
+
+She invited this, so: **yes, there is a mismatch, and it is in the cascade list rather than in the behaviour.**
+
+Move M from A to B, then remove B. M survives, because the re-parent never submitted. But the roster shows M under B, so the natural implementation of the removal modal's `[items]` — "what does the roster say this monster owns?" — would **list M as something deletion takes with it, and then not take it.** That is the same class of failure as the button-label problem in §16.4: a promise in the dialog that the drain does not honour. The `[items]` list is a promise, not a summary.
+
+**The rule, which is the part I'm ruling on:** the cascade list must be derived from **what will actually be deleted** — the monster's *persisted* children — not from the roster's in-session parentage. M has a persisted parent of A, so M does not appear in B's cascade.
+
+That leaves a second, display-side requirement: **after B is removed, M must remain visible on the roster under A.** It still exists on the server, and a minion that silently disappears from the wizard while surviving in the database is the invisible-orphan problem, one interaction later.
+
+**Both behaviours being coherent is not the same as both being legible**, and I'd rather not paper over the gap with copy. My preference, in order:
+
+1. **Best:** the re-parent applies in the same submit as the removal, so the roster and the cascade agree and no explanation is needed. That is Yoshi's call and it dissolves the mismatch instead of narrating it.
+2. **If it can't:** I'll write a clause for the footnote naming the minion that stays. I'd rather not — it is extra copy for a rare state — but a rare state that changes what the user should expect does earn copy (§14.1's rule cuts that way, not the other).
+
+Flagged as agreement in principle with Peach's "assert, don't fix": the *behaviours* are fine. It's the dialog's account of them that has to be true.

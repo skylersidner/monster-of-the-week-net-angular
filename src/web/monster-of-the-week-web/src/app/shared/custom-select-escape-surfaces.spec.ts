@@ -24,7 +24,7 @@ import { MinionFormComponent } from '../features/minions/shared/minion-form/mini
 import { MonsterCreateComponent } from '../features/monsters/pages/monster-create/monster-create';
 import { MonsterFormComponent } from '../features/monsters/shared/monster-form/monster-form';
 import { MysteryCreateComponent } from '../features/mysteries/pages/mystery-create/mystery-create';
-import { MysteryCreateStore } from '../features/mysteries/pages/mystery-create/mystery-create.store';
+import { MonsterDraft, MysteryCreateStore } from '../features/mysteries/pages/mystery-create/mystery-create.store';
 import { DataAdminPageComponent } from '../pages/data-admin/data-admin';
 import { SettingsPageComponent } from '../pages/settings/settings';
 import { MysterySelectComponent } from './mystery-select.component';
@@ -204,6 +204,36 @@ const notifications = {
 
 // ---------------------------------------------------------------------------------------------
 
+const MONSTER_KEY = 'monster-fixture';
+
+/**
+ * A complete roster monster. 5b makes a minion impossible without one — `Minion.MonsterId` is a
+ * required FK and the minion step renders its empty state with an empty roster — so any fixture
+ * that puts minions on the roster has to put their parent there too.
+ */
+function rosterMonster(overrides: Partial<MonsterDraft> = {}): MonsterDraft {
+  return {
+    id: null,
+    localKey: MONSTER_KEY,
+    name: 'The Hollow Man',
+    description: '',
+    harmCapacity: 8,
+    monsterTypeId: 'monster-type-1',
+    monsterArchetypeId: 'monster-archetype-1',
+    attacks: [],
+    powers: [],
+    weaknesses: [],
+    armors: [],
+    existingAttacks: [],
+    existingPowers: [],
+    existingWeaknesses: [],
+    existingArmors: [],
+    existingMinionIds: [],
+    mysteryIds: [],
+    ...overrides,
+  };
+}
+
 describe('Escape closes the panel and restores focus — on every surface that renders one', () => {
   // -------------------------------------------------------------------------------------------
   // The two shared wrapper CVAs, standalone. Both put a select inside their own template, so
@@ -263,7 +293,8 @@ describe('Escape closes the panel and restores focus — on every surface that r
     fixture.componentRef.setInput('monster', null);
     fixture.detectChanges();
 
-    expect(sweepEscape(fixture, fixture.nativeElement, 'monster-form').swept).toBe(2);
+    // Three since 5b: type, archetype, and the mystery membership multi-select (§6.2).
+    expect(sweepEscape(fixture, fixture.nativeElement, 'monster-form').swept).toBe(3);
   });
 
   it('minion-form.html — the minion type select', async () => {
@@ -301,7 +332,7 @@ describe('Escape closes the panel and restores focus — on every surface that r
         provideRouter([]),
         { provide: ReferenceDataService, useClass: MockReferenceDataService },
         { provide: MysteryService, useValue: { getMysteries: () => of(mysteries) } },
-        { provide: MonsterService, useValue: { create: () => of(null), createStandalone: () => of(null) } },
+        { provide: MonsterService, useValue: { getAll: () => of([]), create: () => of(null), createStandalone: () => of(null) } },
         { provide: NotificationService, useValue: notifications },
       ],
     }).compileComponents();
@@ -356,7 +387,7 @@ describe('Escape closes the panel and restores focus — on every surface that r
             provide: MysteryService,
             useValue: { create: () => of({ id: 'mystery-1' }), upsertCountdown: () => of({}), getMysteries: () => of([]) },
           },
-          { provide: MonsterService, useValue: { create: () => of({ id: 'monster-1' }) } },
+          { provide: MonsterService, useValue: { getAll: () => of([]), create: () => of({ id: 'monster-1' }) } },
           // Phase 4: the store loads the attach catalogues through the real Location service.
           { provide: ApiService, useValue: { post: () => of({}), get: () => of([]) } },
           { provide: NotificationService, useValue: notifications },
@@ -381,11 +412,64 @@ describe('Escape closes the panel and restores focus — on every surface that r
     it('monster phase, step 2 — the minion type and attack weapon-tag selects in the composer', () => {
       store.currentPhase.set(1);
       store.currentStep.set(1);
-      store.composerOpen.set(true);
+      // 5b: with no monsters the minion step renders its empty state and no composer at all. One
+      // monster means no parent picker either, so the select count is unchanged.
+      store.monsterDrafts.set([rosterMonster()]);
+      store.minionComposerOpen.set(true);
       fixture.detectChanges();
 
       // Minion type, and the weapon-tag-select on the minion's attack add-form.
       expect(sweepEscape(fixture, fixture.nativeElement, 'wizard minion composer').swept).toBe(2);
+    });
+
+    /**
+     * **The two selects 5b adds, and neither was in the sweep.**
+     *
+     * The step-1 and step-2 cases above hold their counts at 3 and 2 by keeping the catalogue empty
+     * and the roster at one monster — which is what keeps them stable, and is also exactly the two
+     * states in which the new controls do not render. Phase 3's invariant is *every surface that
+     * renders a panel*, so a new instance that only appears in a second state needs a second state.
+     */
+    it('monster phase, step 1 — and the attach strip’s picker, once the catalogue is non-empty', () => {
+      store.currentPhase.set(1);
+      store.currentStep.set(0);
+      store['catalogMonsters'].set([
+        {
+          id: 'mo-9',
+          mysteryIds: [],
+          name: 'The Hollow Man',
+          description: null,
+          harmCapacity: 6,
+          monsterType: { id: 'monster-type-1', name: 'Beast', motivation: '' },
+          monsterArchetype: { id: 'monster-archetype-1', name: 'Ghost', description: '' },
+          attackCount: 0,
+          powerCount: 0,
+          armorCount: 0,
+          weaknessCount: 0,
+          minionCount: 0,
+          createdAt: '2026-01-01T00:00:00Z',
+        },
+      ]);
+      fixture.detectChanges();
+
+      // Type, archetype, the attack weapon-tag select — and the attach strip (UX §17.1).
+      expect(sweepEscape(fixture, fixture.nativeElement, 'wizard monster attach strip').swept).toBe(4);
+    });
+
+    it('monster phase, step 2 — and the parent picker, once there are two monsters to choose from', () => {
+      store.currentPhase.set(1);
+      store.currentStep.set(1);
+      // Two monsters is the whole trigger: `soleMonsterKey()` goes null, the prose line is replaced
+      // by the picker, and it is the composer's *first* field (§18.3).
+      store.monsterDrafts.set([
+        rosterMonster(),
+        rosterMonster({ localKey: 'monster-fixture-2', name: 'The Pale Choir' }),
+      ]);
+      store.minionComposerOpen.set(true);
+      fixture.detectChanges();
+
+      // Minion type, the attack weapon-tag select — and the monster picker.
+      expect(sweepEscape(fixture, fixture.nativeElement, 'wizard minion parent picker').swept).toBe(3);
     });
 
     it('locations phase — the location type select', () => {

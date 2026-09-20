@@ -40,6 +40,14 @@ const WEAPON_TAGS = [
   { id: 'tag-slow', name: 'Slow', description: '' },
 ];
 
+/**
+ * **The membership PUT fires for every roster monster that has an id** (§5.1 Concern A, one level
+ * up from the locations path): `update` carries no mystery in its URL, so without it an *attached*
+ * monster would have its fields written and never join the mystery. Idempotent in effect, so it is
+ * unconditional rather than branched — which is why it appears in every ledger below.
+ */
+const MONSTER_LINK = 'monster.link(mystery-1,monster-1)';
+
 const tagRef = (id: string) => WEAPON_TAGS.find((tag) => tag.id === id)!;
 
 describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
@@ -58,12 +66,20 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
   /** Ids of a collection, in draft order. The `5a-U1` oracle. */
   const idsOf = (drafts: readonly { id: string | null }[]): (string | null)[] => drafts.map((draft) => draft.id);
 
-  const monsterIds = () => ({
-    attacks: idsOf(store.monsterAttacks()),
-    powers: idsOf(store.monsterPowers()),
-    weaknesses: idsOf(store.monsterWeaknesses()),
-    armors: idsOf(store.monsterArmors()),
-  });
+  /**
+   * **Per roster row, not per phase** (5b). Until the roster existed these read four store-level
+   * signals; they are now the *draft's* collections, which is what makes `5a-U1`—`5a-U9` mean
+   * "this monster's ids survived" rather than "the composer's did".
+   */
+  const monsterIds = (index = 0) => {
+    const draft = store.monsterDrafts()[index];
+    return {
+      attacks: idsOf(draft.attacks),
+      powers: idsOf(draft.powers),
+      weaknesses: idsOf(draft.weaknesses),
+      armors: idsOf(draft.armors),
+    };
+  };
 
   const minionIds = () => {
     const draft = store.minionDrafts()[0];
@@ -136,6 +152,10 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
       ...subResourceDoubles('monster', 'm'),
       create: record('monster.create', () => ({ id: 'monster-1' })),
       update: record('monster.update', () => ({ id: 'monster-1' })),
+      delete: record('monster.delete', () => undefined),
+      linkToMystery: record('monster.link', () => undefined),
+      unlinkFromMystery: record('monster.unlink', () => undefined),
+      getAll: vi.fn(() => of([])),
       getByMystery: vi.fn(() => of([])),
       getById: vi.fn(() => of(null)),
     };
@@ -144,6 +164,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
       create: record('minion.create', () => ({ id: 'minion-1' })),
       update: record('minion.update', () => ({ id: 'minion-1' })),
       delete: record('minion.delete', () => undefined),
+      moveToMonster: record('minion.move', () => undefined),
       getByMonster: vi.fn(() => of([])),
       getById: vi.fn(() => of(null)),
     };
@@ -213,6 +234,11 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
     });
   }
 
+  /** Commits the composer into the roster, as `Next` off step 0 does. */
+  function commitMonster(): void {
+    store.saveMonsterDraftToList();
+  }
+
   function addMonsterCollections(): void {
     store.monsterAttackForm.setValue({ name: 'Baton Lash', harm: 2, description: '', weaponTagIds: ['tag-bladed'] });
     store.addMonsterAttack();
@@ -232,7 +258,9 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
   function addMinionWithCollections(): void {
     store.currentStep.set(1);
-    store.minionForm.setValue({
+    // One monster on the roster, so the composer needs no picker and the store answers for it.
+    store.minionForm.patchValue({ monsterKey: store.monsterDrafts()[0].localKey });
+    store.minionForm.patchValue({
       name: 'Choir Thrall',
       description: '',
       harmCapacity: 3,
@@ -245,19 +273,33 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
     store.saveMinionDraftToList();
   }
 
-  /** Submits phase 1 and puts the wizard back on it, as the tracker's Back would. */
+  /**
+   * Submits phase 1 and puts the wizard back on it, as the tracker's Back would.
+   *
+   * It walks **both** steps, because that is the user's path and because step 0's `Next` is what
+   * commits the monster composer into the roster. A test that mutated the composer and jumped
+   * straight to the submit would be asserting against a draft the store never saw.
+   */
   function submitPhaseOne(): void {
     store.currentPhase.set(1);
-    store.currentStep.set(1);
+    store.currentStep.set(0);
+    store.next();
     store.next();
     store.currentPhase.set(1);
     store.currentStep.set(1);
+  }
+
+  /** Pulls the roster's first monster back into the composer, as the pencil does. */
+  function openRosterMonster(index = 0): void {
+    store.currentStep.set(0);
+    store.editMonsterDraft(store.monsterDrafts()[index].localKey);
   }
 
   describe('create mode, Next → Back → Next', () => {
     beforeEach(() => {
       startCreateMode();
       addMonsterCollections();
+      commitMonster();
       addMinionWithCollections();
       submitPhaseOne();
     });
@@ -283,7 +325,11 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       // The monster and the minion are still PUT — their own fields are diffed one level up, which
       // is Phase 4's rule and out of 5a's scope. Nothing below them moves.
-      expectLedger(['monster.update(monster-1,' + monsterRequest() + ')', 'minion.update(minion-1,' + minionRequest() + ')']);
+      expectLedger([
+        'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
+        'minion.update(minion-1,' + minionRequest() + ')',
+      ]);
     });
 
     it('5a-U9: two consecutive no-op submits are identical, and neither rotates an id', () => {
@@ -301,7 +347,9 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
     });
 
     it('5a-U3: editing one attack name sends exactly one PUT, and nothing else below the monster', () => {
+      openRosterMonster();
       const attack = store.monsterAttacks()[0];
+      const powerIdBefore = store.monsterPowers()[0].id;
       store.monsterAttacks.update((drafts) => drafts.map((draft) => ({ ...draft, name: 'Baton Crack' })));
 
       sent.length = 0;
@@ -309,17 +357,20 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       expectLedger([
         'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
         `monster.updateAttack(monster-1,${attack.id},` +
           JSON.stringify({ name: 'Baton Crack', description: null, harm: 2 }) +
           ')',
       ]);
       // Per row, not per entity: the attack's own id is untouched and its siblings never moved.
-      expect(store.monsterAttacks()[0].id).toBe(attack.id);
-      expect(monsterIds().powers).toEqual([store.monsterPowers()[0].id]);
+      // Read from the **roster draft**, not the composer, which is empty once the row is committed.
+      expect(monsterIds().attacks).toEqual([attack.id]);
+      expect(monsterIds().powers).toEqual([powerIdBefore]);
     });
 
     it('5a-U4: renaming the monster writes the monster and none of its eight collections', () => {
+      openRosterMonster();
       store.monsterForm.controls.name.setValue('Maestro Veyle');
 
       sent.length = 0;
@@ -327,11 +378,13 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       expectLedger([
         'monster.update(monster-1,' + monsterRequest('Maestro Veyle') + ')',
+        MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
       ]);
     });
 
     it('5a-U5: adding one power sends one create; removing one power sends one delete', () => {
+      openRosterMonster();
       store.monsterPowerForm.setValue({ name: 'Drowned Chorus', description: '' });
       store.addMonsterPower();
       const survivingId = store.monsterPowers()[0].id;
@@ -341,11 +394,14 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       expectLedger([
         'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
         'monster.createPower(monster-1,' + JSON.stringify({ name: 'Drowned Chorus', description: null }) + ')',
       ]);
-      expect(store.monsterPowers()[0].id).toBe(survivingId);
+      expect(monsterIds().powers[0]).toBe(survivingId);
 
+      // Back into the composer to take one out again — the roster row is the draft now.
+      openRosterMonster();
       const doomed = store.monsterPowers()[1];
       store.removeMonsterPower(doomed.localKey);
 
@@ -354,13 +410,15 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       expectLedger([
         'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
         `monster.deletePower(monster-1,${doomed.id})`,
       ]);
-      expect(store.monsterPowers().map((power) => power.id)).toEqual([survivingId]);
+      expect(monsterIds().powers).toEqual([survivingId]);
     });
 
     it('5a-U6: editing a field and changing it back issues no write', () => {
+      openRosterMonster();
       store.monsterPowers.update((drafts) => drafts.map((draft) => ({ ...draft, name: 'Shadow Stride' })));
       store.monsterPowers.update((drafts) => drafts.map((draft) => ({ ...draft, name: 'Shadow Step' })));
 
@@ -368,7 +426,11 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
       submitPhaseOne();
 
       // A stored `edited` flag is still set at this point. A baseline comparison is not.
-      expectLedger(['monster.update(monster-1,' + monsterRequest() + ')', 'minion.update(minion-1,' + minionRequest() + ')']);
+      expectLedger([
+        'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
+        'minion.update(minion-1,' + minionRequest() + ')',
+      ]);
     });
 
     it('5a-U7: a cancelled composer edit issues no write', () => {
@@ -381,7 +443,11 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
       sent.length = 0;
       submitPhaseOne();
 
-      expectLedger(['monster.update(monster-1,' + monsterRequest() + ')', 'minion.update(minion-1,' + minionRequest() + ')']);
+      expectLedger([
+        'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
+        'minion.update(minion-1,' + minionRequest() + ')',
+      ]);
     });
 
     /**
@@ -411,6 +477,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       expectLedger([
         'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
       ]);
       expect(monsterIds()).toEqual(before.monster);
@@ -418,6 +485,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
     };
 
     it('5a-H1: a created row settles — the create response becomes a baseline its draft matches', () => {
+      openRosterMonster();
       store.monsterPowerForm.setValue({ name: 'Drowned Chorus', description: '' });
       store.addMonsterPower();
       submitPhaseOne();
@@ -426,6 +494,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
     });
 
     it('5a-H1: an updated row settles — so does the response to a PUT', () => {
+      openRosterMonster();
       store.monsterPowers.update((drafts) => drafts.map((draft) => ({ ...draft, name: 'Shadow Stride' })));
       submitPhaseOne();
 
@@ -433,15 +502,17 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
     });
 
     it('5a-H1: a deleted row settles, and the survivor is untouched', () => {
+      openRosterMonster();
       store.monsterPowerForm.setValue({ name: 'Drowned Chorus', description: '' });
       store.addMonsterPower();
       submitPhaseOne();
-      const survivor = store.monsterPowers()[0].id;
+      const survivor = monsterIds().powers[0];
 
+      openRosterMonster();
       store.removeMonsterPower(store.monsterPowers()[1].localKey);
       submitPhaseOne();
 
-      expect(store.monsterPowers().map((power) => power.id)).toEqual([survivor]);
+      expect(monsterIds().powers).toEqual([survivor]);
       expectTheNextSubmitToBeSilent();
     });
 
@@ -455,14 +526,16 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
      * second submit is where that shows up; the first looks perfect either way.
      */
     it('5a-H1/5a-U8: a newly created *tagged* attack settles, though its create answered untagged', () => {
+      openRosterMonster();
       store.monsterAttackForm.setValue({ name: 'Downbeat', harm: 3, description: '', weaponTagIds: ['tag-slow'] });
       store.addMonsterAttack();
 
       sent.length = 0;
       submitPhaseOne();
 
-      // Positive control: the create and its follow-up assign did go out on this submit.
-      const created = store.monsterAttacks()[1];
+      // Positive control: the create and its follow-up assign did go out on this submit. Read from
+      // the roster draft — the composer emptied when the row was committed.
+      const created = { id: monsterIds().attacks[1] };
       expect(sent.filter((call) => call.includes('Tag('))).toEqual([
         'monster.assignTag(monster-1,' + created.id + ',tag-slow)',
       ]);
@@ -472,12 +545,13 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
     /** The same hazard on the update path: a `PUT` answers untagged too. */
     it('5a-H1/5a-U8: an attack whose tags changed settles', () => {
+      openRosterMonster();
       store.monsterAttacks.update((drafts) => drafts.map((draft) => ({ ...draft, weaponTagIds: ['tag-slow'] })));
 
       sent.length = 0;
       submitPhaseOne();
 
-      const attack = store.monsterAttacks()[0];
+      const attack = { id: monsterIds().attacks[0] };
       expect([...sent].filter((call) => call.includes('Tag(')).sort()).toEqual([
         'monster.assignTag(monster-1,' + attack.id + ',tag-slow)',
         'monster.removeTag(monster-1,' + attack.id + ',tag-bladed)',
@@ -488,6 +562,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
     describe('5a-U8: the weapon-tag sub-diff', () => {
       it('adding a tag to an existing attack sends one assign and no remove', () => {
+        openRosterMonster();
         const attack = store.monsterAttacks()[0];
         store.monsterAttacks.update((drafts) =>
           drafts.map((draft) => ({ ...draft, weaponTagIds: ['tag-bladed', 'tag-slow'] })),
@@ -502,6 +577,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
       });
 
       it('removing a tag sends one remove and no assign — the half that never shipped', () => {
+        openRosterMonster();
         const attack = store.monsterAttacks()[0];
         store.monsterAttacks.update((drafts) => drafts.map((draft) => ({ ...draft, weaponTagIds: [] })));
 
@@ -514,6 +590,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
       });
 
       it('editing the name while leaving the tags alone sends neither', () => {
+        openRosterMonster();
         store.monsterAttacks.update((drafts) => drafts.map((draft) => ({ ...draft, name: 'Baton Crack' })));
 
         sent.length = 0;
@@ -623,6 +700,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       expectLedger([
         'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
       ]);
     });
@@ -636,12 +714,13 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
      * merged into a **non-empty** baseline, and the new row has to settle without disturbing it.
      */
     it('5a-U8 (edit mode): a tagged attack added to a hydrated monster settles after one submit', () => {
+      openRosterMonster();
       store.monsterAttackForm.setValue({ name: 'Downbeat', harm: 3, description: '', weaponTagIds: ['tag-slow'] });
       store.addMonsterAttack();
 
       submitPhaseOne();
 
-      const created = store.monsterAttacks()[1];
+      const created = { id: monsterIds().attacks[1] };
       expect(sent.filter((call) => call.includes('Tag('))).toEqual([
         'monster.assignTag(monster-1,' + created.id + ',tag-slow)',
       ]);
@@ -654,6 +733,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       expectLedger([
         'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
       ]);
       expect(monsterIds()).toEqual(before);
@@ -677,6 +757,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       expectLedger([
         'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
         'minion.updateAttack(minion-1,n-attack-9,' +
           JSON.stringify({ name: 'Jagged Descant', description: null, harm: 1 }) +
@@ -693,6 +774,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
 
       expectLedger([
         'monster.update(monster-1,' + monsterRequest() + ')',
+        MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
         'minion.deletePower(minion-1,n-power-9)',
       ]);
@@ -723,6 +805,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
   describe('minion removal on the drain', () => {
     beforeEach(() => {
       startCreateMode();
+      commitMonster();
       addMinionWithCollections();
       submitPhaseOne();
       sent.length = 0;
@@ -740,7 +823,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
     });
 
     it('5a-M3: removing a never-saved minion is a local discard with no disposition at all', () => {
-      store.minionForm.setValue({ name: 'Unsaved', description: '', harmCapacity: 2, minionTypeId: 'minion-type-1' });
+      store.minionForm.patchValue({ name: 'Unsaved', description: '', harmCapacity: 2, minionTypeId: 'minion-type-1' });
       store.saveMinionDraftToList();
       const draft = store.minionDrafts().find((item) => item.name === 'Unsaved')!;
       expect(store.persistedForRemoval('minions', draft.id)).toBe(false);

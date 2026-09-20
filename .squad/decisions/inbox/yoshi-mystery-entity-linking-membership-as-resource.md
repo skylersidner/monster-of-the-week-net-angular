@@ -541,3 +541,155 @@ and S8.7 already rules the expand endpoint out of the risk-centre phase.
 **Effect on the cut and sizing:** the 5a/5b cut holds and is slightly better for it. H3 moves the
 hydrator into 5a (where it was needed for H1/H2 anyway) and leaves 5b with orchestration and states,
 so 5a grows a little and 5b shrinks a little — in the right direction, since 5b is the risk centre.
+
+---
+
+## Rev 11 addendum (2026-09-20) — Peach's 5b acceptance review, and Rosalina's J4 finding
+
+5a shipped (`f8170eb`; frontend 1097, backend 565). Work on `mystery-entity-linking-phase-5b`.
+
+**J1 — removing a monster would destroy its minions. The third composition failure in S7.7.**
+
+`idsToRemove` computes **baseline - drafts - disposed**. (d) drops a removed monster's minion
+*drafts*; (f) drops their pending *dispositions*. A persisted minion of a removed monster is
+therefore in the baseline and in neither of the other two sets, so it falls through to a blind
+`minionService.delete()` on the **diff** path (`:1914`), which has no 404 handler because
+`removalRequest`'s `catchError` (`:2074`) is drain-only by design. Under **detach** the minions are
+destroyed everywhere — the opposite of what S6.4 and the modal promise. Under **delete** the cascade
+already killed them, so it 404s and fails the phase **non-deterministically**, drain and minion diff
+being concurrent `forkJoin` siblings.
+
+Peach's diagnosis is the reusable part: **(f)'s fix opened this door** — dropping the disposition
+removed the only thing excluding that id from the diff.
+
+**Fix: make the minion baseline per-monster.** `MonsterDraft.existingMinionIds: string[]` replaces
+the store-level flat signal, with a flattening `computed` for `persistedForRemoval`. Removing a
+monster then drops its minion baseline *because the baseline went with the draft*, with nothing to
+remember. Same move 5a already made one level down. A flat "also clear these ids" rule would work
+and would be the third disciplinary fix in S7.7 — and the third to fail.
+
+Two things that fall out and are easy to get wrong:
+
+1. **Baseline per-monster, drafts operand global.** `removedIds(D) = D.existingMinionIds - *all*
+   minion drafts - disposed`. Scoping drafts per-monster too deletes a minion re-parented *away*
+   from D.
+2. **J1 needs J2.** Deciding which minion drafts leave with a removed monster requires the *server*
+   parent, not the pending one: baseline parent is B -> dropped with B; unsaved and pointed at B ->
+   dropped; baseline parent is another roster monster with a pending move to B -> **`monsterKey`
+   reverts to the baseline parent**. Without that third row, M's draft leaves with B, M stays in A's
+   baseline with no draft, and A's diff deletes it — J1 by another route.
+
+**J2 — `MinionDraft.existingMonsterId: string | null`.** The re-parent fires only on
+`resolve(monsterKey) !== existingMonsterId`. Must be the server id, not a baseline `monsterKey`:
+keys are client-side and hydration mints fresh ones. Peach's second named shape — *a type gains the
+field the new feature needs but not the baseline the existing mechanism needs* — which with H1 and
+H2 makes three, so it is now **principle 5** in S2. Principle 6 records the (f)/J1 shape.
+
+**J4 — Rosalina's finding changed the answer, but not to her proposed mechanism.**
+
+She found that `[items]` derived from roster parentage would list M as something the deletion takes
+and then not take it — *"`[items]` is a promise, not a summary."* Her preference was that I make the
+re-parent **apply** in the same submit so roster and cascade agree.
+
+**Her goal is achieved; her mechanism is not available.** Applying a pending move onto the monster
+being removed fails on both branches: under **delete** it commits the move in order to destroy M;
+under **detach** it strands M on a monster no longer in this mystery — M vanishes from the roster
+while still existing, which is the invisible-orphan problem she is trying to prevent. The target of
+the move is the thing going away.
+
+What delivers her outcome is S7.7i's third row plus two consequences: the `monsterKey` reversion is a
+**synchronous** store mutation, so the roster shows M under A the moment B is removed (her display
+requirement); and **`MonsterDraft.existingMinionIds` is the correct `[items]` source**, being by
+definition the monster's persisted children. M was never in it. Roster and cascade agree, **so the
+footnote clause is unnecessary** — but only while `[items]` reads the baseline rather than the roster.
+
+**Her J1 assertion is satisfied:** detach a shared monster with persisted minions and they still
+exist and still belong to it. The fix deletes nothing on the detach branch, and S7.1 keeps the
+cascade tied to Delete only.
+
+**Accepted gap, stated rather than engineered:** an unsaved minion has no `existingMonsterId`, so it
+goes with whatever monster it points at. Authored under A, moved to B, B removed -> the typing is
+lost. The store has no record of where it was authored and inventing one for a third-order case is
+not worth the field.
+
+**J3 — Rosalina ruled the step dot means *has content*** (`monsterDrafts().length > 0`, uniform
+across all eight), which is what I would have recommended. It upgrades J5: `:601` currently reads the
+**live composer form**, so it flickers on the first keystroke and drops on Next — exactly what the
+minion dot's comment warns about. That consumer wants **replacing, not rewiring**.
+
+**J5 — the retirement is fifteen references across two files** (fourteen in the dossier, one in
+`phaseStepComplete`), and is **bounded by** the dossier's roster rendering rather than preceding it.
+Sequence: roster rendering -> dossier re-pointed -> `:601` replaced -> `monsterPreview()` deleted.
+
+**J6 — all-or-nothing edit-mode hydration is now a decision**, not inherited `forkJoin` behaviour. A
+partially loaded roster is S6.6's half-hydrated monster by another route: it would sit in the roster
+with a known id, an empty baseline and empty drafts, on a monster the user never touched. Fail the
+load, surface the error, offer a retry; do **not** drop the failed monster and load the rest.
+
+**Shape and sizing:** no phase boundary moves. J1/J2/J4 are one change rather than three, which is
+the main correction to the estimate — and J1 must land before `submitPhase1` is rewritten, not after.
+
+---
+
+## Rev 12 addendum (2026-09-20) — Toad's two production bugs on the 5b branch
+
+Both are 5b defects, both fix in 5b before merge, both are **principle 5 stated too narrowly**. Toad's
+general statement is filed at
+`.squad/decisions/inbox/toad-a-baseline-and-its-draft-are-created-and-destroyed-together.md`.
+
+**BUG 2 — a failed edit-mode hydration silently unlinks every monster.**
+
+`loadEditData` sets `existingMonsterIds` at `:1203`, inside the `switchMap`, **before** the `forkJoin`
+of hydrations at `:1223` that it fails on; `applyHydratedMonsters` runs only on success and sets the
+drafts, never the baseline. So a failed hydration leaves **baseline populated, drafts empty** — S5.2's
+shape at roster scale, reached with no half-hydrated card ever existing. Advancing through Monsters
+then unlinks every monster the mystery had, silently, reporting success. J6's all-or-nothing was
+implemented for the drafts only, and `5b-R7` asserts exactly that half.
+
+**Ruling: Toad's preference — move the `existingMonsterIds.set` into `applyHydratedMonsters`.** The
+usual structural-beats-disciplinary argument applies, but the deciding reason is different: **the
+error handler cannot close the window, because the window exists on the success path too.** Between
+`:1203` and the `subscribe` the baseline is set and the drafts are not; `persistedForRemoval` (`:1427`)
+could read it. "Nothing reads it today" is precisely the reasoning that produced BUG 1. Moving the
+write removes the interval; clearing on error only shortens it.
+
+**BUG 1 — the user gets permanently stuck on the Monsters phase.**
+
+When (i) moved the minion baseline onto `MonsterDraft`, `clearDrainedRemovals`' minions arm was
+**deleted** rather than relocated, justified at `:2846` by *"the id is dropped from that draft's
+`existingMinionIds` by the submit's writeback."* `applyPendingRemovals` has four call sites
+(decision 15); `writeBackMinionDrafts` has one, inside `submitPhase1`. Drain a minion disposition from
+any other phase and the stale baseline entry survives, `idsToRemove` fires a blind delete on the diff
+path, it 404s (no `catchError`, deliberately), and the phase fails — permanently, since retrying never
+clears the entry.
+
+**Ruling: restore the minions arm in `clearDrainedRemovals`, walking the roster. Not
+`stillTheRostersBusiness`.** That function decides *which dispositions drain*; this is bookkeeping
+after one succeeds, and consumer 2 of `clearDrainedRemovals` is already documented as exactly this job
+— *"drop the id from the owning collection's baseline."* The baseline moved and the arm should have
+moved with it. Fusing "should this run" with "record that it ran" is how S7.7 produced (e), (f) and (i).
+
+**On whether the principle is new: it is not.** Both bugs are principle 5, which rev 11 stated as
+*existence* ("needs a baseline twin") when it is really *lifecycle*. BUG 2 is created apart, BUG 1 is
+destroyed apart. Principle 5 is widened rather than a seventh added — the list is meant to be
+memorable, and five instances of one rule beats two rules with three and two.
+
+**Principle 6 gets a sharpening rather than a sibling.** Decision 15 making the drain wizard-scoped is
+what made BUG 1 reachable: it widened *when* the drain runs without widening the bookkeeping that ran
+alongside it. That is not a new shape so much as the missing half of principle 6's check — **the
+enumeration of consumers has to include *when* each one runs.** BUG 1's justification named a real
+consumer and was still false. *"Covered elsewhere"* is a claim about ordering.
+
+**Three smaller items folded in, no decisions needed.**
+
+- **The safety pair is now named wrongly in the doc and is fixed.** Deleting the redundant
+  `validateCurrentStep` branch was right and left `monsterForm.invalid` read nowhere, so Rosalina's
+  S16.6 pair is **`monsterComposerValid()` + the three `Validators.required`**, not "phase gate +
+  validators". Toad's `5b-O4` found only one side covered — stripping all three validators survived
+  1184 tests. Anyone reasoning from the old pair will under-test the validators.
+- **S8.8, new:** an invariant asserted by *counting* silently stops covering new surfaces. The Phase 3
+  Escape sweep held its counts in the two states where 5b's two new `custom-select` instances do not
+  render. **A test that asserts "all N of them" needs N derived, not written down.**
+- **F10, new:** `monsterTypeId` is required and asterisked with no inline error message, where `name`
+  and `monsterArchetypeId` have one and the minion composer has all three. 5b raises its cost because
+  the blocked-composer band is then the only other signal and it does not name the field.

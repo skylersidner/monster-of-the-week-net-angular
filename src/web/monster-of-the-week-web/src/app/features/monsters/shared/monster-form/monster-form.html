@@ -30,5 +30,9 @@
     Description
     <textarea class="border border-strong rounded-lg px-3 py-[0.6rem] font-[inherit] focus:border-accent focus:outline-none focus:ring-focus" formControlName="description" rows="9"></textarea>
   </label>
+  <label class="grid font-medium gap-1">
+    Mysteries
+    <app-mystery-select formControlName="mysteryIds" [options]="mysteries"></app-mystery-select>
+  </label>
   <button type="submit" class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer font-[inherit] px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" [disabled]="isSaving">{{ submitLabel }}</button>
 </form>

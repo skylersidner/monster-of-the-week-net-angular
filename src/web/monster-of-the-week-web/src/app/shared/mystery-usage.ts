@@ -117,10 +117,26 @@ export function wizardMysteryUsageMessage(noun: string, count: number, namesReso
  * happened yet at the moment the user reads this, so the hard permanence line the list pages use
  * would be false here (§7.3).
  */
-export function wizardRemovalFootnote(noun: string, sharedWithOthers: boolean, tail: string): string {
+export function wizardRemovalFootnote(
+  noun: string,
+  sharedWithOthers: boolean,
+  tail: string,
+  /**
+   * **Monsters only** (UX §7.1): `'along with its minions'`, appended to the *Delete* sentence and
+   * to nothing else.
+   *
+   * It is a parameter rather than a second function because the deferral branch above must stay in
+   * one place, and it attaches to the Delete clause specifically because that is the only verb it
+   * is true of — detach leaves the minions alone, since they travel with the monster rather than
+   * with the membership. A footnote that mentioned them without saying which verb takes them would
+   * imply minions die either way, which is the sentence §18.3 is holding us to.
+   */
+  deleteCascadeClause = '',
+): string {
+  const cascade = deleteCascadeClause ? `, ${deleteCascadeClause}` : '';
   const consequence = sharedWithOthers
-    ? `Detach removes it from this mystery only. Delete removes it from those mysteries too.`
-    : `Detach keeps it in your ${noun}s list. Delete removes it for good.`;
+    ? `Detach removes it from this mystery only. Delete removes it from those mysteries too${cascade}.`
+    : `Detach keeps it in your ${noun}s list. Delete removes it for good${cascade}.`;
 
   return `${consequence} Either way, the change takes effect ${tail}.`;
 }

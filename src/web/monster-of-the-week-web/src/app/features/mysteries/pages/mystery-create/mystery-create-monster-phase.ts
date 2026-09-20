@@ -8,13 +8,15 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ReactiveFormsModule } from '@angular/forms';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { MysteryCreateStore } from './mystery-create.store';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 import { CustomSelectComponent } from '../../../../shared/custom-select.component';
 import { IconComponent } from '../../../../shared/icons/icon.component';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
+import { resolveMysteryNames, wizardMysteryUsageMessage, wizardRemovalFootnote } from '../../../../shared/mystery-usage';
 
 @Component({
   selector: 'app-mystery-create-monster-phase',
@@ -43,6 +45,206 @@ export class MysteryCreateMonsterPhaseComponent {
    * when the composer goes away.
    */
   @ViewChild('addAnotherButton') private readonly addAnotherButton?: ElementRef<HTMLButtonElement>;
+
+  /** The monster composer's heading and its "+ Add Another Monster" twin — same focus contract as the minion pair. */
+  @ViewChild('monsterComposerHeading') private readonly monsterComposerHeading?: ElementRef<HTMLElement>;
+  @ViewChild('addAnotherMonsterButton') private readonly addAnotherMonsterButton?: ElementRef<HTMLButtonElement>;
+
+  /** Commit-on-pick (§3): choosing an option starts the hydration, and the control resets. */
+  readonly attachControl = new FormControl<string>('', { nonNullable: true });
+
+  /** `localKey` of the monster roster card awaiting removal confirmation, or `null` when closed. */
+  readonly pendingRemoveMonsterKey = signal<string | null>(null);
+
+  private readonly pendingRemoveMonster = computed(() => {
+    const key = this.pendingRemoveMonsterKey();
+    return key === null ? null : (this.store.monsterDrafts().find((draft) => draft.localKey === key) ?? null);
+  });
+
+  readonly pendingRemoveMonsterName = computed(() => this.pendingRemoveMonster()?.name ?? '');
+
+  /** The variant predicate, and it is the store's — the same one the submit diff asks (§7.1, decision 16). */
+  private readonly monsterRemovePersisted = computed(() =>
+    this.store.persistedForRemoval('monsters', this.pendingRemoveMonster()?.id ?? null),
+  );
+
+  /** How many *other* mysteries use this monster — from the draft's own `mysteryIds` (§15.1). */
+  private readonly monsterOtherMysteryIds = computed<string[]>(() => {
+    if (!this.monsterRemovePersisted()) {
+      return [];
+    }
+
+    const currentMysteryId = this.store.mysteryId();
+    return (this.pendingRemoveMonster()?.mysteryIds ?? []).filter((id) => id !== currentMysteryId);
+  });
+
+  /** Which mysteries, by name. Bullets render only when *every* id resolved (§15.1). */
+  readonly monsterUsage = computed<string[]>(() => {
+    const otherIds = this.monsterOtherMysteryIds();
+    const names = resolveMysteryNames(otherIds, this.store.mysteries());
+    return names.length === otherIds.length ? names : [];
+  });
+
+  private readonly monsterNamesResolved = computed(
+    () => this.monsterUsage().length === this.monsterOtherMysteryIds().length,
+  );
+
+  readonly monsterUsageMessage = computed(() => {
+    const draft = this.pendingRemoveMonster();
+    if (!draft) {
+      return '';
+    }
+
+    // (A1) authored here and never saved — nothing exists anywhere.
+    if (draft.id === null) {
+      return "This monster hasn't been saved yet. Removing it discards what you typed.";
+    }
+
+    // (A2) attached this session, not yet submitted. The monster is real and stays real; only a
+    // membership that was never created goes away. Offering Delete here would let a user undoing a
+    // mis-click destroy a catalogue monster — and its minions with it.
+    if (!this.monsterRemovePersisted()) {
+      return "This monster stays in your monsters list — it just won't be part of this mystery.";
+    }
+
+    return wizardMysteryUsageMessage('monster', this.monsterOtherMysteryIds().length, this.monsterNamesResolved());
+  });
+
+  /**
+   * **The cascade list, and it reads the *baseline*, never the roster** (UX §18.4, §7.7i(3)).
+   *
+   * `[items]` is a promise about what deleting this monster will actually take, not a summary of
+   * what the roster currently shows under it. A minion re-parented onto this monster during this
+   * session was never persisted under it, so deletion does **not** take it — and listing it would
+   * be a promise the cascade does not keep, which is the class of defect §16.4 ruled on. The
+   * persisted children are exactly `MonsterDraft.existingMinionIds`, which is why J1's fix lands on
+   * the field this needs.
+   */
+  readonly monsterCascadeItems = computed<string[]>(() => {
+    const draft = this.pendingRemoveMonster();
+    if (!draft || !this.monsterRemovePersisted()) {
+      return [];
+    }
+
+    const byId = new Map(this.store.minionDrafts().map((minion) => [minion.id, minion.name]));
+    return draft.existingMinionIds.map((minionId) => byId.get(minionId) ?? 'A minion');
+  });
+
+  /** The lead-in the cascade list needs, and nothing when there is no cascade. */
+  readonly monsterCascadeMessage = computed(() =>
+    this.monsterCascadeItems().length > 0 ? 'This will also delete the following minions:' : '',
+  );
+
+  readonly monsterFootnote = computed(() =>
+    this.monsterRemovePersisted()
+      ? wizardRemovalFootnote(
+          'monster',
+          this.monsterOtherMysteryIds().length > 0,
+          this.store.deferredChangeTail(),
+          // Attached to the Delete sentence only: detach leaves the minions alone, because they
+          // travel with the monster rather than with the membership (UX §7.1, §18.3).
+          this.monsterCascadeItems().length > 0 ? 'along with its minions' : '',
+        )
+      : '',
+  );
+
+  /** (B)/(C) get the three-button shape; (A1)/(A2) must leave both unset (§14.2b). */
+  readonly monsterSecondaryLabel = computed(() => (this.monsterRemovePersisted() ? 'Detach' : null));
+  readonly monsterConfirmLabel = computed(() => (this.monsterRemovePersisted() ? 'Delete' : null));
+
+  constructor() {
+    this.attachControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((monsterId) => {
+      if (!monsterId) {
+        return;
+      }
+
+      this.store.attachMonster(monsterId);
+      this.attachControl.setValue('', { emitEvent: false });
+    });
+  }
+
+  /** Badge copy for a roster card. Drafts carry a type ID, not the resolved type the list APIs return. */
+  monsterTypeLabel(monsterTypeId: string): string {
+    const type = this.store.monsterTypes().find((item) => item.id === monsterTypeId);
+    if (!type) {
+      return '';
+    }
+
+    return type.motivation ? `${type.name}: ${type.motivation}` : type.name;
+  }
+
+  /** The roster card's minion count — from the wizard's own drafts, never a list response's `minionCount`. */
+  minionCountFor(monsterKey: string): number {
+    return this.store.minionDrafts().filter((minion) => minion.monsterKey === monsterKey).length;
+  }
+
+  editMonster(key: string): void {
+    if (this.store.editMonsterDraft(key)) {
+      this.focusMonsterComposerHeading();
+    }
+  }
+
+  startNewMonster(): void {
+    if (this.store.startNewMonsterDraft()) {
+      this.focusMonsterComposerHeading();
+    }
+  }
+
+  saveMonster(): void {
+    this.afterMonsterComposerCollapse(() => this.store.saveMonsterDraftToList());
+  }
+
+  cancelMonster(): void {
+    this.afterMonsterComposerCollapse(() => this.store.cancelMonsterComposerEdit());
+  }
+
+  requestRemoveMonster(key: string): void {
+    this.pendingRemoveMonsterKey.set(key);
+  }
+
+  onMonsterRemoveConfirmed(): void {
+    this.resolveMonsterRemoval('delete');
+  }
+
+  onMonsterDetachConfirmed(): void {
+    this.resolveMonsterRemoval('detach');
+  }
+
+  onMonsterRemoveCancelled(): void {
+    this.pendingRemoveMonsterKey.set(null);
+  }
+
+  private resolveMonsterRemoval(action: 'detach' | 'delete'): void {
+    const key = this.pendingRemoveMonsterKey();
+    this.pendingRemoveMonsterKey.set(null);
+    if (key === null) {
+      return;
+    }
+
+    // The store records a disposition only when a persisted membership exists, so an (A1)/(A2)
+    // removal is a local discard whichever button reached here.
+    this.store.removeMonsterDraft(key, action);
+  }
+
+  private focusMonsterComposerHeading(): void {
+    afterNextRender(
+      { write: () => this.monsterComposerHeading?.nativeElement.focus({ preventScroll: true }) },
+      { injector: this.injector },
+    );
+  }
+
+  private afterMonsterComposerCollapse(action: () => void): void {
+    const wasOpen = this.store.monsterComposerOpen();
+    action();
+    if (!wasOpen || this.store.monsterComposerOpen()) {
+      return;
+    }
+
+    afterNextRender(
+      { write: () => this.addAnotherMonsterButton?.nativeElement.focus({ preventScroll: true }) },
+      { injector: this.injector },
+    );
+  }
 
   /**
    * `localKey` of the roster card awaiting removal confirmation. Confirm-on-remove is unconditional
@@ -242,9 +444,9 @@ export class MysteryCreateMonsterPhaseComponent {
    * rule this method is for.
    */
   private afterComposerCollapse(action: () => void): void {
-    const wasOpen = this.store.composerOpen();
+    const wasOpen = this.store.minionComposerOpen();
     action();
-    if (!wasOpen || this.store.composerOpen()) {
+    if (!wasOpen || this.store.minionComposerOpen()) {
       return;
     }
 

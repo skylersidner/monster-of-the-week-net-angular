@@ -23,6 +23,7 @@ import { ReferenceDataService } from '../../../../core/reference-data';
 import { MONSTERS_ROUTES } from '../../monsters.routes';
 import { MonsterFormComponent } from '../../shared/monster-form/monster-form';
 import { MonsterCreateComponent } from './monster-create';
+import { MonsterFormSubmit } from '../../shared/monster-form/monster-form';
 
 describe('monsters route ordering', () => {
   it('registers the literal "new" route before the ":monsterId" catch-all', () => {
@@ -82,10 +83,14 @@ const validPayload: UpsertMonsterRequest = {
   monsterArchetypeId: 'monster-archetype-1',
 };
 
+/** The pair `MonsterFormComponent` now emits: the body, plus the desired membership set (5b). */
+const validSubmit: MonsterFormSubmit = { monster: validPayload, mysteryIds: [] };
+
 interface RecordedCalls {
   order: string[];
   create: { mysteryId: string; payload: UpsertMonsterRequest }[];
   createStandalone: UpsertMonsterRequest[];
+  linkToMystery: { mysteryId: string; monsterId: string }[];
   attacks: { monsterId: string; request: UpsertMonsterAttackRequest }[];
   powers: { monsterId: string; request: UpsertMonsterPowerRequest }[];
   armors: { monsterId: string; request: UpsertMonsterArmorRequest }[];
@@ -106,6 +111,7 @@ describe('MonsterCreateComponent', () => {
       order: [],
       create: [],
       createStandalone: [],
+      linkToMystery: [],
       attacks: [],
       powers: [],
       armors: [],
@@ -132,6 +138,11 @@ describe('MonsterCreateComponent', () => {
               calls.order.push('createStandalone');
               calls.createStandalone.push(payload);
               return of(createdMonster);
+            },
+            linkToMystery: (mysteryId: string, monsterId: string) => {
+              calls.order.push('linkToMystery');
+              calls.linkToMystery.push({ mysteryId, monsterId });
+              return of(undefined);
             },
             createAttack: (monsterId: string, request: UpsertMonsterAttackRequest) => {
               calls.order.push('createAttack');
@@ -311,7 +322,7 @@ describe('MonsterCreateComponent', () => {
     expect(component.powerDrafts()).toEqual([{ name: 'Keep Me', description: null }]);
     expect(totalServiceCalls()).toBe(0);
 
-    component.onCreate(validPayload);
+    component.onCreate(validSubmit);
 
     expect(calls.powers).toEqual([
       { monsterId: 'new-monster-1', request: { name: 'Keep Me', description: null } },
@@ -321,7 +332,7 @@ describe('MonsterCreateComponent', () => {
   it('creates the monster first, then batches every drafted sub-resource against the new id', () => {
     addOneOfEachDraft();
 
-    component.onCreate(validPayload);
+    component.onCreate(validSubmit);
 
     expect(calls.createStandalone).toEqual([validPayload]);
     expect(calls.order[0]).toBe('createStandalone');
@@ -352,7 +363,7 @@ describe('MonsterCreateComponent', () => {
   it('assigns weapon tags after the drafted attack has been created', () => {
     addOneOfEachDraft();
 
-    component.onCreate(validPayload);
+    component.onCreate(validSubmit);
 
     expect(calls.weaponTagAssignments).toEqual([
       { monsterId: 'new-monster-1', attackId: 'attack-1', weaponTagId: 'tag-1' },
@@ -365,36 +376,49 @@ describe('MonsterCreateComponent', () => {
     component.attackDraftForm.setValue({ name: 'Bite', description: null, harm: 1, weaponTagIds: [] });
     component.addAttackDraft();
 
-    component.onCreate(validPayload);
+    component.onCreate(validSubmit);
 
     expect(calls.attacks.length).toBe(1);
     expect(calls.weaponTagAssignments).toEqual([]);
   });
 
   it('creates and navigates with no sub-resource calls when no drafts were added', () => {
-    component.onCreate(validPayload);
+    component.onCreate(validSubmit);
 
     expect(calls.order).toEqual(['createStandalone']);
     expect(navigations).toEqual([['/monsters', 'new-monster-1']]);
     expect(notifications).toEqual([{ kind: 'success', message: 'Monster created.' }]);
   });
 
-  it('uses createStandalone and the top-level detail route when the mystery picker is blank', () => {
-    component.onCreate(validPayload);
+  it('uses createStandalone and the top-level detail route when no mystery is selected', () => {
+    component.onCreate(validSubmit);
 
     expect(calls.create).toEqual([]);
     expect(calls.createStandalone).toEqual([validPayload]);
+    expect(calls.linkToMystery).toEqual([]);
     expect(navigations).toEqual([['/monsters', 'new-monster-1']]);
   });
 
-  it('uses the mystery-scoped create and detail route when a mystery is selected', () => {
-    component.mysteryControl.setValue('mystery-1');
+  it('5b-L1: one mystery selected — standalone create, one membership PUT, and the scoped route', () => {
+    // The single-mystery `Attach to Mystery` control is gone: membership is the form's own field and
+    // the create is **always** standalone, exactly as Locations and Bystanders have been since
+    // Phase 2. The mystery-scoped `POST` is no longer reachable from this page.
+    component.onCreate({ monster: validPayload, mysteryIds: ['mystery-1'] });
 
-    component.onCreate(validPayload);
-
-    expect(calls.createStandalone).toEqual([]);
-    expect(calls.create).toEqual([{ mysteryId: 'mystery-1', payload: validPayload }]);
+    expect(calls.create).toEqual([]);
+    expect(calls.createStandalone).toEqual([validPayload]);
+    expect(calls.linkToMystery).toEqual([{ mysteryId: 'mystery-1', monsterId: 'new-monster-1' }]);
     expect(navigations).toEqual([['/mysteries', 'mystery-1', 'monsters', 'new-monster-1']]);
+  });
+
+  it('5b-L1: two mysteries selected — two membership PUTs and the flat route', () => {
+    component.onCreate({ monster: validPayload, mysteryIds: ['mystery-1', 'mystery-2'] });
+
+    expect(calls.linkToMystery).toEqual([
+      { mysteryId: 'mystery-1', monsterId: 'new-monster-1' },
+      { mysteryId: 'mystery-2', monsterId: 'new-monster-1' },
+    ]);
+    expect(navigations).toEqual([['/monsters', 'new-monster-1']]);
   });
 
   it('never reaches onCreate when the shared form is submitted with invalid core fields', () => {
@@ -418,6 +442,7 @@ describe('MonsterCreateComponent', () => {
       harmCapacity: 4,
       monsterTypeId: 'monster-type-1',
       monsterArchetypeId: 'monster-archetype-1',
+      mysteryIds: [],
     });
 
     const form = fixture.nativeElement.querySelector('app-monster-form form') as HTMLFormElement;
@@ -432,7 +457,7 @@ describe('MonsterCreateComponent', () => {
     vi.spyOn(monsterService, 'createStandalone').mockReturnValue(throwError(() => new Error('nope')));
     addOneOfEachDraft();
 
-    component.onCreate(validPayload);
+    component.onCreate(validSubmit);
 
     expect(navigations).toEqual([]);
     expect(component.isSaving()).toBe(false);
@@ -476,7 +501,7 @@ describe('MonsterCreateComponent', () => {
     failSubResources = true;
     addOneOfEachDraft();
 
-    component.onCreate(validPayload);
+    component.onCreate(validSubmit);
 
     expect(calls.createStandalone).toEqual([validPayload]);
     expect(navigations).toEqual([['/monsters', 'new-monster-1']]);

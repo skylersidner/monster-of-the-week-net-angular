@@ -11,6 +11,7 @@ import {
   AdventureTypeResponse,
   BystanderListItemResponse,
   LocationListItemResponse,
+  MonsterListItemResponse,
   MysteryListItemResponse,
   MinionArmorResponse,
   MinionAttackResponse,
@@ -131,7 +132,7 @@ export interface BystanderDraft {
  * tracker-jump hole G1 described: `jumpToPhase` does not submit, so a confirmed minion deletion was
  * silently discarded. What they do *not* have is a disposition choice — see `PendingRemoval`.
  */
-export type RemovalCollection = 'locations' | 'bystanders' | 'minions';
+export type RemovalCollection = 'locations' | 'bystanders' | 'monsters' | 'minions';
 
 /**
  * A removal the user confirmed through the modal, waiting for a phase submit to apply it
@@ -145,7 +146,7 @@ export type RemovalCollection = 'locations' | 'bystanders' | 'minions';
  * names a collection, an id and a disposition; applying it never depended on which phase submits.
  */
 export type PendingRemoval =
-  | { collection: 'locations' | 'bystanders'; id: string; action: 'detach' | 'delete' }
+  | { collection: 'locations' | 'bystanders' | 'monsters'; id: string; action: 'detach' | 'delete' }
   /**
    * **Delete-only, and the type refuses `'detach'` rather than tolerating it.** A minion has no
    * mystery membership — `Minion.MonsterId` is a required FK — so there is nothing to detach from
@@ -156,16 +157,20 @@ export type PendingRemoval =
   | { collection: 'minions'; id: string; action: 'delete' };
 
 /**
- * The wizard's minion harm-capacity default. Single-sourced because `composerDirty()` treats
+ * The wizard's minion harm-capacity default. Single-sourced because `minionComposerDirty()` treats
  * "harm capacity is no longer the default" as evidence the user started a minion — see §1.3 of
  * `docs/updates/multi-minion-support.md`. It deliberately differs from `MinionFormComponent`'s 0.
  */
 export const MINION_DEFAULT_HARM_CAPACITY = 3;
 
+/** The monster composer's default, single-sourced for the same reason — `monsterComposerDirty()`. */
+export const MONSTER_DEFAULT_HARM_CAPACITY = 7;
+
 /** Error-band copy when the open composer holds work that cannot be committed yet (Rosalina §1.4). */
 const COMPOSER_BLOCKED_MESSAGE = "Finish or clear the minion you're editing before continuing.";
 
 /** The same rule, per entity — UX §2.3 asks all four phases to behave identically here. */
+const MONSTER_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the monster you're editing before continuing.";
 const LOCATION_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the location you're editing before continuing.";
 const BYSTANDER_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the bystander you're editing before continuing.";
 
@@ -182,7 +187,56 @@ export function createDraftKey(prefix = 'minion'): string {
 }
 
 /**
- * One minion under the wizard's monster. Unlike `LocationDraft`/`BystanderDraft` — flat leaf
+ * One monster on the wizard's roster (decision 2, §6.1). Replaces the single `monsterForm` +
+ * `editingMonsterId` pair the wizard used until 5b.
+ *
+ * Everything below travels with the draft, and that is the point rather than a layout choice: a
+ * monster that leaves the roster takes its baselines with it, so there is no separate bookkeeping
+ * step that can be forgotten. §7.7i is that argument applied to `existingMinionIds`.
+ */
+export interface MonsterDraft {
+  /** `null` until saved in this session, or hydrated/attached from an existing monster. */
+  id: string | null;
+  /** Stable client identity — see `MinionDraft.localKey`. Minted with `createDraftKey('monster')`. */
+  localKey: string;
+  name: string;
+  description: string;
+  harmCapacity: number;
+  monsterTypeId: string;
+  monsterArchetypeId: string;
+  attacks: AttackDraft[];
+  powers: PowerDraft[];
+  weaknesses: WeaknessDraft[];
+  armors: ArmorDraft[];
+  /** Per-draft sub-resource baseline. Responses, not ids — see `MinionDraft.existingAttacks`. */
+  existingAttacks: MonsterAttackResponse[];
+  existingPowers: MonsterPowerResponse[];
+  existingWeaknesses: MonsterWeaknessResponse[];
+  existingArmors: MonsterArmorResponse[];
+  /**
+   * **The persisted minions of *this* monster** (J1, §7.7i) — replacing the store-level flat
+   * `existingMinionIds` the wizard carried until 5b.
+   *
+   * **This is what makes J1 unexpressible rather than fixed.** The flat signal made "removing a
+   * monster must also forget its minions' baseline" a rule someone had to remember, and
+   * `idsToRemove` computes *baseline − drafts − disposed*: a persisted minion of a removed monster
+   * was in the baseline, out of the drafts (§7.7d dropped it) and out of the dispositions (§7.7f
+   * dropped those) — so it fell through to a blind `delete()` on the diff path, which has no 404
+   * handler. Under detach that destroys the minions everywhere, which is the exact opposite of what
+   * the modal promises. Here the baseline leaves *with the draft*, because it is a field on it.
+   *
+   * It is also the correct source for the removal modal's cascade `[items]` (§7.7i(3), UX §18.4):
+   * `[items]` is a promise about what deletion will take, and a minion re-parented onto this
+   * monster this session was never persisted under it. The roster is the wrong source and the
+   * difference is precisely that minion.
+   */
+  existingMinionIds: string[];
+  /** See `LocationDraft.mysteryIds` — the other mysteries the removal modal names. */
+  mysteryIds: string[];
+}
+
+/**
+ * One minion under one of the roster's monsters. Unlike `LocationDraft`/`BystanderDraft` — flat leaf
  * entities where `id` was the whole story — a minion owns four sub-resource collections, so each
  * draft carries both its own collections **and** its own baseline of the rows the server last
  * returned for them. Those two halves are what `applySubResourceDiff` diffs, per minion.
@@ -203,6 +257,25 @@ export interface MinionDraft {
    * It is also what `@for` tracks, so removing one row no longer re-creates every row after it.
    */
   localKey: string;
+  /**
+   * **Which roster monster this minion points at now** (§6.4). A `localKey`, not a server id: a
+   * monster authored in this session has no id until the phase transition saves it, so the draft
+   * cannot hold one. `submitPhase1` resolves `localKey → monsterId` after the monsters are saved.
+   */
+  monsterKey: string;
+  /**
+   * **Which monster the *server* has this minion under**, as of the last submit or hydration;
+   * `null` for a minion that has never been saved (J2, §6.4).
+   *
+   * Without it there is no way to ask "did the parent change?", so a re-parent would fire
+   * unconditionally for every persisted minion on every submit — of a verb that **moves** and, aimed
+   * at a stale id, silently relocates rather than failing. It also decides which minion drafts leave
+   * with a removed monster (§7.7i): J1's fix needs it, so the two are not independent.
+   *
+   * It is the server **id** rather than a baseline `monsterKey` because keys are client-side and
+   * hydration mints fresh ones, so comparing them across a load boundary is meaningless.
+   */
+  existingMonsterId: string | null;
   name: string;
   description: string;
   harmCapacity: number;
@@ -233,6 +306,21 @@ interface SavedThreatCollections {
   powers: MonsterPowerResponse[];
   weaknesses: MonsterWeaknessResponse[];
   armors: MonsterArmorResponse[];
+}
+
+/** One roster row's save result, carried back to `writeBackMonsterDrafts` by draft index. */
+interface SavedMonster {
+  index: number;
+  id: string;
+  collections: SavedThreatCollections;
+}
+
+/** The same, one level down, plus the parent the minion was actually saved against (J2). */
+interface SavedMinion {
+  index: number;
+  minionId: string;
+  monsterId: string;
+  collections: SavedMinionCollections;
 }
 
 interface SavedMinionCollections {
@@ -348,31 +436,43 @@ export class MysteryCreateStore {
   readonly bystanders = signal<BystanderDraft[]>([]);
 
   readonly isEditMode = signal(false);
-  readonly editingMonsterId = signal<string | null>(null);
 
-  /** The roster. One entry per minion under the wizard's monster, in creation order (no reordering). */
+  /** The monster roster. One entry per monster in this mystery, in creation order (no reordering). */
+  readonly monsterDrafts = signal<MonsterDraft[]>([]);
+  /** `localKey` of the roster card the monster composer is editing; `null` when authoring a new one. */
+  readonly editingMonsterKey = signal<string | null>(null);
+  /** Whether the monster composer panel is rendered. Same non-derivable invariant as `minionComposerOpen`. */
+  readonly monsterComposerOpen = signal(true);
+
+  /** The roster. One entry per minion across all of the mystery's monsters (§6.3 — flat, with a `monsterKey`). */
   readonly minionDrafts = signal<MinionDraft[]>([]);
   /**
    * `localKey` of the roster card the composer is editing, or `null` when composing a brand-new
    * minion. Replaces the former `editingDraftIndex`: a key survives every roster mutation, so the
    * "removal invalidates the pointer" hazard this used to carry cannot arise (UX §10.2).
    */
-  readonly editingDraftKey = signal<string | null>(null);
+  readonly editingMinionKey = signal<string | null>(null);
   /**
-   * Whether the composer panel is rendered. This is NOT derivable from `editingDraftKey`: "roster
+   * Whether the composer panel is rendered. This is NOT derivable from `editingMinionKey`: "roster
    * non-empty, nothing being edited, collapsed" and "roster non-empty, user clicked + Add Another
-   * Minion" both have `editingDraftKey() === null`. Nor from "the composer is non-empty" — that
-   * would collapse the panel the user just opened. Invariant: `editingDraftKey() !== null` implies
-   * `composerOpen()`; every method that writes one writes the other.
+   * Minion" both have `editingMinionKey() === null`. Nor from "the composer is non-empty" — that
+   * would collapse the panel the user just opened. Invariant: `editingMinionKey() !== null` implies
+   * `minionComposerOpen()`; every method that writes one writes the other.
    */
-  readonly composerOpen = signal(true);
-  /** The monster's sub-resource baseline. Responses, not ids — see `MinionDraft.existingAttacks`. */
-  private readonly existingMonsterAttacks = signal<MonsterAttackResponse[]>([]);
-  private readonly existingMonsterPowers = signal<MonsterPowerResponse[]>([]);
-  private readonly existingMonsterWeaknesses = signal<MonsterWeaknessResponse[]>([]);
-  private readonly existingMonsterArmors = signal<MonsterArmorResponse[]>([]);
-  /** Minion IDs on the server as of the last phase-1 save; anything missing from `minionDrafts()` gets hard-deleted. */
-  private readonly existingMinionIds = signal<string[]>([]);
+  readonly minionComposerOpen = signal(true);
+
+  /**
+   * **The minion baseline, flattened out of the roster** (J1, §7.7i). Derived, never maintained.
+   *
+   * Its only consumers are `persistedForRemoval('minions', …)` and the per-monster diff's "has this
+   * minion been persisted anywhere" question. Because it is a `computed` over
+   * `MonsterDraft.existingMinionIds`, a monster leaving the roster removes its minions from it in
+   * the same instant and with no bookkeeping step — which is the whole of J1's fix. There is no
+   * writable minion baseline left to fall out of step.
+   */
+  private readonly existingMinionIds = computed(() =>
+    this.monsterDrafts().flatMap((draft) => draft.existingMinionIds),
+  );
   /**
    * The memberships this mystery actually has on the server, as of the last successful submit.
    *
@@ -384,18 +484,36 @@ export class MysteryCreateStore {
    */
   private readonly existingLocationIds = signal<string[]>([]);
   private readonly existingBystanderIds = signal<string[]>([]);
+  /** The monster memberships this mystery has on the server. The roster's own baseline (§7.1). */
+  private readonly existingMonsterIds = signal<string[]>([]);
 
   /** `localKey` of the roster card each phase's composer is editing; `null` when authoring a new one. */
   readonly editingLocationKey = signal<string | null>(null);
   readonly editingBystanderKey = signal<string | null>(null);
-  /** Whether each composer panel is rendered. Same non-derivable invariant as `composerOpen`. */
+  /** Whether each composer panel is rendered. Same non-derivable invariant as `minionComposerOpen`. */
   readonly locationComposerOpen = signal(true);
   readonly bystanderComposerOpen = signal(true);
 
   /** The catalogues the attach strips offer from, and the mystery names the removal modal needs. */
   private readonly catalogLocations = signal<LocationListItemResponse[]>([]);
   private readonly catalogBystanders = signal<BystanderListItemResponse[]>([]);
+  private readonly catalogMonsters = signal<MonsterListItemResponse[]>([]);
   readonly mysteries = signal<MysteryListItemResponse[]>([]);
+
+  /**
+   * **The attach strip's transient states, and they are monsters-only** (UX §17.1, §17.5).
+   *
+   * Locations and bystanders attach from data the list response already carries, so their pick is a
+   * pure client-side transform with no request and therefore no busy or error state to have. A
+   * monster needs `getById` + `getByMonster` + a `getById` per minion before its card has anything
+   * real to show, so the feedback §3 was protecting moves into the control the user is looking at.
+   *
+   * `attachingMonsterName` is the *name*, not a boolean, because the busy label says which monster.
+   */
+  readonly attachingMonsterName = signal<string | null>(null);
+  readonly monsterAttachError = signal<string | null>(null);
+  /** `Next` is disabled while this is true (UX §17.3) — a deliberate pick must not silently evaporate. */
+  readonly monsterAttachInFlight = computed(() => this.attachingMonsterName() !== null);
 
   /** Everything in the catalogue that is not already on the roster (A2). */
   readonly attachableLocations = computed(() => {
@@ -406,9 +524,44 @@ export class MysteryCreateStore {
     const onRoster = new Set(this.bystanders().map((draft) => draft.id));
     return this.catalogBystanders().filter((item) => !onRoster.has(item.id));
   });
+  readonly attachableMonsters = computed(() => {
+    const onRoster = new Set(this.monsterDrafts().map((draft) => draft.id));
+    return this.catalogMonsters().filter((item) => !onRoster.has(item.id));
+  });
   /** A1/A3: an empty catalogue hides the strip entirely; a fully-attached one keeps it, with its empty state. */
   readonly locationCatalogEmpty = computed(() => this.catalogLocations().length === 0);
   readonly bystanderCatalogEmpty = computed(() => this.catalogBystanders().length === 0);
+  readonly monsterCatalogEmpty = computed(() => this.catalogMonsters().length === 0);
+
+  /**
+   * The minion composer's parent picker (§6.4, UX §6). **Options are the in-memory roster, not the
+   * monster catalogue**, and their *values are `localKey`s* — a monster authored this session has no
+   * server id, so a control valued on ids could not offer it at all (`5b-K2`, `5b-R5`).
+   */
+  readonly monsterPickerOptions = computed(() =>
+    this.monsterDrafts().map((draft) => ({ id: draft.localKey, name: draft.name.trim() || 'Untitled monster' })),
+  );
+
+  /**
+   * The roster's single monster when there is exactly one, else `null` (UX §6's first row).
+   *
+   * Drives two things that must agree: the prose line the template renders instead of a picker, and
+   * the value `resetComposer` puts in the control. `isMonsterLocked()`'s shipped behaviour, and it
+   * keeps the common single-monster case at zero extra clicks.
+   */
+  readonly soleMonsterKey = computed(() => {
+    const drafts = this.monsterDrafts();
+    return drafts.length === 1 ? drafts[0].localKey : null;
+  });
+  readonly soleMonsterName = computed(() => {
+    const drafts = this.monsterDrafts();
+    return drafts.length === 1 ? drafts[0].name : '';
+  });
+
+  /** Which monster a minion roster card belongs to, by name (`5b-K6`). Reads `monsterKey`, so a pending move shows. */
+  monsterNameForKey(monsterKey: string): string {
+    return this.monsterDrafts().find((draft) => draft.localKey === monsterKey)?.name ?? '';
+  }
 
   /** Confirmed removals waiting for any phase submit to apply them. See `PendingRemoval`. */
   readonly pendingRemovals = signal<PendingRemoval[]>([]);
@@ -439,12 +592,21 @@ export class MysteryCreateStore {
   readonly monsterForm = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
-    harmCapacity: this.fb.nonNullable.control(7, [Validators.required, Validators.min(0)]),
+    harmCapacity: this.fb.nonNullable.control(MONSTER_DEFAULT_HARM_CAPACITY, [Validators.required, Validators.min(0)]),
     monsterTypeId: this.fb.nonNullable.control('', [Validators.required]),
     monsterArchetypeId: this.fb.nonNullable.control('', [Validators.required]),
   });
 
   readonly minionForm = this.fb.group({
+    /**
+     * **The parent picker's control, valued on the roster monster's `localKey`** (§6.4, UX §6).
+     *
+     * First field of the composer, not last: it is the minion's parent and every other field is
+     * meaningless without it. With exactly one monster the template renders a prose line instead of
+     * a control and the store fills this in — the validator still applies, so "a minion cannot be
+     * saved without a monster" (`5b-K5`) holds on both branches.
+     */
+    monsterKey: this.fb.nonNullable.control('', [Validators.required]),
     name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
     harmCapacity: this.fb.nonNullable.control(MINION_DEFAULT_HARM_CAPACITY, [Validators.required, Validators.min(0)]),
@@ -531,7 +693,7 @@ export class MysteryCreateStore {
 
   /**
    * "The user has started something here." Deliberately wider than `form.valid`, for the same
-   * reason `composerDirty` is: a composer holding a name and no type must block `Next` rather than
+   * reason `minionComposerDirty` is: a composer holding a name and no type must block `Next` rather than
    * be silently discarded. A type picked with no name counts too.
    */
   readonly locationComposerDirty = computed(() => {
@@ -598,7 +760,14 @@ export class MysteryCreateStore {
       ],
       // Phase 1 — Monsters (monster, minion)
       [
-        (this.monsterPreview()?.name ?? '').trim().length > 0 && (this.monsterValue()?.monsterArchetypeId ?? '').length > 0,
+        // **The dot means "has content", uniformly across all eight** (J3, UX §18.2). Until 5b this
+        // read `monsterPreview().name && monsterValue().monsterArchetypeId` — i.e. the *live
+        // composer form*, which is exactly the flicker its sibling below warns about: lit on the
+        // first keystroke, dark again on Next. So this consumer was replaced rather than re-pointed.
+        //
+        // Not to be confused with the phase *bubble*: §16.2's "don't gate phase 1 on monster count"
+        // is about `phaseComplete`, and applying it here would produce a permanently lit dot.
+        this.monsterDrafts().length > 0,
         // Lights when any minion is on the roster. Reads minionDrafts(), never the composer: an
         // uncommitted composer would flicker the dot on the first keystroke and drop it again on Next.
         // The step stays optional — an empty roster still advances.
@@ -611,7 +780,14 @@ export class MysteryCreateStore {
     ];
   });
 
-  readonly monsterPreview = computed(() => {
+  /**
+   * **The monster *composer's* own preview** (J5). Renamed from `monsterPreview` in 5b, because
+   * under a roster "the monster" has no single referent and the old name invited exactly the
+   * mistake `phaseStepComplete:601` had made: reading the live composer form as if it were saved
+   * content. Its sole consumer is the dossier's one expanded entry — the row loaded in the
+   * composer — which is the role `minionPreview` already plays one step over.
+   */
+  readonly monsterComposerPreview = computed(() => {
     const typeId = this.monsterValue()?.monsterTypeId ?? '';
     const type = this.monsterTypes().find((item) => item.id === typeId);
     const archetypeId = this.monsterValue()?.monsterArchetypeId ?? '';
@@ -671,7 +847,7 @@ export class MysteryCreateStore {
    * - it includes `harmCapacity !== MINION_DEFAULT_HARM_CAPACITY`. Accepted consequence: nudging harm
    *   capacity alone marks the composer dirty and blocks `Next` until Name and Type are supplied.
    */
-  readonly composerDirty = computed(() => {
+  readonly minionComposerDirty = computed(() => {
     const value = this.minionValue();
     if (!value) {
       return false;
@@ -689,14 +865,75 @@ export class MysteryCreateStore {
     );
   });
 
-  /** The two fields a minion cannot be saved without. Harm capacity carries its own control validators. */
-  readonly composerValid = computed(() => {
+  /**
+   * **Which monster the composer's minion belongs to, resolved** (UX §6).
+   *
+   * With exactly one monster on the roster there is no picker and nothing to choose, so the store
+   * answers and the template renders a prose line — `isMonsterLocked()`'s shipped behaviour. With
+   * two or more the control is authoritative. With none the step is suppressed entirely and this is
+   * `''`, which is what makes "a minion cannot be saved without a monster" (`5b-K5`) hold.
+   *
+   * Derived rather than written into the control on every roster change, because the roster can
+   * change *while* the composer is open — attaching a second monster, or removing one — and a
+   * stored copy would then name a monster that is no longer the answer.
+   */
+  readonly effectiveMinionMonsterKey = computed(() => this.soleMonsterKey() ?? this.minionValue()?.monsterKey ?? '');
+
+  /** The three fields a minion cannot be saved without — including its parent (§6.4, `5b-K5`). */
+  readonly minionComposerValid = computed(() => {
     const value = this.minionValue();
     if (!value) {
       return false;
     }
 
-    return (value.name ?? '').trim().length > 0 && (value.minionTypeId ?? '').length > 0;
+    return (
+      (value.name ?? '').trim().length > 0 &&
+      (value.minionTypeId ?? '').length > 0 &&
+      this.effectiveMinionMonsterKey().length > 0
+    );
+  });
+
+  /**
+   * The monster composer's twin of `minionComposerDirty`, and it is what replaces
+   * `validateCurrentStep`'s phase-1/step-0 hard block under decision 19 (§6.5).
+   *
+   * **The two changes are a pair and Peach tests them as one** (`5b-O4`, UX §16.6): dropping the
+   * hard block makes an untouched composer advance, and *stripping the composer's validators* also
+   * makes it advance. A single "Next advances on an empty roster" assertion passes in both the
+   * correct world and the broken one. This computed is the half that keeps a half-typed monster
+   * blocking, and the field validators on `monsterForm` are untouched.
+   */
+  readonly monsterComposerDirty = computed(() => {
+    const value = this.monsterValue();
+    if (!value) {
+      return false;
+    }
+
+    return (
+      (value.name ?? '').trim().length > 0 ||
+      (value.description ?? '').trim().length > 0 ||
+      (value.monsterTypeId ?? '').length > 0 ||
+      (value.monsterArchetypeId ?? '').length > 0 ||
+      (value.harmCapacity ?? MONSTER_DEFAULT_HARM_CAPACITY) !== MONSTER_DEFAULT_HARM_CAPACITY ||
+      this.monsterAttacks().length > 0 ||
+      this.monsterPowers().length > 0 ||
+      this.monsterWeaknesses().length > 0 ||
+      this.monsterArmors().length > 0
+    );
+  });
+
+  /** The three fields a monster cannot be saved without. Archetype is the one the minion has no twin for. */
+  readonly monsterComposerValid = computed(() => {
+    const value = this.monsterValue();
+    if (!value) {
+      return false;
+    }
+
+    return (
+      (value.name ?? '').trim().length > 0 &&
+      (value.monsterTypeId ?? '').length > 0 &&
+      (value.monsterArchetypeId ?? '').length > 0
+    );
   });
 
   readonly stepTitle = computed(() => {
@@ -727,8 +964,13 @@ export class MysteryCreateStore {
         "The overview is your behind-the-scenes explanation—the full truth of what's going on, who's responsible, and why. Your hunters won't know this at the start; they'll piece it together through investigation. But you need the complete picture so you can answer their questions and improvise consistently.",
       '0-3':
         "The countdown is your mystery's doomsday clock—six escalating events that happen if the hunters don't stop it. Each stage represents the threat growing worse, more public, or more deadly. By Midnight, it's catastrophe. Describe what happens at each stage, not when—timing is flexible based on the hunters' actions.",
+      // The imperatives describe the **composer** — "when you do add one, here's what to fill in"
+      // — and the closing sentences describe the **phase** (UX §16.1). The volume guidance is the
+      // same shape `2-0` and `3-0` already carry, and giving zero a reason is what keeps it a nudge
+      // rather than a warning under decision 4 (§16.2). This is the *only* place the nudge appears:
+      // no confirmation on Finish, no band, no asterisk (`5b-O8`).
       '1-0':
-        'This is your primary antagonist—the creature, entity, or force causing the mystery. Give it a name, describe what it is and how it manifests, and define its harm capacity. Choose a monster type, and list its attacks, powers, and weaknesses. Make it dangerous but defeatable.',
+        'This is your primary antagonist—the creature, entity, or force causing the mystery. Give it a name, describe what it is and how it manifests, and define its harm capacity. Choose a monster type, and list its attacks, powers, and weaknesses. Make it dangerous but defeatable. Most mysteries have one monster, though you can add several—or none, if the threat isn\'t a creature. A monster you attach brings its minions with it.',
       '1-1':
         'Minions are lesser threats that support the main monster—cultists, possessed victims, summoned creatures, or loyal servants. Use the same structure as the monster. Minions are optional — you can add as many as you need, or skip this step entirely.',
       '2-0':
@@ -802,10 +1044,61 @@ export class MysteryCreateStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ next: (bystanders) => this.catalogBystanders.set(bystanders), error: () => {} });
 
+    this.monsterService
+      .getAll()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: (monsters) => this.catalogMonsters.set(monsters), error: () => {} });
+
     this.mysteryService
       .getMysteries()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ next: (mysteries) => this.mysteries.set(mysteries), error: () => {} });
+  }
+
+  /**
+   * **Attach a monster: hydrate, then commit** (§6.6, UX §17.1, `5b-T1`–`5b-T6`).
+   *
+   * The one place in this feature where attach is not a pure client-side transform.
+   * `MonsterListItemResponse` carries counts and no collections and no minions at all, so the object
+   * the picker hands over cannot become a diffable draft: it takes `getById` + `getByMonster` +
+   * a `getById` per minion — 1 + 1 + N — to build one.
+   *
+   * **Nothing enters the roster until the whole subtree is in hand.** A card admitted with a known
+   * `id`, an empty baseline and empty drafts is the "baseline and drafts disagree" shape, and under
+   * a *partial* failure — `getById` landed, the minion fetches did not — it is the one path in the
+   * design that produces genuine sub-resource destruction rather than harmless churn. So the commit
+   * is a single `update` at the end of a successful hydration, and the failure branch touches
+   * nothing at all: no draft, no baseline, no membership, and the monster stays in
+   * `attachableMonsters` so retry is simply picking it again.
+   */
+  attachMonster(monsterId: string): void {
+    const item = this.catalogMonsters().find((candidate) => candidate.id === monsterId);
+    if (!item || this.monsterDrafts().some((draft) => draft.id === monsterId) || this.monsterAttachInFlight()) {
+      return;
+    }
+
+    this.attachingMonsterName.set(item.name);
+    this.monsterAttachError.set(null);
+
+    this.hydrateMonsterDraft(monsterId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ monster, minions }) => {
+          this.attachingMonsterName.set(null);
+          this.cancelPendingRemoval('monsters', monsterId);
+          // One mutation each, after the data is in hand. The roster and the minion list move
+          // together because a monster with its minions missing is the half-row this guards against.
+          this.monsterDrafts.update((drafts) => [...drafts, monster]);
+          this.minionDrafts.update((drafts) => [...drafts, ...minions]);
+          this.collapseComposerIfUntouched(this.monsterComposerOpen, this.monsterComposerDirty());
+        },
+        error: () => {
+          this.attachingMonsterName.set(null);
+          // **Local to the control that failed** (UX §17.2), not the wizard's footer band — that
+          // belongs to submit failures and sits a scroll away from the action that caused this.
+          this.monsterAttachError.set(`Couldn't load “${item.name}”. Try again.`);
+        },
+      });
   }
 
   /**
@@ -905,61 +1198,76 @@ export class MysteryCreateStore {
           this.locationComposerOpen.set(locations.length === 0);
           this.bystanderComposerOpen.set(bystanders.length === 0);
 
-          const pureMonster = monsters[0] ?? null;
+          // **`monsters[0]` is gone** (§6.1). The wizard hydrates the whole list; a mystery that
+          // already had two monsters used to open showing one and silently drop the other.
+          //
+          // **The roster baseline is deliberately *not* written here** (BUG 2, rev 12). It used to
+          // be, one statement above the `forkJoin` below that can fail — so a failed hydration left
+          // `existingMonsterIds` fully populated against an empty roster, and `idsToRemove` cannot
+          // tell "the user removed everything" from "nothing loaded". Advancing through Monsters
+          // then unlinked **every** monster from the mystery, silently, reporting success. It is
+          // written in `applyHydratedMonsters` instead, from the same entries the drafts come from.
 
-          this.phaseComplete.set([
-            mystery.name.trim().length > 0,
-            pureMonster != null,
-            locations.length > 0,
-            bystanders.length > 0,
-          ]);
+          // **Decision 19 (§6.5): stop recomputing completeness from data presence in edit mode.**
+          // `init()` already set `[true, true, true, true]`, and that is the truthful answer — the
+          // mystery exists, so every phase has been through. The old `pureMonster != null` predicate
+          // is simply wrong once a monster is optional, and `locations.length > 0` /
+          // `bystanders.length > 0` were always questionable for the same reason: neither was ever
+          // required either. `isPhaseAccessible` already returns true unconditionally in edit mode,
+          // so this only changes which bubbles render as finished — and it makes them tell the truth.
 
-          // §6.6: one hydrator, and 5b attach is its second caller. It builds the baseline and the
+          // §6.6: one hydrator, and attach is its second caller. It builds the baseline and the
           // drafts' ids from the same responses in the same step, so neither can exist without the
           // other — which is the whole of H1, H2a and H3.
-          return pureMonster ? this.hydrateMonsterDraft(pureMonster.id) : of(null);
+          //
+          // **All-or-nothing, and that is a decision rather than an accident of `forkJoin`** (J6,
+          // §6.6). If one monster's hydration fails, the whole load fails. Dropping the failed
+          // monster and opening with the rest is the option that looks helpful and destroys data:
+          // `submitPhase1` diffs whatever is in the roster, so a monster that failed to load would
+          // sit there with a known id, an empty baseline and empty drafts — on a monster the user
+          // never touched.
+          return monsters.length > 0
+            ? forkJoin(monsters.map((monster) => this.hydrateMonsterDraft(monster.id)))
+            : of<HydratedMonster[]>([]);
         }),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe((hydrated: HydratedMonster | null) => {
-        this.applyHydratedMonster(hydrated);
-        // A non-empty loaded roster is "nothing being edited" — composer collapsed (§1.2/§1.7).
-        this.editingDraftKey.set(null);
-        this.composerOpen.set(this.minionDrafts().length === 0);
+      .subscribe({
+        next: (hydrated: HydratedMonster[]) => this.applyHydratedMonsters(hydrated),
+        error: () => this.submitError.set('Could not load this mystery. Please try again.'),
       });
   }
 
   /**
-   * Writes a hydrated monster into the wizard's single-monster shape: the composer's fields, its
-   * four draft arrays, the baseline those drafts came from, and the minion roster.
+   * Commits a fully hydrated roster. Every entry is complete or none of them arrived, so there is
+   * no partial state to reason about here — see `loadEditData`'s J6 note and `attachMonster`.
    *
-   * 5a's only caller is edit-mode load; 5b's attach is the second, and gains a roster entry instead
-   * of writing the singleton signals. Everything below is assignment — the construction that has to
-   * be right happens once, in `toHydratedMonster`.
+   * Everything below is assignment. The construction that has to be right happens once, in
+   * `toHydratedMonster`.
    */
-  private applyHydratedMonster(hydrated: HydratedMonster | null): void {
-    if (hydrated) {
-      this.editingMonsterId.set(hydrated.id);
-      this.monsterForm.patchValue({
-        name: hydrated.name,
-        description: hydrated.description,
-        harmCapacity: hydrated.harmCapacity,
-        monsterTypeId: hydrated.monsterTypeId,
-        monsterArchetypeId: hydrated.monsterArchetypeId,
-      });
-      this.monsterAttacks.set(hydrated.attacks);
-      this.monsterPowers.set(hydrated.powers);
-      this.monsterWeaknesses.set(hydrated.weaknesses);
-      this.monsterArmors.set(hydrated.armors);
-      this.existingMonsterAttacks.set(hydrated.existingAttacks);
-      this.existingMonsterPowers.set(hydrated.existingPowers);
-      this.existingMonsterWeaknesses.set(hydrated.existingWeaknesses);
-      this.existingMonsterArmors.set(hydrated.existingArmors);
-    }
+  private applyHydratedMonsters(hydrated: HydratedMonster[]): void {
+    this.monsterDrafts.set(hydrated.map((entry) => entry.monster));
+    this.minionDrafts.set(hydrated.flatMap((entry) => entry.minions));
+    // **The roster baseline is written here, with the drafts, from the same entries** (BUG 2,
+    // principle 5). It used to be set in `loadEditData`, before the hydration `forkJoin` that can
+    // fail — which made J6's all-or-nothing true of the drafts and false of the baseline.
+    //
+    // Clearing it in the error handler was the obvious alternative and it does not work, because
+    // the window exists on the **success** path too: between that write and this subscribe the
+    // baseline was set and the drafts were not, and `persistedForRemoval` reads the pair. Nothing
+    // reads it in that gap today — and "nothing reads it today" is precisely the reasoning that
+    // produced BUG 1. Moving the write removes the interval; clearing on error only shortens it.
+    //
+    // This is now the single success-path writer of both halves, which is the shape
+    // `toHydratedMonster` already has one level down.
+    this.existingMonsterIds.set(hydrated.map((entry) => entry.monster.id).filter((id): id is string => id !== null));
 
-    const minions = hydrated?.minions ?? [];
-    this.existingMinionIds.set(minions.map((minion) => minion.id).filter((id): id is string => id !== null));
-    this.minionDrafts.set(minions);
+    // Edit mode opens on a populated roster, so both composers start collapsed (§2.3/§1.7).
+    this.editingMonsterKey.set(null);
+    this.monsterComposerOpen.set(this.monsterDrafts().length === 0);
+    this.editingMinionKey.set(null);
+    this.minionComposerOpen.set(this.minionDrafts().length === 0);
+    this.resetComposer();
   }
 
   next(): void {
@@ -972,6 +1280,10 @@ export class MysteryCreateStore {
     // committed draft is in minionDrafts() by the time submitPhase1 reads it, in the same tick.
     // Burying the mutation inside the rxjs chain would put it after monsterSave$ resolves, in a
     // re-enterable async path — the exact shape of the Bug 2 defect class this file already fixed.
+    if (this.currentPhase() === 1 && this.currentStep() === 0 && !this.commitMonsterComposerIfValid()) {
+      return;
+    }
+
     if (this.currentPhase() === 1 && this.currentStep() === 1 && !this.commitComposerIfValid()) {
       return;
     }
@@ -1130,7 +1442,12 @@ export class MysteryCreateStore {
         return this.existingLocationIds().includes(id);
       case 'bystanders':
         return this.existingBystanderIds().includes(id);
+      case 'monsters':
+        return this.existingMonsterIds().includes(id);
       case 'minions':
+        // Flattened out of the roster's per-monster baselines (J1). A monster that has left the
+        // roster has taken its children's ids with it, so this answers `false` for them the instant
+        // it is removed — no clearing step, nothing to forget.
         return this.existingMinionIds().includes(id);
     }
   }
@@ -1447,12 +1764,247 @@ export class MysteryCreateStore {
    * @returns `true` when there was nothing to commit or the commit succeeded; `false` when the
    *          composer holds work that cannot be saved yet, in which case the caller must do nothing.
    */
-  commitComposerIfValid(): boolean {
-    if (!this.composerOpen() || !this.composerDirty()) {
+  // ---------------------------------------------------------------------------
+  // The monster roster and its composer (§6.1). Mirrors the shipped minion pair.
+  // ---------------------------------------------------------------------------
+
+  /** Same three-way rule as `Next`: empty → proceed, valid → commit silently, started-but-invalid → block. */
+  commitMonsterComposerIfValid(): boolean {
+    if (!this.monsterComposerOpen() || !this.monsterComposerDirty()) {
       return true;
     }
 
-    if (!this.composerValid()) {
+    if (!this.monsterComposerValid()) {
+      this.monsterForm.markAllAsTouched();
+      this.submitError.set(MONSTER_COMPOSER_BLOCKED_MESSAGE);
+      return false;
+    }
+
+    this.saveMonsterDraftToList();
+    return true;
+  }
+
+  /** Commits the composer into the roster — replacing the edited slot, or appending a new monster. */
+  saveMonsterDraftToList(): void {
+    if (!this.monsterComposerValid()) {
+      this.monsterForm.markAllAsTouched();
+      return;
+    }
+
+    const key = this.editingMonsterKey();
+    const existing = key !== null ? (this.monsterDrafts().find((item) => item.localKey === key) ?? null) : null;
+
+    const draft: MonsterDraft = {
+      // Keep the server id, the four sub-resource baselines, the minion baseline and the membership
+      // snapshot of the slot being edited. Losing any of them here is the H2 shape: the drafts and
+      // the baseline would disagree, and the next submit would delete and recreate the lot.
+      id: existing?.id ?? null,
+      localKey: existing?.localKey ?? createDraftKey('monster'),
+      name: this.monsterForm.controls.name.value.trim(),
+      description: this.monsterForm.controls.description.value ?? '',
+      harmCapacity: this.monsterForm.controls.harmCapacity.value,
+      monsterTypeId: this.monsterForm.controls.monsterTypeId.value,
+      monsterArchetypeId: this.monsterForm.controls.monsterArchetypeId.value,
+      attacks: [...this.monsterAttacks()],
+      powers: [...this.monsterPowers()],
+      weaknesses: [...this.monsterWeaknesses()],
+      armors: [...this.monsterArmors()],
+      existingAttacks: existing?.existingAttacks ?? [],
+      existingPowers: existing?.existingPowers ?? [],
+      existingWeaknesses: existing?.existingWeaknesses ?? [],
+      existingArmors: existing?.existingArmors ?? [],
+      existingMinionIds: existing?.existingMinionIds ?? [],
+      mysteryIds: existing?.mysteryIds ?? [],
+    };
+
+    this.monsterDrafts.update((drafts) =>
+      existing !== null ? drafts.map((item) => (item.localKey === draft.localKey ? draft : item)) : [...drafts, draft],
+    );
+
+    this.resetMonsterComposer();
+    this.editingMonsterKey.set(null);
+    this.monsterComposerOpen.set(this.monsterDrafts().length === 0);
+    this.submitError.set(null);
+  }
+
+  /** Pulls a roster card into the composer. Returns whether it opened, for the focus contract (§8.6). */
+  editMonsterDraft(key: string): boolean {
+    if (!this.commitMonsterComposerIfValid()) {
+      return false;
+    }
+
+    // Read the draft *after* the commit: committing may have rewritten the card we are about to load.
+    const draft = this.monsterDrafts().find((item) => item.localKey === key);
+    if (!draft) {
+      return false;
+    }
+
+    this.resetMonsterComposer();
+    this.monsterForm.patchValue({
+      name: draft.name,
+      description: draft.description,
+      harmCapacity: draft.harmCapacity,
+      monsterTypeId: draft.monsterTypeId,
+      monsterArchetypeId: draft.monsterArchetypeId,
+    });
+    this.monsterAttacks.set([...draft.attacks]);
+    this.monsterPowers.set([...draft.powers]);
+    this.monsterWeaknesses.set([...draft.weaknesses]);
+    this.monsterArmors.set([...draft.armors]);
+
+    this.editingMonsterKey.set(key);
+    this.monsterComposerOpen.set(true);
+    return true;
+  }
+
+  /** "+ Add Another Monster" — same commit rule as `Next`, then a blank composer. */
+  startNewMonsterDraft(): boolean {
+    if (!this.commitMonsterComposerIfValid()) {
+      return false;
+    }
+
+    this.resetMonsterComposer();
+    this.editingMonsterKey.set(null);
+    this.monsterComposerOpen.set(true);
+    return true;
+  }
+
+  /** Abandons the composer's contents without touching the roster (`5b-R6`). */
+  cancelMonsterComposerEdit(): void {
+    this.resetMonsterComposer();
+    this.editingMonsterKey.set(null);
+    this.monsterComposerOpen.set(this.monsterDrafts().length === 0);
+  }
+
+  /**
+   * **Removes a monster from the roster, and settles what happens to its minions** (§7.7d/i).
+   *
+   * One disposition is recorded, for the monster. None for its children: under **delete** the FK
+   * cascade destroys them, so a separate disposition would be a duplicate request; under **detach**
+   * they must survive, which is what detach means and what the modal the user just read promised.
+   *
+   * The minion *baseline* needs no clearing step, because it lives on the draft being dropped
+   * (`MonsterDraft.existingMinionIds`). That is J1's fix, and it is why this method has no "and also
+   * forget these ids" line — there is nowhere for one to go.
+   */
+  removeMonsterDraft(key: string, action: 'detach' | 'delete'): void {
+    const draft = this.monsterDrafts().find((item) => item.localKey === key);
+    if (!draft) {
+      return;
+    }
+
+    if (this.persistedForRemoval('monsters', draft.id)) {
+      this.recordRemoval({ collection: 'monsters', id: draft.id as string, action });
+    }
+
+    this.monsterDrafts.update((drafts) => drafts.filter((item) => item.localKey !== key));
+    this.minionDrafts.update((minions) => this.settleMinionsOfRemovedMonster(minions, draft));
+
+    if (this.editingMonsterKey() === key) {
+      this.resetMonsterComposer();
+      this.editingMonsterKey.set(null);
+      this.monsterComposerOpen.set(this.monsterDrafts().length === 0);
+    }
+
+    // The minion composer may have been editing a minion that just left with its monster, or may be
+    // pointed at a monster that no longer exists. Either way it no longer describes anything.
+    this.reconcileMinionComposerWithRoster();
+  }
+
+  /**
+   * **Which minion drafts leave with a removed monster, and which revert** (§7.7i, J4).
+   *
+   * Three cases, and the third is the one that is easy to miss:
+   *
+   * - its **baseline parent is B** → dropped, with B. The server has it under B and B is going.
+   * - **unsaved**, pointed at B → dropped. It never existed.
+   * - baseline parent is **another roster monster**, with a pending move to B → **`monsterKey`
+   *   reverts** to that monster.
+   *
+   * Without the third case the draft would leave with B while the minion stayed in A's baseline with
+   * no draft claiming it — and A's own diff would then delete it. That is J1 by another route, and it
+   * is why this decides on the *baseline* parent rather than on `monsterKey`.
+   *
+   * **The revert is synchronous**, so the roster re-renders with that minion under A the instant B is
+   * removed (UX §18.4's display requirement). It is not deferred to the submit, and it cannot be: the
+   * target of the pending move is precisely the thing going away.
+   *
+   * **Accepted gap, stated rather than engineered** (§6.4): an *unsaved* minion has no baseline
+   * parent to revert to, so one authored under A, moved to B and orphaned by B's removal loses the
+   * typing. The store has no record of where it was authored, and inventing one for a third-order
+   * case is not worth the field.
+   */
+  private settleMinionsOfRemovedMonster(minions: MinionDraft[], removed: MonsterDraft): MinionDraft[] {
+    const survivors: MinionDraft[] = [];
+
+    for (const minion of minions) {
+      if (minion.monsterKey !== removed.localKey) {
+        survivors.push(minion);
+        continue;
+      }
+
+      const baselineHome =
+        minion.existingMonsterId === null || minion.existingMonsterId === removed.id
+          ? null
+          : (this.monsterDrafts().find((candidate) => candidate.id === minion.existingMonsterId) ?? null);
+
+      if (baselineHome !== null) {
+        survivors.push({ ...minion, monsterKey: baselineHome.localKey });
+      }
+    }
+
+    return survivors;
+  }
+
+  /**
+   * Keeps the minion composer honest after the roster changes under it.
+   *
+   * Two states it can be left in: editing a minion that left with its monster, or holding a
+   * `monsterKey` that no longer names a roster row. Both are the composer describing something that
+   * does not exist, so it is reset rather than silently re-pointed at an arbitrary monster.
+   */
+  private reconcileMinionComposerWithRoster(): void {
+    const editingKey = this.editingMinionKey();
+    const editedStillPresent =
+      editingKey === null || this.minionDrafts().some((draft) => draft.localKey === editingKey);
+    const parentKey = this.effectiveMinionMonsterKey();
+    const parentStillPresent =
+      parentKey === '' || this.monsterDrafts().some((draft) => draft.localKey === parentKey);
+
+    if (editedStillPresent && parentStillPresent) {
+      return;
+    }
+
+    this.resetComposer();
+    this.editingMinionKey.set(null);
+    this.minionComposerOpen.set(this.minionDrafts().length === 0);
+  }
+
+  /** Clears the monster composer: core fields, the four sub-resource lists, and the four add-forms. */
+  private resetMonsterComposer(): void {
+    this.monsterForm.reset({
+      name: '',
+      description: '',
+      harmCapacity: MONSTER_DEFAULT_HARM_CAPACITY,
+      monsterTypeId: '',
+      monsterArchetypeId: '',
+    });
+    this.monsterAttacks.set([]);
+    this.monsterPowers.set([]);
+    this.monsterWeaknesses.set([]);
+    this.monsterArmors.set([]);
+    this.monsterAttackForm.reset({ name: '', harm: 0, description: '', weaponTagIds: [] });
+    this.monsterPowerForm.reset({ name: '', description: '' });
+    this.monsterWeaknessForm.reset({ name: '', description: '' });
+    this.monsterArmorForm.reset({ name: '', description: '', harmSoak: 0, isSpecial: false, specialDescription: '' });
+  }
+
+  commitComposerIfValid(): boolean {
+    if (!this.minionComposerOpen() || !this.minionComposerDirty()) {
+      return true;
+    }
+
+    if (!this.minionComposerValid()) {
       // Same message all three callers surface, so the pencil / + Add Another Minion clicks are not
       // silent no-ops — they show the wizard's error band, not just the inline field errors.
       this.minionForm.markAllAsTouched();
@@ -1466,12 +2018,12 @@ export class MysteryCreateStore {
 
   /** Commits the composer into the roster — replacing the edited slot, or appending a new minion. */
   saveMinionDraftToList(): void {
-    if (!this.composerValid()) {
+    if (!this.minionComposerValid()) {
       this.minionForm.markAllAsTouched();
       return;
     }
 
-    const key = this.editingDraftKey();
+    const key = this.editingMinionKey();
     const existing = key !== null ? this.minionDrafts().find((item) => item.localKey === key) ?? null : null;
 
     const draft: MinionDraft = {
@@ -1480,6 +2032,12 @@ export class MysteryCreateStore {
       id: existing?.id ?? null,
       // Keep the edited card's key so the roster row keeps its identity; mint one for a new draft.
       localKey: existing?.localKey ?? createDraftKey(),
+      // The picker's value — where the minion points *now*. The re-parent is a field edit, so this
+      // is committed to the draft here and the roster shows it immediately (`5b-K6`); the verb
+      // fires at submit, and only if this resolves to something other than the baseline below.
+      monsterKey: this.effectiveMinionMonsterKey(),
+      // J2: carried through untouched. It is the server's answer, and only a submit changes it.
+      existingMonsterId: existing?.existingMonsterId ?? null,
       name: this.minionForm.controls.name.value.trim(),
       description: this.minionForm.controls.description.value ?? '',
       harmCapacity: this.minionForm.controls.harmCapacity.value,
@@ -1499,10 +2057,10 @@ export class MysteryCreateStore {
     );
 
     this.resetComposer();
-    this.editingDraftKey.set(null);
-    // Invariant: editingDraftKey() !== null implies composerOpen(). Collapse to
+    this.editingMinionKey.set(null);
+    // Invariant: editingMinionKey() !== null implies minionComposerOpen(). Collapse to
     // "+ Add Another Minion" now that the roster has something in it.
-    this.composerOpen.set(this.minionDrafts().length === 0);
+    this.minionComposerOpen.set(this.minionDrafts().length === 0);
     this.submitError.set(null);
   }
 
@@ -1527,6 +2085,7 @@ export class MysteryCreateStore {
 
     this.resetComposer();
     this.minionForm.patchValue({
+      monsterKey: draft.monsterKey,
       name: draft.name,
       description: draft.description,
       harmCapacity: draft.harmCapacity,
@@ -1537,8 +2096,8 @@ export class MysteryCreateStore {
     this.minionWeaknesses.set([...draft.weaknesses]);
     this.minionArmors.set([...draft.armors]);
 
-    this.editingDraftKey.set(key);
-    this.composerOpen.set(true);
+    this.editingMinionKey.set(key);
+    this.minionComposerOpen.set(true);
     return true;
   }
 
@@ -1552,16 +2111,16 @@ export class MysteryCreateStore {
     }
 
     this.resetComposer();
-    this.editingDraftKey.set(null);
-    this.composerOpen.set(true);
+    this.editingMinionKey.set(null);
+    this.minionComposerOpen.set(true);
     return true;
   }
 
   /** Abandons the composer's contents without touching the roster. */
   cancelComposerEdit(): void {
     this.resetComposer();
-    this.editingDraftKey.set(null);
-    this.composerOpen.set(this.minionDrafts().length === 0);
+    this.editingMinionKey.set(null);
+    this.minionComposerOpen.set(this.minionDrafts().length === 0);
   }
 
   /**
@@ -1585,23 +2144,27 @@ export class MysteryCreateStore {
 
     this.minionDrafts.update((drafts) => drafts.filter((item) => item.localKey !== key));
 
-    // `editingDraftKey` is an identity, not a position, so removing a *different* card cannot
+    // `editingMinionKey` is an identity, not a position, so removing a *different* card cannot
     // invalidate it and there is nothing to re-index. The whole "editing > index, decrement"
     // adjustment this method used to carry — and the silent wrong-minion overwrite it existed to
     // prevent — is gone by construction (UX §10.2). The one case left is the real one: the card
     // being edited is the card that was removed.
-    if (this.editingDraftKey() !== key) {
+    if (this.editingMinionKey() !== key) {
       return;
     }
 
     this.resetComposer();
-    this.editingDraftKey.set(null);
-    this.composerOpen.set(this.minionDrafts().length === 0);
+    this.editingMinionKey.set(null);
+    this.minionComposerOpen.set(this.minionDrafts().length === 0);
   }
 
   /** Clears the composer: core fields, the four sub-resource lists, and the four inline add-forms. */
   private resetComposer(): void {
     this.minionForm.reset({
+      // Blank with two or more monsters, so the picker starts unset and its required validator
+      // does its job. With exactly one, `effectiveMinionMonsterKey()` answers regardless of what is
+      // in here, and the picker is not rendered at all.
+      monsterKey: this.soleMonsterKey() ?? '',
       name: '',
       description: '',
       harmCapacity: MINION_DEFAULT_HARM_CAPACITY,
@@ -1626,15 +2189,27 @@ export class MysteryCreateStore {
       return false;
     }
 
-    if (phase === 1 && step === 0 && this.monsterForm.invalid) {
-      this.monsterForm.markAllAsTouched();
-      return false;
-    }
+    // **Decision 19 (§6.5): the phase-level hard block is gone.**
+    //
+    // What used to be here was `if (phase === 1 && step === 0 && this.monsterForm.invalid) block`,
+    // which made a monster mandatory. Under a roster the phase's validity is a property of the
+    // roster, not of one form — and a mystery may legitimately have no monster at all, because not
+    // every threat is a creature.
+    //
+    // **Nothing replaces it here**, and that is deliberate: `next()` calls
+    // `commitMonsterComposerIfValid()` immediately after this, which already refuses a
+    // started-but-invalid composer and sets the same message. A branch here would be a second copy
+    // of the same rule — which is exactly what phases 2 and 3 already decline to carry, for the
+    // reason the note below gives. A negative control confirmed the duplicate was unobservable.
+    //
+    // The composer's own field validators are untouched, and that pairing is load-bearing (UX
+    // §16.6): stripping them would *also* produce a wizard that advances on an empty roster, so
+    // `5b-O4` tests both halves — an untouched composer advances, a half-typed one still blocks.
 
     if (phase === 1 && step === 1) {
       // Three-way classification of the open composer: empty -> proceed; valid -> commit and
       // proceed (see next()); started but invalid -> block, so the work isn't silently discarded.
-      if (this.composerOpen() && this.composerDirty() && !this.composerValid()) {
+      if (this.minionComposerOpen() && this.minionComposerDirty() && !this.minionComposerValid()) {
         this.minionForm.markAllAsTouched();
         this.submitError.set(COMPOSER_BLOCKED_MESSAGE);
         return false;
@@ -1718,6 +2293,21 @@ export class MysteryCreateStore {
       });
   }
 
+  /**
+   * **Phase 1 as a roster diff** (§6.1): roster diff → sub-resource diff per monster → minion diff,
+   * with the disposition drain as a sibling.
+   *
+   * Three things this is deliberately not:
+   *
+   * 1. **It does not synthesise a monster from an empty composer.** Until 5b this called
+   *    `monsterService.create(mysteryId, monsterRequest)` unconditionally, so an untouched phase
+   *    would have written an empty monster row — invisible on the detail page, which is exactly why
+   *    `5b-O1` asserts the absence of the row rather than the appearance of the page.
+   * 2. **An empty roster still submits.** The drain runs and the roster diff runs, because an
+   *    edit-mode revisit reaches an empty roster by *removing* the last monster (`5b-O2`).
+   * 3. **The drain is a `forkJoin` sibling, not a link in the save chain** (H6, §7.7h), so a failed
+   *    monster save cannot strand a confirmed deletion.
+   */
   private submitPhase1(): void {
     const mysteryId = this.mysteryId();
     if (!mysteryId) {
@@ -1725,52 +2315,35 @@ export class MysteryCreateStore {
       return;
     }
 
-    const editingMonsterId = this.editingMonsterId();
-    const monsterRequest: UpsertMonsterRequest = {
-      name: this.monsterForm.controls.name.value.trim(),
-      description: this.toNullable(this.monsterForm.controls.description.value),
-      harmCapacity: this.monsterForm.controls.harmCapacity.value,
-      monsterTypeId: this.monsterForm.controls.monsterTypeId.value,
-      monsterArchetypeId: this.monsterForm.controls.monsterArchetypeId.value,
-    };
+    const drafts = this.monsterDrafts();
 
-    const monsterSave$ = editingMonsterId
-      ? this.monsterService.update(editingMonsterId, monsterRequest)
-      : this.monsterService.create(mysteryId, monsterRequest);
+    // `pendingRemovals` is authoritative; this is the consistency check (§7.3). Anything with a
+    // recorded disposition is excluded, so a confirmed Delete does not also fire a blind unlink.
+    const unlinked$ = this.runBatch(
+      this.idsToRemove(this.existingMonsterIds(), drafts, 'monsters').map((monsterId) =>
+        this.monsterService.unlinkFromMystery(mysteryId, monsterId),
+      ),
+    );
 
-    const monsterAndMinions$ = monsterSave$.pipe(
-      switchMap((monster) => {
-        this.editingMonsterId.set(monster.id);
+    const savedRoster$ =
+      drafts.length === 0
+        ? of<SavedMonster[]>([])
+        : forkJoin(drafts.map((draft, index) => this.saveMonsterDraft(mysteryId, draft, index)));
 
-        // Was: delete every baseline id, then recreate every draft. Now a per-row diff — created,
-        // updated, deleted or left entirely alone (decisions 8 and 9).
-        return this.saveThreatCollections(monster.id).pipe(
-          switchMap((saved) => {
-            // The saved rows become the new baseline **and** are re-keyed onto the drafts in the
-            // same step. Refreshing one without the other is H2: the drafts could never match the
-            // baseline again, so every subsequent submit would delete and recreate the lot.
-            this.monsterAttacks.update((drafts) => rekeyDrafts(drafts, saved.attacks));
-            this.monsterPowers.update((drafts) => rekeyDrafts(drafts, saved.powers));
-            this.monsterWeaknesses.update((drafts) => rekeyDrafts(drafts, saved.weaknesses));
-            this.monsterArmors.update((drafts) => rekeyDrafts(drafts, saved.armors));
-            this.existingMonsterAttacks.set(saved.attacks);
-            this.existingMonsterPowers.set(saved.powers);
-            this.existingMonsterWeaknesses.set(saved.weaknesses);
-            this.existingMonsterArmors.set(saved.armors);
-
-            return this.saveMinionDrafts(monster.id);
-          }),
-        );
+    const rosterAndMinions$ = forkJoin({ unlinked: unlinked$, saved: savedRoster$ }).pipe(
+      switchMap(({ saved }) => {
+        // The saved rows become each draft's new baseline **and** are re-keyed onto its drafts in
+        // the same step. Refreshing one without the other is H2: the drafts could never match the
+        // baseline again, so every subsequent submit would delete and recreate the lot.
+        this.writeBackMonsterDrafts(saved);
+        // Minions come after, because `monsterKey → monsterId` is only resolvable once every
+        // monster authored in this session has an id (§6.3, `5b-R5`).
+        return this.saveMinionDrafts();
       }),
     );
 
-    // **The drain is a sibling, not a link in the monster chain** (H6, §7.7h). Phases 2 and 3 have
-    // always drained this way; phase 1 nested it inside the monster save, which was invisible while
-    // the drain carried only locations and bystanders. Decision 17 makes minion deletions
-    // drain-borne, so a failed monster save would otherwise strand a confirmed deletion — G1 by
-    // another route. All four phases now drain identically, which is also what makes it reviewable.
     forkJoin({
-      saved: monsterAndMinions$,
+      saved: rosterAndMinions$,
       drained: this.applyPendingRemovals(mysteryId),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -1781,6 +2354,71 @@ export class MysteryCreateStore {
         },
         error: () => this.handleSubmitError('Could not save monster. Please try again.'),
       });
+  }
+
+  /** One roster row: the monster itself, its membership, and its four sub-resource collections. */
+  private saveMonsterDraft(mysteryId: string, draft: MonsterDraft, index: number): Observable<SavedMonster> {
+    const request: UpsertMonsterRequest = {
+      name: draft.name,
+      description: this.toNullable(draft.description),
+      harmCapacity: draft.harmCapacity,
+      monsterTypeId: draft.monsterTypeId,
+      monsterArchetypeId: draft.monsterArchetypeId,
+    };
+
+    // §5.1 Concern A, one level up from the locations path: `update` carries no mystery in its URL,
+    // so without the membership PUT an attached monster has its fields written and is never added
+    // to the mystery — a silent no-op that makes the whole feature look like it works. `create`
+    // needs no such call: its URL is mystery-scoped and the row is created attached.
+    const save$ =
+      draft.id !== null
+        ? forkJoin({
+            monster: this.monsterService.update(draft.id, request),
+            linked: this.monsterService.linkToMystery(mysteryId, draft.id),
+          }).pipe(map(({ monster }) => monster))
+        : this.monsterService.create(mysteryId, request);
+
+    return save$.pipe(
+      switchMap((monster) =>
+        this.saveThreatCollections(monster.id, draft).pipe(
+          map((collections) => ({ index, id: monster.id, collections })),
+        ),
+      ),
+    );
+  }
+
+  /** Ids and baselines back onto the roster, from the same saved rows, in one step. */
+  private writeBackMonsterDrafts(saved: SavedMonster[]): void {
+    if (saved.length === 0) {
+      return;
+    }
+
+    this.monsterDrafts.update((drafts) => {
+      const next = [...drafts];
+      for (const { index, id, collections } of saved) {
+        const draft = next[index];
+        if (!draft) {
+          continue;
+        }
+
+        next[index] = {
+          ...draft,
+          id,
+          attacks: rekeyDrafts(draft.attacks, collections.attacks),
+          powers: rekeyDrafts(draft.powers, collections.powers),
+          weaknesses: rekeyDrafts(draft.weaknesses, collections.weaknesses),
+          armors: rekeyDrafts(draft.armors, collections.armors),
+          existingAttacks: collections.attacks,
+          existingPowers: collections.powers,
+          existingWeaknesses: collections.weaknesses,
+          existingArmors: collections.armors,
+        };
+      }
+      return next;
+    });
+
+    // The roster baseline: every monster now on the roster has a persisted membership.
+    this.existingMonsterIds.set(this.savedDraftIds(this.monsterDrafts()));
   }
 
   private submitPhase2(): void {
@@ -1890,17 +2528,24 @@ export class MysteryCreateStore {
   }
 
   /**
-   * Diffs `minionDrafts()` against the last-saved baseline and applies it (§1.6): removed → hard
-   * `DELETE /api/minions/{id}` (a minion belongs to exactly one monster, so there is nothing to
-   * unlink); `id !== null` → update; `id === null` → create.
+   * The minion diff, across the whole roster.
    *
-   * Each surviving minion then runs the **same per-row sub-resource diff the monster runs**, against
-   * its own baseline — one diff per minion, not one shared across the roster. Before 5a this was a
-   * delete-all/recreate-all cycle, which is H1: the minion path was never the safe model one level
-   * down, it was the same bug with a second owner.
+   * **The baseline is per-monster and the drafts operand is global** (§7.7i, and it is the half that
+   * is easy to get wrong): `removedIds(D) = D.existingMinionIds − all minion drafts − disposed`.
+   * Scoping the drafts per-monster too would delete a minion **re-parented away from D** — its id is
+   * in D's baseline, and its draft now carries another monster's `monsterKey`.
+   *
+   * J1 is closed upstream of this function rather than inside it. A removed monster took its
+   * `existingMinionIds` with it, so its children are no longer in *any* baseline here, and the blind
+   * `delete()` that used to fire for them on this path — the path with no 404 handler — has nothing
+   * to iterate over.
    */
-  private saveMinionDrafts(monsterId: string): Observable<unknown> {
+  private saveMinionDrafts(): Observable<unknown> {
     const drafts = this.minionDrafts();
+    const monsters = this.monsterDrafts();
+    const monsterIdFor = (monsterKey: string): string | null =>
+      monsters.find((monster) => monster.localKey === monsterKey)?.id ?? null;
+
     const toRequest = (draft: MinionDraft): UpsertMinionRequest => ({
       name: draft.name,
       description: this.toNullable(draft.description),
@@ -1908,61 +2553,113 @@ export class MysteryCreateStore {
       minionTypeId: draft.minionTypeId,
     });
 
-    // `'minions'` is passed, and the parameter is required now (§7.7c): a confirmed minion deletion
-    // is drain-borne from 5a, so this diff must not fire a second `DELETE` for the same row. That
-    // second copy is not on the drain path and has no 404 handler, so it would fail the phase.
-    const removedIds = this.idsToRemove(this.existingMinionIds(), drafts, 'minions');
+    // `'minions'` is passed, and the parameter is required (§7.7c): a confirmed minion deletion is
+    // drain-borne, so this diff must not fire a second `DELETE` for the same row. That second copy
+    // is not on the drain path and has no 404 handler, so it would fail the phase.
+    const removedIds = monsters.flatMap((monster) => this.idsToRemove(monster.existingMinionIds, drafts, 'minions'));
 
     return this.runBatch(removedIds.map((minionId) => this.minionService.delete(minionId))).pipe(
       switchMap(() =>
         this.runBatch(
-          drafts.map((draft, index) =>
-            (draft.id !== null
-              ? this.minionService.update(draft.id, toRequest(draft))
-              : this.minionService.create(monsterId, toRequest(draft))
-            ).pipe(
-              // Was: delete this minion's whole baseline, then recreate all four collections. Now
-              // the same per-row diff the monster uses — H1 corrected, the minion path was never
-              // the safe model one level down.
-              switchMap((minion) =>
-                this.saveMinionCollections(minion.id, draft).pipe(
-                  map((savedCollections) => ({ index, minionId: minion.id, savedCollections })),
-                ),
-              ),
-            )
-          )
-        )
+          drafts.map((draft, index) => this.saveOneMinion(draft, index, monsterIdFor(draft.monsterKey))),
+        ),
       ),
-      tap((results) => {
-        // Backfill server ids **and** re-key the sub-resource drafts from the same saved rows that
-        // become the baseline. Refreshing the baseline alone is H2: the drafts could never match it
-        // again and every later submit would delete and recreate the lot.
-        const saved = [...drafts];
-        for (const { index, minionId, savedCollections } of results) {
-          const draft = saved[index];
-          saved[index] = {
-            ...draft,
-            id: minionId,
-            attacks: rekeyDrafts(draft.attacks, savedCollections.attacks),
-            powers: rekeyDrafts(draft.powers, savedCollections.powers),
-            weaknesses: rekeyDrafts(draft.weaknesses, savedCollections.weaknesses),
-            armors: rekeyDrafts(draft.armors, savedCollections.armors),
-            existingAttacks: savedCollections.attacks,
-            existingPowers: savedCollections.powers,
-            existingWeaknesses: savedCollections.weaknesses,
-            existingArmors: savedCollections.armors,
-          };
-        }
-
-        this.minionDrafts.set(saved);
-        this.existingMinionIds.set(this.savedDraftIds(saved));
-      })
+      tap((results) => this.writeBackMinionDrafts(drafts, results)),
     );
   }
 
-  /** IDs present as of the last save that are no longer present in the draft array. */
+  /** One minion: its own row, its re-parent if the parent actually changed, then its four collections. */
+  private saveOneMinion(draft: MinionDraft, index: number, monsterId: string | null): Observable<SavedMinion | null> {
+    // A minion cannot exist without a monster (`Minion.MonsterId` is a required FK), and the
+    // composer's `monsterKey` validator is what normally guarantees one. This is the belt-and-braces
+    // arm: skip rather than invent a parent, so a roster/draft disagreement cannot create an orphan.
+    if (monsterId === null) {
+      return of(null);
+    }
+
+    const request: UpsertMinionRequest = {
+      name: draft.name,
+      description: this.toNullable(draft.description),
+      harmCapacity: draft.harmCapacity,
+      minionTypeId: draft.minionTypeId,
+    };
+
+    const save$ =
+      draft.id !== null ? this.minionService.update(draft.id, request) : this.minionService.create(monsterId, request);
+
+    return save$.pipe(
+      switchMap((minion) =>
+        this.reparentIfMoved(draft, minion.id, monsterId).pipe(
+          switchMap(() =>
+            this.saveMinionCollections(minion.id, draft).pipe(
+              map((collections) => ({ index, minionId: minion.id, monsterId, collections })),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /**
-   * Baseline ids no longer on the roster.
+   * **The re-parent, and it fires only when the parent actually changed** (J2, `5b-K4`).
+   *
+   * `UpsertMinionRequest` carries no `MonsterId` and `UpdateAsync` never sets one, so the plain
+   * update cannot move a minion — that is what decision 18's dedicated verb is for. Comparing
+   * against `existingMonsterId` rather than firing unconditionally matters for a reason beyond N
+   * no-op writes per Next: this verb **moves**, and against a stale id it silently relocates a
+   * minion rather than failing. Issuing it only on a real change keeps the blast radius equal to
+   * the user's actual intent.
+   *
+   * A newly created minion needs no move — `create(monsterId, …)` parented it correctly — and its
+   * `existingMonsterId` is `null`, which this treats as "nothing to move from".
+   */
+  private reparentIfMoved(draft: MinionDraft, minionId: string, monsterId: string): Observable<unknown> {
+    const moved = draft.id !== null && draft.existingMonsterId !== null && draft.existingMonsterId !== monsterId;
+    return moved ? this.minionService.moveToMonster(monsterId, minionId) : of(undefined);
+  }
+
+  /**
+   * Ids, parents and baselines back onto the minion drafts — and the per-monster minion baseline
+   * rebuilt from the same saved state, so `MonsterDraft.existingMinionIds` reflects where each
+   * minion now actually lives (which is what makes the *next* submit's diff correct).
+   */
+  private writeBackMinionDrafts(drafts: MinionDraft[], results: (SavedMinion | null)[]): void {
+    const saved = [...drafts];
+    for (const result of results) {
+      if (result === null) {
+        continue;
+      }
+
+      const { index, minionId, monsterId, collections } = result;
+      const draft = saved[index];
+      saved[index] = {
+        ...draft,
+        id: minionId,
+        // J2: the server's parent is now the one we just saved against.
+        existingMonsterId: monsterId,
+        attacks: rekeyDrafts(draft.attacks, collections.attacks),
+        powers: rekeyDrafts(draft.powers, collections.powers),
+        weaknesses: rekeyDrafts(draft.weaknesses, collections.weaknesses),
+        armors: rekeyDrafts(draft.armors, collections.armors),
+        existingAttacks: collections.attacks,
+        existingPowers: collections.powers,
+        existingWeaknesses: collections.weaknesses,
+        existingArmors: collections.armors,
+      };
+    }
+
+    this.minionDrafts.set(saved);
+    this.monsterDrafts.update((monsters) =>
+      monsters.map((monster) => ({
+        ...monster,
+        existingMinionIds: saved
+          .filter((minion) => minion.monsterKey === monster.localKey && minion.id !== null)
+          .map((minion) => minion.id as string),
+      })),
+    );
+  }
+  /**
+   * Baseline ids no longer claimed by any draft.
    *
    * **`pendingRemovals` is authoritative and this is the consistency check** (§7.3), so anything
    * that collection has a recorded disposition for is excluded here. Without that exclusion a
@@ -1970,7 +2667,10 @@ export class MysteryCreateStore {
    * `forkJoin` — two calls for one removal, racing, with the unlink liable to 404 against the row
    * the delete just destroyed and fail the whole phase.
    *
-   * `collection` is optional because the minion diff has no dispositions to reconcile against.
+   * **`drafts` is the whole collection, even when `savedIds` is one owner's baseline** (§7.7i). The
+   * minion caller passes one monster's `existingMinionIds` and *all* minion drafts: scoping both
+   * sides per-monster would delete a minion re-parented away from that monster, whose id is in its
+   * old owner's baseline and whose draft now carries a different `monsterKey`.
    */
   private idsToRemove(
     savedIds: string[],
@@ -2038,10 +2738,19 @@ export class MysteryCreateStore {
         return !this.locations().some((draft) => draft.id === removal.id);
       case 'bystanders':
         return !this.bystanders().some((draft) => draft.id === removal.id);
+      case 'monsters':
+        return !this.monsterDrafts().some((draft) => draft.id === removal.id);
       case 'minions':
-        // A minion's parent is the wizard's single monster in 5a, so "its parent left the roster"
-        // is "there is no monster being edited". 5b replaces this with the monster roster lookup.
-        return this.editingMonsterId() !== null && !this.minionDrafts().some((draft) => draft.id === removal.id);
+        // **A child whose parent has left the roster is not the roster's business** (§7.7f, H4).
+        // Delete a minion, then remove its monster: the minion's draft leaves with its parent, so
+        // "is it back in the drafts" no longer finds it and the disposition would survive. Under a
+        // monster *detach* that would destroy the minion in every other mystery, while the modal
+        // the user read promised detach leaves minions alone. Under *delete* the FK cascade has
+        // already taken it, so the request is a duplicate.
+        return (
+          this.monsterDrafts().some((monster) => monster.existingMinionIds.includes(removal.id)) &&
+          !this.minionDrafts().some((draft) => draft.id === removal.id)
+        );
     }
   }
 
@@ -2059,6 +2768,12 @@ export class MysteryCreateStore {
           return removal.action === 'delete'
             ? this.bystanderService.delete(removal.id)
             : this.bystanderService.unlinkFromMystery(mysteryId, removal.id);
+        case 'monsters':
+          // Delete FK-cascades the minions (decision 13) — which is why no separate minion
+          // disposition is ever recorded for them, and why exactly one DELETE goes out (`5b-M3`).
+          return removal.action === 'delete'
+            ? this.monsterService.delete(removal.id)
+            : this.monsterService.unlinkFromMystery(mysteryId, removal.id);
         case 'minions':
           // Delete-only, and `removal.action` is narrowed to `'delete'` by the union itself
           // (decision 17): a minion has no mystery membership, so there is nothing to detach.
@@ -2127,11 +2842,45 @@ export class MysteryCreateStore {
       this.catalogBystanders.update((items) => items.filter((item) => !deletedBystanders.has(item.id)));
     }
 
-    // Minions get the baseline update and **no catalogue prune** — there is no attach picker on the
-    // minion step and there never will be (UX §2.5), so there are no cached options to go stale.
+    const removedMonsters = idsFor('monsters');
+    if (removedMonsters.size > 0) {
+      this.existingMonsterIds.update((ids) => ids.filter((id) => !removedMonsters.has(id)));
+    }
+
+    const deletedMonsters = idsFor('monsters', 'delete');
+    if (deletedMonsters.size > 0) {
+      this.catalogMonsters.update((items) => items.filter((item) => !deletedMonsters.has(item.id)));
+    }
+
+    /**
+     * **The minions arm, walking the roster** (BUG 1, §7.7j).
+     *
+     * 5a pruned a flat `existingMinionIds` signal here. When J1 moved that baseline onto
+     * `MonsterDraft` this arm was **deleted** rather than relocated, on the justification that "the
+     * only way a minion's disposition drains is if its monster is still on the roster — in which
+     * case the id is dropped by the submit's writeback."
+     *
+     * **The first clause holds; the second does not.** `applyPendingRemovals` runs from all four
+     * `submitPhaseN` (decision 15, which is what closed G1); `writeBackMinionDrafts` runs from one,
+     * inside `submitPhase1`. Drain a minion deletion from phase 0, 2 or 3 and the id stays in its
+     * monster's baseline with its disposition now cleared — which is exactly *baseline − drafts −
+     * disposed* leaving it in `removedIds`, a blind second `DELETE` on the diff path, the one with
+     * no 404 handler. The phase then fails and **the user cannot leave the Monsters step**, with no
+     * amount of retrying helping, because nothing ever clears the stale entry.
+     *
+     * It belongs here and not in `stillTheRostersBusiness`: that decides *which* dispositions drain;
+     * this is bookkeeping after one succeeds, which is consumer 2's documented job. Fusing the two
+     * is how §7.7 produced (e), (f) and (i).
+     */
     const removedMinions = idsFor('minions');
     if (removedMinions.size > 0) {
-      this.existingMinionIds.update((ids) => ids.filter((id) => !removedMinions.has(id)));
+      this.monsterDrafts.update((drafts) =>
+        drafts.map((draft) =>
+          draft.existingMinionIds.some((id) => removedMinions.has(id))
+            ? { ...draft, existingMinionIds: draft.existingMinionIds.filter((id) => !removedMinions.has(id)) }
+            : draft,
+        ),
+      );
     }
   }
 
@@ -2323,32 +3072,24 @@ export class MysteryCreateStore {
   }
 
   /** The monster's four collections, same diff, same contract. */
-  private saveThreatCollections(monsterId: string): Observable<SavedThreatCollections> {
+  /**
+   * **One monster's four collections, diffed against *that monster's* own baseline** (`5b-R3`).
+   *
+   * Until 5b this read four store-level signals — the single-monster shape — so under a roster it
+   * would have diffed every monster against whichever monster was last in the composer. It now has
+   * the shape the minion path already had: state in, per owner.
+   */
+  private saveThreatCollections(monsterId: string, draft: MonsterDraft): Observable<SavedThreatCollections> {
     return forkJoin({
-      attacks: applySubResourceDiff(
-        monsterId,
-        this.monsterAttacks(),
-        this.existingMonsterAttacks(),
-        this.monsterAttackService,
-      ),
-      powers: applySubResourceDiff(
-        monsterId,
-        this.monsterPowers(),
-        this.existingMonsterPowers(),
-        this.monsterPowerService,
-      ),
+      attacks: applySubResourceDiff(monsterId, draft.attacks, draft.existingAttacks, this.monsterAttackService),
+      powers: applySubResourceDiff(monsterId, draft.powers, draft.existingPowers, this.monsterPowerService),
       weaknesses: applySubResourceDiff(
         monsterId,
-        this.monsterWeaknesses(),
-        this.existingMonsterWeaknesses(),
+        draft.weaknesses,
+        draft.existingWeaknesses,
         this.monsterWeaknessService,
       ),
-      armors: applySubResourceDiff(
-        monsterId,
-        this.monsterArmors(),
-        this.existingMonsterArmors(),
-        this.monsterArmorService,
-      ),
+      armors: applySubResourceDiff(monsterId, draft.armors, draft.existingArmors, this.monsterArmorService),
     });
   }
 

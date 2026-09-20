@@ -67,7 +67,7 @@ export class ConfirmDeleteModalComponent {
    * which is the common case for a flat Location (§7.1).
    *
    * **Its default is `''`, not the old `'This cannot be undone.'`, and that is deliberate.** **Ten**
-   * of the thirteen shipped call sites end up with that exact sentence as `message` and an empty
+   * of the shipped call sites end up with that exact sentence as `message` and an empty
    * `items`, so keeping the old default while rendering unconditionally would print it twice on
    * each of them. Seven pass it explicitly; the other three — `mysteries-list`, `monster-detail`
    * and `minion-detail` — pass no `message` at all and inherit `message`'s own default, which is
@@ -242,7 +242,7 @@ export class ConfirmDeleteModalComponent {
   /**
    * Falls back to the first focus stop in whatever contains this dialog — "the phase's first
    * focusable control" in §8 item 5's wording. Deliberately derived from the DOM rather than taken
-   * as an input, so all thirteen call sites get it without passing anything: in the wizard it lands
+   * as an input, so every call site gets it without passing anything: in the wizard it lands
    * on the roster the user was just in, and on a list page on that page's first control.
    */
   private focusSurroundingSurface(): void {

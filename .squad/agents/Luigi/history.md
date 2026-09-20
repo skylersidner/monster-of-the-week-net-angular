@@ -1853,3 +1853,76 @@ Phase 5a of `mystery-entity-linking.md` (rev 10, §5.4/§6.6/§7.7a–h) plus UX
 Monster roster and `MonsterDraft`, monster attach and its busy strip, the minion monster-picker wired to `moveToMonster`, `monsters[0]`, and monster-optional validation (`validateCurrentStep`'s phase-1/step-0 block is untouched — 5a-B2).
 
 Not committed.
+
+---
+
+## 2026-09-20 (same day, follow-up): Phase 5b — the monster roster, decision 19, attach, and the J-cluster
+
+### Task
+Phase 5b of `mystery-entity-linking.md` (rev 11) plus UX §5/§16/§17/§18 and Peach's `mystery-entity-linking-acceptance-phase-5b.md`. Branch `mystery-entity-linking-phase-5b` off `f8170eb`. The monster roster, decision 19, monster attach, the minion monster-picker, monster linking on the standalone form, the J-cluster (J1/J2/J4/J6), the `monsterPreview()` retirement, and two sweeps. Not committed.
+
+### Reusable technical facts
+- **Ordering was load-bearing twice and both instructions were right.** Renaming the four composer signals to `minion…` first cost four files of pure mechanics; doing it after a second composer existed would have been four files of ambiguity. And landing J1 *before* `submitPhase1` was rewritten meant the rewrite was written against the per-monster baseline rather than retrofitted onto a flat one.
+- **The fix for J1 is a field, not a rule.** `MonsterDraft.existingMinionIds` replaces the store-level flat signal, and `persistedForRemoval('minions', …)` reads a `computed` that flattens the roster. Removing a monster then forgets its minions' baseline *because the baseline went with the draft* — there is no "and also clear these ids" line to omit. `clearDrainedRemovals` lost its minion arm entirely as a result, which is the visible proof.
+- **The baseline is per-owner; the drafts operand stays global.** `removedIds(D) = D.existingMinionIds − *all* minion drafts − disposed`. Scoping the drafts per-monster too deletes a minion re-parented *away* from D, whose id is in D's baseline and whose draft now carries another `monsterKey`. A negative control that scoped both sides failed exactly one test, which is why that test exists.
+- **J2's baseline parent is the server id, never a baseline `monsterKey`.** Keys are client-side and hydration mints fresh ones, so comparing them across a load boundary is meaningless.
+- **The §7.7i third case is the one that is easy to miss**, and it is J1 by another route: a minion whose baseline parent is another roster monster, pending a move to the one being removed, must have its `monsterKey` *revert*. Without it the draft leaves with the removed monster, the minion stays in its real parent's baseline unclaimed, and that parent's own diff deletes it.
+- **A composer's `monsterKey` must be derived, not stored.** The roster can change while the composer is open — attach a second monster, or remove one — and a value written at reset then names the wrong monster. `effectiveMinionMonsterKey()` answers "the sole monster if there is one, else the control".
+- **`TestBed.inject` does not find a component-provided store.** `MysteryCreateStore` is in the component's `providers`, so a spec that renders the wizard must use `fixture.debugElement.injector.get(...)`. `TestBed.inject` throws NG0201.
+- **Dynamic `?raw` imports do not resolve under the Angular unit-test builder** ("Module not found in bundle"). A `track $index` sweep cannot be asserted by reading template source from a test; assert the *consequence* instead — a surviving row's DOM node identity across a splice, which is what the key buys and what reverting one token breaks.
+- **A refetch-ending save needs a double that behaves like a server.** `monster-detail`'s `getById` stub kept answering the original monster after `update`, so the new post-save refetch looked like it had lost the user's edit. The double now holds mutable server truth.
+
+### Judgment calls
+- **The `validateCurrentStep` phase-1/step-0 branch was deleted rather than rewritten.** I first replaced the hard block with a composer-rule branch; a negative control removing it was **NOT CAUGHT**, because `next()` calls `commitMonsterComposerIfValid()` immediately afterwards and that already refuses a started-but-invalid composer with the same message. So the branch was a second copy of one rule — the same redundancy phases 2 and 3 already decline to carry. Deleted it, and the re-aimed control (removing the commit call) failed 26 tests.
+- **`monsterPreview()` was renamed to `monsterComposerPreview()`, not deleted outright.** Under a roster "the monster" has no single referent, and the old name invited exactly the mistake `phaseStepComplete:601` had made — reading the live composer form as if it were saved content. Its one remaining consumer is the dossier's single expanded entry, which is the role `minionPreview` already plays.
+- **`monster-create`'s single-mystery `Attach to Mystery` control is gone**, not kept alongside the form's new multi-select. The create is now always standalone plus membership `PUT`s, which is the Locations/Bystanders shape since Phase 2; keeping both would have left two controls writing the same fact.
+- **`wizardRemovalFootnote` gained an optional cascade clause** rather than a second monster-specific function, so the last-phase deferral branch stays in one place. The clause attaches to the *Delete* sentence only, because that is the only verb it is true of.
+- **Phase 4's A9 was retired, not skipped.** It asserted `attachMonster` did not exist. What survives it is `5b-T9`: the *locations* strip gains no busy or error state, because it has no fetch.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npx ng test --watch=false`: 91 files / **1167** tests, from a 1097 baseline.
+- `dotnet test src/api/MonsterOfTheWeek.Api.Tests`: **565 passed**, untouched; `git status src/api` empty.
+- **Nine negative controls, all CAUGHT** after the one correction above: flat minion baseline (7 failed, incl. all four J1/H4 tests); §7.7i revert removed (1); re-parent fired unconditionally (18); half-hydrated attach committed (9); cascade `[items]` read from the roster (1); the monster composer commit rule removed (26); drafts operand scoped per-monster (1); partial edit-mode hydration (1); `monsters[0]` truncation plus the dropped membership `PUT` (21).
+- **One NOT CAUGHT**, and the production code was changed rather than the control: the redundant `validateCurrentStep` branch.
+
+### Files
+- **Added:** `mystery-create-phase5b-roster.spec.ts`, `mystery-create-phase5b-monster-phase.spec.ts`.
+- **Modified:** `mystery-create.store.ts` (roster, `MonsterDraft`, J1/J2/J4, `submitPhase1`, attach, decision 19, the step dot); `hydrate-monster.ts` (returns a `MonsterDraft` + minions); `mystery-create-monster-phase.{ts,html}` (roster, attach strip, modal variants, picker); `mystery-create-dossier.{ts,html}`; `mystery-create.html`; `core/monster.ts` (membership verbs); `shared/mystery-usage.ts` (cascade clause); `monster-form.{ts,html}` + both its pages; `app.html` and `login.html` (`animate-spin`); nine spec files.
+
+### Left deliberately
+The screen-reader announcement region and roster button labels (UX §8 items 2–3, under Skyler's waiver). Attach/detach from the mystery detail page (F1/F2). An expand-style `GET /api/monsters/{id}` (§8.7). Losing unsubmitted field edits on a tracker jump (F9).
+
+Not committed.
+
+---
+
+## 2026-09-20 (same day, follow-up): Phase 5b QA — the two baseline-lifecycle bugs, and the counting sweep
+
+### Task
+Toad's 5b pass found two production bugs; Yoshi ruled on both in rev 12 (§6.6 BUG 2, §7.7j BUG 1) and both were owned tasks before merge. Plus §8.8: check any other counting assertion in the wizard specs for the shape that let the Escape sweep narrow silently. Branch `mystery-entity-linking-phase-5b`. Not committed.
+
+### Reusable technical facts
+- **"Covered elsewhere" is a claim about *ordering*, not existence** (principle 6, rev 12). BUG 1's justification named a real consumer — `writeBackMinionDrafts` rebuilds `MonsterDraft.existingMinionIds` — and was still false, because the drain runs from all four `submitPhaseN` (decision 15) and the writeback from one. **Decision 15 widened *when* the drain runs without widening the bookkeeping beside it.** When deleting state, enumerate consumers *and the phases each one runs in*.
+- **A baseline and its draft need one writer, and "clear it on the error path" does not achieve that.** BUG 2's obvious fix — clearing `existingMonsterIds` in `loadEditData`'s error handler — passed **every** test I had, including the converted characterisations. The window it leaves is on the *success* path, between the early write and the subscribe. Moving the write removes the interval; clearing on error only shortens it.
+- **A window like that can be pinned, and the oracle is a consumer standing inside it.** I wrapped `monsterService.getById` in a `defer` that samples `persistedForRemoval` at subscribe, mid-fan-out, and asserted the baseline is never populated while the roster is empty. That is the one assertion that fails for the error-handler variant — and it converted a NOT-CAUGHT control into a caught one rather than leaving a structural ruling untested.
+- **A census asserted against itself cannot fail.** `confirm-delete-modal.call-sites.spec.ts` read `expect(Object.keys(perTemplate)).toHaveLength(12)` and `…reduce(…)).toBe(13)` — both facts about the literal three lines above. It sat at 13-in-12 while Phase 4 added two call sites and 5b a third; the truth is **16 in 14**. Fixed the numbers and moved the derivable half (the wizard's four) into the wizard spec, which mounts the app and counts.
+- **A count is only as good as the state it is taken in.** My first version of that derived test counted the minion step's modal with an empty roster and got 0 — because 5b suppresses the whole step body there. That is the identical trap the Escape sweep fell into: the number was right, the *state* did not contain the thing.
+- **An `every`-style loop over a derived set passes vacuously when the set is empty.** Added a length guard to `roster-keyboard`'s tab-order loop for the same reason Toad guarded `sweepEscape` with `toBeGreaterThan(0)`.
+- **`import.meta.glob('../**/*.html', { eager: true })` hangs the Angular unit-test run.** Combined with the earlier finding that dynamic `import('./x.html?raw')` is "not found in bundle", template source is effectively unavailable to a unit test here — derive counts from the *rendered* app instead.
+
+### Judgment calls
+- **BUG 1's arm went in `clearDrainedRemovals`, walking the roster — not `stillTheRostersBusiness`.** Yoshi's ruling, and I checked it: a negative control that fused the bookkeeping into the drain filter was **NOT CAUGHT**, because the two are observationally equivalent for every sequence reachable today. I kept his placement and did not manufacture a test for a structural preference. The argument stands on its own — that function answers "should this run", this is "record that it ran", and fusing them is how §7.7 produced (e), (f) and (i).
+- **The converted characterisations kept their phase-state assertions but lead with the ledger.** `expect(callsMatching(/^minion\.delete/)).toEqual([])` comes first and `submitError`/`currentPhase` follow, because the control has to bite at the destructive assertion — a display-only assertion is what let the §7.7i case hide.
+- **BUG 2's ledger assertion is `/^monster\./`, not `/^monster\.unlink/`.** With the baseline unpopulated there is nothing to update or link either, so the whole monster surface must be silent; the narrower pattern would pass if the diff merely changed which destructive call it made.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npx ng test --watch=false`: 92 files / **1190** tests, from Toad's 1188 baseline (+1 derived census, +1 mid-load window probe).
+- `dotnet test src/api/MonsterOfTheWeek.Api.Tests`: **568 passed**. The one untracked file under `src/api` is Toad's `MonsterMinionCascadeTests.cs`; I changed nothing there.
+- **Five negative controls, three CAUGHT and two not:** neuter the restored minions arm (4 failed — all four BUG 1 tests); move the baseline write back before the hydration (2 — both BUG 2 tests, biting at the unlink ledger); drop the drafts while keeping the baseline write (28). **NOT CAUGHT:** the error-handler variant of BUG 2 — fixed by adding the mid-load probe, after which it fails; and fusing BUG 1's bookkeeping into `stillTheRostersBusiness`, left uncaught deliberately.
+
+### Files
+- **Modified:** `mystery-create.store.ts` (both fixes); `mystery-create-phase5b-baseline-leaks.spec.ts` (six characterisations → assertions, plus the window probe); `confirm-delete-modal.call-sites.spec.ts` (census corrected 13/12 → 16/14, tautology replaced); `mystery-create-phase5b-monster-phase.spec.ts` (derived wizard census); `mystery-create-roster-keyboard.spec.ts` (empty-set guard); `confirm-delete-modal.component.{ts,spec.ts}` (stale "thirteen" prose).
+
+Not committed.

@@ -10,32 +10,22 @@ import {
   MonsterPowerResponse,
   MonsterWeaknessResponse,
 } from '../../../../core/models';
-import type { ArmorDraft, AttackDraft, MinionDraft, PowerDraft, WeaknessDraft } from './mystery-create.store';
+import type { ArmorDraft, AttackDraft, MinionDraft, MonsterDraft, PowerDraft, WeaknessDraft } from './mystery-create.store';
 import { createDraftKey } from './mystery-create.store';
 
 /**
- * Everything the wizard needs to hold a monster that already exists on the server: the composer's
- * fields, its four sub-resource drafts, the baseline those drafts were built from, and the minions
- * that travel with it (decision 13).
+ * Everything the wizard needs to hold a monster that already exists on the server: a complete
+ * `MonsterDraft` — fields, four sub-resource drafts, the baselines those drafts were built from,
+ * and the ids of its persisted minions — plus the minion drafts that travel with it (decision 13).
  *
- * 5a fills the monster half into the shipped single-monster signals. 5b turns this into a
- * `MonsterDraft` plus its minions, with no change to how it is built.
+ * **Both callers commit this atomically or not at all** (§6.6, J6): edit-mode load and attach. A
+ * caller that took the monster and dropped the minions would produce exactly the half-hydrated
+ * roster row the invariant exists to forbid.
  */
 export interface HydratedMonster {
-  id: string;
-  name: string;
-  description: string;
-  harmCapacity: number;
-  monsterTypeId: string;
-  monsterArchetypeId: string;
-  attacks: AttackDraft[];
-  powers: PowerDraft[];
-  weaknesses: WeaknessDraft[];
-  armors: ArmorDraft[];
-  existingAttacks: MonsterAttackResponse[];
-  existingPowers: MonsterPowerResponse[];
-  existingWeaknesses: MonsterWeaknessResponse[];
-  existingArmors: MonsterArmorResponse[];
+  /** The roster entry, complete and diffable. Nothing enters the roster that is not one of these. */
+  monster: MonsterDraft;
+  /** Its minions, already pointed at `monster.localKey`. They join the flat `minionDrafts()` roster. */
   minions: MinionDraft[];
 }
 
@@ -50,30 +40,45 @@ export interface HydratedMonster {
  * Pure, so it can be tested without an HTTP layer and reused by the submit path's writeback.
  */
 export function toHydratedMonster(monster: MonsterDetailResponse, minions: MinionDetailResponse[]): HydratedMonster {
+  const localKey = createDraftKey('monster');
+
   return {
-    id: monster.id,
-    name: monster.name,
-    description: monster.description ?? '',
-    harmCapacity: monster.harmCapacity,
-    monsterTypeId: monster.monsterTypeId,
-    monsterArchetypeId: monster.monsterArchetype.id,
-    attacks: monster.attacks.map(toAttackDraft),
-    powers: monster.powers.map(toNamedDraft),
-    weaknesses: monster.weaknesses.map(toNamedDraft),
-    armors: monster.armors.map(toArmorDraft),
-    existingAttacks: monster.attacks,
-    existingPowers: monster.powers,
-    existingWeaknesses: monster.weaknesses,
-    existingArmors: monster.armors,
-    minions: minions.map(toMinionDraft),
+    monster: {
+      id: monster.id,
+      localKey,
+      name: monster.name,
+      description: monster.description ?? '',
+      harmCapacity: monster.harmCapacity,
+      monsterTypeId: monster.monsterTypeId,
+      monsterArchetypeId: monster.monsterArchetype.id,
+      attacks: monster.attacks.map(toAttackDraft),
+      powers: monster.powers.map(toNamedDraft),
+      weaknesses: monster.weaknesses.map(toNamedDraft),
+      armors: monster.armors.map(toArmorDraft),
+      existingAttacks: monster.attacks,
+      existingPowers: monster.powers,
+      existingWeaknesses: monster.weaknesses,
+      existingArmors: monster.armors,
+      // J1: the minion baseline is built here, from the same responses the drafts are, and it lives
+      // on the draft. Removing the monster therefore forgets it with no separate step.
+      existingMinionIds: minions.map((minion) => minion.id),
+      // Tolerant of an absent field: this is read only by the removal modal's usage copy, and a
+      // whole hydration — which is all-or-nothing (§6.6) — must not fail over it.
+      mysteryIds: [...(monster.mysteryIds ?? [])],
+    },
+    minions: minions.map((minion) => toMinionDraft(minion, localKey)),
   };
 }
 
 /** The same construction one level down. H1: the minion path was never the safe model. */
-export function toMinionDraft(minion: MinionDetailResponse): MinionDraft {
+export function toMinionDraft(minion: MinionDetailResponse, monsterKey: string): MinionDraft {
   return {
     id: minion.id,
     localKey: createDraftKey('minion'),
+    monsterKey,
+    // J2: the server's parent, recorded in the same step as the id and the four sub-resource
+    // baselines. `monsterKey` is where it points now; this is where the server still has it.
+    existingMonsterId: minion.monsterId,
     name: minion.name,
     description: minion.description ?? '',
     harmCapacity: minion.harmCapacity,

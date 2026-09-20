@@ -151,7 +151,7 @@ describe('ConfirmDeleteModalComponent', () => {
   });
 
   it('defaults the footnote to nothing, so a call site that never passed one still renders one line', async () => {
-    // Ten of the thirteen shipped call sites end up with "This cannot be undone." as `message`
+    // Ten of the shipped call sites end up with "This cannot be undone." as `message`
     // and an empty `items` — seven pass it, three inherit it from `message`'s own default. With the
     // old 'This cannot be undone.' footnote default and unconditional rendering they would print it
     // twice; the empty default is what keeps them byte-identical.
@@ -339,7 +339,7 @@ describe('ConfirmDeleteModalComponent', () => {
   it('falls back to the first control on the surrounding surface when the opener is gone', async () => {
     // §8 item 5's last clause. The `isConnected` guard stops the crash; without a fallback it left
     // focus on `<body>`, which is the orphaning defect one interaction later. Derived from the DOM
-    // rather than passed in, so all thirteen call sites get it without changing anything.
+    // rather than passed in, so every call site gets it without changing anything.
     host.visible.set(false);
     await render();
 

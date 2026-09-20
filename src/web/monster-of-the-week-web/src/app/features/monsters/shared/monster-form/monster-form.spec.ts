@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { MonsterArchetypeResponse, MonsterDetailResponse, TypeRefResponse, UpsertMonsterRequest } from '../../../../core/models';
-import { MonsterFormComponent } from './monster-form';
+import { MonsterFormComponent, MonsterFormSubmit } from './monster-form';
 
 const monsterTypes: TypeRefResponse[] = [{ id: 'monster-type-1', name: 'Beast', motivation: 'to feed' }];
 
@@ -31,7 +31,7 @@ function buildMonster(overrides: Partial<MonsterDetailResponse> = {}): MonsterDe
 describe('MonsterFormComponent', () => {
   let fixture: ComponentFixture<MonsterFormComponent>;
   let component: MonsterFormComponent;
-  let emitted: UpsertMonsterRequest[];
+  let emitted: MonsterFormSubmit[];
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -94,11 +94,12 @@ describe('MonsterFormComponent', () => {
       harmCapacity: 4,
       monsterTypeId: 'monster-type-1',
       monsterArchetypeId: 'monster-archetype-1',
+      mysteryIds: [],
     });
 
     component.onSubmit();
 
-    expect(emitted).toEqual([
+    expect(emitted.map((entry) => entry.monster)).toEqual([
       {
         name: 'Swamp Thing',
         description: null,
@@ -116,11 +117,12 @@ describe('MonsterFormComponent', () => {
       harmCapacity: 4,
       monsterTypeId: 'monster-type-1',
       monsterArchetypeId: 'monster-archetype-1',
+      mysteryIds: [],
     });
 
     component.onSubmit();
 
-    expect(emitted[0].description).toBe('Lurks in the fog.');
+    expect(emitted[0].monster.description).toBe('Lurks in the fog.');
   });
 
   it('starts blank in create mode', () => {
@@ -130,6 +132,7 @@ describe('MonsterFormComponent', () => {
       harmCapacity: 0,
       monsterTypeId: '',
       monsterArchetypeId: '',
+      mysteryIds: [],
     });
   });
 
@@ -143,6 +146,8 @@ describe('MonsterFormComponent', () => {
       harmCapacity: 7,
       monsterTypeId: 'monster-type-1',
       monsterArchetypeId: 'monster-archetype-1',
+      // The membership the monster arrived with (5b) — the form is the diff's baseline as well as its editor.
+      mysteryIds: ['m1'],
     });
   });
 
@@ -162,6 +167,7 @@ describe('MonsterFormComponent', () => {
       harmCapacity: 2,
       monsterTypeId: 'monster-type-1',
       monsterArchetypeId: 'monster-archetype-1',
+      mysteryIds: ['m1'],
     });
   });
 
@@ -196,6 +202,7 @@ describe('MonsterFormComponent', () => {
       harmCapacity: 0,
       monsterTypeId: '',
       monsterArchetypeId: '',
+      mysteryIds: [],
     });
   });
 });
