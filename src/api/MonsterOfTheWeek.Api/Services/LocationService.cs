@@ -134,6 +134,36 @@ public sealed class LocationService(ILocationRepository locationRepository) : IL
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
         await locationRepository.DeleteLocationAsync(id, cancellationToken) > 0;
 
+    /// <summary>
+    /// Asserts that the membership row exists. Idempotent: re-linking an already-linked location
+    /// is a successful no-op, never a conflict, because the wizard fires this unconditionally for
+    /// every draft that carries an id. Returns false only when the mystery or the location does
+    /// not exist, which the controller surfaces as 404.
+    /// </summary>
+    public async Task<bool> LinkToMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken)
+    {
+        if (!await locationRepository.MysteryExistsAsync(mysteryId, cancellationToken))
+        {
+            return false;
+        }
+
+        if (!await locationRepository.LocationExistsAsync(id, cancellationToken))
+        {
+            return false;
+        }
+
+        if (await locationRepository.LocationLinkedToMysteryAsync(mysteryId, id, cancellationToken))
+        {
+            return true;
+        }
+
+        await locationRepository.LinkLocationToMysteryAsync(
+            new MysteryLocation { MysteryId = mysteryId, LocationId = id },
+            cancellationToken);
+        await locationRepository.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken)
     {
         var deleted = await locationRepository.UnlinkLocationFromMysteryAsync(mysteryId, id, cancellationToken);

@@ -141,6 +141,36 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
         await bystanderRepository.DeleteBystanderAsync(id, cancellationToken) > 0;
 
+    /// <summary>
+    /// Asserts that the membership row exists. Idempotent: re-linking an already-linked bystander
+    /// is a successful no-op, never a conflict, because the wizard fires this unconditionally for
+    /// every draft that carries an id. Returns false only when the mystery or the bystander does
+    /// not exist, which the controller surfaces as 404.
+    /// </summary>
+    public async Task<bool> LinkToMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken)
+    {
+        if (!await bystanderRepository.MysteryExistsAsync(mysteryId, cancellationToken))
+        {
+            return false;
+        }
+
+        if (!await bystanderRepository.BystanderExistsAsync(id, cancellationToken))
+        {
+            return false;
+        }
+
+        if (await bystanderRepository.BystanderLinkedToMysteryAsync(mysteryId, id, cancellationToken))
+        {
+            return true;
+        }
+
+        await bystanderRepository.LinkBystanderToMysteryAsync(
+            new MysteryBystander { MysteryId = mysteryId, BystanderId = id },
+            cancellationToken);
+        await bystanderRepository.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken)
     {
         var deleted = await bystanderRepository.UnlinkBystanderFromMysteryAsync(mysteryId, id, cancellationToken);

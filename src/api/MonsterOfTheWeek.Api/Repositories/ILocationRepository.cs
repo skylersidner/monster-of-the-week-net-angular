@@ -11,6 +11,7 @@ public interface ILocationRepository
     Task AddLocationAsync(Location location, CancellationToken cancellationToken);
     Task LinkLocationToMysteryAsync(MysteryLocation link, CancellationToken cancellationToken);
     Task<int> UnlinkLocationFromMysteryAsync(Guid mysteryId, Guid locationId, CancellationToken cancellationToken);
+    Task<bool> LocationLinkedToMysteryAsync(Guid mysteryId, Guid locationId, CancellationToken cancellationToken);
     Task<Location?> GetLocationDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken);
     Task<Location?> GetLocationForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> LocationExistsAsync(Guid id, CancellationToken cancellationToken);

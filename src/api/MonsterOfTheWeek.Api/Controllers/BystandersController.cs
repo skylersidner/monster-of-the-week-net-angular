@@ -93,6 +93,10 @@ public sealed class BystandersController(IBystanderService bystanderService) : C
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
         await bystanderService.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
 
+    [HttpPut("api/mysteries/{mysteryId:guid}/bystanders/{id:guid}")]
+    public async Task<IActionResult> LinkToMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
+        await bystanderService.LinkToMysteryAsync(mysteryId, id, cancellationToken) ? NoContent() : NotFound();
+
     [HttpDelete("api/mysteries/{mysteryId:guid}/bystanders/{id:guid}")]
     public async Task<IActionResult> UnlinkFromMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
         await bystanderService.UnlinkFromMysteryAsync(mysteryId, id, cancellationToken) ? NoContent() : NotFound();

@@ -11,6 +11,7 @@ public interface IBystanderRepository
     Task AddBystanderAsync(Bystander bystander, CancellationToken cancellationToken);
     Task LinkBystanderToMysteryAsync(MysteryBystander link, CancellationToken cancellationToken);
     Task<int> UnlinkBystanderFromMysteryAsync(Guid mysteryId, Guid bystanderId, CancellationToken cancellationToken);
+    Task<bool> BystanderLinkedToMysteryAsync(Guid mysteryId, Guid bystanderId, CancellationToken cancellationToken);
     Task<Bystander?> GetBystanderDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken);
     Task<Bystander?> GetBystanderForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> BystanderExistsAsync(Guid id, CancellationToken cancellationToken);

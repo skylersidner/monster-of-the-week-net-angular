@@ -210,3 +210,55 @@ my paging item and her browse-panel item, so both record it and whoever hits it 
 
 **Status: every question raised in either document is decided.** Phases 1, 2 and 3 are mutually
 independent and can start immediately.
+
+---
+
+## Rev 6 addendum (2026-09-19) — Boo's Phase 1 review: one correction, one gate, one follow-up
+
+Verdict **ship as-is**. Full review at `boo-mystery-entity-linking-phase1-security-review.md`.
+
+**Correction to §4.1: the link `PUT` and the unlink `DELETE` are NOT "both idempotent."** They are
+idempotent in *effect*; they differ in *status code*. A repeated `PUT` is 204; a repeated `DELETE` is
+**404**, because `UnlinkFromMysteryAsync` returns `deleted > 0` (`LocationService.cs:166-170` and its
+twins) and the controller maps that to `NoContent() : NotFound()`. The claim was the defect, not the
+code: `NoContent() : NotFound()` is the house pattern across **25** delete endpoints, so making unlink
+alone return 204-always would leave it inconsistent with its own neighbours, and changing all 25 is
+not this feature's business. The asymmetry stays.
+
+**Client handling of the resulting replay, decided — two rules, both required:**
+
+1. **Clear `pendingRemovals` on a successful phase submit.** This is the actual fix; it removes the
+   replay in every case except a genuinely partial `forkJoin` failure.
+2. **Treat 404 as success when applying a recorded disposition** — scoped to that path only, not to
+   deletes app-wide. Semantically right rather than papered over: the user asked for "not in this
+   mystery" or "does not exist," and 404 means the post-condition already holds. Keeping it narrow
+   preserves 404-as-error for user-initiated deletes elsewhere, where it can mean a wrong id.
+
+**Rejected: re-check before each removal.** Costs a GET per removal and only narrows the race rather
+than closing it — a pre-check that still needs the 404 handler behind it is worse than the handler alone.
+
+**The duplicate-key race moves from a Phase 1 note to a Phase 2 gate, bowser owning.** Acceptable in
+Phase 1 because Phase 1 has no client and cannot reach it. Boo's fix, and the reason the two obvious
+alternatives are worse than the current 500:
+
+- **Not** blanket `catch (DbUpdateException) { return true; }` — it also swallows a *second, separate*
+  TOCTOU in the same method, where the existence checks pass, the mystery or entity is deleted
+  concurrently, and the insert fails on the **foreign key** rather than the PK. That returns 204 for a
+  membership that does not exist, and §5.1 has the wizard trusting exactly that answer. A 500 is an
+  honest failure; a false 204 is a silent lie the client then builds on.
+- **Not** a `PostgresException { SqlState: "23505" }` filter — correct in production, untestable here,
+  because the repository fixture is in-memory SQLite and throws `SqliteException`.
+- **Do:** behind one insert-and-save repository method, catch `DbUpdateException` and **re-check
+  `…LinkedToMysteryAsync`**. Present → the concurrent insert won, 204 is truthful. Absent → **rethrow**,
+  it was not a duplicate. Detach the `Added` entry first so the abandoned insert cannot be retried by a
+  later `SaveChanges` in the same request. Discriminates on whether the row actually exists rather than
+  on a vendor error code, so it is provider-agnostic *and* exercisable under the existing fixture.
+
+This promotes `LocationLinkedToMysteryAsync` / `BystanderLinkedToMysteryAsync` from an idempotency
+convenience to load-bearing correctness.
+
+**Follow-up F8 added:** `LinkToMysteryAsync` is the first write verb in this codebase that joins two
+objects; every other write touches one. Not a defect today — per-user ownership is a deliberate,
+documented exclusion (`docs/simple-authentication-update/architecture.md:601`). But if ownership ever
+lands, this verb needs a **two-sided** check (the mystery *and* the entity), and the one-object guard
+idiom every other service uses will silently under-check it.

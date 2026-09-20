@@ -1,8 +1,8 @@
 # Connecting Monsters, Locations and Bystanders to a Mystery — Architecture
 
 **Prepared by:** Yoshi (Architect)
-**Status:** **Revision 5 — fully answered, end to end.** Skyler answered the original seven questions, then seven follow-ups, then Rosalina's remaining six — all on 2026-09-19. Every question raised in either document is now decided; **nothing is open in this doc or in hers** (§10). Work deliberately deferred is collected in §12 rather than left implicit. Ready to be marked Accepted, and Phases 1, 2 and 3 can start immediately.
-**Date:** 2026-09-19 (rev 5)
+**Status:** **Revision 6 — fully answered; Phase 1 security-reviewed.** Skyler answered the original seven questions, then seven follow-ups, then Rosalina's remaining six — all on 2026-09-19. Every question raised in either document is decided; **nothing is open** (§10). Boo reviewed Phase 1 the same day and returned **ship as-is**, with one correction to this document (§4.1) and one gate moved onto Phase 2 (§9). Deferred work is collected in §12. Ready to be marked Accepted; Phases 1, 2 and 3 can start immediately.
+**Date:** 2026-09-19 (rev 6)
 
 > Filed under `docs/updates/` alongside `docs/updates/multi-minion-support.md` and `docs/updates/standalone-creation-phase1-monsters.md`, which this work builds directly on. Supersedes nothing, and inherits nothing from the withdrawn hunter-advancement design.
 >
@@ -143,7 +143,13 @@ PUT    /api/mysteries/{mysteryId}/locations/{locationId}   → 204 | 404
 PUT    /api/mysteries/{mysteryId}/bystanders/{bystanderId} → 204 | 404
 ```
 
-**Why `PUT` on the membership URI.** That exact URI already ships as the unlink `DELETE` (`MonstersController.cs:53`). `PUT` is its precise mirror: membership is a resource, `PUT` asserts it exists, `DELETE` asserts it doesn't, both idempotent. Re-linking an already-linked entity is a 204 no-op, never a 409 — which matters concretely, because §5.1 fires these unconditionally from `forkJoin` batches. `POST` to the collection is unavailable: `POST /api/mysteries/{id}/monsters` already means *create a new monster here*, and a body-type overload is an ambiguous ASP.NET action match.
+**Why `PUT` on the membership URI.** That exact URI already ships as the unlink `DELETE` (`MonstersController.cs:53`). `PUT` is its mirror: membership is a resource, `PUT` asserts it exists, `DELETE` asserts it doesn't. Re-linking an already-linked entity is a 204 no-op, never a 409 — which matters concretely, because §5.1 fires these unconditionally from `forkJoin` batches. `POST` to the collection is unavailable: `POST /api/mysteries/{id}/monsters` already means *create a new monster here*, and a body-type overload is an ambiguous ASP.NET action match.
+
+> **Correction (rev 6, from Boo's Phase 1 security review).** Earlier revisions called the two verbs "both idempotent." **That is wrong as stated, and the error hides a real client bug.** They are idempotent in *effect* — the post-condition holds however many times you call them — but not in *status code*. A repeated `PUT` returns 204. A repeated `DELETE` returns **404**, because `UnlinkFromMysteryAsync` returns `deleted > 0` (`LocationService.cs:166-170` and its two twins) and the controller maps that to `NoContent() : NotFound()`.
+>
+> **The new `PUT` should not be made to match by weakening it, and the `DELETE` should not be changed to match either.** `NoContent() : NotFound()` is the house pattern across 25 delete endpoints in this codebase; making unlink alone return 204-always would leave it inconsistent with its immediate neighbours in the same controllers, and changing all 25 is not this feature's business. The asymmetry stays; the *claim* was the defect. §7.3 records how the client handles it.
+
+Boo rates this zero security weight — it is pure Phase 3/4 correctness, and it is called out here rather than left for Luigi to hit at runtime.
 
 `404` when either the mystery or the entity does not exist. **No request body, therefore no new DTO, no contract change.**
 
@@ -370,6 +376,17 @@ readonly pendingRemovals = signal<{ id: string; action: 'detach' | 'delete' }[]>
 
 `idsToRemove()` (`mystery-create.store.ts:1455`) stops being the sole source of truth and becomes a consistency check against it. Re-attaching the same entity before pressing Next must cancel its pending removal.
 
+**Replay and the 404 (from Boo's review — see the correction in §4.1).** A recorded disposition can be applied more than once, and a second detach of an already-unlinked membership returns 404, which the client's error path would treat as a failed phase submit. Three ways in: a partial `forkJoin` failure where some calls succeeded and the user presses Next again (the realistic one — partial failure of a fan-out batch is a known property of this wizard); the entity being unlinked from another surface in between, which Phase 3's list-page sweep makes more likely; and `pendingRemovals` simply not being cleared after a successful submit.
+
+**Decided, two rules, both needed:**
+
+1. **Clear `pendingRemovals` on a successful phase submit.** This is the actual fix — it removes the replay in every case except a genuinely partial failure. Without it the record survives and re-fires on every subsequent Next.
+2. **When applying a recorded disposition, treat 404 as success.** This is the safety net for the partial-failure case, and it is semantically right rather than a papering-over: the user asked for "this is not in this mystery" (detach) or "this does not exist" (delete), and a 404 means that post-condition already holds. Scope it tightly — **only on the `pendingRemovals` application path, not to deletes generally.** A user-initiated delete elsewhere in the app that 404s is still an error worth surfacing, and a blanket client-wide rule would hide genuine wrong-id bugs.
+
+**Rejected: re-checking membership before each removal.** It costs a GET per removal and does not close the race, only narrows it — the membership can still vanish between the check and the delete. A pre-check that still needs the 404 handler behind it is strictly worse than the 404 handler alone.
+
+**toad:** the test is "make the first phase submit fail after some removals have landed, press Next again, confirm the phase completes." That is the case rule 1 does not cover and rule 2 exists for.
+
 **This keeps the standing phase-transition submission decision intact** (decision 12), at the cost of a modal that says "Delete" and does not delete until Next — and of a user who abandons the wizard never having their deletion applied. The second property is a feature: nothing is destroyed until you advance. Rosalina carries the semantics in copy rather than mechanism (her §7.3).
 
 **Applies to all four entity types**, monsters and minions included, with §6.4's cascade rules folded into the monster modal's `items` list.
@@ -439,12 +456,24 @@ Fourteen decisions recorded in §3 and §3.1, filed to `.squad/decisions/inbox/`
 
 Repositories: `LocationLinkedToMysteryAsync`, `BystanderLinkedToMysteryAsync`. Services: `LinkToMysteryAsync` ×3. Controllers: three `PUT` actions. No migration, no DTO change.
 
-- **boo:** the new routes inherit the global `RequireAuthenticatedUser` fallback policy (`Program.cs:91`) — confirm that holds; review the idempotency path for a duplicate-key race on the composite PK.
+- **boo:** *(complete — reviewed 2026-09-19, verdict **ship as-is**; filed at `.squad/decisions/inbox/boo-mystery-entity-linking-phase1-security-review.md`).* The new routes inherit the global `RequireAuthenticatedUser` fallback policy (`Program.cs:91`). Two findings, neither blocking Phase 1: the §4.1 status-code correction, and the duplicate-key race below, which is a **Phase 2 gate**.
 - **toad:** service tests beside `LocationServiceTests` / `BystanderServiceTests` / `MonsterServiceTests`: link succeeds; link is idempotent; unknown mystery → 404; unknown entity → 404; link/unlink round-trips.
 
 Ships with no UI. Low risk, unblocked by every open question.
 
 ### Phase 2 — `MysterySelectComponent` + edit-form linking, Locations & Bystanders (rosalina → luigi, toad)
+
+> **Gate — must close before this phase ships (bowser).** The duplicate-key race on the membership composite PK, carried over from Phase 1. Boo's verdict: acceptable to ship in Phase 1 because Phase 1 has **no client and cannot reach it**; not acceptable once Phase 2 puts one in front of it. Two concurrent `PUT`s for the same membership both pass the `…LinkedToMysteryAsync` check, both insert, and the loser gets a 500.
+>
+> **Fix, as Boo specified it — and the two obvious implementations are both worse than the current 500, so take this one:**
+>
+> - **Not** a blanket `catch (DbUpdateException) { return true; }`. That also swallows a **second, separate TOCTOU in the same method**: the existence checks pass, the mystery or the entity is deleted concurrently, and the insert then fails on the **foreign key**, not the primary key. That path would return 204 for a membership that does not exist — and §5.1 has the wizard trusting exactly that answer. A 500 is an honest failure; a false 204 is a silent lie the client builds on.
+> - **Not** a `PostgresException { SqlState: "23505" }` filter. Correct in production, but untestable here: the repository fixture runs in-memory SQLite and throws `SqliteException`, so the filter would never be exercised by a test.
+> - **Do this:** in the repository, behind a single insert-and-save method, catch `DbUpdateException` and **re-check `…LinkedToMysteryAsync`**. Row now present → the concurrent insert won, and 204 is truthful. Row absent → **rethrow**, because it was not a duplicate. Detach the `Added` entry before returning, so the abandoned insert cannot be retried by a later `SaveChanges` in the same request.
+>
+> This discriminates on whether the membership actually ended up existing rather than on a vendor error code, which is why it is both provider-agnostic and exercisable under the existing SQLite fixture. Note that it makes `LocationLinkedToMysteryAsync` / `BystanderLinkedToMysteryAsync` — added in Phase 1 for the idempotency check — load-bearing for correctness too.
+>
+> **toad:** concurrent double-link returns 204 twice and leaves exactly one row; a link whose mystery is deleted concurrently still fails rather than reporting success.
 
 - **rosalina:** picker spec and its placement — her §9.1 puts it inside the form as its last field, replacing today's bolted-on external `mysteryControl`. No warning copy (decision 4); no chip links (§4.4).
 - **luigi:** build `shared/mystery-select.component.ts`; wire into `LocationFormComponent` and `BystanderFormComponent`; change both `save` payloads to the `…FormSubmit` wrapper; update four call sites; create pages collapse to `createStandalone` + membership `PUT`s and lose their bespoke `mysteryControl`; detail pages load `getMysteries()`.
@@ -534,6 +563,7 @@ Rosalina's `mystery-entity-linking-ux.md` carries a matching section. **Ownershi
 | **F5** | **Orphaned rows on wizard revisits** | §8.2. The unlink-then-recreate cycle leaves orphans in the flat catalog on edit-mode revisits. Pre-existing and deliberate; decision 8's upsert conversion shrinks the blast radius but does not eliminate it. |
 | **F6** | **Retire the scoped create endpoints** | After decision 3 the create pages no longer call `POST /api/mysteries/{id}/{locations,bystanders,monsters}`; only the wizard does. If Phase 4 moves the wizard to `createStandalone` + membership `PUT` as well, three endpoints become dead and could be removed. Deliberately *not* done inside this work — deleting endpoints while three phases are still landing on them is how you get a bad week. |
 | **F7** | **Revisit the picker when catalog volumes grow** | §8.4. `getAll()` is unpaged and every picker in this design loads the full catalog. Fine now; the searchable select absorbs a lot. **This is the trigger condition for her browse-panel item (below) — same threshold, two responses:** paging is mine, the richer browse UI is hers. Whoever hits it first should ping the other. |
+| **F8** | **Two-sided authorization for `LinkToMysteryAsync`, if per-user ownership ever lands** | From Boo's Phase 1 review. **Not a current defect** — there is no per-user ownership model, and that is a deliberate, documented exclusion (`docs/simple-authentication-update/architecture.md:601`: "No per-user data ownership. No `owner_id`, no `ICurrentUser`… explicitly out of scope"). The point is structural: `LinkToMysteryAsync` is **the first write verb in this codebase that joins two objects.** Every other write touches one, so every service's guard idiom is a one-object check — and that idiom will silently under-check here. A user permitted to edit mystery A but not monster B could link B into A, or the reverse, and a copy-pasted single-object guard would pass. Whoever implements ownership needs to know this verb wants the mystery **and** the entity checked. Recorded so it is not rediscovered by an audit. |
 
 ### Owned by `mystery-entity-linking-ux.md`
 

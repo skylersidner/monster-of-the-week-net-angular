@@ -38,6 +38,9 @@ public sealed class BystanderRepository(MotwDbContext dbContext) : IBystanderRep
             .Where(x => x.MysteryId == mysteryId && x.BystanderId == bystanderId)
             .ExecuteDeleteAsync(cancellationToken);
 
+    public Task<bool> BystanderLinkedToMysteryAsync(Guid mysteryId, Guid bystanderId, CancellationToken cancellationToken) =>
+        dbContext.MysteryBystanders.AnyAsync(x => x.MysteryId == mysteryId && x.BystanderId == bystanderId, cancellationToken);
+
     public Task<Bystander?> GetBystanderDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.Bystanders

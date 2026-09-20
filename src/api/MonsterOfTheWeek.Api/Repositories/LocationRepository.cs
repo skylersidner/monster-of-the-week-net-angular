@@ -38,6 +38,9 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
             .Where(x => x.MysteryId == mysteryId && x.LocationId == locationId)
             .ExecuteDeleteAsync(cancellationToken);
 
+    public Task<bool> LocationLinkedToMysteryAsync(Guid mysteryId, Guid locationId, CancellationToken cancellationToken) =>
+        dbContext.MysteryLocations.AnyAsync(x => x.MysteryId == mysteryId && x.LocationId == locationId, cancellationToken);
+
     public Task<Location?> GetLocationDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.Locations

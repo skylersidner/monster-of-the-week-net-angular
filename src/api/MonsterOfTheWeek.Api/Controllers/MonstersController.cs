@@ -50,6 +50,10 @@ public sealed class MonstersController(IMonsterService monsterService) : Control
     public async Task<ActionResult<MonsterDetailResponse>> Update(Guid id, [FromBody] UpsertMonsterRequest request, CancellationToken cancellationToken) =>
         ToActionResult(await monsterService.UpdateAsync(id, request, cancellationToken));
 
+    [HttpPut("api/mysteries/{mysteryId:guid}/monsters/{id:guid}")]
+    public async Task<IActionResult> LinkToMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
+        await monsterService.LinkToMysteryAsync(mysteryId, id, cancellationToken) ? NoContent() : NotFound();
+
     [HttpDelete("api/mysteries/{mysteryId:guid}/monsters/{id:guid}")]
     public async Task<IActionResult> UnlinkFromMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
         await monsterService.UnlinkFromMysteryAsync(mysteryId, id, cancellationToken) ? NoContent() : NotFound();

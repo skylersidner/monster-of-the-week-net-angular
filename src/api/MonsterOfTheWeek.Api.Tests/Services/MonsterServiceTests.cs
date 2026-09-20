@@ -110,6 +110,198 @@ public sealed class MonsterServiceTests
     }
 
     [Fact]
+    public async Task LinkToMysteryAsync_AddsBridgeRow_WhenMysteryAndMonsterExist()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
+        var service = new MonsterService(repository);
+
+        var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.True(linked);
+        Assert.Equal(1, repository.LinkMonsterToMysteryCalls);
+        Assert.Equal(1, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_IsIdempotent_WhenAlreadyLinked()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
+        var service = new MonsterService(repository);
+        var mysteryId = Guid.NewGuid();
+        var monsterId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None));
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None));
+
+        Assert.Equal(1, repository.LinkMonsterToMysteryCalls);
+        Assert.Equal(1, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_ReturnsFalse_WhenMysteryDoesNotExist()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = false, MonsterExists = true };
+        var service = new MonsterService(repository);
+
+        var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(linked);
+        Assert.Equal(0, repository.LinkMonsterToMysteryCalls);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_ReturnsFalse_WhenMonsterDoesNotExist()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = false };
+        var service = new MonsterService(repository);
+
+        var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(linked);
+        Assert.Equal(0, repository.LinkMonsterToMysteryCalls);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_ThenUnlink_RoundTrips()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
+        var service = new MonsterService(repository);
+        var mysteryId = Guid.NewGuid();
+        var monsterId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None));
+        Assert.True(await service.UnlinkFromMysteryAsync(mysteryId, monsterId, CancellationToken.None));
+    }
+
+    // Unlink's "true" only means something if it can be false. Without this the round-trip above
+    // passes against a repository that reports a deletion it never performed.
+    [Fact]
+    public async Task UnlinkFromMysteryAsync_ReturnsFalse_WhenNotLinked()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
+        var service = new MonsterService(repository);
+
+        var unlinked = await service.UnlinkFromMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(unlinked);
+    }
+
+    // The idempotency test proves a second link writes nothing. This proves the suppression is
+    // driven by the bridge row and not by a latch: once the row is gone, linking must write again.
+    [Fact]
+    public async Task LinkToMysteryAsync_WritesAgain_AfterUnlink()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
+        var service = new MonsterService(repository);
+        var mysteryId = Guid.NewGuid();
+        var monsterId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None));
+        Assert.True(await service.UnlinkFromMysteryAsync(mysteryId, monsterId, CancellationToken.None));
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None));
+
+        Assert.Equal(2, repository.LinkMonsterToMysteryCalls);
+        Assert.Equal(2, repository.SaveChangesCalls);
+        Assert.Equal(1, repository.LinkCount);
+    }
+
+    // Pins the ordering choice recorded in .squad/decisions/inbox/bowser-mystery-entity-linking-phase1-link-verb.md:
+    // existence checks run before the already-linked check, so a PUT naming a mystery that no
+    // longer exists is a 404 even when a bridge row still names it. Cheapest-first ordering
+    // (already-linked first) would return 204 here.
+    [Fact]
+    public async Task LinkToMysteryAsync_ReturnsFalse_WhenMysteryIsGone_EvenWithStaleBridgeRow()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = false, MonsterExists = true };
+        var mysteryId = Guid.NewGuid();
+        var monsterId = Guid.NewGuid();
+        repository.SeedLink(mysteryId, monsterId);
+        var service = new MonsterService(repository);
+
+        var linked = await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None);
+
+        Assert.False(linked);
+        Assert.Equal(0, repository.LinkMonsterToMysteryCalls);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_ReturnsFalse_WhenMonsterIsGone_EvenWithStaleBridgeRow()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = false };
+        var mysteryId = Guid.NewGuid();
+        var monsterId = Guid.NewGuid();
+        repository.SeedLink(mysteryId, monsterId);
+        var service = new MonsterService(repository);
+
+        var linked = await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None);
+
+        Assert.False(linked);
+        Assert.Equal(0, repository.LinkMonsterToMysteryCalls);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    // Decision 1: shared M:N reuse. One monster in two mysteries is the point of the feature,
+    // and the already-linked short-circuit must key on the pair, not on the monster.
+    [Fact]
+    public async Task LinkToMysteryAsync_LinksOneMonsterToTwoMysteries()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
+        var service = new MonsterService(repository);
+        var firstMysteryId = Guid.NewGuid();
+        var secondMysteryId = Guid.NewGuid();
+        var monsterId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(firstMysteryId, monsterId, CancellationToken.None));
+        Assert.True(await service.LinkToMysteryAsync(secondMysteryId, monsterId, CancellationToken.None));
+
+        Assert.Equal(2, repository.LinkMonsterToMysteryCalls);
+        Assert.Equal(2, repository.LinkCount);
+
+        // Unlinking one membership leaves the other standing.
+        Assert.True(await service.UnlinkFromMysteryAsync(firstMysteryId, monsterId, CancellationToken.None));
+        Assert.True(await repository.MonsterLinkedToMysteryAsync(secondMysteryId, monsterId, CancellationToken.None));
+        Assert.False(await repository.MonsterLinkedToMysteryAsync(firstMysteryId, monsterId, CancellationToken.None));
+    }
+
+    // The mirror of the above on the other axis: two monsters in one mystery.
+    [Fact]
+    public async Task LinkToMysteryAsync_LinksTwoMonstersToOneMystery()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
+        var service = new MonsterService(repository);
+        var mysteryId = Guid.NewGuid();
+        var firstMonsterId = Guid.NewGuid();
+        var secondMonsterId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, firstMonsterId, CancellationToken.None));
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, secondMonsterId, CancellationToken.None));
+
+        Assert.Equal(2, repository.LinkMonsterToMysteryCalls);
+        Assert.Equal(2, repository.LinkCount);
+    }
+
+    // The bridge row the service writes must carry the ids it was handed, in that order. A
+    // transposed assignment is invisible to every call-count assertion above.
+    [Fact]
+    public async Task LinkToMysteryAsync_WritesTheGivenIdsIntoTheBridgeRow()
+    {
+        var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
+        var service = new MonsterService(repository);
+        var mysteryId = Guid.NewGuid();
+        var monsterId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None));
+
+        var link = Assert.Single(repository.WrittenLinks);
+        Assert.Equal(mysteryId, link.MysteryId);
+        Assert.Equal(monsterId, link.MonsterId);
+    }
+
+
+    [Fact]
     public async Task AssignAttackWeaponTagAsync_DoesNotDuplicate_WhenAlreadyAssigned()
     {
         var repository = new FakeMonsterRepository
@@ -221,6 +413,7 @@ public sealed class MonsterServiceTests
         public int LinkMonsterToMysteryCalls { get; private set; }
 
         private readonly List<Monster> _monsters = [];
+        private readonly List<MysteryMonster> _mysteryMonsters = [];
 
         public Task<bool> MysteryExistsAsync(Guid mysteryId, CancellationToken cancellationToken) => Task.FromResult(MysteryExists);
         public Task<bool> MonsterExistsAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(MonsterExists);
@@ -248,11 +441,25 @@ public sealed class MonsterServiceTests
             return Task.CompletedTask;
         }
 
+        /// <summary>The bridge rows the service handed to the repository, in order.</summary>
+        public List<MysteryMonster> WrittenLinks { get; } = [];
+
         public Task LinkMonsterToMysteryAsync(MysteryMonster link, CancellationToken cancellationToken)
         {
             LinkMonsterToMysteryCalls += 1;
+            WrittenLinks.Add(link);
+            _mysteryMonsters.Add(link);
             return Task.CompletedTask;
         }
+
+        /// <summary>
+        /// Puts a bridge row in place without going through the service, so a test can stage a
+        /// row that outlives the mystery or the monster it names.
+        /// </summary>
+        public void SeedLink(Guid mysteryId, Guid monsterId) =>
+            _mysteryMonsters.Add(new MysteryMonster { MysteryId = mysteryId, MonsterId = monsterId });
+
+        public int LinkCount => _mysteryMonsters.Count;
 
         private static MonsterListItemResponse ToListItemResponse(Monster monster) =>
             new(
@@ -269,8 +476,13 @@ public sealed class MonsterServiceTests
                 monster.Weaknesses.Count,
                 monster.Minions.Count,
                 monster.CreatedAt);
-        public Task<int> UnlinkMonsterFromMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) => Task.FromResult(1);
-        public Task<bool> MonsterLinkedToMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) => Task.FromResult(false);
+        // Mirrors the real repository's ExecuteDeleteAsync: returns the number of bridge rows
+        // actually removed, which is 0 when the pair was never linked. A hardcoded 1 here would
+        // make UnlinkFromMysteryAsync unconditionally true and every round-trip assertion vacuous.
+        public Task<int> UnlinkMonsterFromMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) =>
+            Task.FromResult(_mysteryMonsters.RemoveAll(x => x.MysteryId == mysteryId && x.MonsterId == monsterId));
+        public Task<bool> MonsterLinkedToMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) =>
+            Task.FromResult(_mysteryMonsters.Any(x => x.MysteryId == mysteryId && x.MonsterId == monsterId));
         public Task<int> DeleteMonsterAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(1);
         public Task<IReadOnlyList<MonsterAttack>> GetAttacksAsync(Guid monsterId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<MonsterAttack>>([]);
         public Task<MonsterAttack?> GetAttackAsync(Guid monsterId, Guid attackId, bool includeTags, CancellationToken cancellationToken)
