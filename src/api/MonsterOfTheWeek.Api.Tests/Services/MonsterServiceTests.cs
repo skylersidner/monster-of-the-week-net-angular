@@ -452,6 +452,16 @@ public sealed class MonsterServiceTests
             return Task.CompletedTask;
         }
 
+        // The insert-and-save pair the link verb goes through. Deliberately delegates to the two
+        // methods above rather than reimplementing them, so the counters keep meaning "the service
+        // wrote a bridge row and committed it" and the duplicate-race guard stays a repository
+        // concern — it is characterised against a real database in MysteryLinkRepositoryTests.
+        public async Task LinkMonsterToMysteryAndSaveAsync(MysteryMonster link, CancellationToken cancellationToken)
+        {
+            await LinkMonsterToMysteryAsync(link, cancellationToken);
+            await SaveChangesAsync(cancellationToken);
+        }
+
         /// <summary>
         /// Puts a bridge row in place without going through the service, so a test can stage a
         /// row that outlives the mystery or the monster it names.

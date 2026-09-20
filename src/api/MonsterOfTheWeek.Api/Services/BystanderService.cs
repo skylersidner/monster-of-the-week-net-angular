@@ -164,10 +164,11 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
             return true;
         }
 
-        await bystanderRepository.LinkBystanderToMysteryAsync(
+        // Insert and save behind one repository call: the check above and this write are not
+        // atomic, and the repository is where the duplicate-membership race is absorbed.
+        await bystanderRepository.LinkBystanderToMysteryAndSaveAsync(
             new MysteryBystander { MysteryId = mysteryId, BystanderId = id },
             cancellationToken);
-        await bystanderRepository.SaveChangesAsync(cancellationToken);
         return true;
     }
 

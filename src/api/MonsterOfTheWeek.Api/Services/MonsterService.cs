@@ -150,10 +150,11 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
             return true;
         }
 
-        await monsterRepository.LinkMonsterToMysteryAsync(
+        // Insert and save behind one repository call: the check above and this write are not
+        // atomic, and the repository is where the duplicate-membership race is absorbed.
+        await monsterRepository.LinkMonsterToMysteryAndSaveAsync(
             new MysteryMonster { MysteryId = mysteryId, MonsterId = id },
             cancellationToken);
-        await monsterRepository.SaveChangesAsync(cancellationToken);
         return true;
     }
 

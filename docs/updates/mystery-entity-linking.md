@@ -463,7 +463,13 @@ Ships with no UI. Low risk, unblocked by every open question.
 
 ### Phase 2 — `MysterySelectComponent` + edit-form linking, Locations & Bystanders (rosalina → luigi, toad)
 
-> **Gate — must close before this phase ships (bowser).** The duplicate-key race on the membership composite PK, carried over from Phase 1. Boo's verdict: acceptable to ship in Phase 1 because Phase 1 has **no client and cannot reach it**; not acceptable once Phase 2 puts one in front of it. Two concurrent `PUT`s for the same membership both pass the `…LinkedToMysteryAsync` check, both insert, and the loser gets a 500.
+> **Gate — CLOSED 2026-09-19 (bowser).** Implemented as specified below. `dotnet test` 524 → 530, 0 failing.
+>
+> **One correction to this plan, found during implementation.** Toad's `InsertingABridgeRowForADeletedMystery_ThrowsOnTheForeignKey` does **not** guard against the blanket-catch alternative, though it was written expecting to: it calls the raw `Link…ToMysteryAsync` + `SaveChangesAsync`, which the guard never wraps, so it still passes green with a blanket `catch (DbUpdateException) { }` in place. It was kept — it pins the premise that the SQLite fixture really enforces foreign keys — and the tests that actually refute the alternative stage the deletion *first* and then call the guarded method: `LinkAndSave_ForAMysteryDeletedConcurrently_Rethrows` and `LinkAndSave_ForALocationDeletedConcurrently_Rethrows`. Both rejected alternatives were bite-checked in a scratchpad copy, and each is now refuted by distinct named tests. The renamed duplicate test is `ConcurrentDuplicateInsert_ReportsSuccess_AndLeavesExactlyOneRow`.
+>
+> **Two implementation calls worth carrying forward.** The add-only `Link…ToMysteryAsync` was *kept* alongside the new guarded method: the create-in-a-mystery path (`POST /api/mysteries/{id}/locations`) stages its bridge row beside the entity's own insert and must not save early, so only the link verb moved. And the detach happens on **both** the success and the rethrow path, before the re-check — the abandoned-insert hazard is identical either way.
+>
+> *Original gate, recorded for the reasoning.* The duplicate-key race on the membership composite PK, carried over from Phase 1. Boo's verdict: acceptable to ship in Phase 1 because Phase 1 has **no client and cannot reach it**; not acceptable once Phase 2 puts one in front of it. Two concurrent `PUT`s for the same membership both pass the `…LinkedToMysteryAsync` check, both insert, and the loser gets a 500.
 >
 > **Fix, as Boo specified it — and the two obvious implementations are both worse than the current 500, so take this one:**
 >
@@ -473,7 +479,7 @@ Ships with no UI. Low risk, unblocked by every open question.
 >
 > This discriminates on whether the membership actually ended up existing rather than on a vendor error code, which is why it is both provider-agnostic and exercisable under the existing SQLite fixture. Note that it makes `LocationLinkedToMysteryAsync` / `BystanderLinkedToMysteryAsync` — added in Phase 1 for the idempotency check — load-bearing for correctness too.
 >
-> **toad:** concurrent double-link returns 204 twice and leaves exactly one row; a link whose mystery is deleted concurrently still fails rather than reporting success.
+> **toad:** concurrent double-link returns 204 twice and leaves exactly one row; a link whose mystery is deleted concurrently still fails rather than reporting success. *Both are now covered at the repository level by Bowser's tests. Still outstanding for Toad: a genuinely concurrent HTTP pair — `MysteryLinkEndpointTests` exercises sequential idempotency end to end through the real repositories, but not two simultaneous `PUT`s.*
 
 - **rosalina:** picker spec and its placement — her §9.1 puts it inside the form as its last field, replacing today's bolted-on external `mysteryControl`. No warning copy (decision 4); no chip links (§4.4).
 - **luigi:** build `shared/mystery-select.component.ts`; wire into `LocationFormComponent` and `BystanderFormComponent`; change both `save` payloads to the `…FormSubmit` wrapper; update four call sites; create pages collapse to `createStandalone` + membership `PUT`s and lose their bespoke `mysteryControl`; detail pages load `getMysteries()`.

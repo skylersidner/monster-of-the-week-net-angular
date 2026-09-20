@@ -38,6 +38,17 @@ export class LocationService {
     return this.apiService.delete(`/api/locations/${id}`);
   }
 
+  /**
+   * Asserts membership of the location in the mystery. `PUT` on the membership URI is the
+   * mirror of the `DELETE` below, and is idempotent in effect: re-linking an already linked
+   * location is a 204 no-op, never a 409. There is no request body — membership is its own
+   * resource, deliberately not a field on `UpsertLocationRequest`, because the wizard calls
+   * `update()` with payloads that would carry no `mysteryIds` and would unlink everything.
+   */
+  linkToMystery(mysteryId: string, id: string): Observable<void> {
+    return this.apiService.put<null, void>(`/api/mysteries/${mysteryId}/locations/${id}`, null);
+  }
+
   unlinkFromMystery(mysteryId: string, id: string): Observable<void> {
     return this.apiService.delete(`/api/mysteries/${mysteryId}/locations/${id}`);
   }

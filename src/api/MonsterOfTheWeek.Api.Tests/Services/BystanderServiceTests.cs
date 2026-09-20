@@ -363,6 +363,16 @@ public sealed class BystanderServiceTests
             return Task.CompletedTask;
         }
 
+        // The insert-and-save pair the link verb goes through. Deliberately delegates to the two
+        // methods above rather than reimplementing them, so the counters keep meaning "the service
+        // wrote a bridge row and committed it" and the duplicate-race guard stays a repository
+        // concern — it is characterised against a real database in MysteryLinkRepositoryTests.
+        public async Task LinkBystanderToMysteryAndSaveAsync(MysteryBystander link, CancellationToken cancellationToken)
+        {
+            await LinkBystanderToMysteryAsync(link, cancellationToken);
+            await SaveChangesAsync(cancellationToken);
+        }
+
         // Mirrors the real repository's ExecuteDeleteAsync: returns the number of bridge rows
         // actually removed, which is 0 when the pair was never linked. A hardcoded 1 here would
         // make UnlinkFromMysteryAsync unconditionally true and every round-trip assertion vacuous.

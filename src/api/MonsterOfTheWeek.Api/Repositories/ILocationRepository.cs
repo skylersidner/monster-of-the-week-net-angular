@@ -10,6 +10,13 @@ public interface ILocationRepository
     Task<IReadOnlyList<Location>> GetLocationsByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken);
     Task AddLocationAsync(Location location, CancellationToken cancellationToken);
     Task LinkLocationToMysteryAsync(MysteryLocation link, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Inserts one bridge row and saves it in one step, succeeding if a concurrent insert of the
+    /// same membership won the race and throwing for any other failure. See the implementation.
+    /// </summary>
+    Task LinkLocationToMysteryAndSaveAsync(MysteryLocation link, CancellationToken cancellationToken);
+
     Task<int> UnlinkLocationFromMysteryAsync(Guid mysteryId, Guid locationId, CancellationToken cancellationToken);
     Task<bool> LocationLinkedToMysteryAsync(Guid mysteryId, Guid locationId, CancellationToken cancellationToken);
     Task<Location?> GetLocationDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken);

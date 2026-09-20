@@ -215,6 +215,74 @@ public sealed class MysteryLinkEndpointTests
         Assert.Equal(before, await ReadEntityStampsAsync(harness, collection));
     }
 
+    // The Phase 2 gate was a race between two concurrent PUTs for the *same* membership: both
+    // pass the service's already-linked check, both insert, and before Bowser's repository guard
+    // the loser got a 500 on the composite primary key. MysteryLinkRepositoryTests pins the guard
+    // by staging the collision deterministically against two DbContexts; this is the same
+    // property from the wire, through real routing, the real controller, service and repository,
+    // with the two requests genuinely in flight at once rather than one after the other —
+    // the gap Put_IsIdempotent_SecondCallIs204AndWritesNoSecondRow leaves open.
+    //
+    // Whether a given pair actually lands inside the window is a scheduling accident, so the pair
+    // is repeated against a cleared membership. That makes "sometimes" into "reliably at least
+    // once" without making any assertion probabilistic: every round asserts the whole contract,
+    // so one 500 or one duplicate row in any round fails the test.
+    //
+    // The count is not decorative. Against a build with the repository guard deleted, this test
+    // failed on all three collections in 5 of 5 runs at 25 rounds; an earlier harness variant
+    // slow enough to serialise the requests failed on only 1–2 of 3 collections per run. If it
+    // is ever lowered, re-measure it the same way, because a concurrency test that cannot fail
+    // on the bug it names is worse than none.
+    private const int ConcurrentPutRounds = 25;
+
+    [Theory]
+    [MemberData(nameof(Collections))]
+    public async Task ConcurrentPutPair_ForTheSameMembership_BothReturn204_AndLeaveExactlyOneRow(string collection)
+    {
+        await using var harness = await MysteryLinkApiHarness.StartAsync();
+        var path = $"/api/mysteries/{harness.MysteryId}/{collection}/{EntityId(harness, collection)}";
+
+        for (var round = 0; round < ConcurrentPutRounds; round++)
+        {
+            await ClearBridgeRowsAsync(harness, collection);
+            Assert.Equal(0, await BridgeRowCountAsync(harness, collection));
+
+            // Both callers are parked on the gate before either sends, so releasing it puts the
+            // requests on the wire together instead of letting the first finish on its own.
+            using var gate = new SemaphoreSlim(0, 2);
+            var pair = Enumerable.Range(0, 2)
+                .Select(async _ =>
+                {
+                    await gate.WaitAsync();
+                    return await harness.PutAsync(path);
+                })
+                .ToArray();
+
+            gate.Release(2);
+            var responses = await Task.WhenAll(pair);
+
+            Assert.All(responses, response => Assert.Equal(HttpStatusCode.NoContent, response.StatusCode));
+            Assert.Equal(1, await BridgeRowCountAsync(harness, collection));
+
+            foreach (var response in responses)
+            {
+                response.Dispose();
+            }
+        }
+    }
+
+    private static async Task ClearBridgeRowsAsync(MysteryLinkApiHarness harness, string collection)
+    {
+        await using var context = harness.NewContext();
+        _ = collection switch
+        {
+            "monsters" => await context.MysteryMonsters.ExecuteDeleteAsync(),
+            "locations" => await context.MysteryLocations.ExecuteDeleteAsync(),
+            "bystanders" => await context.MysteryBystanders.ExecuteDeleteAsync(),
+            _ => throw new ArgumentOutOfRangeException(nameof(collection)),
+        };
+    }
+
     private static async Task<(string Name, DateTimeOffset UpdatedAt)> ReadEntityStampsAsync(
         MysteryLinkApiHarness harness,
         string collection)

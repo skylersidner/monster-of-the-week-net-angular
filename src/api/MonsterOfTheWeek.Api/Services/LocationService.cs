@@ -157,10 +157,11 @@ public sealed class LocationService(ILocationRepository locationRepository) : IL
             return true;
         }
 
-        await locationRepository.LinkLocationToMysteryAsync(
+        // Insert and save behind one repository call: the check above and this write are not
+        // atomic, and the repository is where the duplicate-membership race is absorbed.
+        await locationRepository.LinkLocationToMysteryAndSaveAsync(
             new MysteryLocation { MysteryId = mysteryId, LocationId = id },
             cancellationToken);
-        await locationRepository.SaveChangesAsync(cancellationToken);
         return true;
     }
 

@@ -10,6 +10,13 @@ public interface IBystanderRepository
     Task<IReadOnlyList<Bystander>> GetBystandersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken);
     Task AddBystanderAsync(Bystander bystander, CancellationToken cancellationToken);
     Task LinkBystanderToMysteryAsync(MysteryBystander link, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Inserts one bridge row and saves it in one step, succeeding if a concurrent insert of the
+    /// same membership won the race and throwing for any other failure. See the implementation.
+    /// </summary>
+    Task LinkBystanderToMysteryAndSaveAsync(MysteryBystander link, CancellationToken cancellationToken);
+
     Task<int> UnlinkBystanderFromMysteryAsync(Guid mysteryId, Guid bystanderId, CancellationToken cancellationToken);
     Task<bool> BystanderLinkedToMysteryAsync(Guid mysteryId, Guid bystanderId, CancellationToken cancellationToken);
     Task<Bystander?> GetBystanderDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken);

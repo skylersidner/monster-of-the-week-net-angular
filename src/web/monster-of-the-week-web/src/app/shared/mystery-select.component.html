@@ -1,0 +1,18 @@
+<div class="flex flex-col gap-[0.35rem]">
+  @if (selectedMysteries().length > 0) {
+    <div class="flex flex-wrap gap-[0.35rem]">
+      @for (mystery of selectedMysteries(); track mystery.id) {
+        <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-mystery text-on-badge-mystery">{{ mystery.name }}</span>
+      }
+    </div>
+  }
+  <app-custom-select
+    [formControl]="innerControl"
+    [options]="options"
+    [multiple]="true"
+    [searchable]="true"
+    [placeholder]="placeholder"
+    [emptyText]="emptyText"
+    [optionSubLabel]="adventureTypeOf"
+  ></app-custom-select>
+</div>

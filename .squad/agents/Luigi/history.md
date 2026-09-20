@@ -1611,3 +1611,62 @@ Not committed.
 - **No detail page in this codebase has a spec asserting on a header action link** — `hunter-detail.html` has the placement precedent Rosalina pointed at but no spec file exists for it at all. When there's no established pattern to match, look at the *target* spec's own existing assertion style (here: `querySelectorAll`/`textContent` on `fixture.nativeElement`) rather than importing a convention from elsewhere.
 - **Verification method now fully repeatable for icon-in-CTA color checks:** same compiled-`styles.css`-in-standalone-Playwright-page trick as the row-icon rounds, just with the real pill markup instead of `action-btn`. Confirms `fill="currentColor"` against `text-on-accent` (white light / slate-900 dark) same as it confirmed it against `text-muted`/`action-btn--edit` before.
 - **Verification:** 73 files / 736 tests (+1, the new wizard-link assertion in `mystery-detail.spec.ts`); `ng build --configuration development` clean.
+
+## 2026-09-19: Mystery Entity Linking Phase 2 — `MysterySelectComponent`, edit-form linking (Locations & Bystanders)
+
+### Task
+`docs/updates/mystery-entity-linking.md` §9 Phase 2, Angular half only. Backend link verb shipped in Phase 1 (`72ebc5c`). Monsters excluded (§6.2). Not committed; Bowser was concurrently in `src/api/` on the duplicate-key race, so my diff stays entirely under `src/web/`.
+
+### Reusable technical facts
+- **`ApiService.put` needs a body argument, so a no-body `PUT` is `put<null, void>(url, null)`.** `HttpClient` sends an empty body and sets no `Content-Type`, which is what the `LinkToMystery` action (no `[FromBody]`) wants.
+- **Line endings in this repo are mixed and it bites.** `core/*.ts`, the four `location-*`/`bystander-*` page and form `.ts`/`.html`, and every `.spec.ts` under `features/` are **CRLF**; `shared/weapon-tag-select.component.*` is **LF**. Consequences: (a) `Write` creates LF, so a rewritten CRLF file shows as a whole-file diff — normalise it back with node before finishing; (b) the `Edit` tool preserves the file's endings and is the safe way to patch; (c) **Git Bash `grep -q $'\r'` and `sed`/`od` lie about CR** — they strip it in text mode. Detect with node: `(s.match(/\r\n/g)||[]).length`.
+- **A negative-control harness must normalise its patterns to the target file's endings**, for the same reason. A multi-line `\n` pattern silently reports PATTERN NOT FOUND against a CRLF file; a single-line one matches fine, so the failure is intermittent and looks like a typo.
+- **`CustomSelectComponent`'s default `optionSubLabel` resolves `motivation` then `description`.** `MysteryListItemResponse` has neither (it has `concept`/`hook`), so the mystery picker must bind `[optionSubLabel]` explicitly or the dropdown silently shows no sub-label. Bind an arrow *property* (`readonly adventureTypeOf = (m) => …`), not a method, or `this` is unbound at call time.
+- **Distinguishing markers for asserting on a `CustomSelectComponent`'s mode**, all from its own template: `.custom-select.multiple-select` for `[multiple]`, `.custom-select__search input` (after clicking `.custom-select__trigger`) for `[searchable]`, `.custom-select__option-sublabel` for the sub-label binding, and the trigger reading `"N selected"` in multi mode. Asserting the component's inputs directly proves nothing about the rendered control.
+- **`FormControl.setValue` replaces the array reference, it does not mutate it** — so a test shaped "alias the input array, then `setValue`, then check the input is unchanged" is vacuous and passes either way. It was MISSED as a negative control. The property that is actually worth asserting, and that the defensive copy actually buys, is `expect(control.value).not.toBe(input.mysteryIds)` plus the same on the emitted payload.
+- **Shared badge class string** (`locations-list.html:20`, `search-results.ts:81-85`): `rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap` + `bg-badge-{domain} text-on-badge-{domain}`. Mystery is amber.
+- **Rewriting a `<span>` to an `<a>` in a template as a negative control fails the *build*, not a test** (unclosed tag). Add a sibling element instead if you want to prove a "renders no links" assertion bites.
+
+### Decisions (filed as `luigi-mystery-entity-linking-phase2-oq9-shared-components.md`)
+- **OQ9:** share when the repetition has one data contract and no slots (`MysterySelectComponent`); copy when it is a layout with structural variation (the roster card and composer shell, four copies — recommendation to Phases 3–5). `…FormSubmit` stays two named copies, not a generic.
+- **Create-page navigation:** exactly one mystery picked → the scoped detail route this page has always used; zero or many → the flat route. Keeps the shipped "← Back to mystery" breadcrumb for the common case without branching the save path, which stays single (`createStandalone` + membership `PUT`s, decision 3).
+- **Two new honest error strings** for the non-atomic paths decision 3 accepts: "Location created, but attaching it to the selected mysteries failed." (create page) and "Location saved, but its mysteries could not be updated." (detail page). The alternative was reporting "Unable to create location." for a location that demonstrably exists.
+
+### Verification
+- `npx ng build --configuration production`: clean, with the two pre-existing budget warnings (`wizard-tracker.scss`, `custom-select.component.scss`).
+- `npm test`: 74 files / 794 tests, up from a 73 / 736 baseline.
+- **17 negative controls, all caught, all restored**, covering: detail page dropping link / dropping unlink / keeping the server's stale `mysteryIds` / skipping `getMysteries()`; create page always-flat and always-scoped routes, skipping the links, and reverting to the scoped create endpoint; chip using the weapon token, chip becoming a link, picker losing `[multiple]`/`[searchable]`/`[optionSubLabel]`/its sub-label source; form dropping, aliasing or live-emitting `mysteryIds`, not hydrating from the entity, the picker not being the last field, and a sharing warning being added (decision 4).
+- Two initially MISSED and fixed: the vacuous aliasing test above, and a `[multiple]` assertion that checked nothing renderable.
+
+### Files
+- **New:** `shared/mystery-select.component.{ts,html,spec.ts}`.
+- **Modified:** `core/{location,bystander}.ts` (`linkToMystery`); `features/{locations,bystanders}/shared/{location,bystander}-form/*.{ts,html,spec.ts}` (`mysteries` input, `mysteryIds` control as the last field, `…FormSubmit` output); `features/{locations,bystanders}/pages/{…}-create/*.{ts,html,spec.ts}` (bespoke `mysteryControl` deleted, single `createStandalone` + membership `PUT` path); `features/{locations,bystanders}/pages/{…}-detail/*.{ts,html,spec.ts}` (`getMysteries()`, membership add/remove diff).
+
+Not committed.
+
+## 2026-09-19 (same day, follow-up): Phase 2 — Rosalina's §9.5 partial-failure ruling, and a `computed()` defect
+
+### Task
+Both error strings I flagged in the entry above were **rejected as written** (`mystery-entity-linking-ux.md` §9.5, with a 13-row failure-state table). Adopt her copy, plus the two behaviour changes it depends on, plus one latent bug Toad found in `MysterySelectComponent`.
+
+### Reusable technical facts
+- **"Entity created, then a second non-atomic round of writes" already had a house answer**, and I invented a second voice for it. `monster-create.ts:286-292` / `minion-create.ts:333-339`: *"{Entity} created, but some details may not have saved. Review them on the {entity} page."* Three properties, all deliberate — it **hedges** (a `forkJoin` tells you one call failed, never that all did), it **carries a next step**, and it is **a success with a caveat, not an error**: `catchError(() => of({ …Failed: true }))` inside the `switchMap`, so the page still navigates and `errorMessage` stays `null`. **Grep for the shape before writing failure copy, not just for the words.**
+- **"failed" / "could not be updated" are the wrong tense for a fan-out.** Pick three, have the third fail, and two *are* attached while the copy says none are.
+- **Routing a post-create failure into `error:` is a duplicate-entity bug, not a wording bug.** The user is left on a populated create form whose only control creates a *second* row. This was the real defect; the string was the symptom.
+- **`@else if (errorMessage())` precedes the content branch on all four `*-detail.html` pages.** Setting `errorMessage` on a *mutation* failure therefore unmounts the form, the picker and the sub-lists, leaving nothing to retry into. Mutation caveats must be toast-only. (Pre-existing and app-wide — `monster-detail.ts:158` does set it. Logged as a four-page follow-up in §9.5.3 D2, not fixed here.)
+- **The refetch is load-bearing, not polish.** `monster-detail.ts:315-346`'s `runAndRefresh` is `switchMap(() => getById(id))` after every mutation instead of merging the payload locally. Two jobs here: the re-rendered control *is* the answer to "which ones failed?", and it resets the diff baseline. Without it, "save again" recomputes `removed` from the stale baseline and re-issues an already-applied unlink — and **`DELETE` on the membership URI is not idempotent in status code, it 404s on repeat** (architecture §4.1) — so the retry fails permanently. **Concluded no 404-tolerant unlink is needed on this surface:** the refetch corrects the baseline in one round trip, so the second save never re-issues an applied delete. Yoshi's §7.3 rule 2 stays scoped to the wizard's `pendingRemovals`.
+- **A `computed()` that reads a plain `@Input()` field never re-evaluates.** `selectedMysteries` was `computed(() => this.options.filter(…))` — swap `options` after a value is written and the chips stay empty forever. Fix without changing the host contract: back it with `private readonly optionList = signal<T[]>([])` and give `options` a setter + getter pair, so `[options]="…"` bindings and `picker.options` reads are unchanged. **`WeaponTagSelectComponent` has the same defect verbatim and was deliberately left alone** — pre-existing, follow-up.
+- **`vi.spyOn(…).mockImplementationOnce(…).mockImplementationOnce(…)` is how to make one call in a `forkJoin` fan-out fail while its sibling lands.** The observables are all constructed at array-build time, so the `Once` mocks are consumed in array order, before any subscribe.
+- **A `putSubject` returned by a stub is re-read per call**, so reassigning `putSubject = new Subject()` between two `save()` calls in one test drives a second round trip without rebuilding the TestBed.
+- **A negative control that leaves a dangling reference fails the *build* and proves nothing.** Reverting the signal-backed input needed one contiguous span covering the field, the doc comment, both accessors *and* the computed — half-reverting either did not reproduce the defect or tripped an unused-member error.
+
+### Corrections to the previous entry
+- **My description of the lost-update residual was wrong in the user-visible direction.** A membership attached elsewhere after page open is in neither `existing` nor `desired`, so it is in neither `added` nor `removed` — **no `DELETE` is issued and it survives on the server.** Only the page's picture of it went stale, and the refetch now closes even that. Toad pinned both halves; I updated the second half of his characterisation test and kept his load-bearing first expectation (removals are drawn from the *loaded* set) with his guard comment intact.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npm test`: 74 files / **816** tests, against Toad's 74 / 799 baseline.
+- `dotnet test src\api\MonsterOfTheWeek.Api.Tests`: **533 passed**, 0 failed — unchanged, and `git status` confirms no `src/api` file in my diff.
+- **8 more negative controls, all caught** (25 across both rounds): partial create routed to `error:`, partial create on the scoped route, partial create also toasting success, partial create setting `errorMessage`, detail page without the refetch, detail caveat setting `errorMessage`, detail membership failure reaching `error:`, and the picker's options reverted to a plain field.
+
+Not committed.

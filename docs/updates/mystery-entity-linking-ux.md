@@ -2,7 +2,7 @@
 
 **Prepared by:** Rosalina (Designer)
 **Status:** **Settled — ready for implementation.** Every question in §12 is answered; **nothing in this document is waiting on Skyler.** Each decision is folded into the section it affects and left in §12 struck through, so cross-references from Yoshi's doc still resolve. OQ9 is Luigi's call at implementation time and blocks nothing. OQ10 is deliberately deferred and has a durable home in §12.1, per Skyler's instruction to record it for after the final phase.
-**Date:** 2026-09-19 · **Reconciled against Yoshi's `mystery-entity-linking.md` rev 3, then against Skyler's answers to Yoshi's seven questions, then against his answers to the six remaining questions here** — see the dated notes in §2.2, §2.3, §7.1, §7.2, §8.7, §9.3, §10.1 and §12.
+**Date:** 2026-09-19 · **Reconciled against Yoshi's `mystery-entity-linking.md` rev 3, then against Skyler's answers to Yoshi's seven questions, then against his answers to the six remaining questions here** — see the dated notes in §2.2, §2.3, §7.1, §7.2, §8.7, §9.3, §9.5, §10.1 and §12. **§9.5 (added 2026-09-19, after Phase 2 landed) rules on the two partial-failure strings Luigi introduced and flagged; it carries two behaviour requirements for him, not only copy.**
 
 > Filed under `docs/updates/` alongside `docs/updates/mystery-entity-linking.md` (Yoshi's architecture proposal for the same feature) and `docs/updates/multi-minion-wizard-design.md`, whose roster-plus-composer pattern this generalises to all four entity types. This document covers **only** the interaction and visual half. Where it requires something Yoshi's doc does not currently allow, that is called out explicitly in §10 rather than left for Luigi to discover.
 
@@ -412,6 +412,75 @@ If cross-navigation from a location to its mysteries is wanted, it belongs in a 
 
 Per Skyler's answer to Yoshi's OQ4, there is no advisory note on the edit form when an entity is in 2+ mysteries. Nothing in this design adds one. What the user gets instead is **the chips themselves**: the membership control is on screen, populated, immediately above the Save button, every time they edit a shared entity. That is passive disclosure rather than a warning, it costs nothing, and it is honest. I think that is sufficient and I am not arguing for more.
 
+### 9.5 Partial-failure copy on the create and detail pages
+
+> **Added 2026-09-19, ruling on two strings Luigi introduced in Phase 2 and flagged for review.** Decision 3 buys a non-atomic two-round-trip create, so "Unable to create location." became a lie in the case where the entity landed and the membership `PUT`s did not. He was right that new copy is needed. Both of his strings are **rejected as written**, and the reason is the same in both cases: **the app already solved this exact problem and the new strings invent a second voice for it.**
+
+**The shipped convention.** `monster-create.ts:286-292` and `minion-create.ts:333-339` are the same shape as this work — an entity is created, then a second, non-atomic round of writes can fail after it. Both say:
+
+> `"{Entity} created, but some details may not have saved. Review them on the {entity} page."`
+
+Three properties, all deliberate, all load-bearing here:
+
+1. **It hedges, because the truth is unknowable.** The second half is a `forkJoin` fan-out. When it errors, some of its calls may already have succeeded — `forkJoin` tells you one failed, never that all did. "may not have saved" is the only accurate tense.
+2. **It carries a next step**, naming a destination, not just a diagnosis.
+3. **It is not an error, it is a success with a caveat.** Both pages catch the second-half failure with `catchError(() => of({ …Failed: true }))` so it never reaches the `error:` handler; the page still navigates, `errorMessage` stays `null`, and the caveat is delivered as a toast. The comment above both reads: *"The monster now exists. A failure past this point must not look like a total failure, so it is caught here rather than reaching the error handler."* That is this ruling, written down two pages away, eighteen months before this feature.
+
+The one thing the convention does **not** offer is a warning severity — `NotificationKind` is `'success' | 'error'` only (`core/notifications.ts:3`), and `monster-create` spends `.error()` on the caveat. Keep doing that. Do not add a third kind for this.
+
+#### 9.5.1 Create pages — rejected, with a replacement
+
+| | |
+|---|---|
+| Luigi's | ~~"Location created, but attaching it to the selected mysteries failed."~~ |
+| **Adopt** | **"Location created, but some of its mysteries may not have saved. Review them on the location page."** |
+| **Bystander twin** | **"Bystander created, but some of its mysteries may not have saved. Review them on the bystander page."** |
+
+"failed" asserts total failure of the attach, which the client cannot know — select three mysteries, have the third `PUT` fail, and two of them *are* attached while the message says none are. And the string ends on the diagnosis, leaving the user on a create form with nothing to do.
+
+**The copy change does not stand alone, and must not be landed alone.** Luigi routes the partial case into the `error:` handler (`location-create.ts:98-105`), which means the page does not navigate, `errorMessage` is set, and the user is left looking at a populated create form whose only control is a **Create** button that will create a *second* location. That is the real defect; the wording is a symptom of it. Adopt the mechanism with the words: `catchError` on the batch, take the success path, navigate, toast the caveat, leave `errorMessage` null, and do not also fire the "Location created." success toast.
+
+**One consequence to catch while changing it.** `detailLink()` routes to the mystery-scoped URL when exactly one mystery was selected. Once the page navigates on partial failure, that route asserts a membership we no longer know holds. **On the partial-failure branch, always use the flat `/locations/{id}` route**, whatever the selection count.
+
+#### 9.5.2 Detail pages — rejected, and the fix is a refetch, not a sentence
+
+| | |
+|---|---|
+| Luigi's | ~~"Location saved, but its mysteries could not be updated."~~ |
+| **Adopt** | **"Location saved, but some of its mysteries may not have saved. Review them below and save again."** |
+| **Bystander twin** | **"Bystander saved, but some of its mysteries may not have saved. Review them below and save again."** |
+
+Same hedge problem — "could not be updated" asserts a total failure of a fan-out that may have partly landed. But the detail page cannot borrow the create page's next step, because the user is *already on* the page that copy points to. So the next step has to be delivered by the page itself, and this is where the ruling stops being about copy:
+
+**After a partial failure the page's state and the server's state disagree, and the page's state is the one the user will act on.** `save()` sets the entity optimistically — `map(() => ({ ...location, mysteryIds: desired }))` (`location-detail.ts:112`) — so on success the picker shows what was *asked for*, and on failure `location()` is not updated at all, so the picker's baseline is the pre-save set while the server holds a mixture. Two things follow:
+
+- **Requirement: refetch on completion, both branches.** Use the house idiom — `monster-detail.ts:315-346`'s `runAndRefresh` already does `switchMap(() => getById(id))` after every mutation rather than merging the payload locally, precisely so the page shows server truth. Doing the same here makes the form's `ngOnChanges` repopulate `mysteryIds` from the server, so **the answer to "which mysteries failed?" is the control itself, re-rendered with the true set.** That is better than enumerating failed mystery names in a sentence, which was the other option considered: it needs no name lookup, no list formatting, no plural handling, and it leaves the user's next action (fix the selection, press Save) in the place they already are.
+- **Requirement: the caveat must be a toast only — `errorMessage` stays `null`.** `location-detail.html:6-8` is an `@else if (errorMessage())` branch *ahead of* `@else if (location())`, so setting `errorMessage` **unmounts the form, the membership picker and the custom-moves list**, leaving a back-link and a red line. There is then no way to retry without navigating away. (This is pre-existing and app-wide — `monster-detail.html:6`, `minion-detail.html:6` and `bystander-detail.html:6` are the same chain, and `monster-detail.ts:158` sets it on save failure today. See the follow-up below. This ruling side-steps it rather than fixing it.)
+
+**"…and save again" is only honest once the refetch ships.** Without it, the recomputed `removed` diff still contains a mystery whose unlink `DELETE` already succeeded, and unlink returns **404 on repeat** — Boo's correction in Yoshi's §4.1. So the second Save fails too, and every Save after it, permanently. The refetch resets the baseline to server truth and dissolves the loop by construction. **Do not ship the copy without it.** Yoshi's §7.3 rule 2 ("treat 404 as success when applying a recorded disposition") is the same hazard, scoped to the wizard's `pendingRemovals`; nobody scoped it to this surface, because this surface's unlink is new.
+
+#### 9.5.3 The failure states these four pages can now reach
+
+Checked in full, not just the two Luigi named. **Bold rows are unaddressed today.**
+
+| # | State | Status |
+|---|---|---|
+| C1 | Reference data fails to load | "Unable to load reference data." — but the template has no `isLoading` guard around the form (`location-create.html:14`), so a working-looking form renders with an empty type dropdown. Self-limiting (the required validator blocks submit) and pre-existing. Inline only, no toast, unlike every other message on the page. **Follow-up, not this change set.** |
+| C2 | `createStandalone` fails | "Unable to create location." Correct, conventional, retry works. Leave it. |
+| C3 | Entity created, **every** link `PUT` fails | §9.5.1. |
+| C4 | Entity created, **some** link `PUT`s succeed | **Same message, which asserts they all failed. False.** Fixed by the §9.5.1 hedge. |
+| C5 | Partial failure, user presses **Create** again | **Creates a duplicate entity. Nothing prevents it.** The most serious state on these pages, and a pure consequence of routing the partial case into `error:`. Fixed by §9.5.1's navigate-anyway. |
+| C6 | Partial failure, exactly one mystery selected | Would land on a mystery-scoped route for a mystery the entity may not be in. Only reachable once we navigate on partial failure — so it is a "don't introduce this" note, handled by the flat-route fallback in §9.5.1. |
+| C7 | Zero mysteries selected | `runBatch` short-circuits to `of([])`. No calls, no new state. Fine. |
+| D1 | Detail load fails | "Unable to load location details." Fine. |
+| D2 | `update` itself fails | **"Unable to save location." is correct copy, but it unmounts the form and the user loses their edits with no retry.** Pre-existing across four detail pages; flagged, deliberately out of scope here. |
+| D3 | `update` succeeds, **every** membership call fails | §9.5.2. |
+| D4 | `update` succeeds, **some** membership calls land | **Message asserts total failure, and `location()` keeps the pre-save baseline while the server holds a mixture.** Fixed by the hedge plus the refetch. |
+| D5 | Save again after D3/D4 | **Re-issues an already-applied unlink `DELETE` → 404 → fails again, every time, forever.** A live bug, not a copy problem. Fixed by the refetch; nothing else fixes it. |
+| D6 | Success | Optimistic local merge rather than the house refetch. Accurate today, and the source of D4 and D5. Fold into the refetch change. |
+
+**Follow-up, not proposed for this change set:** the `@else if (errorMessage())` branch that precedes the content branch on all four `*-detail.html` pages turns any save error into a page wipe. It is shipped behaviour with a shipped consequence (D2), it is a four-page sweep, and Toad is currently in these files. The right treatment is the one §9.5.2 uses — mutation failures toast and leave the page mounted; only *load* failures replace the content — but it should be scoped and scheduled on its own, alongside the a11y work in §8.
+
 ---
 
 ## 10. What this design asks the architecture for
@@ -506,8 +575,10 @@ Skyler asked for OQ10 to be recorded for after the final phase rather than dropp
 3. **An "Appears in: …" read-only links line on the entity detail pages** (from §9.3). The chips in the membership control make sharing legible but are deliberately not links. If cross-navigation is wanted later it belongs in a separate read-only line using `.entity-link--inline`, and — since these routes have no `CanDeactivate` guard — it should land with a second registration of the shipped `hunter-draft.guard.ts` pattern rather than on its own.
 4. **Composer stay-open for Locations and Bystanders**, if the extra click per item proves annoying in practice (from OQ2). One line, no dependencies.
 5. **Relabelling `Detach`**, if a misclick against `Delete` is ever reported (from OQ4). `Unlink` is the ready alternative.
-6. *(his)* **"Attach a copy"** — Option C semantics offered additively alongside Attach.
-7. *(his)* **`MysteryDetailResponse` carrying ID lists rather than counts**, which item 1 above would need.
+6. **`WeaponTagSelectComponent`'s stale-`computed()` defect.** Found by Toad during the Phase 2 pass and fixed in `MysterySelectComponent` only. `selectedTags` is a `computed()` reading a plain `@Input() options` field — a non-signal read never invalidates a computed, so options arriving *after* a value has been written leave the chips permanently empty. Unreachable on its current call sites (the monster and minion sub-resource forms load their options once), which is why it was left alone rather than swept in mid-phase. The fix is the eight lines already applied to `MysterySelectComponent`: back the field with a `signal` behind a setter/getter pair so no call site moves. Worth doing before any future path refreshes a tag list independently.
+7. **The `errorMessage` page-wipe on the four entity detail pages** (from §9.5.3 D2). `@else if (errorMessage())` sits *ahead of* `@else if (location())`, so setting it unmounts the form and leaves nothing to retry into. Phase 2 worked around it by making every recoverable caveat toast-only, but Luigi's `runAndRefresh` adoption added a new entry point: a *refetch* failure after a successful write still reaches `error:` and wipes the page, exactly as the shipped `monster-detail` idiom does today. Pre-existing and app-wide; the sweep is the fix.
+8. *(his)* **"Attach a copy"** — Option C semantics offered additively alongside Attach.
+9. *(his)* **`MysteryDetailResponse` carrying ID lists rather than counts**, which item 1 above would need.
 
 ---
 

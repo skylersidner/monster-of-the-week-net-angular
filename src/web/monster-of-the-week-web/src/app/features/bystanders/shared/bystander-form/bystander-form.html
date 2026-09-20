@@ -15,5 +15,9 @@
       placeholder="Select a type..."
     ></app-custom-select>
   </label>
+  <label class="grid font-medium gap-1">
+    Mysteries
+    <app-mystery-select formControlName="mysteryIds" [options]="mysteries"></app-mystery-select>
+  </label>
   <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit" type="submit" [disabled]="isSaving">{{ submitLabel }}</button>
 </form>
