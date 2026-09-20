@@ -8,7 +8,7 @@ import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { MysteryCreateComponent } from './mystery-create';
-import { MinionDraft } from './mystery-create.store';
+import { MinionDraft, createDraftKey } from './mystery-create.store';
 
 function minionDraft(name: string, counts: Partial<Record<'attacks' | 'powers' | 'weaknesses' | 'armors', number>> = {}): MinionDraft {
   const named = (prefix: string, count: number) =>
@@ -16,6 +16,7 @@ function minionDraft(name: string, counts: Partial<Record<'attacks' | 'powers' |
 
   return {
     id: null,
+    localKey: createDraftKey(),
     name,
     description: '',
     harmCapacity: 3,
@@ -220,7 +221,7 @@ describe('MysteryCreateComponent', () => {
       minionDraft('Thrall', { weaknesses: 3 }),
     ]);
     // The composer is holding the *second* minion...
-    component.store.editMinionDraft(1);
+    component.store.editMinionDraft(component.store.minionDrafts()[1].localKey);
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
@@ -251,7 +252,7 @@ describe('MysteryCreateComponent', () => {
       minionDraft('Thrall', { weaknesses: 1 }),
       minionDraft('Acolyte', { powers: 4 }),
     ]);
-    component.store.editMinionDraft(1);
+    component.store.editMinionDraft(component.store.minionDrafts()[1].localKey);
     fixture.detectChanges();
 
     const dossier = (fixture.nativeElement as HTMLElement).querySelector('aside')!;
@@ -301,5 +302,118 @@ describe('MysteryCreateComponent', () => {
     expect(dossier.textContent).toContain('Choir Thrall');
     // Composer is reset and collapsed, so nothing is expanded.
     expect(dossier.textContent).not.toContain('Harm Capacity');
+  });
+  // --- roster accessibility (UX §8, items 1 and 4) --------------------------------------
+
+  function showRoster(names: string[]): void {
+    component.store.currentPhase.set(1);
+    component.store.currentStep.set(1);
+    component.store.minionDrafts.set(names.map((name) => minionDraft(name)));
+    fixture.detectChanges();
+  }
+
+  async function settle(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  it('names each roster action button after its own minion, not "Edit minion" five times over', () => {
+    showRoster(['Cultist', 'Thrall', 'Acolyte']);
+
+    const element = fixture.nativeElement as HTMLElement;
+    const edit = Array.from(element.querySelectorAll<HTMLButtonElement>('button[title="Edit minion"]'));
+    const remove = Array.from(element.querySelectorAll<HTMLButtonElement>('button[title="Remove minion"]'));
+
+    expect(edit.map((b) => b.getAttribute('aria-label'))).toEqual(['Edit Cultist', 'Edit Thrall', 'Edit Acolyte']);
+    expect(remove.map((b) => b.getAttribute('aria-label'))).toEqual(['Remove Cultist', 'Remove Thrall', 'Remove Acolyte']);
+    // `title` is kept for the mouse tooltip; it is a fragile accessible-name source on its own.
+    expect(edit[0].getAttribute('title')).toBe('Edit minion');
+  });
+
+  it('keeps a surviving row’s DOM when an earlier row is removed, because @for tracks the key', async () => {
+    // Under `track $index` the list shrinks and the *last* row is destroyed, with every earlier row
+    // rebound to different data — so a control the user was standing on vanishes and every row
+    // re-animates. Tracking `localKey` moves the removed row out and leaves the rest alone.
+    showRoster(['Cultist', 'Thrall', 'Acolyte']);
+    await settle();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const rowFor = (name: string): HTMLLIElement =>
+      Array.from(element.querySelectorAll('li')).find((li) => li.textContent?.includes(name))!;
+
+    const acolyteRow = rowFor('Acolyte');
+    const marked = acolyteRow as HTMLLIElement & { marker?: string };
+    marked.marker = 'acolyte';
+
+    const cultistKey = component.store.minionDrafts()[0].localKey;
+    component.store.removeMinionDraft(cultistKey);
+    await settle();
+
+    expect(component.store.minionDrafts().map((draft) => draft.name)).toEqual(['Thrall', 'Acolyte']);
+    // The row showing Acolyte is the *same element* it was before the removal.
+    expect((rowFor('Acolyte') as HTMLLIElement & { marker?: string }).marker).toBe('acolyte');
+    expect(rowFor('Acolyte')).toBe(acolyteRow);
+    expect(acolyteRow.isConnected).toBe(true);
+  });
+
+  it('moves focus to the composer heading when the pencil pulls a card in, because the pencil unmounts', async () => {
+    showRoster(['Cultist', 'Thrall']);
+    await settle();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const pencil = element.querySelectorAll<HTMLButtonElement>('button[title="Edit minion"]')[1];
+    pencil.focus();
+    expect(document.activeElement).toBe(pencil);
+
+    pencil.click();
+    await settle();
+
+    // The pencil it was standing on no longer exists — that is the defect being fixed.
+    expect(element.contains(pencil)).toBe(false);
+
+    const heading = element.querySelector<HTMLElement>('.border.border-default.rounded-lg.mt-4 h4')!;
+    expect(heading.getAttribute('tabindex')).toBe('-1');
+    expect(document.activeElement).toBe(heading);
+    // Focusing the heading announces the mode change without an aria-live region.
+    expect(heading.textContent).toContain('Editing');
+    expect(heading.textContent).toContain('Thrall');
+  });
+
+  it('moves focus to the composer heading from + Add Another Minion, which also unmounts', async () => {
+    showRoster(['Cultist']);
+    component.store.composerOpen.set(false);
+    await settle();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const addAnother = Array.from(element.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Add Another Minion'),
+    )!;
+    addAnother.focus();
+
+    addAnother.click();
+    await settle();
+
+    expect(element.contains(addAnother)).toBe(false);
+    const heading = element.querySelector<HTMLElement>('.border.border-default.rounded-lg.mt-4 h4')!;
+    expect(document.activeElement).toBe(heading);
+    expect(heading.textContent).toContain('Add a Minion');
+  });
+
+  it('leaves focus on the pencil when the composer refuses to commit', async () => {
+    showRoster(['Cultist', 'Thrall']);
+    component.store.startNewMinionDraft();
+    component.store.minionForm.controls.description.setValue('Half-typed third minion');
+    await settle();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const pencil = element.querySelectorAll<HTMLButtonElement>('button[title="Edit minion"]')[0];
+    pencil.focus();
+
+    pencil.click();
+    await settle();
+
+    // Nothing moved, so nothing should have taken focus off the control the user is on.
+    expect(component.store.editingDraftKey()).toBeNull();
+    expect(document.activeElement).toBe(pencil);
   });
 });

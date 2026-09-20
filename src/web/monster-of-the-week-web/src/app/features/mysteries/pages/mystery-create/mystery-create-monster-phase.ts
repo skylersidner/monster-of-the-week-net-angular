@@ -1,4 +1,13 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  ViewChild,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 
 import { MysteryCreateStore } from './mystery-create.store';
@@ -20,18 +29,35 @@ import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.c
 })
 export class MysteryCreateMonsterPhaseComponent {
   readonly store = inject(MysteryCreateStore);
+  private readonly injector = inject(Injector);
 
   /**
-   * Roster index awaiting removal confirmation. Confirm-on-remove is unconditional for minions
-   * (Skyler, 2026-09-01) because a minion can take up to four sub-lists with it. This is view state
-   * only, so it lives here rather than in the store — the same shape `minions-list`,
-   * `bystanders-list` and `playbook-admin` already use.
+   * The composer's heading. Only present while the composer is rendered, hence the optional
+   * `ViewChild` — it is read inside `afterNextRender`, by which time the panel exists.
    */
-  readonly pendingRemoveIndex = signal<number | null>(null);
+  @ViewChild('composerHeading') private readonly composerHeading?: ElementRef<HTMLElement>;
+
+  /**
+   * The `+ Add Another Minion` button. Only present while the composer is *collapsed* — it and the
+   * composer are the two arms of the same `@if`, which is exactly why focus has to be moved onto it
+   * when the composer goes away.
+   */
+  @ViewChild('addAnotherButton') private readonly addAnotherButton?: ElementRef<HTMLButtonElement>;
+
+  /**
+   * `localKey` of the roster card awaiting removal confirmation. Confirm-on-remove is unconditional
+   * for minions (Skyler, 2026-09-01) because a minion can take up to four sub-lists with it. This is
+   * view state only, so it lives here rather than in the store — the same shape `minions-list`,
+   * `bystanders-list` and `playbook-admin` already use.
+   *
+   * Keyed rather than indexed: the modal outlives the click that opened it, so a positional
+   * reference could be pointing at a different minion by the time the user confirms.
+   */
+  readonly pendingRemoveKey = signal<string | null>(null);
 
   private readonly pendingRemoveDraft = computed(() => {
-    const index = this.pendingRemoveIndex();
-    return index === null ? null : (this.store.minionDrafts()[index] ?? null);
+    const key = this.pendingRemoveKey();
+    return key === null ? null : (this.store.minionDrafts().find((draft) => draft.localKey === key) ?? null);
   });
 
   readonly pendingRemoveName = computed(() => this.pendingRemoveDraft()?.name ?? '');
@@ -84,21 +110,103 @@ export class MysteryCreateMonsterPhaseComponent {
     return type.motivation ? `${type.name}: ${type.motivation}` : type.name;
   }
 
-  requestRemoveMinion(index: number): void {
-    this.pendingRemoveIndex.set(index);
+  /**
+   * Pulls a roster card into the composer and takes focus with it.
+   *
+   * **This is the fix for the orphaned-focus defect (§8.6 item 1), and the orphaning is why it
+   * cannot be done on the button itself.** Activating the pencil *unmounts the pencil* — the
+   * template replaces it with the static `Editing` label — so the element that had focus stops
+   * existing mid-interaction and the browser drops the user at `<body>`, at the top of the
+   * document, at the exact moment the composer fills with their data. Moving focus to the composer
+   * heading in `afterNextRender` lands it on text that reads "Editing “{name}”", which announces
+   * the mode change with no `aria-live` needed and puts `Tab` one step from the first field.
+   *
+   * Focus only moves when the composer actually moved: `editMinionDraft` returns `false` when an
+   * open composer holds work that cannot be committed, and in that case the pencil is still there
+   * and still focused.
+   */
+  editDraft(key: string): void {
+    if (this.store.editMinionDraft(key)) {
+      this.focusComposerHeading();
+    }
+  }
+
+  /**
+   * "+ Add Another Minion". Same treatment and the same reason: this button is *replaced* by the
+   * composer it opens, so without the focus move it orphans focus exactly as the pencil does.
+   */
+  startNewDraft(): void {
+    if (this.store.startNewMinionDraft()) {
+      this.focusComposerHeading();
+    }
+  }
+
+  /**
+   * Commits the composer from its own Save button, and follows the focus out.
+   *
+   * **The exit half of the focus contract `editDraft` opens (§8 item 6).** `Save Changes` /
+   * `Save Minion` and `Cancel` **unmount themselves** when the composer collapses, exactly as the
+   * pencil unmounts itself on the way in — so fixing only the entry left a keyboard user able to
+   * get *into* the composer and not out of it. Focus moves to `+ Add Another Minion`, which
+   * occupies the screen position the Save button just vacated.
+   *
+   * Guarded on the composer having actually collapsed: an invalid composer refuses to commit and
+   * stays open, and in that case the button the user pressed is still there and still focused.
+   */
+  saveDraft(): void {
+    this.afterComposerCollapse(() => this.store.saveMinionDraftToList());
+  }
+
+  /** Same contract as `saveDraft`, other verb. OQ2 gives both a single collapse path, not two. */
+  cancelDraft(): void {
+    this.afterComposerCollapse(() => this.store.cancelComposerEdit());
+  }
+
+  requestRemoveMinion(key: string): void {
+    this.pendingRemoveKey.set(key);
   }
 
   onRemoveConfirmed(): void {
-    const index = this.pendingRemoveIndex();
-    this.pendingRemoveIndex.set(null);
-    if (index === null) {
+    const key = this.pendingRemoveKey();
+    this.pendingRemoveKey.set(null);
+    if (key === null) {
       return;
     }
 
-    this.store.removeMinionDraft(index);
+    this.store.removeMinionDraft(key);
   }
 
   onRemoveCancelled(): void {
-    this.pendingRemoveIndex.set(null);
+    this.pendingRemoveKey.set(null);
+  }
+
+  /** The `wizard-layout.ts:54-60` idiom: after the render, so the heading already reads the new mode. */
+  private focusComposerHeading(): void {
+    afterNextRender(
+      { write: () => this.composerHeading?.nativeElement.focus({ preventScroll: true }) },
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * Runs a composer action and, only if it actually closed the composer, follows the focus out.
+   *
+   * The guard is belt-and-braces rather than load-bearing today: `addAnotherButton` and the
+   * composer are the two arms of one `@if`, so while the composer is open the `@ViewChild` is
+   * undefined and the focus call is already a no-op. It is kept because that is an accident of the
+   * current template, and "only move focus if the thing the user was standing on went away" is the
+   * rule this method is for.
+   */
+  private afterComposerCollapse(action: () => void): void {
+    const wasOpen = this.store.composerOpen();
+    action();
+    if (!wasOpen || this.store.composerOpen()) {
+      return;
+    }
+
+    afterNextRender(
+      { write: () => this.addAnotherButton?.nativeElement.focus({ preventScroll: true }) },
+      { injector: this.injector },
+    );
   }
 }

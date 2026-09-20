@@ -1670,3 +1670,77 @@ Both error strings I flagged in the entry above were **rejected as written** (`m
 - **8 more negative controls, all caught** (25 across both rounds): partial create routed to `error:`, partial create on the scoped route, partial create also toasting success, partial create setting `errorMessage`, detail page without the refetch, detail caveat setting `errorMessage`, detail membership failure reaching `error:`, and the picker's options reverted to a plain field.
 
 Not committed.
+
+## 2026-09-20: Mystery Entity Linking Phase 3 — roster foundations, the modal hardened and swept, CustomSelect Escape
+
+### Task
+`mystery-entity-linking.md` §9 Phase 3, all three workstreams. Phase 2 committed as `2814168`. Not committed. Phase 4 (wizard attach/re-edit/`pendingRemovals`) and Phase 5 (monsters, roster, minion picker) stay out of scope — this phase makes the shipped pattern *fit to be copied*, it does not copy it.
+
+### Reusable technical facts
+- **`@HostListener('keydown.escape', ['$event'])` types `$event` as `Event`, not `KeyboardEvent`.** Declare the parameter `Event` — `TS2345` otherwise, and nothing in an Escape handler needs the `KeyboardEvent` members anyway.
+- **Escape nesting between two controls that both close on Escape** is three lines, in this order: early-return when already closed, `stopPropagation()`, `preventDefault()`. The early return is what lets the *second* press reach the outer dialog; `stopPropagation()` is what stops the *first* from closing both. Bind the dialog's handler on its own backdrop element rather than on `document`, or the inner control's `stopPropagation()` cannot shield it.
+- **Assert propagation by whether a `document` listener fired, not via `event.cancelBubble`.** jsdom does not reflect `stopPropagation()` on `cancelBubble` after dispatch, so a `cancelBubble` assertion is a false negative. `addEventListener('keydown')` on `document` in a `try/finally` is the honest probe.
+- **`fixture.detectChanges(); await fixture.whenStable();` runs `afterNextRender` hooks** — the `wizard-layout.spec.ts` idiom, and it is what makes focus-move assertions possible. TestBed attaches the fixture to `document.body`, so `element.focus()` really moves `document.activeElement`.
+- **A `track $index` to `track key` change needs a test with teeth.** Removing a row does not change node *identity* under either strategy, so the detectable difference is which row is destroyed: stash a property on the last row's `<li>`, remove the first row, and check the property still travels with its data. A plain render assertion MISSES the mutation.
+- **`vi.spyOn` on a `useValue` object works, but a whole second TestBed is needed to re-run a store's `init()`** with different service mocks. `TestBed.resetTestingModule()` then `configureTestingModule` again inside the `it` is the cheapest way to exercise the edit-mode hydration path; `{ ...existingMock, getByMystery: ... }` keeps the rest of the mock.
+- **Two count-shaped copy rules that are easy to get wrong and now live in one place** (`shared/mystery-usage.ts`): a list page says **"used by 2 mysteries"**, never "2 *other* mysteries" (no current mystery exists for the others to be other than, and the extra word reads as off-by-one); and the count must come from the **resolved names array**, not from `mysteryIds`, or a stale id makes the sentence claim a number the list does not show.
+- **`MonsterDetailResponse` carries `monsterArchetype: { id }`, not `monsterArchetypeId`** — a hand-built mock that follows the `Upsert...Request` shape crashes `loadEditData` at `mystery-create.store.ts:801`.
+- **Shell-escaping traps when appending spec text from a bash `node -e`:** a backtick inside a JS template literal, and a single-quoted `'Edit minion'` inside a single-quoted `it(...)` title, both silently produce mangled output (an emptied comment; a TS1005). Prefer the Edit tool for anything containing backticks or nested quotes, and grep the result. A `<<'EOF'` heredoc whose body contains a line starting with a backtick can also abort the whole command — write long prose to a scratchpad file and `cat` it instead.
+
+### Decisions (filed as `luigi-mystery-entity-linking-phase3-modal-footnote-default.md`)
+- **`footnote` renders unconditionally but its default becomes `''`**, correcting §7.1's parenthetical. Ten of fourteen call sites pass "This cannot be undone." as `message` with empty `items`; the old default would duplicate it on all ten. Rejected: rewording ten templates (out of scope), and suppressing a footnote identical to the message (magic).
+- **`usage`/`usageMessage` render above `message`/`items` and never merge.** `items` already means "what gets destroyed" on `monsters-list`; merging would displace a shipped disclosure to add a new one.
+- **Focus restore is captured inside the component** (`document.activeElement` at open, `isConnected`-guarded on close) rather than via a caller-supplied element reference. Covers Cancel, Escape and backdrop; the confirmed-delete case where the opener is gone falls through to no move, and §8.6's caller-provided fallback is left for the phase that owns the roster's removal flow.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings (`wizard-tracker.scss`, `custom-select.component.scss`).
+- `npm test`: 77 files / **888** tests, from a 74 / 816 baseline.
+- `dotnet test`: **533 passed**; `git status -- src/api` empty — nothing backend touched.
+- **34 negative controls, all caught.** Foundations: roster tracking by index, aria-labels dropped and genericised, heading not focusable, focus move removed on the pencil and on Add Another, focus moving despite a blocked commit, hydration minting no key, a key re-minted on edit, removal ignoring the edited card. Modal: focus on the confirm button, no initial focus, no Escape, Escape not stopping propagation, no trap, no restore, footnote default restored, footnote back inside the items branch, usage merged into items, hardcoded `modal-title`, no `aria-describedby`, secondary button suppressed. Select: no early return, no `stopPropagation`, no refocus, search term kept. Sweep: "other mysteries", fake `(s)` pluralisation, unresolvable ids kept, footnote ignoring the count, count from `mysteryIds`, zero claimed on lookup failure, usage merged, minion cascade dropped.
+- **Three MISSED first, each fixed by adding the missing test, not by weakening the control:** the edit-mode hydration key (no test exercised `init(mysteryId)` for minions), the footnote default (my test set `footnote` explicitly, so it never read the default), and the resolved-name count (no fixture had a stale mystery id).
+
+### Files
+- **New:** `shared/mystery-usage.{ts,spec.ts}`, `shared/escape-nesting.spec.ts`, `features/monsters/pages/monsters-list/monsters-list.spec.ts`.
+- **Modified:** `shared/confirm-delete-modal.component.{ts,html,spec.ts}` (usage pair, footnote rename, secondary action, initial focus / trap / Escape / restore / unique ids); `shared/custom-select.component.{ts,html,spec.ts}` (Escape); `mystery-create.store.{ts,spec.ts}` (`MinionDraft.localKey`, `createDraftKey`, `editingDraftKey`, key-based edit/remove, index-shift block deleted); `mystery-create-monster-phase.{ts,html}` + `mystery-create.spec.ts` (key tracking, entity aria-labels, composer-heading focus move); `mystery-create-dossier.html` (key tracking); `{locations,bystanders,monsters}-list.{ts,html}` + the three specs (sweep); `hunter-create.html` (two `permanenceNote` to `footnote` renames).
+- **Untouched on purpose:** `WeaponTagSelectComponent` (same stale-`computed()` defect as `MysterySelectComponent` had; the Escape work did not force it), `minions-list` (a minion has no mystery membership), and the other eleven modal call sites.
+
+### Left for later phases, named rather than silently skipped
+- **Focus after the composer *collapses*** (§8 item 6) — Save and Cancel unmount their own buttons exactly as the pencil does, so it is the same defect on the other edge. Not among the three fixes this phase was scoped to.
+- **The live region, `role="group"` on the composer, and the row-entrance animation** (§8 items 2, 3, 9) — they belong with the roster replication.
+- **`track $index` in the sub-resource lists.** `AttackDraft`/`PowerDraft`/`WeaknessDraft`/`ArmorDraft` have no identity at all today; Phase 5 gives them `id` under decision 8, and inventing a second key for them now would be reworked immediately.
+- **The modal's "opener no longer exists" focus fallback** — needs per-caller knowledge of where to send focus instead, which is the roster's removal flow.
+
+Not committed.
+
+## 2026-09-20 (same day, follow-up): Phase 3 — two production bugs from Toad's pass, Rosalina's override, and the composer-collapse pair
+
+### Task
+Five items, all in my files. Two production bugs Toad measured in Chromium, one scope addition (§8 item 6 moved into scope by Rosalina and by the coordinator), one missing fallback, and one design override. Plus the `forkJoin` gating question and a stale identifier in a comment.
+
+### Reusable technical facts
+- **A `(keydown)` binding on a modal's own backdrop is not enough, and the hole is one click wide.** The dialog's title, message and padding are not focusable, so clicking any of them drops `document.activeElement` to `<body>` — and a keydown raised on `<body>` never propagates *down* into the backdrop. `Escape` then silently stops working for the rest of the dialog's life. Use `@HostListener('document:keydown')` with a `visible` guard.
+- **That does not cost the nesting property**, and the negative controls got *stronger*, not weaker: removing `CustomSelectComponent.handleEscape`'s `stopPropagation()` now fails 18 tests instead of 2, because with the dialog on `document` the select's `stopPropagation()` is the only thing standing between one press and both closures.
+- **Once the dialog listens on `document`, "did the event reach `document`" stops being a usable assertion** for "was it consumed" — the dialog's own listener is on `document`, and `stopPropagation()` does not stop sibling listeners on the same node (only `stopImmediatePropagation` does). Assert `defaultPrevented` plus the outcome instead, and keep the propagation assertion in the *nesting* spec, where it is still the real property.
+- **Sampling `document.activeElement` when a dialog opens is not the same as knowing what opened it.** `monsters-list` disables its trash button for a minion pre-fetch and opens the dialog a round trip later; Chromium drops focus to `<body>` when a focused button is disabled and does **not** restore it on re-enable. Track focus as it moves — `@HostListener('document:focusin')`, ignoring targets inside the dialog and ignoring `<body>` — and restore from that. It also collapsed two fields into one and made the "outside" guard testable.
+- **jsdom will not `blur()` a disabled element**, so a spec that wants the browser's blur-on-disable state has to drop the attribute for the duration of the call. Focusing some *other* stand-in element instead is worse than useless: it fires `focusin`, overwrites the very opener under test, and makes the test pass before and after the fix. That is exactly how Toad's original version of this test was vacuous, and the same trap applies to any focus-tracking component.
+- **`ngOnChanges` runs before the view updates**, so a close-time focus fallback searching the DOM still sees the dialog's own buttons. Exclude the host subtree explicitly — do not rely on the dialog happening to be rendered last, which every shipped call site does but no call site promises.
+- **`inject(ElementRef<HTMLElement>)` is wrong** and produces `TS2347` "untyped function calls may not accept type arguments" plus a cascade of `unknown`s. Write `private readonly x: ElementRef<HTMLElement> = inject(ElementRef);`.
+- **A guard can be correct and still unobservable.** `afterComposerCollapse`'s "did it actually collapse" check is a no-op today because `+ Add Another Minion` and the composer are the two arms of one `@if`, so the `@ViewChild` is undefined while the composer is open. Kept, annotated as belt-and-braces, and reported rather than left as a silently-untested branch.
+- **The heredoc/backtick trap bit again**, this time eating three backticked identifiers out of a doc comment in a `node -e` string. Grep the result of every generated comment, or use the Edit tool.
+
+### Decisions
+- **`forkJoin` gating: decoupled.** The three swept pages now subscribe to the entity list and to `getMysteries()` independently, and `isLoading` gates only on the entity list. The mystery list is disclosure data for a dialog, not page data, and gating on it let a slow `/api/mysteries` delay the list itself. The mystery subscription's error is swallowed deliberately — it must not put an error band over a list that loaded.
+- **Pending and failed are reported with the same sentence**, and that is flagged for Rosalina rather than resolved unilaterally. Decoupling creates a third state (still in flight) that her §7.7 copy does not name. Inventing a second string would be inventing copy she has not approved; the user-facing consequence is identical (no verified usage, cancel and retry), so `mysteryUsageUnavailableMessage` covers both and the code says so.
+- **The confirmed-delete fallback is derived from the DOM**, not taken as an input: the first focus stop in the dialog's parent container, excluding the dialog. That gives all thirteen call sites the behaviour without a single call-site change, and in the wizard it lands on the surviving roster row rather than on `<body>`.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npm test`: 81 files / **951** tests, from Toad's 81 / 936 baseline.
+- `dotnet test`: **533 passed**; `git status -- src/api` empty.
+- **18 negative controls this round, all caught.** Four of Toad's characterisation tests flipped from asserting the defect to asserting the fix, and his `monsters-list` focus test was rewritten because its jsdom stand-in did not reproduce the browser state it stood in for.
+- **Three MISSED first.** The focus-tracking "outside" guard (unobservable until the restore path was simplified to read from it), the fallback's host-subtree exclusion (needed a call-site shape that renders the dialog first — every shipped one renders it last), and `isLoading` re-gating (no test asserted it *after* the mystery load landed).
+
+### Files
+- **Modified:** `shared/confirm-delete-modal.component.{ts,html,spec.ts}`; `shared/mystery-usage.{ts,spec.ts}`; `mystery-create-monster-phase.{ts,html}`; `mystery-create.store.ts` (comment only); `{locations,bystanders,monsters}-list.{ts,spec.ts}`; `monsters-list.focus.spec.ts` and `mystery-create-roster-keyboard.spec.ts` (Toad's, flipped).
+
+Not committed.

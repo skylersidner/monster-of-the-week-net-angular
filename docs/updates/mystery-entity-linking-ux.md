@@ -1,7 +1,7 @@
 # Editing, Attaching and Removing Entities in the Mystery Wizard — UX / Visual Design
 
 **Prepared by:** Rosalina (Designer)
-**Status:** **Settled — ready for implementation.** Every question in §12 is answered; **nothing in this document is waiting on Skyler.** Each decision is folded into the section it affects and left in §12 struck through, so cross-references from Yoshi's doc still resolve. OQ9 is Luigi's call at implementation time and blocks nothing. OQ10 is deliberately deferred and has a durable home in §12.1, per Skyler's instruction to record it for after the final phase.
+**Status:** **Settled — Phase 3 shipped; the rest is ready for implementation.** Every question in §12 is answered; **nothing in this document is waiting on Skyler.** Phase 3 (Luigi) implemented the modal's new input surface (§7.7), the `Escape` fix (§8.7) and accessibility items 1, 4, 5 and 7; two claims of mine were wrong in implementation and are corrected in place, with the reasoning, in §7.1 and §7.6. One new requirement (§8.6, focus after the composer collapses) was identified during that phase and is scoped to the roster replication. Each decision is folded into the section it affects and left in §12 struck through, so cross-references from Yoshi's doc still resolve. OQ9 is Luigi's call at implementation time and blocks nothing. OQ10 is deliberately deferred and has a durable home in §12.1, per Skyler's instruction to record it for after the final phase.
 **Date:** 2026-09-19 · **Reconciled against Yoshi's `mystery-entity-linking.md` rev 3, then against Skyler's answers to Yoshi's seven questions, then against his answers to the six remaining questions here** — see the dated notes in §2.2, §2.3, §7.1, §7.2, §8.7, §9.3, §9.5, §10.1 and §12. **§9.5 (added 2026-09-19, after Phase 2 landed) rules on the two partial-failure strings Luigi introduced and flagged; it carries two behaviour requirements for him, not only copy.**
 
 > Filed under `docs/updates/` alongside `docs/updates/mystery-entity-linking.md` (Yoshi's architecture proposal for the same feature) and `docs/updates/multi-minion-wizard-design.md`, whose roster-plus-composer pattern this generalises to all four entity types. This document covers **only** the interaction and visual half. Where it requires something Yoshi's doc does not currently allow, that is called out explicitly in §10 rather than left for Luigi to discover.
@@ -242,7 +242,15 @@ Therefore the usage list is the new block: add `[usage]` + `[usageMessage]`, ren
 
 Render order, top to bottom: title → `usageMessage` + `usage[]` → `message` + `items[]` → footnote → buttons.
 
-One further fix required: `permanenceNote` currently only renders **inside** the `items.length > 0` branch (`confirm-delete-modal.component.html:18-20`), so it silently disappears for a flat Location with nothing to cascade — exactly the common case below. Render it unconditionally, and rename it `footnote`, since it now carries button guidance as well as permanence (its shipped default `'This cannot be undone.'` still works for every current caller).
+One further fix required: `permanenceNote` currently only renders **inside** the `items.length > 0` branch (`confirm-delete-modal.component.html:18-20`), so it silently disappears for a flat Location with nothing to cascade — exactly the common case below. Render it unconditionally, and rename it `footnote`, since it now carries button guidance as well as permanence.
+
+> **Corrected 2026-09-19 after Phase 3 (Luigi).** I originally wrote that the shipped default `'This cannot be undone.'` "still works for every current caller." **That was wrong, and shipping it would have printed that sentence twice in ten dialogs.** The reason is the very bug this fix addresses: because `permanenceNote` never rendered, ten call sites had been passing that sentence as **`message`** instead — using `message` *as* the footnote. Render the footnote unconditionally while keeping its default, and both fire. **The default must be `''`.**
+>
+> Worth being precise about the ten, because the count in the shipped code comment and spec (`confirm-delete-modal.component.ts:64`, `.spec.ts:154`) says *seven* and undercounts: seven call sites pass the sentence explicitly as `message` (`playbook-admin`, `bystanders-list`, `hunters-list`, `locations-list`, `hunter-detail`, `minions-list`, `monsters-list`), and **three more pass no `message` at all and inherit its default, which is the same sentence** — `mysteries-list.html:42-47`, `monster-detail.html:236-241`, `minion-detail.html:206-211`. Those three are the easy ones to miss, and they double exactly the same way. The fix is identical either way, so nothing shipped wrong; the number in the comment is what's off.
+>
+> One non-obvious consequence Luigi surfaced rather than folded in: **`monsters-list` *with* minions genuinely did render that line before** — `message` carried the minions lead-in, `items` carried the names, and the old `permanenceNote` default rendered underneath because `items.length > 0` was true. So that branch loses a line it used to have unless the page passes an explicit footnote, which it now does. The no-minions branch is the one that would have doubled.
+>
+> **Why my wrong version read as safe, since that is the reusable part:** I reasoned about the default from the component's own declaration and from what the input was *named for*, without checking what callers actually passed into the adjacent input. A default is only "safe to keep" relative to its real call sites, and when a fix changes *whether* a block renders, every caller's other inputs become part of the blast radius. Same class of error as assuming `[items]` was unused — both times I characterised an input from the component's side of the boundary instead of the consumers'.
 
 #### The variants
 
@@ -322,7 +330,11 @@ Unchecking a mystery chip in the `MysterySelectComponent` on a location's edit f
 
 I originally filed this as "out of scope but cheap." Skyler's answer 7 puts it in the same change set, which is the right call and resolves the one real disagreement between this doc and Yoshi's: the list pages' hard delete is the highest-consequence delete in the app, and shipping the wizard's disclosure first would have left two modals that disagree about the same entity.
 
-But "extend to lists/details" turns out to mean less than it sounds, and the audit below matters more than the instruction. **Of the fourteen `<app-confirm-delete-modal>` call sites, only three need anything**, and one surface that genuinely wants the full three-button treatment doesn't have a delete affordance to extend.
+But "extend to lists/details" turns out to mean less than it sounds, and the audit below matters more than the instruction. **Of the thirteen `<app-confirm-delete-modal>` elements in the app, only three need anything**, and one surface that genuinely wants the full three-button treatment doesn't have a delete affordance to extend.
+
+> **Count corrected 2026-09-19 after Phase 3.** Thirteen elements across twelve template files — `hunter-create.html` is the only page with two (a playbook-switch confirm at `:57` and a discard confirm at `:69`). Two earlier numbers were wrong in both directions and the method is the lesson: my original "fourteen" came from a `files_with_matches` grep, which counts **files, not elements**, and included `confirm-delete-modal.component.ts` and its spec — neither of which is a call site. A later recount landed on fourteen by treating the closing `></app-confirm-delete-modal>` tags on `monster-detail.html:241` and `minion-detail.html:211` as second elements; they are the same elements' closing tags. Count elements with an opening-tag pattern, not files, and not matches.
+>
+> The audit's **conclusion is unchanged** — still exactly three surfaces need work.
 
 ### 7.6 Call-site audit
 
@@ -334,13 +346,40 @@ But "extend to lists/details" turns out to mean less than it sounds, and the aud
 | `location-detail`, `bystander-detail`, `monster-detail` (the entity itself) | **No** | n/a | **Nothing to extend.** These pages have no entity-level delete button; adding one is a separate product decision. |
 | `mysteries-list`, `hunters-list`, `hunter-detail`, `minions-list`, `playbook-admin`, `hunter-create` | Yes | n/a | **Nothing.** Mysteries, hunters and playbooks have no mystery membership; a minion reaches a mystery only through its monster, so its own delete has no usage list to show. |
 
-The practical read for Luigi: answer 7 is **three template edits plus two new component inputs**, not a sweep.
+The practical read for Luigi: answer 7 is **three template edits plus the component's new inputs**, not a sweep.
+
+### 7.7 As built in Phase 3
+
+Recorded because the input surface is now the contract three more phases will code against.
+
+`itemName`, `visible`, `verb` and `confirmLabel` are unchanged. **New:** `usageMessage: string = ''` and `usage: readonly string[] = []`, rendering above. `message` and `items` are unchanged and keep the cascade meaning specified in §7.1. `permanenceNote` is **renamed `footnote`**, renders unconditionally, and defaults to `''` (see the correction in §7.1). **New:** `secondaryLabel: string | null = null` with a `(secondary)` output — the Detach slot.
+
+Two implementation details worth keeping:
+
+- **The render order is asserted as an ordered list of blocks**, not just as individual presence checks: title → `usageMessage` + `usage` → `message` + `items` → `footnote` → buttons. Order is load-bearing here (usage drives Detach-vs-Delete, cascade drives Delete-vs-Cancel, per §7.1) and presence-only assertions would let it silently reshuffle.
+- **Initial focus lands on the secondary button when present, otherwise Cancel, never the confirm** — §8.5 as specified.
+
+**Copy is centralised in `shared/mystery-usage.ts`** so the three swept pages cannot drift, which is the right call and is where the "*2 mysteries*, not *2 other mysteries*" rule from §7.1 is now enforced in exactly one place. One detail there is better than what I specified: **the count is taken from the resolved-names array rather than from `mysteryIds`**, so the sentence and the list always agree even when an ID fails to resolve. I had left that gap open by implying the count came from the IDs; taking it from the names makes "2 mysteries:" followed by two bullets an invariant rather than a coincidence.
+
+#### If the mystery fetch fails — ratified with one change
+
+Luigi's call was to **suppress the usage block entirely** rather than let it default to "isn't used by any mystery," on the grounds that a false zero on the app's most consequential destructive action is worse than no claim. **I agree with that reasoning and it is the right instinct** — never state a zero we haven't verified.
+
+**But I'd change the treatment, because silence reproduces the error it avoids.** Once users learn this modal always tells them where an entity is used, an *absent* block reads as "used nowhere" just as a false sentence would — the inference is the same, only quieter, and it is unfalsifiable from the user's side. Say the check failed:
+
+> `usageMessage = "Couldn't check which mysteries use this location."`, `usage = []`, footnote unchanged (`This cannot be undone.`)
+
+Same block, no new input, one string. It turns an invisible failure into a visible one, and on an irreversible action the user can then cancel and retry rather than delete blind. **The confirm button stays enabled** — a network blip must not block a legitimate delete, and the user now has what they need to decide.
+
+If that copy is unwelcome, suppression remains a defensible fallback; it degrades to exactly today's shipped modal. But specifying it is cheap, so it should be specified.
 
 ---
 
 ## 8. Accessibility requirements
 
-These are requirements, not polish. Items 1, 2 and 5 are live defects in the shipped minion roster that get four times worse when replicated to four phases.
+These are requirements, not polish. Items 1, **6** and 5 are live defects in the shipped minion roster that get four times worse when replicated to four phases — item 6 was identified during Phase 3 and belongs to that same set.
+
+**Phase 3 shipped items 1, 4, 5 and 7.** Items 2, 3 and 6 remain, and all three should land with the roster replication rather than after it.
 
 1. **Focus when a row is pulled into the composer.** Activating the pencil **unmounts that pencil** (it is replaced by the static `Editing` label), so keyboard focus is currently orphaned to `<body>` and the user is dropped at the top of the document. Required: give the composer header `tabindex="-1"` and, in `afterNextRender({ write })`, call `heading.focus({ preventScroll: true })` — the exact idiom already in `wizard-layout.ts:54-60`. Focusing the *heading* rather than the name input is deliberate: the heading text is "Editing “Sheriff Dalton”", so taking focus announces the mode change with no `aria-live` needed, and `Tab` from there lands on the first field.
 2. **Announce roster changes.** One visually-hidden polite status region per phase (`<p class="sr-only" aria-live="polite" role="status">`), written on save / attach / remove: "Sheriff Dalton added." / "Sheriff Dalton updated." / "Sheriff Dalton removed." Without it, attach-on-pick is completely silent to a screen reader — the only feedback is a card appearing elsewhere on the page.
@@ -353,7 +392,11 @@ These are requirements, not polish. Items 1, 2 and 5 are live defects in the shi
    - On close, focus returns to the trash button that opened it — which requires the caller to hold that element reference, since the row may still exist (cancel) or may not (confirm); when it does not, fall back to the composer heading or the phase's first focusable control.
    - Add `aria-describedby` on the dialog pointing at the message paragraph, so the Detach-vs-Delete explanation is announced, not just the title.
    - Note: `id="modal-title"` is hardcoded, so two instances of this component on one page would produce duplicate IDs. The wizard only ever renders one at a time, but Luigi should make the ID unique while he is in there.
-6. **Focus after save.** When the composer collapses, focus moves to `+ Add Another {Noun}` (it occupies the same screen position the composer's Save button just did). When the composer stays open (if OQ2 goes that way), focus moves to the name input.
+6. **Focus after the composer collapses — the same defect as item 1, on the other edge. Required, and not yet done.** `Save Changes` and `Cancel` **unmount their own buttons** when the composer collapses, exactly as the pencil unmounts itself in item 1, so focus is orphaned to `<body>` on the way out just as it was on the way in. Required: focus moves to `+ Add Another {Noun}`, which occupies the same screen position the Save button just vacated.
+
+   OQ2 settled that the composer **always** collapses after save, for all four entities, so the "if it stays open, focus the name input" branch I originally wrote here is dead — there is one path, not two.
+
+   **Deliberately deferred out of Phase 3, and it belongs with the roster replication, not in §12.1.** Phase 3 was scoped to items 1, 4 and 5; this one wasn't in that set. It should not slide to the post-phase follow-up list, though, because the argument that got the other three scheduled applies to it identically: it is a defect in the *already-shipped* minion composer, and replicating the composer to three more entities multiplies it by four. §12.1 is for work deliberately deferred past the whole feature; this is work the feature makes worse. Fix it in the same phase that replicates the composer, and treat items 1 and 6 as one pair — they are the entry and exit of the same focus contract, and fixing only one leaves a keyboard user able to get into the composer but not out.
 7. **Keyboard access to the attach select — `Escape` closes and restores focus. In scope; settled 2026-09-19 (OQ8):** *"Include Escape closes and restores focus as part of this scope."* Yoshi is placing it in his Phase 3 alongside the other roster foundations.
 
    `CustomSelectComponent` is operable today — the trigger is a real `<button>` with `aria-expanded` and the options are real `<button>`s — but the panel can only be dismissed by clicking elsewhere (`handleDocumentClick`, `custom-select.component.ts:87-92`), which a keyboard user cannot do. The fix, concretely:
@@ -365,6 +408,8 @@ These are requirements, not polish. Items 1, 2 and 5 are live defects in the shi
    **The early return and the `stopPropagation()` are the load-bearing lines, and they exist because of item 5 above.** Once the confirm modal also closes on `Escape`, a select rendered *inside* that modal must swallow the first `Escape` (closing only the dropdown) and let the second one through (closing the dialog). Returning early when the panel is already closed is what makes the second `Escape` reach the dialog; `stopPropagation()` is what stops the first one from closing both at once. Getting either wrong produces a dropdown that takes the whole dialog down with it.
 
    **Verification (Toad):** panel open + `Escape` → panel closes, `document.activeElement` is the trigger, `searchTerm` is cleared; panel closed + `Escape` → no-op and the event is *not* consumed; `Escape` from inside the search input behaves identically to `Escape` from the trigger; a select inside the confirm modal takes two `Escape` presses to close both, in that order, never one.
+
+   > **Built as specified in Phase 3, nesting interaction included.** One typing gotcha worth recording for whoever touches this next: the `$event` parameter of a `keydown.escape` **pseudo-event** must be typed `Event`, not `KeyboardEvent`, or the build fails with `TS2345`. Angular's pseudo-event syntax does not narrow the event type the way a plain `keydown` binding does — an easy hour to lose, since the handler body reads as obviously keyboard-specific.
 
    **Explicitly out of scope:** the rest of this component's ARIA — `role="listbox"` sits over children that are not `role="option"`, there is no `aria-activedescendant`, and there is no arrow-key navigation. Pre-existing, untouched here, and recorded in §12.1 as a follow-up so it isn't mistaken for having been fixed.
 8. **Colour is never the only signal.** The loaded roster card pairs `bg-accent-subtle border-accent` with the literal word `Editing`. Keep the word. Same rule for any future "shared" or "attached" indicator.

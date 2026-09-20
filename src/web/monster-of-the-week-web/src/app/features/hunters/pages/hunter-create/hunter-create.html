@@ -61,7 +61,7 @@
   [itemName]="store.pendingSwitch()?.playbookName ?? ''"
   [message]="switchMessage()"
   [items]="store.pendingSwitch()?.items ?? []"
-  permanenceNote="Your name, pronouns and History notes stay."
+  footnote="Your name, pronouns and History notes stay."
   (confirmed)="store.confirmSwitch()"
   (cancelled)="store.cancelSwitch()" />
 
@@ -71,6 +71,6 @@
   verb="Discard"
   [itemName]="discardName()"
   message="Nothing has been saved yet."
-  permanenceNote=""
+  footnote=""
   (confirmed)="resolveDiscard(true)"
   (cancelled)="resolveDiscard(false)" />

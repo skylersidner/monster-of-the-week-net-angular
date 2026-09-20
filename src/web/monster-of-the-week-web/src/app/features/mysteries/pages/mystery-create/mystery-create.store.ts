@@ -91,9 +91,34 @@ const COMPOSER_BLOCKED_MESSAGE = "Finish or clear the minion you're editing befo
  * draft carries its own collections *and* its own existing-sub-resource-ID baseline: `submitPhase1`
  * runs an independent delete-all/recreate-all cycle per minion, not one shared cycle across all of them.
  */
+/**
+ * Monotonic within a session, so a key is never reused even after the roster is cleared and
+ * rehydrated. A counter rather than a UUID because the value never leaves the browser and a
+ * readable key makes a failing roster assertion legible.
+ */
+let nextDraftKey = 0;
+
+/** Mints a stable client key for a draft. See `MinionDraft.localKey`. */
+export function createDraftKey(prefix = 'minion'): string {
+  return `${prefix}-${++nextDraftKey}`;
+}
+
 export interface MinionDraft {
   /** `null` until this draft has been saved at least once in this session (or hydrated from an existing mystery). */
   id: string | null;
+  /**
+   * Stable client-side identity, minted at creation *and* at hydration, never sent to the server
+   * and never changed for the life of the draft (UX §10.2).
+   *
+   * This exists because `id` cannot do the job: a draft authored in this session has no server ID
+   * until the phase transition saves it, so a roster of unsaved drafts has nothing to address rows
+   * by. The array index was standing in for identity, and that is a bug source rather than a
+   * shortcut — `removeMinionDraft` had to hand-adjust `editingDraftIndex` after every splice or
+   * silently overwrite a bystanding draft. With a key, removal is a filter and nothing shifts.
+   *
+   * It is also what `@for` tracks, so removing one row no longer re-creates every row after it.
+   */
+  localKey: string;
   name: string;
   description: string;
   harmCapacity: number;
@@ -170,7 +195,7 @@ export interface MysteryCreateDraftState {
    */
   composer: {
     open: boolean;
-    editingDraftIndex: number | null;
+    editingDraftKey: string | null;
   };
 }
 
@@ -282,13 +307,17 @@ export class MysteryCreateStore {
 
   /** The roster. One entry per minion under the wizard's monster, in creation order (no reordering). */
   readonly minionDrafts = signal<MinionDraft[]>([]);
-  /** Index into `minionDrafts()` the composer is editing, or `null` when composing a brand-new minion. */
-  readonly editingDraftIndex = signal<number | null>(null);
   /**
-   * Whether the composer panel is rendered. This is NOT derivable from `editingDraftIndex`: "roster
+   * `localKey` of the roster card the composer is editing, or `null` when composing a brand-new
+   * minion. Replaces the former `editingDraftIndex`: a key survives every roster mutation, so the
+   * "removal invalidates the pointer" hazard this used to carry cannot arise (UX §10.2).
+   */
+  readonly editingDraftKey = signal<string | null>(null);
+  /**
+   * Whether the composer panel is rendered. This is NOT derivable from `editingDraftKey`: "roster
    * non-empty, nothing being edited, collapsed" and "roster non-empty, user clicked + Add Another
-   * Minion" both have `editingDraftIndex() === null`. Nor from "the composer is non-empty" — that
-   * would collapse the panel the user just opened. Invariant: `editingDraftIndex() !== null` implies
+   * Minion" both have `editingDraftKey() === null`. Nor from "the composer is non-empty" — that
+   * would collapse the panel the user just opened. Invariant: `editingDraftKey() !== null` implies
    * `composerOpen()`; every method that writes one writes the other.
    */
   readonly composerOpen = signal(true);
@@ -632,7 +661,7 @@ export class MysteryCreateStore {
     },
     composer: {
       open: this.composerOpen(),
-      editingDraftIndex: this.editingDraftIndex(),
+      editingDraftKey: this.editingDraftKey(),
     },
   }));
 
@@ -796,6 +825,9 @@ export class MysteryCreateStore {
         this.minionDrafts.set(
           minions.map((minion) => ({
             id: minion.id,
+            // Hydrated drafts get a key too, so there is exactly one addressing scheme on the
+            // roster whether a card came from the server or from this session.
+            localKey: createDraftKey(),
             name: minion.name,
             description: minion.description ?? '',
             harmCapacity: minion.harmCapacity,
@@ -822,7 +854,7 @@ export class MysteryCreateStore {
           }))
         );
         // A non-empty loaded roster is "nothing being edited" — composer collapsed (§1.2/§1.7).
-        this.editingDraftIndex.set(null);
+        this.editingDraftKey.set(null);
         this.composerOpen.set(minions.length === 0);
       });
   }
@@ -1024,13 +1056,15 @@ export class MysteryCreateStore {
       return;
     }
 
-    const index = this.editingDraftIndex();
-    const existing = index !== null ? this.minionDrafts()[index] ?? null : null;
+    const key = this.editingDraftKey();
+    const existing = key !== null ? this.minionDrafts().find((item) => item.localKey === key) ?? null : null;
 
     const draft: MinionDraft = {
       // Keep the server ID and the sub-resource baselines of the slot being edited: submitPhase1
       // needs them to update rather than duplicate, and to delete the right children first.
       id: existing?.id ?? null,
+      // Keep the edited card's key so the roster row keeps its identity; mint one for a new draft.
+      localKey: existing?.localKey ?? createDraftKey(),
       name: this.minionForm.controls.name.value.trim(),
       description: this.minionForm.controls.description.value ?? '',
       harmCapacity: this.minionForm.controls.harmCapacity.value,
@@ -1046,28 +1080,34 @@ export class MysteryCreateStore {
     };
 
     this.minionDrafts.update((drafts) =>
-      existing !== null ? drafts.map((item, itemIndex) => (itemIndex === index ? draft : item)) : [...drafts, draft]
+      existing !== null ? drafts.map((item) => (item.localKey === draft.localKey ? draft : item)) : [...drafts, draft]
     );
 
     this.resetComposer();
-    this.editingDraftIndex.set(null);
-    // Invariant: editingDraftIndex() !== null implies composerOpen(). Collapse to
+    this.editingDraftKey.set(null);
+    // Invariant: editingDraftKey() !== null implies composerOpen(). Collapse to
     // "+ Add Another Minion" now that the roster has something in it.
     this.composerOpen.set(this.minionDrafts().length === 0);
     this.submitError.set(null);
   }
 
-  /** Loads a roster card back into the composer — core fields and all four sub-resource lists. */
-  editMinionDraft(index: number): void {
+  /**
+   * Loads a roster card back into the composer — core fields and all four sub-resource lists.
+   *
+   * Returns whether the composer actually changed. A blocked commit (`commitComposerIfValid()`
+   * returning `false`) or an unknown key leaves the composer where it was, and the caller must not
+   * move focus in that case — see `MysteryCreateMonsterPhaseComponent.editDraft`.
+   */
+  editMinionDraft(key: string): boolean {
     if (!this.commitComposerIfValid()) {
-      return;
+      return false;
     }
 
-    // Read the draft *after* the commit: committing may have appended to the roster, which never
-    // shifts an existing index, but it can also have rewritten the slot we are about to load.
-    const draft = this.minionDrafts()[index];
+    // Read the draft *after* the commit: committing may have rewritten the card we are about to
+    // load. Keys make that safe to do by lookup rather than by position.
+    const draft = this.minionDrafts().find((item) => item.localKey === key);
     if (!draft) {
-      return;
+      return false;
     }
 
     this.resetComposer();
@@ -1082,25 +1122,30 @@ export class MysteryCreateStore {
     this.minionWeaknesses.set([...draft.weaknesses]);
     this.minionArmors.set([...draft.armors]);
 
-    this.editingDraftIndex.set(index);
+    this.editingDraftKey.set(key);
     this.composerOpen.set(true);
+    return true;
   }
 
-  /** "+ Add Another Minion" — same commit rule as `Next`, then a blank composer. */
-  startNewMinionDraft(): void {
+  /**
+   * "+ Add Another Minion" — same commit rule as `Next`, then a blank composer. Returns whether
+   * the composer opened, for the same focus reason as `editMinionDraft`.
+   */
+  startNewMinionDraft(): boolean {
     if (!this.commitComposerIfValid()) {
-      return;
+      return false;
     }
 
     this.resetComposer();
-    this.editingDraftIndex.set(null);
+    this.editingDraftKey.set(null);
     this.composerOpen.set(true);
+    return true;
   }
 
   /** Abandons the composer's contents without touching the roster. */
   cancelComposerEdit(): void {
     this.resetComposer();
-    this.editingDraftIndex.set(null);
+    this.editingDraftKey.set(null);
     this.composerOpen.set(this.minionDrafts().length === 0);
   }
 
@@ -1110,29 +1155,21 @@ export class MysteryCreateStore {
    * unlinking. Consequence, recorded rather than rediscovered: removing a previously-saved minion
    * and then abandoning the wizard leaves it on the server.
    */
-  removeMinionDraft(index: number): void {
-    this.minionDrafts.update((drafts) => drafts.filter((_, itemIndex) => itemIndex !== index));
+  removeMinionDraft(key: string): void {
+    this.minionDrafts.update((drafts) => drafts.filter((draft) => draft.localKey !== key));
 
-    // editingDraftIndex is a positional reference into the array we just spliced, and removal is
-    // the only index-invalidating mutation (Skyler declined reordering). Leaving it stale is a
-    // silent wrong-minion overwrite: the next saveMinionDraftToList() would write the composer's
-    // contents over a bystanding draft.
-    const editing = this.editingDraftIndex();
-    if (editing === null) {
+    // `editingDraftKey` is an identity, not a position, so removing a *different* card cannot
+    // invalidate it and there is nothing to re-index. The whole "editing > index, decrement"
+    // adjustment this method used to carry — and the silent wrong-minion overwrite it existed to
+    // prevent — is gone by construction (UX §10.2). The one case left is the real one: the card
+    // being edited is the card that was removed.
+    if (this.editingDraftKey() !== key) {
       return;
     }
 
-    if (editing === index) {
-      // The thing being edited no longer exists.
-      this.resetComposer();
-      this.editingDraftIndex.set(null);
-      this.composerOpen.set(this.minionDrafts().length === 0);
-      return;
-    }
-
-    if (editing > index) {
-      this.editingDraftIndex.set(editing - 1);
-    }
+    this.resetComposer();
+    this.editingDraftKey.set(null);
+    this.composerOpen.set(this.minionDrafts().length === 0);
   }
 
   /** Clears the composer: core fields, the four sub-resource lists, and the four inline add-forms. */

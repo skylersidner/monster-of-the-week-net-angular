@@ -118,4 +118,104 @@ describe('CustomSelectComponent', () => {
     const root = fixture.nativeElement.querySelector('.custom-select') as HTMLElement;
     expect(root.classList.contains('is-compact')).toBe(true);
   });
+  // --- Escape closes and restores focus (UX §8.7, OQ8) ----------------------------------
+  //
+  // The panel used to be dismissable only by clicking elsewhere (`handleDocumentClick`), which a
+  // keyboard user cannot do. Note the scope: this makes the control *dismissable*, not conformant —
+  // its `role="listbox"` / `aria-activedescendant` / arrow-key gaps are untouched follow-ups.
+
+  function trigger(): HTMLButtonElement {
+    return fixture.nativeElement.querySelector('.custom-select__trigger') as HTMLButtonElement;
+  }
+
+  function pressEscapeOn(element: HTMLElement): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    element.dispatchEvent(event);
+    fixture.detectChanges();
+    return event;
+  }
+
+  it('closes the panel on Escape and puts focus back on the trigger', () => {
+    trigger().click();
+    fixture.detectChanges();
+    expect(component.isOpen()).toBe(true);
+
+    pressEscapeOn(trigger());
+
+    expect(component.isOpen()).toBe(false);
+    expect(document.activeElement).toBe(trigger());
+  });
+
+  it('clears the search term on Escape, matching what closing by click already does', () => {
+    component.searchable = true;
+    fixture.detectChanges();
+    trigger().click();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.custom-select__search input') as HTMLInputElement;
+    input.value = 'gh';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(component.searchTerm()).toBe('gh');
+
+    pressEscapeOn(input);
+
+    expect(component.isOpen()).toBe(false);
+    expect(component.searchTerm()).toBe('');
+  });
+
+  it('handles Escape from inside the search input exactly as from the trigger', () => {
+    component.searchable = true;
+    fixture.detectChanges();
+    trigger().click();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.custom-select__search input') as HTMLInputElement;
+    input.focus();
+
+    pressEscapeOn(input);
+
+    expect(component.isOpen()).toBe(false);
+    expect(document.activeElement).toBe(trigger());
+  });
+
+  it('consumes the Escape that closes the panel, so nothing above it also acts on that press', () => {
+    trigger().click();
+    fixture.detectChanges();
+
+    let reachedDocument = 0;
+    const listener = (): void => {
+      reachedDocument += 1;
+    };
+    document.addEventListener('keydown', listener);
+
+    try {
+      const event = pressEscapeOn(trigger());
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(reachedDocument).toBe(0);
+    } finally {
+      document.removeEventListener('keydown', listener);
+    }
+  });
+
+  it('ignores Escape while the panel is closed, and lets that press through untouched', () => {
+    expect(component.isOpen()).toBe(false);
+
+    let reachedDocument = 0;
+    const listener = (): void => {
+      reachedDocument += 1;
+    };
+    document.addEventListener('keydown', listener);
+
+    try {
+      const event = pressEscapeOn(trigger());
+
+      // This is what lets a second Escape close a surrounding dialog.
+      expect(event.defaultPrevented).toBe(false);
+      expect(reachedDocument).toBe(1);
+    } finally {
+      document.removeEventListener('keydown', listener);
+    }
+  });
 });

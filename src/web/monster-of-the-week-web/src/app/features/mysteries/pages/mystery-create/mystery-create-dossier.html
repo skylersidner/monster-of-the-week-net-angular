@@ -130,8 +130,8 @@
         <span>Minions</span>
       </span>
     </h3>
-    @for (draft of store.minionDrafts(); track $index) {
-      @if (store.editingDraftIndex() === $index) {
+    @for (draft of store.minionDrafts(); track draft.localKey) {
+      @if (store.editingDraftKey() === draft.localKey) {
         <ng-container [ngTemplateOutlet]="composerEntry" />
       } @else {
         <div class="border-b border-default last:border-b-0 mb-2 pb-2 last:mb-0 last:pb-0">
@@ -146,7 +146,7 @@
         </div>
       }
     }
-    @if (store.composerOpen() && store.editingDraftIndex() === null && store.minionPreview().name) {
+    @if (store.composerOpen() && store.editingDraftKey() === null && store.minionPreview().name) {
       <ng-container [ngTemplateOutlet]="composerEntry" />
     }
   </section>
