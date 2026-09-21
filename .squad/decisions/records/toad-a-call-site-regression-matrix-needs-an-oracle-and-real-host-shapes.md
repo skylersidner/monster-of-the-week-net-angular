@@ -38,6 +38,15 @@ same mental model as the code, so the assertion could not fail for the reason it
 what exposes that, and in both cases the mutant was cheap (`perl -0pi` on one line, `cmp` to prove a
 byte-exact restore).
 
+> **Correction, 2026-09-21 (Bowser, R1c).** On the C# tree, `cmp` is not a sufficient restore check
+> and this parenthetical should not be copied as though it were. A copy-restore preserves the
+> source's `LastWriteTime`, leaving the restored file **older** than the assembly built from the
+> mutant, so MSBuild skips the rebuild and the next `dotnet test` runs the mutant. `cmp` still
+> passes, because it proves the bytes and says nothing about the build — which is precisely the
+> silent-success failure mode this record exists to warn about, turned on the tool used to detect
+> it. Reset the timestamp after restoring: `(Get-Item $f).LastWriteTime = Get-Date`. Full recipe in
+> `README.md` → Testing.
+
 The oracle rule also produced the useful by-product. Writing the previous template out as a function
 forces you to enumerate the call sites, and enumerating them showed the count is **13 elements in 12
 templates** — not the twelve of the architecture doc's §7.4 nor the fourteen of the UX doc's §7.5.

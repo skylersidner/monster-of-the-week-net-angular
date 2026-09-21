@@ -50,6 +50,15 @@ Every item below closes the same failure mode: **a green result that means nothi
 "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.spec.json --noEmit"
 ```
 
+> **Implemented and verified 2026-09-21, with the value claim narrowed by what the verification found.** Both halves were confirmed to fail on a deliberate `TS2322` (exit 2, file and line reported) and the old `tsc -p tsconfig.json` confirmed to exit **0** on the same two trees. But Luigi checked what the existing commands already cover rather than assuming, and the honest claim is narrower than "it catches what nothing else does":
+>
+> - **App-side it is fully redundant with `ng build`.** He expected an unimported file to slip past the bundler and probed it — a file nothing imports still failed the production build, because `ng build` type-checks the whole `tsconfig.app.json` include set rather than what the entry point reaches.
+> - **Spec-side `ng build` exits 0** (specs are excluded from that config) **but `ng test` does catch it**, as a build failure before any test runs. So the gap is *between* the two commands, not beyond them.
+>
+> What it is actually worth, stated so nobody oversells it later: one command answers "does this tree type-check", where today that takes two with different failure vocabularies; it runs in seconds with no bundler, jsdom or test execution; and **it still works when the suite cannot start** — a spec-tree type error surfaces from `ng test` as a *build* failure, which makes "the tests are broken" and "the types are broken" indistinguishable from its output. The concrete risk it closes is a developer running `ng build` before pushing and getting a green build on a broken spec tree.
+>
+> **Nothing in this repo runs either suite automatically** — no `.github/workflows/`, no installed git hooks, no task runner, and the `Dockerfile` is ship-only and runs no tests. So there is no existing automation this would naturally join, and it was deliberately not wired anywhere.
+
 **(b) `--artifacts-path` produces 184 spurious failures.** `PickRuleTable.ApiProjectRoot()` (`src/api/MonsterOfTheWeek.Api.Tests/Services/PickRuleTable.cs:132-141`) walks up from `AppContext.BaseDirectory` looking for `MonsterOfTheWeek.slnx`; redirecting artifacts moves the assembly outside the tree and the walk fails. Koopa asks for this to live "somewhere a new contributor reads before running tests." **That place does not exist** — `README.md` documents no test commands whatever. So (b) is really: add a Testing section to `README.md` covering how to run both suites, with the prohibition and its cause stated there.
 
 **(c) Mutation restores silently run the mutant.** `Copy-Item` preserves the *source's* `LastWriteTime`, so MSBuild skips the rebuild and the next `dotnet test` executes the mutant assembly. Any documented mutation recipe on the C# tree must `(Get-Item $f).LastWriteTime = Get-Date` after restoring. The existing `cmp`/hash check proves the bytes and says nothing about the build — which is why this presented as flakiness and cost an hour.

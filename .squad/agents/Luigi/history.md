@@ -1926,3 +1926,35 @@ Toad's 5b pass found two production bugs; Yoshi ruled on both in rev 12 (§6.6 B
 - **Modified:** `mystery-create.store.ts` (both fixes); `mystery-create-phase5b-baseline-leaks.spec.ts` (six characterisations → assertions, plus the window probe); `confirm-delete-modal.call-sites.spec.ts` (census corrected 13/12 → 16/14, tautology replaced); `mystery-create-phase5b-monster-phase.spec.ts` (derived wizard census); `mystery-create-roster-keyboard.spec.ts` (empty-set guard); `confirm-delete-modal.component.{ts,spec.ts}` (stale "thirteen" prose).
 
 Not committed.
+
+---
+
+## 2026-09-21: R1(a) — a `typecheck` script, and what it is actually worth
+
+### Task
+`docs/engineering-practice-improvements-plan.md` §3, item R1(a): the web app has no `typecheck` script, and `tsc -p tsconfig.json` is vacuous because the config is solution-style (`"files": []` plus references). Add the script and verify it by seeing it fail. Bowser has R1(b)–(d), Peach R3. Branch `mystery-entity-linking-phase-5b` at `a60a30f`. Not committed.
+
+### Reusable technical facts
+- **`tsc -p tsconfig.json` in this app compiles zero files and exits 0.** Demonstrated against a real `TS2322` in `core/monster.ts` and again against one in `core/monster.spec.ts` — exit 0 both times. A solution-style config does not follow its own `references` unless invoked with `--build`.
+- **`ng build` type-checks the *whole* `tsconfig.app.json` include set, not just what the entry point reaches.** I expected an unimported file to slip through and it does not: a throwaway `src/app/core/r1a-orphan-probe.ts` that nothing imports failed the production build. So the app half of the new script finds nothing `ng build` would miss.
+- **`ng build` exits 0 on a spec-only type error** — `tsconfig.app.json` excludes `**/*.spec.ts`. `ng test` does catch it (the unit-test builder compiles the spec tree and fails before running anything). So the gap the second config closes is real but is *between the two commands*, not beyond them: a developer who builds and does not run the suite gets a green build on a broken spec tree.
+- **`tsc` resolves from `node_modules/.bin` inside an npm script**, so the script works where `npx tsc` does not — `npx tsc` in this repo hits npm's "This is not the tsc command you are looking for" guard because TypeScript is a transitive-looking devDependency from npx's point of view.
+- **There is no CI in this repo.** `.github/` holds only `agents/squad.agent.md`; no `workflows/`, no installed git hooks (samples only), no Makefile or task runner. The `Dockerfile` runs `npm ci && npm run build` and is explicitly ship-only ("the development loop is `docker compose up -d postgres` + `dotnet run` + `npm start`"). Nothing automated runs either suite, so there was nothing to wire the script into and I wired nothing.
+
+### What R1(a) is actually worth, stated narrowly
+Not "it catches errors nothing else catches" — `ng build` plus `ng test` together catch both classes. It is worth having for three narrower reasons, and the plan should say the narrow thing:
+1. **It is the only one-command answer to "does this tree type-check".** Today that takes two commands with different failure vocabularies.
+2. **Seconds, with no bundler, no jsdom and no test execution**, and it names file and line without build noise around it.
+3. **It still works when the suite cannot start.** A spec-tree type error makes `ng test` fail as a *build* failure, so "the tests are broken" and "the types are broken" are indistinguishable from its output.
+
+### Found while verifying
+`src/app/shared/glob-probe.spec.ts` — a throwaway probe of mine from the 5b QA pass — was sitting untracked in the tree, and `npm run typecheck` flagged it (`TS2339: Property 'glob' does not exist on type 'ImportMeta'`) on its first real run. It postdates my last green verification (mtime today 08:46; that run was yesterday), so the 1190 I reported was accurate when reported. Removed. **The lesson is the item's own: a probe file is exactly the thing that survives when the only check you run is the one you were already running.**
+
+### Verification
+- Deliberate app-code error → `npm run typecheck` exit **2**, `TS2322` at `core/monster.ts(53,11)`. `ng build` also exit 1 on the same tree.
+- Deliberate spec-only error → `npm run typecheck` exit **2**, `TS2322` at `core/monster.spec.ts(28,11)`. `ng build` exit **0** on the same tree — the case the second config exists for.
+- Old `tsc -p tsconfig.json --noEmit` → exit **0** with either error present.
+- Clean tree → `npm run typecheck` exit 0; `ng build --configuration production` clean (two pre-existing budget warnings); `ng test` 92 files / 1190; `dotnet test` 568.
+- Working tree afterwards: `package.json` modified, one line added, nothing else.
+
+Not committed.
