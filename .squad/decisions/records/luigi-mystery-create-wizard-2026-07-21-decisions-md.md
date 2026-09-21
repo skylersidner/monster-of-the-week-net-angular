@@ -1,4 +1,30 @@
-# Decisions
+### 2026-07-21 (preserved 2026-09-21): The four entries that were `.squad/decisions.md`, verbatim
+**By:** Luigi (Frontend Developer) — preserved by Koopa when `decisions.md` was retired
+
+**Provenance.** This is the entire content of `.squad/decisions.md` as it stood on 2026-09-21, kept verbatim below because that file was retired on Skyler's instruction (`docs/engineering-practice-improvements-plan.md` §8, §10 item 4). Nothing here is new; nothing was edited.
+
+**What it actually was.** Not a decision ledger. It is the *output of a single merge* run on 2026-07-25 (`986e52d`), which compressed **three** records totalling **405 lines** into 29 lines and **deleted all three**:
+
+- `records/luigi-mystery-create-frontend-decomposition.md` (261 lines) — recovered from git 2026-09-21
+- `records/luigi-mystery-create-wizard.md` (74 lines) — recovered from git 2026-09-21
+- `records/luigi-armor-support.md` (70 lines) — recovered from git 2026-09-21, **on a second pass**; the first recovery enumerated the deletion set by filename pattern and missed it (see `.squad/decisions/README.md` §9)
+
+That merge also **dropped a decision outright**: *"Minion Step Is Optional"* is in the second record and appears nowhere in the four entries below. It stayed invisible from 2026-07-25 until 2026-09-21, through the multi-minion work and through decision 19 of the mystery-entity-linking feature ("a monster is not required to complete the wizard") — which is the identical question one step over.
+
+**Standing status of each entry, judged 2026-09-21:**
+
+| Entry | Status | Where the reasoning now lives |
+|---|---|---|
+| Phase-Level API Submission | **Standing.** Cited as "the standing 2026-07-21 phase-transition submission decision" by `mystery-entity-linking.md` decision 12, and preserved intact by decision 15. | `records/luigi-mystery-create-wizard.md` |
+| Signal Arrays for Sub-Items (Not FormArrays) | **Standing.** | `records/luigi-mystery-create-wizard.md` |
+| Armor Support Added | **Historical, not a decision.** An implementation log, and its source record is one too. Not promoted. | `records/luigi-armor-support.md` — recovered 2026-09-21 |
+| Frontend Decomposition Architecture, + the 2026-09-14 limited supersession | **Standing, with a recorded limited supersession.** | `records/luigi-mystery-create-frontend-decomposition.md`; the supersession exists only below |
+
+**One fragment below is the only copy that exists anywhere**: the **2026-09-14 limited supersession** appended to the decomposition entry, which post-dates all three source records. That alone is why this file is preserved rather than deleted once its sources were recovered. Until `luigi-armor-support.md` was recovered the Armor entry was a second such fragment; it is not one any more.
+
+---
+
+## Verbatim content of the retired `.squad/decisions.md`
 
 ---
 

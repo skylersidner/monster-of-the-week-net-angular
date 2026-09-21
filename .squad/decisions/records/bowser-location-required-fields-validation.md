@@ -2,7 +2,7 @@
 
 **By:** Bowser (Backend Developer / DevOps)
 **Date:** 2026-08-06
-**Per:** `docs/updates/location-required-fields-validation.md` (Revision — Skyler's 2 Answers Resolved) + `.squad/decisions/inbox/yoshi-location-required-fields-validation.md`
+**Per:** `docs/updates/location-required-fields-validation.md` (Revision — Skyler's 2 Answers Resolved) + `.squad/decisions/records/yoshi-location-required-fields-validation.md`
 
 **What:**
 - `Contracts/ApiContracts.cs` (`UpsertLocationRequest`, was line 216): added `[param: Required, MaxLength(255)]` to `Name`. This is the entire DTO change — no other field on the record needed an attribute (`Description` has no DB length cap; `LocationTypeId` was already fully validated at the service layer).
@@ -18,4 +18,4 @@
 - Build clean (1 warning — `NETSDK1194`, an artifact of the `-o` workaround itself, not a code warning, same as every prior phase).
 - 157/157 tests green (154 pre-existing + 3 new).
 
-**Docs:** `docs/updates/location-required-fields-validation.md`, `.squad/decisions/inbox/yoshi-location-required-fields-validation.md`.
+**Docs:** `docs/updates/location-required-fields-validation.md`, `.squad/decisions/records/yoshi-location-required-fields-validation.md`.

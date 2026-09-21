@@ -635,7 +635,7 @@ the main correction to the estimate — and J1 must land before `submitPhase1` i
 
 Both are 5b defects, both fix in 5b before merge, both are **principle 5 stated too narrowly**. Toad's
 general statement is filed at
-`.squad/decisions/inbox/toad-a-baseline-and-its-draft-are-created-and-destroyed-together.md`.
+`.squad/decisions/records/toad-a-baseline-and-its-draft-are-created-and-destroyed-together.md`.
 
 **BUG 2 — a failed edit-mode hydration silently unlinks every monster.**
 

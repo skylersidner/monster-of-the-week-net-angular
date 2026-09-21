@@ -31,7 +31,7 @@ Everything outside that quote is my analysis, not Skyler's words.
 
 ## 1. Method, and what was checked against the PDF
 
-Read in full: the Mystery wizard (`features/mysteries/pages/mystery-create/` — page, store, tracker, dossier, all four phase templates, SCSS), `mystery-detail`, the Hunter feature (`hunters.routes.ts`, `hunter-create`, `hunter-detail`, `hunters-list`, `hunter-form.ts`/`.html`, `bespoke-option-tree`), `core/hunter.ts` and `core/playbook.ts`, `HunterContracts.cs`, `PlaybookContracts.cs`, `HunterService.Validate`, `HunterCompleteness.cs`, the theme tokens in `styles.css`, `ConfirmDeleteModalComponent`, every doc in `docs/hunter-playbooks/`, `docs/updates/multi-minion-wizard-design.md`, `.squad/decisions.md`, the relevant `.squad/decisions/inbox/` records, and `.squad/skills/angular-wizard-decomposition/SKILL.md`.
+Read in full: the Mystery wizard (`features/mysteries/pages/mystery-create/` — page, store, tracker, dossier, all four phase templates, SCSS), `mystery-detail`, the Hunter feature (`hunters.routes.ts`, `hunter-create`, `hunter-detail`, `hunters-list`, `hunter-form.ts`/`.html`, `bespoke-option-tree`), `core/hunter.ts` and `core/playbook.ts`, `HunterContracts.cs`, `PlaybookContracts.cs`, `HunterService.Validate`, `HunterCompleteness.cs`, the theme tokens in `styles.css`, `ConfirmDeleteModalComponent`, every doc in `docs/hunter-playbooks/`, `docs/updates/multi-minion-wizard-design.md`, `.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md`, the relevant `.squad/decisions/records/` records, and `.squad/skills/angular-wizard-decomposition/SKILL.md`.
 
 **The PDF: first pass, then checked.**
 
@@ -1176,7 +1176,7 @@ The Harm and Experience sentences are identical on all 28. This corrects Q4's co
   - `sectionLevelPickedOptionIds`, the input to trigger matching (12.9 step 1). Triggers are leaf options in playbook-level, non-repeatable sections (S2), so this is the union of `bespokePicks` for those section ids.
 - **Why a FormGroup inside the draft:** `MysteryCreateStore` sets the precedent (forms inside the store, read through `toSignal`). Two standing records say otherwise:
   - `angular-wizard-decomposition/SKILL.md:29` says stores don't own forms;
-  - `.squad/decisions.md` 2026-07-21 says "ReactiveForm instances stay in phase components".
+  - `.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md` 2026-07-21 says "ReactiveForm instances stay in phase components".
 
   Both exist to stop form state leaking between sibling steps of a multi-phase wizard. This draft is submitted once and shared by one surface's sections, so there are no siblings to leak into. It's a limited supersession of both records ("a draft submitted once may own its form"), written into them as a doc update in R4 (Yoshi's 14.5, 14.8).
   - **Gotcha to build in from day one:** read the scalars through `valueChanges.pipe(map(() => form.getRawValue()), startWith(form.getRawValue()))`, not through `.value`. The edit page disables `playbookId`, and a disabled control is dropped from `.value`.
@@ -1408,7 +1408,7 @@ All of these fix the current page. Ship them in F1, ahead of the wizard.
 - **Yoshi 14.6 (with Bowser 12.9 S10), 13.16's "F8a–F8c can ship with the 12.9 deploy or after it":** resolved as ship together in R6. One image carries both halves and migrations run at startup, so "after" would have meant a live stretch where the current forms offer picks the server refuses on save. 13.16 now follows R1–R7, and Skyler confirmed "Ship together in R6" on 2026-09-14.
 - **Yoshi 14.3.6, the hard-coded "Sect traditions" wording in L25:** resolved. Client hints and notices are built from trigger, target and section titles (L25, L30, L33).
   - **One refinement of mine:** L25's "This depends on your {section title} picks" now fires when the trigger section has no picks, instead of reading the last check. The edit page never calls the check (Y14), and R6 ships before the wizard, so a check-based condition would never fire where the hint first goes live.
-- **Yoshi 14.5, the draft's form also contradicting `.squad/decisions.md` 2026-07-21:** agreed, and recorded in 13.5. The limited supersession is a doc update in R4 (14.8).
+- **Yoshi 14.5, the draft's form also contradicting `.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md` 2026-07-21:** agreed, and recorded in 13.5. The limited supersession is a doc update in R4 (14.8).
 
 **Agreed:**
 - The rest of 12.9 as reworked for Q12: the per-count adjustment shape, S1, S3 (as updated), S5, S6 and S8–S12. The frontend needs nothing more from the new shape (13.5).
@@ -1542,7 +1542,7 @@ Phases ship in **Yoshi's seven releases (14.6, Y1)**, and I agree with every pla
 | **R1** Move count | F0 | B1, B3 | — |
 | **R2** Live form fixes | F1 | B4, B9 | F1's toast token is also set on the admin playbook save and delete (13.12 item 14). |
 | **R3** Shared wizard shell | F4 alone (Y11) | — | Visible Mystery changes by design (Q9). Any time before R7; earlier is better. |
-| **R4** Draft extraction | F2 alone | — | Characterisation spec plus Yoshi's Y10 `GET` diff (13.15 item 1). The limited supersession of `.squad/decisions.md` 2026-07-21 and the skill doc is written down in this release (13.5). |
+| **R4** Draft extraction | F2 alone | — | Characterisation spec plus Yoshi's Y10 `GET` diff (13.15 item 1). The limited supersession of `.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md` 2026-07-21 and the skill doc is written down in this release (13.5). |
 | **R5** Shared sections | F3 | 12.8 check endpoint, live but unused until R7 | F3 changes the edit page visibly (L16), so its release note says so. |
 | **R6** Pick rules, end to end | F8a, then F8b and F8c on the shared sections, without the wizard's band links | 12.9 backend (`AddPickRules`, services, contract, re-exported seed) | The edit page and the still-live single-page create get the limits in the same deploy as the server rule. L25's hints don't depend on the check, so they work there too. |
 | **R7** Hunter wizard | F5, F6, F7 and F9, including the pick-rule band links and L24's Go to Gear link | — | Replaces `/hunters/new`. F5, F6 and F7 release together, because without F6 the tracker marks and "Still to finish" card aren't there. |
@@ -1680,7 +1680,7 @@ The Hunter wizard will share its layout with the Mystery wizard. The plan was fo
   - `src/web`: the hunter and mystery features, `core/` and `shared/`;
   - `Dockerfile` and `railway.toml`.
 - Every doc in `docs/hunter-playbooks/`, and `docs/updates/multi-minion-wizard-design.md`.
-- `.squad/decisions.md` and the relevant `.squad/decisions/inbox/` records.
+- `.squad/decisions/README.md` (the index of standing decisions) and the relevant `.squad/decisions/records/` records.
 - Both skills: `.squad/skills/angular-wizard-decomposition` and `.claude/skills/hunter-playbook-authoring`.
 - I checked claims against the code before agreeing with them (14.2).
 - I didn't re-read the PDF. Nothing here depends on printed wording, and Bowser and Luigi already checked 12.9's quotes.
@@ -1702,7 +1702,7 @@ The Hunter wizard will share its layout with the Mystery wizard. The plan was fo
 - **O2 doesn't fully close the ordering gap in the parity test.** `HunterCompleteness` has two more sources of unstable order today, both confirmed in code and seed (14.4).
 - **Frontend and backend ship as one image, and migrations run at startup.** So "F8b/F8c can follow 12.9" means a live period where the form offers picks the server refuses. I've grouped the work into seven releases, and 12.9's backend ships in the same release as the client limits (14.6). **Confirmed by Skyler, 2026-09-14: "Ship together in R6".**
 - **Frontend structure: I agree** with `HunterDraft`, the shared sections and the F4 extraction. F2 and F4 each ship alone (14.5).
-- **Standing records need updates.** `HunterDraft` owning a `FormGroup` contradicts `.squad/decisions.md` (2026-07-21), not just the skill doc Luigi cites, and that has to be written down. The pick-rule schema belongs in `architecture.md` Section 6 once it's built (14.7, 14.8).
+- **Standing records need updates.** `HunterDraft` owning a `FormGroup` contradicts `.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md` (2026-07-21), not just the skill doc Luigi cites, and that has to be written down. The pick-rule schema belongs in `architecture.md` Section 6 once it's built (14.7, 14.8).
 - **No open questions for Skyler.** One call of mine had a cost players can see: holding 12.9's backend for R6. The coordinator put it to Skyler, who confirmed it on 2026-09-14 (14.11).
 - **Close-out, 2026-09-14:**
   - Bowser and Luigi agreed with every point that concerned them, and all five disagreements are resolved (14.9).
@@ -1720,7 +1720,7 @@ The Hunter wizard will share its layout with the Mystery wizard. The plan was fo
 | 12.9: "a second re-export should come back byte-identical" | **Only if counts and triggers have a fixed order.** `ToDetailResponse` orders every collection by `SortOrder` (`PlaybookService.cs:799-869`), and `PlaybookSeedTests` compares the serialized JSON exactly (`:56`, `:208`). Counts have no `SortOrder` and triggers are a set, so they come back in whatever order the database returns. See 14.3.5. |
 | 12.8.1 O2: sorting repeatable entries by `SortOrder` makes the check's and Create's messages match | **Needed, but not enough.** Two more sources of unstable order (14.4):<br>• `Shortfalls` yields category lines by iterating the `engaged` `HashSet` (`HunterCompleteness.cs:192`). Its order follows the picked ids: request order in Evaluate, database order after Create.<br>• `EvaluateBespoke` orders move-internal sections by `SortOrder` alone (`:118`), and the seed has ties. The Crooked (Artifact, Deal with the Devil), The Searcher (First Encounter, Guardian, Network) and The Spell-Slinger (Tools and Techniques, Arcane Reputation) all sit at 0, so their order comes from an unordered split query. |
 | 12.8: Create and Evaluate share one build step; unsaved entries don't merge | **Correct.** Hunter entities assign their own `Guid.NewGuid()`. For a new hunter, `ApplyPicks`' repository `Remove*` calls get empty lists, so building in memory tracks nothing. |
-| 13.5: a `FormGroup` inside `HunterDraft`, because "the code has moved past" the skill doc | **It also contradicts a standing decision the section doesn't cite:** `.squad/decisions.md` 2026-07-21, "ReactiveForm instances stay in phase components" (`:26-29`). That's in addition to `SKILL.md:29`. See 14.5 and 14.7. |
+| 13.5: a `FormGroup` inside `HunterDraft`, because "the code has moved past" the skill doc | **It also contradicts a standing decision the section doesn't cite:** `.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md` 2026-07-21, "ReactiveForm instances stay in phase components" (`:26-29`). That's in addition to `SKILL.md:29`. See 14.5 and 14.7. |
 | 13.11, L9: an `HttpContextToken` that suppresses `httpErrorInterceptor`'s toast | **Consistent** with `luigi-interceptor-order-error-direction.md` (2026-08-18). Interceptor order is unchanged, and the 401 path is untouched. |
 | 12.8: the app-wide sign-in requirement covers the check | **Correct.** Hunters have no owner column, so the endpoint exposes nothing across users. |
 
@@ -1887,7 +1887,7 @@ The image carries both halves and runs migrations at startup, so what matters is
 - **The 2026-08-29 Combat Magic record, and the 2026-08-28 Natural Attacks catalogue call: 12.9 carries them out rather than reversing them.**
   - The Combat Magic record kept Skyler's nested categories. It said whoever builds validation "needs to enforce the total-and-floor constraint explicitly".
   - The categories stay (S8), and the constraint is now enforced. Only their "unenforced" status changes.
-- **`.squad/decisions.md` (2026-07-21 decomposition entry) and `angular-wizard-decomposition/SKILL.md`: contradicted** by `HunterDraft`'s `FormGroup` (14.5). Record it as a supersession limited to this case: a draft that is submitted once may own its form.
+- **`.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md` (2026-07-21 decomposition entry) and `angular-wizard-decomposition/SKILL.md`: contradicted** by `HunterDraft`'s `FormGroup` (14.5). Record it as a supersession limited to this case: a draft that is submitted once may own its form.
 - **2026-08-18 interceptor order:** consistent with L9.
 - **The 2026-08-29 convention that `architecture.md` Section 6 is the authoritative schema** (`README.md`). 12.9's tables are schema. When R6 is built they move into a new Section 6 subsection, and 12.9 stays as the reasoning record. That's the same split `phase5-bespoke-ideation.md` already has with Section 6.
 
@@ -1903,10 +1903,10 @@ The image carries both halves and runs migrations at startup, so what matters is
 | `docs/hunter-playbooks/README.md` | The status line (still at Phases 1–7), and the doc index, which doesn't list `hunter-creation-wizard.md` | now |
 | `docs/hunter-playbooks/bespoke-ruleset-catalogue.md` | The Initiate (gear, Sect), The Monstrous (Natural Attacks) and The Spell-Slinger (Combat Magic): now enforced by pick rules, pointing to the new Section 6 subsection | R6 |
 | `.claude/skills/hunter-playbook-authoring/SKILL.md`, `scripts/verify.mjs` | How to author pick rules (a second save, against saved ids), and known-artifact checks for the three rules | R6 |
-| `.squad/decisions.md` (2026-07-21 decomposition), `.squad/skills/angular-wizard-decomposition/SKILL.md` | A limited supersession: a draft submitted once may own its form | R4 |
-| `.squad/decisions/inbox/yoshi-hunter-playbooks-hunter-completeness-partial-saves.md` | Dated update: the check endpoint, structured items, pick rules | R5 |
-| `.squad/decisions/inbox/yoshi-hunter-playbooks-spell-slinger-combat-magic-pick-shape.md` | Dated note: the constraint is now enforced (Q5) | R6 |
-| `.squad/decisions/inbox/luigi-theming-phase6-mystery-wizard.md` §6 | The tracker precedence bug is fixed | R3 |
+| `.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md` (2026-07-21 decomposition), `.squad/skills/angular-wizard-decomposition/SKILL.md` | A limited supersession: a draft submitted once may own its form | R4 |
+| `.squad/decisions/records/yoshi-hunter-playbooks-hunter-completeness-partial-saves.md` | Dated update: the check endpoint, structured items, pick rules | R5 |
+| `.squad/decisions/records/yoshi-hunter-playbooks-spell-slinger-combat-magic-pick-shape.md` | Dated note: the constraint is now enforced (Q5) | R6 |
+| `.squad/decisions/records/luigi-theming-phase6-mystery-wizard.md` §6 | The tracker precedence bug is fixed | R3 |
 | `docs/updates/multi-minion-wizard-design.md` | Its layout constraints table (a 42% column at every width) no longer holds below `md` | R3 |
 | This doc | The status line, once it's built | R7 |
 
@@ -1927,7 +1927,7 @@ These are all my positions. The last column records how each was resolved. I che
 | Bowser (12.9) | Kept rules are checked in graph validation, with a 400 | Check after the load, against sent or kept rules; a conflict with kept rules is a 409 (14.3.1) | **Resolved.** S11 and 12.9's "Kept rules are validated after the stored playbook loads" carry the same four catches, the 400/409 split, the three includes and the summary fix. |
 | Bowser (12.8.1 O2) | Sorting repeatable entries closes the ordering gap in the parity test | There are two more sources; `HunterCompleteness` needs a full, deterministic order (14.4) | **Resolved.** O2 now applies Y8's order, and the parity builds cover Fate and The Searcher. |
 | Bowser (12.9 steps 3–4) and Luigi (L25) | The "Sect traditions" wording | Build it from the trigger and section titles (14.3.6) | **Resolved.** Server messages are built from data (S12). So are client hints and notices, with a renamed-titles spec (L25, L30, L33). The one condition mismatch this turned up is closed by Y16, which Bowser applied in 12.9. |
-| Luigi (13.5) | Cites only the skill doc for the form-in-draft exception | It also supersedes `.squad/decisions.md` 2026-07-21. No design change (14.5) | **Resolved.** 13.5 cites both records, and the supersession is written into them in R4. |
+| Luigi (13.5) | Cites only the skill doc for the form-in-draft exception | It also supersedes `.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md` 2026-07-21. No design change (14.5) | **Resolved.** 13.5 cites both records, and the supersession is written into them in R4. |
 
 **Agreed, not disagreements:**
 - Bowser's adoption of Y4–Y7 and Y12 in 12.9, as written;
@@ -1991,4 +1991,4 @@ These are all my positions. The last column records how each was resolved. I che
 - `phases.md` Phase 10, Follow-on 10a/10b (what the current form renders and why), Phase 8 (the verification the seed carries).
 - `bespoke-ruleset-catalogue.md` (per-playbook rules content; Underworld, Heat, Curse-Eater quoted above).
 - `docs/updates/multi-minion-wizard-design.md` (the wizard's layout constraints and the selected-card / sunken-panel vocabulary reused here).
-- `.squad/decisions/inbox/luigi-theming-phase6-mystery-wizard.md` §6 (the tracker precedence bug).
+- `.squad/decisions/records/luigi-theming-phase6-mystery-wizard.md` §6 (the tracker precedence bug).

@@ -33,7 +33,7 @@
 
 ### Frontend inventory — the "different shape of surprise" the task asked me to check for, confirmed
 
-- **Location's own standalone-creation pass (Phase 3 of that separate initiative) already shipped and is fully wired** — confirmed by reading the actual files, not the doc's summary: `features/locations/shared/location-form/` (`location-form.ts`/`.html`/`.spec.ts`), `features/locations/pages/location-create/` (`.ts`/`.html`/`.spec.ts`), both registered in `locations.routes.ts`, and `location-detail.ts`/`.html` already rewired to consume `LocationFormComponent` (per `.squad/decisions/inbox/luigi-location-form-component.md`). `LocationFormComponent` is the single shared core-fields form used identically by both pages, same shape as `MonsterFormComponent`/`MinionFormComponent`.
+- **Location's own standalone-creation pass (Phase 3 of that separate initiative) already shipped and is fully wired** — confirmed by reading the actual files, not the doc's summary: `features/locations/shared/location-form/` (`location-form.ts`/`.html`/`.spec.ts`), `features/locations/pages/location-create/` (`.ts`/`.html`/`.spec.ts`), both registered in `locations.routes.ts`, and `location-detail.ts`/`.html` already rewired to consume `LocationFormComponent` (per `.squad/decisions/records/luigi-location-form-component.md`). `LocationFormComponent` is the single shared core-fields form used identically by both pages, same shape as `MonsterFormComponent`/`MinionFormComponent`.
 - **Location does NOT have the "missing `Validators.required` on a required FK" bug class both Monster's and Minion's phases found — this is the genuine, confirmed-live divergence the task's own framing anticipated might exist.** `LocationFormComponent`'s `locationForm` (`location-form.ts:35-39`) has `name: [Validators.required]` **and** `locationTypeId: [Validators.required]` — both present, matching every other layer's already-correct required-ness. This isn't a coincidence of Location's schema; it's a direct, documented consequence of how the form was built: `location-detail.ts`'s pre-existing form already had `Validators.required` on `locationTypeId` before the standalone-creation extraction (unlike `monster-detail.ts`'s/`minion-detail.ts`'s equivalents, which never had it on their type fields), and Standalone Creation Phase 3's own plan doc explicitly instructed preserving that shape field-for-field rather than "fixing" it to match Monster's/Minion's asymmetric precedent (`standalone-creation-phase3-locations.md` Resolved Decision 5; `luigi-location-form-component.md` judgment call 1). **No client-side FK-validator fix is needed for Location.**
 - `location-form.html` (`shared/location-form/location-form.html`) has no `maxlength` attribute on the Name `<input>` and no visual required-field indicator (asterisk) convention anywhere — grepped the whole `features/locations/` tree for `text-danger">*` and `maxlength`, zero hits for either. Same gap shape Monster's/Minion's forms had pre-fix; Location's forms were built by Standalone Creation Phase 3 (same day as Minion's Phase 2, before Monster's asterisk-adoption revision landed), so — like Minion's — they never inherited the convention.
 - `onSubmit()` (`location-form.ts:47-60`) trims `name`/`description` only after `locationForm.invalid` is checked — same "validator runs on the untrimmed live control value" shape every prior phase found; a whitespace-only Name currently passes client-side validation and, since there's no hand-rolled server check either (see above), is an unbroken end-to-end gap all the way to persistence, matching Mystery's/Monster's shape (not Minion's, which had a hand-rolled server catch even though the client passed it through).
@@ -42,7 +42,7 @@
 
 ### Cross-domain note
 
-`[ApiController]` is present on `LocationsController` (`Controllers/LocationsController.cs:7`), so the implicit-required/DataAnnotations mechanism is already active for `UpsertLocationRequest` today, matching every other domain. `LocationService`/`LocationsController`/`ILocationRepository` were read in full for this pass (Location is this phase's own subject), not spot-checked. `LocationServiceTests.cs` already exists (created during Standalone Creation Phase 3's LC-1, per `.squad/decisions/inbox/bowser-standalone-creation-lc1-backend.md`) — the backend fix here extends it, doesn't create a new file.
+`[ApiController]` is present on `LocationsController` (`Controllers/LocationsController.cs:7`), so the implicit-required/DataAnnotations mechanism is already active for `UpsertLocationRequest` today, matching every other domain. `LocationService`/`LocationsController`/`ILocationRepository` were read in full for this pass (Location is this phase's own subject), not spot-checked. `LocationServiceTests.cs` already exists (created during Standalone Creation Phase 3's LC-1, per `.squad/decisions/records/bowser-standalone-creation-lc1-backend.md`) — the backend fix here extends it, doesn't create a new file.
 
 ---
 
@@ -139,7 +139,7 @@ No question about `[Range]` (no numeric fields exist to ask about) and no questi
 
 **Not in scope for this pass:** the deferred `mystery-detail.html`-scoped "Add Location" entry point (Standalone Creation Phase 3's own Known Gaps, unrelated to and unaffected by required-field validation); Bystander's own required-field pass (Phase 5, separate future phase, per the initiative's framing).
 
-**Docs:** `docs/updates/location-required-fields-validation.md` (this document). See also `.squad/decisions/inbox/yoshi-location-required-fields-validation.md`.
+**Docs:** `docs/updates/location-required-fields-validation.md` (this document). See also `.squad/decisions/records/yoshi-location-required-fields-validation.md`.
 
 ---
 
@@ -170,4 +170,4 @@ Both answered **yes**, matching the recommended lean and the 3-for-3 precedent f
 
 **Not in scope:** deferred `mystery-detail.html` "Add Location" entry point (pre-existing, unrelated); Bystander's own pass (Phase 5).
 
-**Docs:** `docs/updates/location-required-fields-validation.md` (this document). See also `.squad/decisions/inbox/yoshi-location-required-fields-validation.md`.
+**Docs:** `docs/updates/location-required-fields-validation.md` (this document). See also `.squad/decisions/records/yoshi-location-required-fields-validation.md`.

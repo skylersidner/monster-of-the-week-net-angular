@@ -20,4 +20,4 @@
 
 **Palette swap-in:** single-file `styles.css` change exactly as Decision B promised — zero template risk. All 43 Token Catalogue entries confirmed present in both `:root` and `.dark` after the swap (the `@theme static` symmetry check). Contrast spot-checks used actual rendered pixels (canonicalized via the 1×1-canvas paint trick, since Chromium reports `oklch(...)` not `rgb(...)`), not hand-computed hex: minion `9.18:1`, bystander `8.08:1`, location `10.67:1` — all three of Rosalina's previously-unverified badge hues comfortably clear AA/AAA; monster (`8.42:1`) and mystery (`10.37:1`) cross-checked closely against her own hand-computed `~8.5:1`/`~10.4:1`, confirming the measurement methodology itself, not just the new numbers.
 
-**Docs:** `docs/theming/theming-plan.md` (Phase 7), `docs/theming/dark-theme-palette.md`, `.squad/decisions/inbox/yoshi-theming-phase7-dead-css-sweep.md`.
+**Docs:** `docs/theming/theming-plan.md` (Phase 7), `docs/theming/dark-theme-palette.md`, `.squad/decisions/records/yoshi-theming-phase7-dead-css-sweep.md`.

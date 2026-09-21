@@ -145,7 +145,7 @@ Identical reasoning to Phase 2's `MonsterFormComponent.monsterTypeId` finding: e
 
 **Not in scope for this pass:** the wizard's data-model gap (single-slot vs. list-of-minions, i.e. reviving `multi-minion-support.md`'s MM-2/MM-3); Location/Bystander required-field passes (separate future phases, per the initiative's framing).
 
-**Docs:** `docs/updates/minion-required-fields-validation.md` (this document). See also `.squad/decisions/inbox/yoshi-minion-required-fields-validation.md`.
+**Docs:** `docs/updates/minion-required-fields-validation.md` (this document). See also `.squad/decisions/records/yoshi-minion-required-fields-validation.md`.
 
 ---
 
@@ -183,4 +183,4 @@ All 6 answered **yes**, matching every recommended lean — no scope changes, th
 
 **Not in scope:** the wizard's single-slot-vs-list-of-minions data-model gap (reviving `multi-minion-support.md`'s MM-2/MM-3); Location/Bystander required-field passes (future phases).
 
-**Docs:** `docs/updates/minion-required-fields-validation.md` (this document). See also `.squad/decisions/inbox/yoshi-minion-required-fields-validation.md`.
+**Docs:** `docs/updates/minion-required-fields-validation.md` (this document). See also `.squad/decisions/records/yoshi-minion-required-fields-validation.md`.

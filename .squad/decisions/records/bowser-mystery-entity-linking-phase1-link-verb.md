@@ -61,7 +61,7 @@ nothing can reach the race until Phase 2 wires `linkToMystery` into the Angular 
 **It is therefore a Phase 2 gate, and it is mine.** It is also a robustness defect rather than a
 vulnerability: the composite PK still holds the data invariant, and production answers with a
 generic `ProblemDetails` carrying no stack trace or SQL. Boo's review is the authority on that
-classification — `.squad/decisions/inbox/boo-mystery-entity-linking-phase1-security-review.md`.
+classification — `.squad/decisions/records/boo-mystery-entity-linking-phase1-security-review.md`.
 Yoshi is recording the gate itself in the design doc; this note does not restate it.
 
 **What the fix has to be, because two obvious versions are worse than the 500 they replace.**

@@ -2,7 +2,7 @@
 
 **By:** Bowser (Backend Developer / DevOps)
 **Date:** 2026-08-06
-**Per:** `docs/updates/bystander-required-fields-validation.md` (Revision — Skyler's 2 Answers Resolved) + `.squad/decisions/inbox/yoshi-bystander-required-fields-validation.md`
+**Per:** `docs/updates/bystander-required-fields-validation.md` (Revision — Skyler's 2 Answers Resolved) + `.squad/decisions/records/yoshi-bystander-required-fields-validation.md`
 
 **What:**
 - `Contracts/ApiContracts.cs` (`UpsertBystanderRequest`, was line 238): added `[param: Required, MaxLength(255)]` to `Name`. This is the entire DTO change — no other field on the record needed an attribute (`Description` has no DB length cap; `BystanderTypeId` was already fully validated at the service layer, and Bystander has no numeric fields for a `[Range]` question).
@@ -20,4 +20,4 @@
 
 **This closes the backend side of the five-phase required-field-validation initiative** (Mystery, Monster, Minion, Location, Bystander). All five domains now have `[Required]`/`[MaxLength]`/`[Range]` DataAnnotations on their `Upsert*Request` DTOs where applicable, and every FK-existence check across all five services is `ServiceResult<T>`-wrapped. Luigi's frontend half (maxlength attribute + asterisk convention on `bystander-form.html`) is separate and out of scope here.
 
-**Docs:** `docs/updates/bystander-required-fields-validation.md`, `.squad/decisions/inbox/yoshi-bystander-required-fields-validation.md`.
+**Docs:** `docs/updates/bystander-required-fields-validation.md`, `.squad/decisions/records/yoshi-bystander-required-fields-validation.md`.

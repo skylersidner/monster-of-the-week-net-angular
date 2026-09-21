@@ -1,7 +1,7 @@
 ### 2026-08-06: Minion Required-Field Validation — Frontend (Phase 3)
 **By:** Luigi (Frontend Developer)
 
-**What:** Implemented the unconditional frontend scope from `docs/updates/minion-required-fields-validation.md`'s "Revision — Skyler's 6 Answers Resolved" section (paired with Bowser's `ApiContracts.cs`/`MinionService.cs` DataAnnotations + dead-code-removal pass, no other backend files touched). Every pattern was copied verbatim from my own already-shipped Monster-phase implementation (`.squad/decisions/inbox/luigi-monster-required-fields-validation.md`) — nothing re-derived.
+**What:** Implemented the unconditional frontend scope from `docs/updates/minion-required-fields-validation.md`'s "Revision — Skyler's 6 Answers Resolved" section (paired with Bowser's `ApiContracts.cs`/`MinionService.cs` DataAnnotations + dead-code-removal pass, no other backend files touched). Every pattern was copied verbatim from my own already-shipped Monster-phase implementation (`.squad/decisions/records/luigi-monster-required-fields-validation.md`) — nothing re-derived.
 
 1. **Bug fix:** `shared/minion-form/minion-form.ts`'s `minionTypeId` control gained `Validators.required`, matching `harmCapacity` above it. `minion-form.spec.ts`'s existing invalid-submit test now also asserts `minionTypeId.touched`.
 2. **`maxlength="255"`** added to all 9 Name `<input>`s: `minion-form.html` (1) + the 4 sub-resource draft forms in `minion-create.html` (attack/power/armor/weakness) + the 4 equivalent immediate-edit forms in `minion-detail.html`. Count/shape verified against the actual files rather than assumed equal to Monster's — confirmed identical (9 total).

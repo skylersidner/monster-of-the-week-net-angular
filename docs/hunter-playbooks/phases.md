@@ -193,7 +193,7 @@ Per Skyler's brief, deferred as an implementation *decision* — but Skyler drov
 
 ## Phase 6 — Custom Move modeling: internal pick-structure within individual Moves (inserted 2026-08-29; **design settled 2026-08-30** — schema in `architecture.md` Section 6.8, authoring not yet started)
 
-**Design complete and all questions resolved, 2026-08-30.** Census: `custom-moves-ideation.md`. Schema: **`architecture.md` Section 6.8** (implementation-ready). Decision record: `.squad/decisions/inbox/yoshi-hunter-playbooks-phase6-custom-moves-model.md`.
+**Design complete and all questions resolved, 2026-08-30.** Census: `custom-moves-ideation.md`. Schema: **`architecture.md` Section 6.8** (implementation-ready). Decision record: `.squad/decisions/records/yoshi-hunter-playbooks-phase6-custom-moves-model.md`.
 
 **Implemented 2026-08-30.** Migration `AddMoveInternalBespokeSections` — exactly the single nullable `bespoke_sections.playbook_move_id` FK the design promised, plus its index. Zero changes to `BespokeOption`, zero new tables, zero instance-side changes.
 

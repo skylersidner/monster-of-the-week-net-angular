@@ -10,4 +10,4 @@
 
 **Why:** Both expansions follow the same underlying principle as the original phase-0/1 fix: reuse the ID-presence-driven upsert pattern already established in this file (`editingMonsterId`/`submitPhase0`'s branch) rather than inventing a second mechanism, and keep validation logic in the same `computed()`-signal idiom this file already uses for every other cross-field/derived rule (`phaseStepComplete`, `monsterPreview`, etc.) instead of introducing Angular's imperative form-validator machinery for the first time in this file.
 
-**Docs:** `docs/theming/found-bugs.md` (Bug 2), `.squad/decisions/inbox/yoshi-bug2-wizard-phase-resubmission.md` (superseded open-questions section).
+**Docs:** `docs/theming/found-bugs.md` (Bug 2), `.squad/decisions/records/yoshi-bug2-wizard-phase-resubmission.md` (superseded open-questions section).

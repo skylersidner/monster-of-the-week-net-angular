@@ -2,7 +2,7 @@
 
 **By:** Bowser (Backend Developer / DevOps)
 **Date:** 2026-08-06
-**Per:** `docs/updates/minion-required-fields-validation.md` (Revision — Skyler's 6 Answers Resolved) + `.squad/decisions/inbox/yoshi-minion-required-fields-validation.md`
+**Per:** `docs/updates/minion-required-fields-validation.md` (Revision — Skyler's 6 Answers Resolved) + `.squad/decisions/records/yoshi-minion-required-fields-validation.md`
 
 **What:**
 - `Contracts/ApiContracts.cs`: `[param: Required, MaxLength(255)]` on `Name` for `UpsertMinionRequest`, `UpsertMinionAttackRequest`, `UpsertMinionPowerRequest`, `UpsertMinionArmorRequest`, `UpsertMinionWeaknessRequest`. `[param: Range(0, int.MaxValue)]` on `UpsertMinionRequest.HarmCapacity`, `UpsertMinionAttackRequest.Harm`, `UpsertMinionArmorRequest.HarmSoak`. `UpsertCustomMoveRequest` untouched (already fixed in Phase 2, shared cross-domain DTO).
@@ -18,4 +18,4 @@
 - Build clean (1 warning — `NETSDK1194`, an artifact of the `-o` workaround itself, not a code warning, same as Monster phase).
 - 154/154 tests green (136 pre-existing + 18 new).
 
-**Docs:** `docs/updates/minion-required-fields-validation.md`, `.squad/decisions/inbox/yoshi-minion-required-fields-validation.md`.
+**Docs:** `docs/updates/minion-required-fields-validation.md`, `.squad/decisions/records/yoshi-minion-required-fields-validation.md`.

@@ -2,7 +2,7 @@
 **By:** Yoshi (Architect)
 **Requested by:** Skyler Sidner — formalize Luigi's empirically-verified fix into `docs/theming/theming-plan.md`.
 
-**What:** Applied Luigi's shipped fix (`.squad/decisions/inbox/luigi-theming-reference-directive-evaluation.md`) throughout `docs/theming/theming-plan.md`:
+**What:** Applied Luigi's shipped fix (`.squad/decisions/records/luigi-theming-reference-directive-evaluation.md`) throughout `docs/theming/theming-plan.md`:
 
 1. Every `@reference` instruction (Decision B's addendum, the Conventions subsection, Phases 1–6, the Risk Register) now reads the single, depth-independent `@reference "#styles.css";`, replacing every hand-computed relative-path example (`../../../styles.css`, per-file depth variants). The two remaining relative-path mentions in the doc are deliberate historical callouts ("an earlier revision recommended X; superseded by Y") — not live instructions.
 2. Added a short "why not a hack" note at Decision B's addendum: `@reference` pointed at a project's own stylesheet is Tailwind's documented mechanism for component-scoped/isolated-compilation stylesheets (docs name Angular alongside Vue/Svelte/CSS Modules); Angular's own docs simply never cover `@apply`-in-component-styles for any framework, which is why the fix wasn't discoverable there.

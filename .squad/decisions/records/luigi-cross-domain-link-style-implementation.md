@@ -6,7 +6,7 @@
 ## What
 
 Implemented Rosalina's `.entity-link` / `.entity-link--inline` spec
-(`.squad/decisions/inbox/rosalina-cross-domain-link-style.md`) plus the
+(`.squad/decisions/records/rosalina-cross-domain-link-style.md`) plus the
 `.back-link` companion (Skyler approved including it in this pass). Both live
 in `src/web/monster-of-the-week-web/src/styles.css`, in `@layer components`,
 immediately after `.action-btn` and before `@layer base`.

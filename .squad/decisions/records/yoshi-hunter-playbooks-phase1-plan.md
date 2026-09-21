@@ -1,4 +1,4 @@
-**SUPERSEDED 2026-08-25** — the doc this entry describes (`docs/hunter-playbooks/hunter-playbooks-plan.md`) was deleted by Skyler; more consideration was needed before committing to an approach. A fresh, narrower-scoped pass replaced it: see `.squad/decisions/inbox/yoshi-hunter-playbooks-phase1-plan-v2.md` and `docs/hunter-playbooks/`. Left in place (not deleted) for history; do not treat the "What"/"Why" below as current.
+**SUPERSEDED 2026-08-25** — the doc this entry describes (`docs/hunter-playbooks/hunter-playbooks-plan.md`) was deleted by Skyler; more consideration was needed before committing to an approach. A fresh, narrower-scoped pass replaced it: see `.squad/decisions/records/yoshi-hunter-playbooks-phase1-plan-v2.md` and `docs/hunter-playbooks/`. Left in place (not deleted) for history; do not treat the "What"/"Why" below as current.
 
 ---
 

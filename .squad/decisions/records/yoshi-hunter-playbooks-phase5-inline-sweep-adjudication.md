@@ -39,4 +39,4 @@ Also checked per the brief: **"Look, pick one from each list:"** (all 28 playboo
 - **Two items re-raised for Skyler, deliberately not acted on**: Snoop's Crew job list (previously decided "instructions-only"; the sweep is new information if Skyler wants to revisit) and Professional's Agency goal question (the known unanswered-worldbuilding-question pattern). Both are consistent with standing decisions as they are; neither is a defect.
 - **No schema change of any kind resulted from this sweep.**
 
-Detail: `docs/hunter-playbooks/bespoke-ruleset-catalogue.md` (status block + `## The Monstrous`). Sweep source: `.squad/decisions/inbox/bowser-hunter-playbooks-phase5-inline-pick-sweep.md`.
+Detail: `docs/hunter-playbooks/bespoke-ruleset-catalogue.md` (status block + `## The Monstrous`). Sweep source: `.squad/decisions/records/bowser-hunter-playbooks-phase5-inline-pick-sweep.md`.
