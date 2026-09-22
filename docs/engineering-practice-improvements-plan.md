@@ -1,10 +1,10 @@
 # Engineering Practice Improvements — Implementation Plan
 
 **Prepared by:** Yoshi (Architect)
-**Status:** **Reviewed. Four of the six are settled; two await a decision.** Skyler ruled on 2026-09-21 on the four calls this plan flagged as his (§10). **R1 and R3 are adopted. R2 is abandoned** — see §4, and note carefully what survives it. **R4 is approved and in flight**, with Koopa working it now. **R6 is not funded** and has a recorded revisit trigger (§9). **R9 and R10 were not among the questions put to him and are not adopted by default** — they remain proposals.
-**Date:** 2026-09-21 (rev 2)
+**Status:** **All six settled. Three implemented, two adopted and pending, one abandoned; R6 deferred.** **R1, R3 and R4 are done** (`56f237f`, `a60a30f`). **R2 is abandoned** — see §4, and note carefully what survives it. **R9 and R10 are adopted** as of 2026-09-21, and his reasons for wanting them differ from mine in ways that change how they should be written (§6, §7). **R6 is not funded**, with a revisit trigger and an evidence pack (§9).
+**Date:** 2026-09-21 (rev 3)
 
-> **If you read one thing:** R2's abandonment removes the *counted deliverable*, not the practice and not the three targeting rules. §4 says exactly what is gone and what is not, because the risk of losing the rules along with the metric is the main hazard in this revision.
+> **Two things to read if you read nothing else.** R2's abandonment removes the *counted deliverable*, not the practice and not the three targeting rules (§4). And R10 has a **second consumer nobody planned for** — Skyler, choosing which model runs which phase — which changes what the register has to be legible to (§7).
 
 > **Source.** This plans the four change recommendations in `docs/updates/mystery-entity-linking-retrospective.md` (Koopa), plus two items its supporting findings support more strongly than its recommendation list does. I have re-verified every claim I am planning against rather than taking the retrospective's word for it; where I disagree with Koopa I say so and why.
 >
@@ -24,23 +24,23 @@ Every item below closes the same failure mode: **a green result that means nothi
 
 | Koopa | My verdict | Skyler's decision |
 |---|---|---|
-| **R1** Fix three silently-succeeding verification steps | **Adopt, first.** Strongest item in the set: cheapest, most certain, zero ongoing tax. Add a fourth instance and a detector. | **Adopted.** |
+| **R1** Fix three silently-succeeding verification steps | **Adopt, first.** Strongest item in the set: cheapest, most certain, zero ongoing tax. Add a fourth instance and a detector. | **Done** (`56f237f`). |
 | **R2** Make "break it and name the test that fails" a **counted** deliverable | **Adopt the practice, reject the metric.** The count is not merely gameable, it is **inversely informative**. | **Abandoned** — *"I was also dubious about this and Yoshi's pushback feels like the right call."* He had independent reservations before reading mine. **§4 records what survives.** |
-| **R3** Every review brief names a code artifact | **Adopt, and promote it above R2.** Highest-leverage item Koopa lists, on his own evidence. Needs a *default* surface list. | **Adopted.** |
-| **R4** Drain `.squad/decisions/inbox/` | **Adopt the goal, reject "drain".** ~15 promotions and a rename, not 126 migrations. | **Approved and in flight**, and he went further than the plan proposed: **`decisions.md` is retired outright**, not kept as an index. Koopa owns it, starting now. |
+| **R3** Every review brief names a code artifact | **Adopt, and promote it above R2.** Highest-leverage item Koopa lists, on his own evidence. Needs a *default* surface list. | **Done** (`56f237f`). |
+| **R4** Drain `.squad/decisions/inbox/` | **Adopt the goal, reject "drain".** ~15 promotions and a rename, not 126 migrations. | **Done** (`a60a30f`), and he went further than the plan proposed: **`decisions.md` is retired outright**, not kept as an index. Koopa owned it. |
 
-**Two items I am adding**, both from the retrospective's findings rather than its recommendation list, and both implicating my own work. **Neither was among the four questions put to Skyler, and neither is adopted** — they are proposals awaiting a decision:
+**Two items I added**, both from the retrospective's findings rather than its recommendation list, and both implicating my own work. **Both adopted 2026-09-21, and in both cases his reason differs from mine in a way that changes how they should be written:**
 
-- **R9** — ship the facts and the question, not a mechanism (Koopa's R8, which I think belongs in the first tier).
-- **R10** — every risk-register entry carries a falsifier, or it is decoration. This one is new.
+- **R9** — ship the facts and the question, not a mechanism. He supplied the boundary I was missing (*decide the mundane*), reframed the purpose as **explicit intent**, and gave usable feedback on the questions themselves. §6.
+- **R10** — every risk-register entry carries a falsifier. He wants it as a **per-phase risk gauge for choosing which model runs which phase** — a second consumer I had not planned for, which changes what the register must be legible to. §7.
 
-**Ordering, as it now stands:** R1 → R3 → R4. R2 is gone; R9 and R10 are unscheduled pending a call.
+**Where everything stands:** R1, R3 and R4 are implemented (`56f237f`, `a60a30f`). R9 and R10 are adopted and unstarted. R2 is abandoned (§4). R6 is deferred with an evidence pack (§9).
 
 ---
 
 ## 3. R1 — Fix the verification steps that report success while doing nothing
 
-**Adopt first.** Verified against the tree at `68ea8c5`.
+**Done — `56f237f`.** Planned against the tree at `68ea8c5`; the implementation notes inline below record what verification changed about the claims.
 
 ### What specifically changes
 
@@ -128,7 +128,7 @@ It found roughly twenty-five green tests that could not fail, including three fa
 
 ## 5. R3 — Every review brief names a code artifact
 
-**Adopted.** With R2 abandoned, this is the only process change of the four, and on Koopa's own numbers it is the highest-leverage item in the set: findings came from code over documents at roughly **50 to 4**, and four of his five "this was luck" items were one person choosing a reading surface nobody had assigned.
+**Done — `56f237f`.** With R2 abandoned, this was the only process change of the four, and on Koopa's own numbers it is the highest-leverage item in the set: findings came from code over documents at roughly **50 to 4**, and four of his five "this was luck" items were one person choosing a reading surface nobody had assigned.
 
 The sharpest supporting evidence is not the ratio. It is that **in every case where a document was wrong, the documents agreed with each other.** Two competent authors both asserted a re-parent capability the API did not have; the request record said otherwise and neither author had reason to open it. Document review cannot find that class at any depth, because agreement between documents is not evidence.
 
@@ -158,7 +158,17 @@ The sharpest supporting evidence is not the ratio. It is that **in every case wh
 
 ## 6. R9 — Ship the facts and the question, not a mechanism
 
-**Proposal — not yet decided.** This was not among the four questions put to Skyler on 2026-09-21 and he has not ruled on it. Koopa's R8, which I am promoting to the first tier. It implicates my own work and he is right.
+**Adopted 2026-09-21.** Koopa's R8, promoted. It implicates my own work and he is right.
+
+> **Skyler's reasoning, which supplies the boundary this item was missing and reframes its purpose.** Three things from his answer, each changing how the rule should be applied.
+>
+> **1. The boundary is "mundane versus consequential", not "decide versus ask."** His words: *"Obviously everything can't be a question. Some of the benefit an agent brings to the table is assumption and decision about the mundane or obvious."* As written below the item could be read as licence to escalate everything, and that reading is wrong. **Deciding the mundane is the job.** `origin` was not a mundane call — it was a mechanism encoding an unanswered *ownership* question, which is as consequential as this feature had. So the rule is: **decide the mundane; do not build a mechanism for the consequential thing you have not asked about yet.** The failure mode is not "assumed too much", it is "built a hedge instead of asking."
+>
+> **2. The goal is explicit intent, not merely avoided waste.** *"Some recent reading I've done encourages a focus on 'explicit intent' to ensure that the agent can make decisions based on a strong understanding of the goal and the ideas surrounding the goal."* That is a better statement of the item's purpose than mine. I justified shipping facts + options + consequences as *avoiding thrown-away mechanisms* — a cost argument. His is a capability argument: **a decision made against stated intent is one the agent can then extend correctly without asking again.** This is why the *facts* half is mandatory rather than decorative. It also predicts something my version does not: the more of the surrounding intent a stakeholder answer carries, the fewer follow-up rounds it needs. Decision 19 ("a monster is not required") is the example — one sentence of intent, and §6.5 of the architecture document derived the validation, tracker and read-side consequences without a second round.
+>
+> **3. Question hygiene — his feedback on the questions themselves, taken at face value.** *"I have found the questions to be relatively solid, although some do seem more intricate and archaic (though that's possibly just because of lack of experience on my part)."* He discounts it; I would not. Some of the twenty questions were more intricate than they needed to be, and the pattern is identifiable: **the count-versus-names copy question and the predicate-shape questions were implementation detail dressed as stakeholder decisions.** Whether a modal names other mysteries or counts them is a product question; whether the predicate reads a baseline or an `id` is not, and putting the second to him spent a round of his attention on something I should have decided and recorded.
+>
+> **The companion rule: a question put to him should be one where his answer changes what gets built, stated in the product's terms rather than the mechanism's.** If the honest phrasing requires naming a store signal, it is probably mine to decide. That is his feedback, not an invention, and it is the natural other half of "decide the mundane."
 
 ### The correction, taken straight
 
@@ -186,13 +196,28 @@ Before a stakeholder round, the deliverable is: **the verified facts that constr
 - **Owner:** me, and anyone else writing a design document ahead of a stakeholder decision.
 - **Cost:** negative. It removes work rather than adding it — four mechanisms in this feature would not have been built.
 - **How we would know it worked:** design revisions that follow a stakeholder answer get shorter rather than longer, and no revision spends its budget removing something the previous one added.
-- **Un-adopting:** it is a habit, not a mechanism; there is nothing to remove. The risk if it is over-applied is a design document that ducks hard calls by turning every decision into a question. The guard is that the facts are still mandatory — *"here are three options"* with no verified current-state section is the failure, not the goal.
+- **Un-adopting:** it is a habit, not a mechanism; there is nothing to remove. **The over-application guard is Skyler's, and it is better than the one I first wrote.** Mine was "the facts are still mandatory" — true but weak, since a document can carry facts and still escalate everything. His is the sharper test: **is this call mundane or consequential?** A design document that turns mundane calls into questions has failed in the opposite direction, and *"some of the benefit an agent brings is assumption and decision about the mundane"* is the standard to measure against. The watch signal is a rising question count per revision with a falling rate of answers that change anything.
 
 ---
 
 ## 7. R10 — Every risk-register entry carries a falsifier
 
-**Proposal — not yet decided.** Not among the four questions put to Skyler on 2026-09-21. New, and not in Koopa's recommendation list, though his §8 finding is what produced it. This also implicates my own work.
+**Adopted 2026-09-21.** New, and not in Koopa's recommendation list, though his §8 finding is what produced it. This also implicates my own work.
+
+> **His reason for wanting it is not mine, and it is load-bearing enough to change the requirements.** *"I actually really like the risk proposal, as it's the best way to get a fast high-level gauge for which work will have the most impact and risk for issues. It also empowers me to tweak the agent model on a per-phase basis, so I can scope higher risk actions to more thoughtful modeling."*
+>
+> **So the register has a second consumer I did not plan for: Skyler, deciding which model runs which phase.** A standing memory already records a model-by-risk policy — Opus for medium and high risk phases, Sonnet for low — so this is an existing practice the register would *feed* rather than a new one it creates. That is a stronger position than the one I argued from, and it survives R2's abandonment intact.
+>
+> **What the second consumer changes, concretely:**
+>
+> | | My version | What his use needs |
+> |---|---|---|
+> | Audience | Toad, turning a falsifier into a mutation target | **Also Skyler, before a phase starts**, deciding where to spend capability |
+> | Granularity | Per risk, unordered | **Comparable across phases** — at minimum each entry tagged with the phase it lands in, so a phase's risk can be read off without reconstructing it |
+> | The falsifier's job | Tell a tester what to mutate | **Also convey severity to a non-implementer.** "A wrong implementation passes a content-preservation test" tells Toad where to aim *and* tells Skyler this one is silent, which is the property that should buy a better model |
+> | Register shape | A list at the back of the document | **Readable before the work, not after it.** A register that is only legible to its author does not serve a per-phase staffing decision |
+>
+> The practical addition is small: **tag each entry with its phase, and write the falsifier so that its severity is visible in the sentence** — silent versus loud, recoverable versus not. Both bugs that shipped to QA in this feature were silent, and that is exactly the distinction a staffing decision turns on.
 
 ### The finding
 
@@ -210,16 +235,17 @@ Every risk entry gains one sentence: **"a wrong implementation of this would loo
 
 ### Ownership, cost, success, un-adoption
 
-- **Owner:** me, for architecture documents. Toad consumes the falsifiers as mutation targets.
-- **Cost:** one sentence per risk entry, and the sentence is hard to write — which is the point. Expect the register to get *shorter*, because entries that cannot carry a falsifier should be deleted.
-- **How we would know it worked:** the next feature's review findings intersect its risk register at all. Zero intersection twice running means the register should be dropped rather than fixed.
-- **Un-adopting:** stop requiring the sentence, or delete the register. **I would rather delete a register than keep a decorative one** — the current one was worse than nothing, because it looked like coverage.
+- **Owner:** me, for architecture documents. **Two consumers, not one:** Skyler reads it before a phase to decide model-by-risk; Toad reads the falsifiers as mutation targets.
+- **Cost:** one sentence plus a phase tag per entry. The sentence is hard to write, which is the point. Expect the register to get *shorter*, because entries that cannot carry a falsifier should be deleted.
+- **On the justification that R2's abandonment weakened — stated plainly rather than left standing.** I originally argued this item on two legs: the falsifier makes a risk *checkable*, and the register *feeds the mutation plan*. **The second leg is gone**: with R2 abandoned there is no mandated mutation plan for it to feed. It is not worthless — Toad still runs mutations voluntarily and a falsifier is still the best targeting input he could be handed — but it is no longer a process hand-off. **The item now rests on the first leg plus Skyler's per-phase model gauge**, and the gauge is the stronger of the two, because it has a user who will notice if the register is bad.
+- **How we would know it worked:** two signals, one per consumer. The next feature's review findings intersect its register at all; and Skyler can read a phase's risk off it without asking a question. **Zero intersection twice running means delete the register rather than fix it.**
+- **Un-adopting:** stop requiring the sentence, or delete the register. **I would rather delete a register than keep a decorative one** — the current one was worse than nothing, because it looked like coverage. The one caution on deletion now: it has a second consumer, so retiring it silently would remove an input to a staffing decision. Say so if it goes.
 
 ---
 
 ## 8. R4 — It is a broken pointer, not a backlog
 
-**Approved and in flight. Koopa owns it and has started.**
+**Done — implemented by Koopa in `a60a30f`.**
 
 **Skyler went one step further than this plan proposed.** The plan recommended keeping `decisions.md` as a short index; he answered the §10 question directly — *"Yes, retire decisions.md, rename records for Koopa"* — so **`decisions.md` does not survive.** That was listed here as a defensible simpler end state and it is the one chosen: a single searchable archive beats an index that has to be maintained to stay honest, and the index's whole failure mode was that nobody maintained it.
 
@@ -301,21 +327,30 @@ All four are settled. Recorded with his reasoning, because in two cases the reas
    The useful generalisation for anyone assembling a review chain later: **the roster is a default guess at who is needed, not a description of who works.** Koopa's §10b read a mismatch between the two as a defect in the roster; Skyler's answer is that the mismatch is expected and cheap, because he picks per feature. **Nothing to do.**
 4. **Whether `decisions.md` survives.** → **It does not.** *"Yes, retire decisions.md, rename records for Koopa."* §8 is rewritten accordingly — this went further than the plan recommended, and the simpler answer is the better one.
 
-**Still open, and not among the four:** R9 and R10 (§6, §7). Both are proposals; neither is adopted by default.
+**R9 and R10, raised by me rather than asked of him, were adopted the same day.** Both answers came with a rationale different from the one I argued, and in both cases his is the more useful one for deciding *how* to apply the item — R9's mundane-versus-consequential boundary and R10's per-phase model gauge. §6 and §7 record them. **Nothing in this plan is now undecided.**
 
 ---
 
 ## 11. Where this stands
 
-### Doing
+### Done
 
-| | Item | Owner | Cost | Ongoing tax | Status |
-|---|---|---|---|---|---|
-| 1 | **R4** — rename `inbox/` → `records/`, retire `decisions.md`, mark the standing decisions | Koopa | ½ day | none | **In flight** |
-| 2 | **R1** — fix the silent verification steps, add the detector | Luigi, Bowser | < ½ day | none | Adopted, not started |
-| 3 | **R3** — briefs name an artifact; default surface list | Peach, brief authors | zero marginal | none | Adopted, not started |
+| Item | Owner | Commit |
+|---|---|---|
+| **R4** — `inbox/` → `records/`, `decisions.md` retired, standing decisions marked | Koopa | `a60a30f` |
+| **R1** — the silent verification steps fixed, detector added | Luigi, Bowser | `56f237f` |
+| **R3** — briefs name an artifact; default surface list | Peach, brief authors | `56f237f` |
 
-R4 is first only because it is already running, and that is the right sequencing anyway: its cost is lowest while Koopa still has the whole record in his head. R1 and R3 are independent of it and of each other.
+Both commit bodies carry reasoning worth reading if either item is ever revisited. `a60a30f`'s is the more interesting: it found that **draining the inbox into the index had already been tried** — `986e52d`, 2026-07-25, compressed three records totalling 405 lines into 29 lines and deleted the sources, dropping one decision outright, which then stayed invisible through two features. That is a stronger argument against "drain" than the one §8 makes from cost, and it was discovered by implementing rather than planning.
+
+### Adopted, not started
+
+| Item | Owner | Cost | Ongoing tax |
+|---|---|---|---|
+| **R9** — facts and the question, not a mechanism (§6) | Yoshi | negative — it removes work | none; a habit |
+| **R10** — falsifier per risk entry, phase-tagged (§7) | Yoshi writes, Skyler and Toad read | one sentence + a tag per entry | small, and it should make the register *shorter* |
+
+Neither has a first-use date, because both attach to the next architecture document rather than to a task. **R9 applies from the first design document written after this**; R10 from the first risk register.
 
 ### Not doing
 
@@ -323,12 +358,3 @@ R4 is first only because it is already running, and that is the right sequencing
 |---|---|
 | **R2** — counted negative-control deliverable | **Abandoned.** The practice stays voluntary; the three targeting rules stay as standing decisions (§4). |
 | **R6** — extract the roster/baseline/disposition machinery | **Not funded.** Revisit trigger and evidence pack in §9. |
-
-### Awaiting a decision
-
-| Item | Owner if adopted | Cost |
-|---|---|---|
-| **R9** — facts and the question, not a mechanism (§6) | Yoshi | negative — it removes work |
-| **R10** — falsifier per risk entry (§7) | Yoshi | one hard sentence per entry; expect the register to get *shorter* |
-
-Both were raised by me rather than asked of Skyler, and neither should be treated as adopted because it sits in an otherwise-settled document. **R10 loses one of its two arguments with R2 abandoned** — it was partly justified by feeding a mutation plan that no longer has a mandated home. The other argument stands on its own: a risk register whose one correctly-named entry would still have passed a wrong implementation is worse than no register, because it looks like coverage.
