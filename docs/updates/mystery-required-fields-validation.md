@@ -150,4 +150,4 @@ Not in scope for this pass (per answers 2/3, and per the document's original sco
 
 **Next step:** hand off to Bowser for implementation (backend-only change, per the scope above).
 
-**Docs:** `docs/updates/mystery-required-fields-validation.md` (this document). See also `.squad/decisions/inbox/yoshi-mystery-required-fields-validation.md` for the terse decision-log entry.
+**Docs:** `docs/updates/mystery-required-fields-validation.md` (this document). See also `.squad/decisions/records/yoshi-mystery-required-fields-validation.md` for the terse decision-log entry.

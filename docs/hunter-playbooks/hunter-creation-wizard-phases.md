@@ -120,7 +120,7 @@ Everything outside that quote, and outside the stakeholder quote in Phase 0, is 
 - **Exit:**
   - The characterisation spec passes unchanged against `toRequest()`, and the draft specs pass.
   - Toad diffs `GET /api/hunters/{id}` before and after, on three fully populated hunters created after Phase 0: a Hex with Rotes, a Curse-Eater with a journal entry, and a Forged with a freeform look.
-- **Docs:** a limited supersession recorded in `.squad/decisions.md` (2026-07-21) and `angular-wizard-decomposition/SKILL.md`.
+- **Docs:** a limited supersession recorded in `.squad/decisions/records/luigi-mystery-create-wizard-2026-07-21-decisions-md.md` (2026-07-21) and `angular-wizard-decomposition/SKILL.md`.
 - **Detail:** 13.5, 13.15 (items 1–2), 14.5.
 
 ## Phase 5 — Shared sections and the check endpoint (R5)

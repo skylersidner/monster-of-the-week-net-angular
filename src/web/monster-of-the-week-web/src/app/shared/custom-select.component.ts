@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, Input, computed, forwardRef, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, ViewChild, computed, forwardRef, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
 @Component({
@@ -84,11 +84,44 @@ export class CustomSelectComponent<T> implements ControlValueAccessor {
   private onChange: (value: string | string[] | null) => void = () => {};
   private onTouched = () => {};
 
+  @ViewChild('trigger') private readonly trigger?: ElementRef<HTMLButtonElement>;
+
   @HostListener('document:click', ['$event'])
   handleDocumentClick(event: MouseEvent): void {
     if (!this.elementRef.nativeElement.contains(event.target as Node)) {
       this.isOpen.set(false);
     }
+  }
+
+  /**
+   * `Escape` closes the panel and puts focus back on the trigger. Until now the panel could only
+   * be dismissed by clicking elsewhere (`handleDocumentClick`), which a keyboard user cannot do.
+   *
+   * Bound on the **host**, not the trigger, so it also catches `keydown` from the searchable
+   * variant's `<input>` inside the panel.
+   *
+   * The early return and the `stopPropagation()` are load-bearing, not boilerplate: this control
+   * can be rendered inside `ConfirmDeleteModalComponent`, which also closes on `Escape`. Returning
+   * early while the panel is already closed is what lets a second `Escape` reach the dialog;
+   * `stopPropagation()` is what stops the first one from closing the dropdown *and* the dialog at
+   * once. Get either wrong and the dropdown takes the whole dialog down with it (§8.7).
+   *
+   * Scope note: this makes the control **dismissable**, not conformant. Its remaining ARIA gaps —
+   * `role="listbox"` over children that are not `role="option"`, no `aria-activedescendant`, no
+   * arrow-key navigation — are untouched and logged as a follow-up.
+   */
+  // `$event` is typed `Event` for a key pseudo-event, and nothing here needs `KeyboardEvent`.
+  @HostListener('keydown.escape', ['$event'])
+  handleEscape(event: Event): void {
+    if (!this.isOpen()) {
+      return;
+    }
+
+    event.stopPropagation();
+    event.preventDefault();
+    this.isOpen.set(false);
+    this.searchTerm.set('');
+    this.trigger?.nativeElement.focus();
   }
 
   constructor(private readonly elementRef: ElementRef<HTMLElement>) {}

@@ -2,20 +2,22 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { forkJoin, Observable, of, startWith, switchMap } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, startWith, switchMap } from 'rxjs';
 import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
+import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 import { IconComponent } from '../../../../shared/icons/icon.component';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
-import { MonsterFormComponent } from '../../shared/monster-form/monster-form';
+import { MonsterFormComponent, MonsterFormSubmit } from '../../shared/monster-form/monster-form';
 import {
   MinionListItemResponse,
   MonsterArchetypeResponse,
   MonsterDetailResponse,
   MonsterAttackResponse,
+  MysteryListItemResponse,
   TypeRefResponse,
   UpsertMonsterArmorRequest,
   UpsertMonsterAttackRequest,
@@ -38,6 +40,8 @@ export class MonsterDetailComponent implements OnInit {
   readonly monsterTypes = signal<TypeRefResponse[]>([]);
   readonly monsterArchetypes = signal<MonsterArchetypeResponse[]>([]);
   readonly weaponTags = signal<WeaponTagRefResponse[]>([]);
+  /** Options for the membership picker (5b, §6.2). */
+  readonly mysteries = signal<MysteryListItemResponse[]>([]);
   readonly minions = signal<MinionListItemResponse[]>([]);
   readonly isLoading = signal(true);
   readonly activeMutation = signal<string | null>(null);
@@ -82,6 +86,7 @@ export class MonsterDetailComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly monsterService: MonsterService,
     private readonly minionService: MinionService,
+    private readonly mysteryService: MysteryService,
     private readonly referenceDataService: ReferenceDataService,
     private readonly notificationService: NotificationService
   ) {}
@@ -117,12 +122,14 @@ export class MonsterDetailComponent implements OnInit {
             monsterArchetypes: this.referenceDataService.getMonsterArchetypes(),
             weaponTags: this.referenceDataService.getWeaponTags(),
             minions: this.minionService.getByMonster(monsterId),
+            mysteries: this.mysteryService.getMysteries(),
           });
         })
       )
       .subscribe({
-        next: ({ monster, monsterTypes, monsterArchetypes, weaponTags, minions }) => {
+        next: ({ monster, monsterTypes, monsterArchetypes, weaponTags, minions, mysteries }) => {
           this.monster.set(monster);
+          this.mysteries.set(mysteries);
           this.monsterTypes.set(monsterTypes);
           this.monsterArchetypes.set(monsterArchetypes);
           this.weaponTags.set(weaponTags);
@@ -136,22 +143,63 @@ export class MonsterDetailComponent implements OnInit {
       });
   }
 
-  saveMonster(payload: UpsertMonsterRequest): void {
-    if (!this.monster()) {
+  /**
+   * The entity body and its mystery membership are two separate writes (architecture §4.1), and this
+   * is the Location/Bystander shape with the noun changed (`5b-L1`).
+   *
+   * **It ends in a refetch on both branches**, which does two jobs: it makes the re-rendered
+   * membership control itself the answer to "which mysteries failed?", and it resets the diff
+   * baseline to server truth. `DELETE` on a membership URI 404s on repeat, so without the refetch a
+   * retry after a partial failure would fail permanently.
+   *
+   * **The membership caveat is a toast only; `errorMessage` stays `null`** — setting it unmounts the
+   * form, leaving nothing to retry into.
+   */
+  saveMonster(submit: MonsterFormSubmit): void {
+    const current = this.monster();
+    if (!current) {
       return;
     }
+
+    const monsterId = current.id;
+    const desired = submit.mysteryIds;
+    const existing = current.mysteryIds ?? [];
+    const added = desired.filter((mysteryId) => !existing.includes(mysteryId));
+    const removed = existing.filter((mysteryId) => !desired.includes(mysteryId));
 
     this.activeMutation.set('Saving monster...');
 
     this.monsterService
-      .update(this.monster()!.id, payload)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .update(monsterId, submit.monster)
+      .pipe(
+        switchMap(() =>
+          this.runBatch<void>([
+            ...added.map((mysteryId) => this.monsterService.linkToMystery(mysteryId, monsterId)),
+            ...removed.map((mysteryId) => this.monsterService.unlinkFromMystery(mysteryId, monsterId)),
+          ]).pipe(
+            map(() => false),
+            catchError(() => of(true)),
+          ),
+        ),
+        switchMap((membershipFailed) =>
+          this.monsterService.getById(monsterId).pipe(map((monster) => ({ monster, membershipFailed }))),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
-        next: (monster) => {
+        next: ({ monster, membershipFailed }) => {
           this.monster.set(monster);
           this.activeMutation.set(null);
-          this.notificationService.success('Monster details saved.');
           this.errorMessage.set(null);
+
+          if (membershipFailed) {
+            // `forkJoin` reports that one call failed, never that all of them did, so the copy hedges.
+            this.notificationService.error(
+              'Monster saved, but some of its mysteries may not have saved. Review them below and save again.',
+            );
+          } else {
+            this.notificationService.success('Monster details saved.');
+          }
         },
         error: () => {
           this.activeMutation.set(null);
@@ -366,5 +414,9 @@ export class MonsterDetailComponent implements OnInit {
 
   onDeleteCancelled(): void {
     this.pendingDelete.set(null);
+  }
+
+  private runBatch<T>(requests: Observable<T>[]): Observable<T[]> {
+    return requests.length > 0 ? forkJoin(requests) : of<T[]>([]);
   }
 }

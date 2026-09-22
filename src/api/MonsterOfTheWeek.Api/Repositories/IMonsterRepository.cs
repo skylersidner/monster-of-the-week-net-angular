@@ -16,6 +16,13 @@ public interface IMonsterRepository
     Task<Monster?> GetMonsterForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task AddMonsterAsync(Monster monster, CancellationToken cancellationToken);
     Task LinkMonsterToMysteryAsync(MysteryMonster link, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Inserts one bridge row and saves it in one step, succeeding if a concurrent insert of the
+    /// same membership won the race and throwing for any other failure. See the implementation.
+    /// </summary>
+    Task LinkMonsterToMysteryAndSaveAsync(MysteryMonster link, CancellationToken cancellationToken);
+
     Task<int> UnlinkMonsterFromMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken);
     Task<bool> MonsterLinkedToMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken);
     Task<int> DeleteMonsterAsync(Guid id, CancellationToken cancellationToken);

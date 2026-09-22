@@ -33,7 +33,7 @@
               class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] transition-colors"
               title="Delete monster"
               [disabled]="isLoadingMinions()"
-              (click)="requestDelete(monster.id, monster.name)"
+              (click)="requestDelete(monster)"
             >
               <app-icon name="trash" class="h-5 w-5" />
             </button>
@@ -44,11 +44,22 @@
   }
 </section>
 
+<!--
+  Variant (D) of the removal modal (UX §7.1). Two lists, deliberately not merged: [usage] says
+  where the monster is used, [items] says what is destroyed with it. The minion cascade below is
+  the shipped precedent for this whole treatment and is left exactly as it was; usage is new and
+  renders above it. The permanence sentence moves out of [message] and into [footnote], which now
+  renders whether or not there is a cascade. No Detach button — a list page has no mystery to
+  detach from (§7.5).
+-->
 <app-confirm-delete-modal
   [visible]="!!pendingDelete()"
   [itemName]="pendingDelete()?.name ?? ''"
-  [message]="pendingDelete()?.minions?.length ? 'This will also delete the following minions:' : 'This cannot be undone.'"
+  [usageMessage]="pendingDelete()?.usageMessage ?? ''"
+  [usage]="pendingDelete()?.usage ?? []"
+  [message]="pendingDelete()?.minions?.length ? 'This will also delete the following minions:' : ''"
   [items]="pendingDelete()?.minions ?? []"
+  [footnote]="pendingDelete()?.footnote ?? ''"
   (confirmed)="onDeleteConfirmed()"
   (cancelled)="onDeleteCancelled()"
 />

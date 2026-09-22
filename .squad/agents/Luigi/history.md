@@ -5,11 +5,11 @@
 
 ### 2026-09-18 — Cross-domain entity link style (`.entity-link`/`.back-link`)
 
-- Implemented Rosalina's advisory spec (`.squad/decisions/inbox/rosalina-cross-domain-link-style.md`), but that file, as written to disk, contains only the prose rationale (why accent, why `outline` not `ring-focus`, why `@layer components`, why no `:visited`/`font-weight`) — it does **not** contain a literal CSS block, a call-site table, or an exclusion list, despite the task brief describing it as containing all three. Built the actual CSS from her stated decisions (documented as such in the `styles.css` comments) and found call sites myself by grepping every template for `routerLink`, rather than trusting a table that isn't there. Worth checking a referenced decision doc's actual byte content before assuming a paraphrase of it is accurate — this is the same "verify a referenced plan's premises" lesson Rosalina's own history logs, applied to primary-source completeness instead of staleness.
+- Implemented Rosalina's advisory spec (`.squad/decisions/records/rosalina-cross-domain-link-style.md`), but that file, as written to disk, contains only the prose rationale (why accent, why `outline` not `ring-focus`, why `@layer components`, why no `:visited`/`font-weight`) — it does **not** contain a literal CSS block, a call-site table, or an exclusion list, despite the task brief describing it as containing all three. Built the actual CSS from her stated decisions (documented as such in the `styles.css` comments) and found call sites myself by grepping every template for `routerLink`, rather than trusting a table that isn't there. Worth checking a referenced decision doc's actual byte content before assuming a paraphrase of it is accurate — this is the same "verify a referenced plan's premises" lesson Rosalina's own history logs, applied to primary-source completeness instead of staleness.
 - First pass found only 9 cross-domain call sites (excluding same-domain list-row-to-own-detail links as intra-domain) and used `--color-text-muted` for `.back-link`. **Both were corrected by Mario after relaying Rosalina's actual (never-filed) table**: the six list-page primary name links (`mysteries-list.html:19` etc.) ARE in scope — her table treats "bare `font-semibold`-or-nothing on a name link" as one uniform gap regardless of same-vs-cross-domain, which is a broader reading than the class's own stated purpose ("navigates to another domain entity's detail view") would suggest standing alone. Total is 15 `.entity-link` sites, not 9 or 14. `.back-link` rest color is `--color-text-secondary` (Rosalina's explicit, deliberate call), not `-muted` — hand-verified contrast against `--color-surface` first (7.59:1 light, 12.02:1 dark, both clear AA) since the correction said to keep muted only if secondary failed. **Lesson: when a spec's own stated rule (cross-domain only) and its worked table disagree, the human author's table wins over a literal reading of her own prose** — don't assume a clean-sounding scope principle is exhaustive just because it reads that way in isolation.
 - 10 "← Back to X" anchors confirmed correct as found (not 11 per the brief): 6 detail pages (bystander/location/monster/minion/mystery/hunter) + 4 create pages (bystander/location/monster/minion). `hunter-create.html`/`mystery-create.html` have no such anchor — their wizard "← Back" is a `<button>`, correctly excluded.
 - Tailwind v4's `text-decoration-color: transparent` → `currentColor` on hover/focus, riding the existing `transition-colors` utility (which covers `text-decoration-color` in v4), is the pattern for a hover-fade underline without adding a bespoke transition property.
-- Full corrected call-site table and the CSS as implemented are in `.squad/decisions/inbox/luigi-cross-domain-link-style-implementation.md` — still not a verbatim copy of Rosalina's original table/CSS (never obtained, only Mario's relay of the deltas), flagged as such in that doc for whoever picks this up next.
+- Full corrected call-site table and the CSS as implemented are in `.squad/decisions/records/luigi-cross-domain-link-style-implementation.md` — still not a verbatim copy of Rosalina's original table/CSS (never obtained, only Mario's relay of the deltas), flagged as such in that doc for whoever picks this up next.
 
 ### 2026-08-01 — Global Search Phase 2: Header Search Dropdown
 
@@ -186,7 +186,7 @@ The current `addAttackForm`, `addPowerForm`, `addWeaknessForm` are SHARED betwee
 Store owns `persist()` / `restore()` over sessionStorage. Only committed arrays + nav state + `mysteryId` are persisted. Forms are NOT persisted — transient only. `clearDraft()` called on successful completion.
 
 ### Files Created
-- `.squad/decisions/inbox/Luigi-mystery-create-frontend-decomposition.md` — full architecture decision record
+- `.squad/decisions/records/luigi-mystery-create-frontend-decomposition.md` — full architecture decision record
 - `.squad/skills/angular-wizard-decomposition/SKILL.md` — reusable patterns extracted
 
 ### Key Paths
@@ -271,7 +271,7 @@ Implemented Phase 0 only of `docs/theming/theming-plan.md`: token catalogue + `.
 - **`ng test`'s environment (`@angular/build:unit-test` + vitest) does NOT provide a real `window.localStorage` or `window.matchMedia` out of the box.** Its `window` is a minimal shim (enough for Angular TestBed DOM rendering, `fixture.nativeElement`, etc.) but lacks Web Storage and `matchMedia`. Also: Node 26's own experimental global `localStorage` (separate object, needs `--localstorage-file`) exists and will silently shadow/confuse a bare (non-`window.`-qualified) `localStorage` reference — always write `window.localStorage`, never bare `localStorage`, in both service code and specs. For specs needing `matchMedia`, assign directly via `Object.defineProperty(window, 'matchMedia', { value: vi.fn()..., configurable: true, writable: true })` rather than `vi.spyOn` (spyOn requires the property to already be a function; it isn't here).
 - Building the token `@theme` catalogue: reference Tailwind's own default-palette custom properties via `var(--color-slate-950)` etc. rather than copying hex/oklch by hand — Tailwind v4's default theme (pulled in by `@import "tailwindcss"`) already defines every named color (`--color-white`, `--color-slate-*`, `--color-indigo-*`, ...) as a real custom property, so referencing it guarantees pixel-parity with whatever `bg-slate-950` already compiles to, with zero transcription risk. Alpha-based tokens (`--color-focus-ring`, `--color-sidebar-hover/-active`) use `color-mix(in oklab, var(--color-X) N%, transparent)` rather than a Tailwind opacity-modifier class (which only works on utility classes, not inside a raw CSS custom property value).
 - `ThemeService`'s DOM-class application: kept explicit synchronous `applyDomClass()` calls in both `setPreference()`/`initialize()` (per Decision D's literal wording, and so bootstrap timing is deterministic rather than dependent on Angular's effect-scheduling), *plus* an `effect(() => this.applyDomClass())` field — the effect is the only thing that reacts to a live OS-level `matchMedia` 'change' event while `preference === 'system'`; the explicit calls would miss that case entirely.
-- Two real ambiguities found in `theming-plan.md` itself, filed as `.squad/decisions/inbox/luigi-theming-phase0-judgment-calls.md`: (1) the reserved `--color-badge-mystery` token pair has no current light value to preserve (no mystery badge exists) and the plan explicitly declines Rosalina's speculative teal proposal — left undeclared in `styles.css` rather than inventing a value; (2) the plan's "disable via `it.skip` on the containing test" instruction for `search-results.spec.ts` doesn't account for Vitest only being able to skip a whole test, not individual assertions, and the flagged test mixed color and non-color assertions — split into two tests instead of skipping (and losing coverage on) the whole thing.
+- Two real ambiguities found in `theming-plan.md` itself, filed as `.squad/decisions/records/luigi-theming-phase0-judgment-calls.md`: (1) the reserved `--color-badge-mystery` token pair has no current light value to preserve (no mystery badge exists) and the plan explicitly declines Rosalina's speculative teal proposal — left undeclared in `styles.css` rather than inventing a value; (2) the plan's "disable via `it.skip` on the containing test" instruction for `search-results.spec.ts` doesn't account for Vitest only being able to skip a whole test, not individual assertions, and the flagged test mixed color and non-color assertions — split into two tests instead of skipping (and losing coverage on) the whole thing.
 
 ### Verification
 `npm run test -- --watch=false`: 28 files / 116 tests passed, 1 skipped (the new dedicated badge-color test) — no regressions. `ng build --configuration production` clean (same 2 pre-existing component-style budget warnings as always, unrelated to this change).
@@ -288,7 +288,7 @@ Phase 1 of `docs/theming/theming-plan.md`: re-point `page-layout.html` onto the 
 - Modified: `src/app/layout/page-layout/{page-layout.html,page-layout.ts,page-layout.spec.ts}`, `src/app/app.routes.ts`
 
 ### Key patterns / gotchas
-- **Tailwind v4's name-concatenation problem bites on the prefix side too, and the theming plan's re-pointing map is wrong because of it.** `--color-text-primary` generates `text-text-primary`, not `text-primary`; `--color-border` generates `border-border`, not `border-default`. Same mechanism as the `-bg` suffix stutter the plan already resolved — Tailwind puts the utility family in front of the *whole* remainder after `--color-`. Verified empirically (temp probe file → `ng build` → grep the emitted `styles-*.css`), not from memory: the plan's names emit no rule at all, silently, with a clean build. **Technique worth reusing: to confirm any token-derived class name actually exists, drop a throwaway `.html` in `src/` containing the candidate class names, build, and grep `dist/**/styles-*.css` for `.classname{`.** Filed as `.squad/decisions/inbox/luigi-theming-phase1-utility-name-stutter.md`.
+- **Tailwind v4's name-concatenation problem bites on the prefix side too, and the theming plan's re-pointing map is wrong because of it.** `--color-text-primary` generates `text-text-primary`, not `text-primary`; `--color-border` generates `border-border`, not `border-default`. Same mechanism as the `-bg` suffix stutter the plan already resolved — Tailwind puts the utility family in front of the *whole* remainder after `--color-`. Verified empirically (temp probe file → `ng build` → grep the emitted `styles-*.css`), not from memory: the plan's names emit no rule at all, silently, with a clean build. **Technique worth reusing: to confirm any token-derived class name actually exists, drop a throwaway `.html` in `src/` containing the candidate class names, build, and grep `dist/**/styles-*.css` for `.classname{`.** Filed as `.squad/decisions/records/luigi-theming-phase1-utility-name-stutter.md`.
 - Opacity modifiers *do* work on token-backed utilities (`text-sidebar-text/70`), compiling to `color-mix(in oklab, var(--color-sidebar-text) 70%, transparent)` — but Tailwind also emits an unguarded fallback rule that bakes in the token's *light* value literally (`color-mix(in srgb, oklch(93.2% ...) 70%, transparent)`), overridden by an `@supports (color: color-mix(in lab, ...))` rule. Any browser failing that `@supports` check would keep the light value in dark mode. Non-issue in practice, but it means token + opacity modifier is not quite as theme-pure as a bare token utility.
 - `CustomSelectComponent` is a `ControlValueAccessor`, so it needs a `FormControl`/`formControlName` — there's no plain `[value]`/`(change)` path. For plain-string options (`ThemePreference`), all three of `optionValue`/`optionLabel`/`optionSubLabel` must be supplied, since the defaults read `id`/`name`/`description` off an option *object* and fall back to `String(option)` (which would render `system`, not `Match system`).
 - Some elements in the shell keep literal colors on purpose and are *not* token bugs: `text-white` on the MOTW logo and mobile close button (white-on-indigo works in both themes; `--color-sidebar-text` would be a visible light-mode change), `bg-white/20` on the Soon badge and MOTW pill (translucent white lightens whatever's under it in either theme — Rosalina's call), and `bg-slate-950/40`/`bg-slate-950/55` scrims (theme-invariant by design).
@@ -305,7 +305,7 @@ Phase 1 of `docs/theming/theming-plan.md`: re-point `page-layout.html` onto the 
 ## 2026-08-02 — Theming: Token→Utility Mechanism Fix (`@utility`) + header-search
 
 ### Task
-Skyler pushed back on my "live with the stuttering names" call from the Phase 1 note: research Tailwind v4's actual documented guidance and fix the mechanism properly. Also folded `shared/header-search/` into Phase 1 scope (it was missed by the plan's repo scan, not added late — `git log` shows it in the search feature's "Phase 2 (UI first pass)" commit). Full write-up: `.squad/decisions/inbox/luigi-theming-token-utility-mechanism.md` (supersedes and replaces `luigi-theming-phase1-utility-name-stutter.md`, which I deleted).
+Skyler pushed back on my "live with the stuttering names" call from the Phase 1 note: research Tailwind v4's actual documented guidance and fix the mechanism properly. Also folded `shared/header-search/` into Phase 1 scope (it was missed by the plan's repo scan, not added late — `git log` shows it in the search feature's "Phase 2 (UI first pass)" commit). Full write-up: `.squad/decisions/records/luigi-theming-token-utility-mechanism.md` (supersedes and replaces `luigi-theming-phase1-utility-name-stutter.md`, which I deleted).
 
 ### Files
 - Modified: `src/styles.css` (`@theme` → `@theme static`, + 8 `@utility` blocks), `layout/page-layout/page-layout.html`, `pages/settings/settings.html`, `shared/header-search/header-search.{html,scss}`
@@ -329,7 +329,7 @@ Skyler pushed back on my "live with the stuttering names" call from the Phase 1 
 ## 2026-08-02 — Theming: `@reference` via Node Subpath Import + API-Modal `surface-raised`
 
 ### Task
-Skyler challenged whether my `@reference "../../../styles.css"` fix was a fragile hack. Verified `@reference` is Tailwind's documented mechanism and replaced the relative path with a Node subpath import. Plus the one-word API-modal fix from Yoshi's open-item (c). Full write-up: `.squad/decisions/inbox/luigi-theming-reference-directive-evaluation.md`.
+Skyler challenged whether my `@reference "../../../styles.css"` fix was a fragile hack. Verified `@reference` is Tailwind's documented mechanism and replaced the relative path with a Node subpath import. Plus the one-word API-modal fix from Yoshi's open-item (c). Full write-up: `.squad/decisions/records/luigi-theming-reference-directive-evaluation.md`.
 
 ### Files
 - Modified: `package.json` (new `imports` field), `shared/header-search/header-search.scss` (`@reference "#styles.css"`), `layout/page-layout/page-layout.html` (`bg-surface` → `bg-surface-raised` on the API-modal panel)
@@ -354,7 +354,7 @@ Skyler challenged whether my `@reference "../../../styles.css"` fix was a fragil
 ## 2026-08-02 — Theming Phase 2: Shared Components (confirm-delete-modal, custom-select, weapon-tag-select)
 
 ### Task
-Phase 2 of `docs/theming/theming-plan.md`, scope-limited: re-point the three shared components onto tokens, including `custom-select.component.scss`'s `@reference` fix + `@apply` repointing. Judgment calls filed at `.squad/decisions/inbox/luigi-theming-phase2-shared-components.md`.
+Phase 2 of `docs/theming/theming-plan.md`, scope-limited: re-point the three shared components onto tokens, including `custom-select.component.scss`'s `@reference` fix + `@apply` repointing. Judgment calls filed at `.squad/decisions/records/luigi-theming-phase2-shared-components.md`.
 
 ### Files
 - Modified: `shared/confirm-delete-modal.component.html`, `shared/custom-select.component.{html,scss}`, `shared/weapon-tag-select.component.html`. No spec changes needed (verified, not assumed — `custom-select.component.spec.ts` is the only spec of the three and asserts structural classes + text only; the other two have no spec).
@@ -386,7 +386,7 @@ Two pieces. (1) Yoshi/Rosalina closed my Phase 2 neutral-hover gap with a real `
 - **`@apply`'d utility names never show up as their own `.name{}` rule in `dist/**/styles-*.css`** — they get inlined directly into the *component's* compiled CSS, which lives inside its lazy JS chunk, not the global stylesheet. Confirmed `.action-btn:hover:not(:disabled){background-color:var(--color-surface-hover, var(--color-gray-200))}` and `.action-btn--delete:hover:not(:disabled){background-color:var(--color-danger-subtle, var(--color-red-100));color:var(--color-danger, var(--color-red-600))}` by grepping the `minion-detail` chunk specifically, not `styles-*.css`. Same rule as Phase 2's note, re-confirmed for a new file.
 - **My own class-emission checker script has a real bug worth remembering, not fixing today:** it string-matches `.` + class name, so it silently false-negatives on any class using a Tailwind variant prefix (`focus:border-accent`, `hover:bg-surface-hover`, `disabled:opacity-40`, ...) because the compiled CSS selector escapes the colon (`.focus\:border-accent:focus{...}`) — the literal substring `focus:border-accent` (no backslash) never appears. It also false-negatives on any arbitrary-value class with brackets (`rounded-[0.35rem]`, `max-w-[30rem]`) for the same escaping reason. None of this is a real gap — every flagged "MISSING" real class was hand-confirmed present via a targeted `grep` with the actual escaped selector — but it means the checker's PRESENT/MISSING split is only trustworthy for bare (no-variant, no-bracket) class names; variant-prefixed and arbitrary-value ones need a manual follow-up grep. The checker still correctly rejected all 6 planted bogus names (`bg-surface-hoverbogus`, `text-primarybogus`, ...), so it's not vacuous, just incomplete.
 - **Two negative controls re-run on `minion-detail.scss` specifically:** reverting `@reference` to `"tailwindcss"` reproduces `Cannot apply unknown utility class 'bg-surface-hover'`; keeping the correct `@reference` but planting `text-luigi-bogus` in the second `@apply` reproduces `Cannot apply unknown utility class 'text-luigi-bogus'`. Both reverted immediately after confirming the failure, file restored, clean build re-verified before moving on.
-- **Real gap between the theming plan's Phase 3 Goal text and the actual codebase, filed as `.squad/decisions/inbox/luigi-theming-phase3-badge-pattern-gap.md`:** Phase 3's Goal claims to "establish the type badge token pattern... in one place before Phase 4 reuses it," but none of its three files (`bystander-detail`, `location-detail`, `minion-detail`) render an existing type badge — each shows type via a plain `<app-custom-select>` dropdown. The actual badge markup (`bg-blue-100 text-blue-800`, etc.) lives only in the three list pages, all Phase 4 files. Did not invent new badge UI to satisfy the Goal text — out of "re-point what exists" scope and not in Phase 3's own Files-changed list. Recommend correcting the Goal sentence.
+- **Real gap between the theming plan's Phase 3 Goal text and the actual codebase, filed as `.squad/decisions/records/luigi-theming-phase3-badge-pattern-gap.md`:** Phase 3's Goal claims to "establish the type badge token pattern... in one place before Phase 4 reuses it," but none of its three files (`bystander-detail`, `location-detail`, `minion-detail`) render an existing type badge — each shows type via a plain `<app-custom-select>` dropdown. The actual badge markup (`bg-blue-100 text-blue-800`, etc.) lives only in the three list pages, all Phase 4 files. Did not invent new badge UI to satisfy the Goal text — out of "re-point what exists" scope and not in Phase 3's own Files-changed list. Recommend correcting the Goal sentence.
 - Scoped the Phase 3 re-point strictly to "form/label/input/button" (per this task's own framing): left `text-red-800` error banners untouched (identical literal on ~9 other pages across every later phase, explicitly Phase 7's sweep job) and left `minion-detail.html`'s sub-resource entity-card wrappers/list-item dividers/weapon-tag chip/muted description text untouched (out of Detail-Form-Pattern scope; `monster-detail`, Phase 5, is where the structurally-identical sub-resource grid gets its own explicit, more-thorough pass).
 - Input border re-point (`border-slate-200`→`border-strong`) is a deliberate one-step-darker shade shift, following the plan's own explicit instruction ("`--color-border-strong` for inputs") even though it doesn't match the *current* code's literal (which had drifted to `border-slate-200`/`--color-border`'s value) — it does match the original Tailwind-migration doc's own canonical Detail Page Form pattern (`border-[#c9d4e6]`), so this is a correction toward the documented canonical shape, not an arbitrary change.
 
@@ -398,7 +398,7 @@ Two pieces. (1) Yoshi/Rosalina closed my Phase 2 neutral-hover gap with a real `
 ## 2026-08-02 — Theming Phase 4: List Pages (badge pattern's first real consumer)
 
 ### Task
-Phase 4 of `docs/theming/theming-plan.md`: re-pointed `mysteries-list.html`, `monsters-list.html` (+ `.scss`), `minions-list.html`, `bystanders-list.html`, `locations-list.html`, and `search-results.html` (+ `.ts` badge map, + `.spec.ts`) onto tokens — the four active type badges (monster/minion/bystander/location) plus the monster-archetype badge get `--color-badge-*`/`--color-on-badge-*` for their first real template usage. Full write-up: `.squad/decisions/inbox/luigi-theming-phase4-list-pages.md`.
+Phase 4 of `docs/theming/theming-plan.md`: re-pointed `mysteries-list.html`, `monsters-list.html` (+ `.scss`), `minions-list.html`, `bystanders-list.html`, `locations-list.html`, and `search-results.html` (+ `.ts` badge map, + `.spec.ts`) onto tokens — the four active type badges (monster/minion/bystander/location) plus the monster-archetype badge get `--color-badge-*`/`--color-on-badge-*` for their first real template usage. Full write-up: `.squad/decisions/records/luigi-theming-phase4-list-pages.md`.
 
 ### Files
 Modified: `mysteries-list.html`, `monsters-list.{html,scss}`, `minions-list.html`, `bystanders-list.html`, `locations-list.html`, `search-results.{html,ts,spec.ts}`. No `minions-list.scss` exists (never did — minions have no delete endpoint/hover guard); the plan's "+ its SCSS stub" line for it is a false lead, confirmed via `ls`, not assumed.
@@ -420,7 +420,7 @@ Modified: `mysteries-list.html`, `monsters-list.{html,scss}`, `minions-list.html
 ## 2026-08-02 — Theming Phase 5: Medium Pages & Admin
 
 ### Task
-Phase 5 of `docs/theming/theming-plan.md`: re-pointed `mystery-detail.html` (+ `.scss`), `monster-detail.html` (+ `.scss`), `dashboard.html`, `data-admin.html` (+ `.scss`), `weapon-tag-admin.html` (+ `.scss`) onto tokens, including both admin tables' `nth-child` striping remnants and `monster-detail`'s archetype badge. Full write-up: `.squad/decisions/inbox/luigi-theming-phase5-medium-pages-admin.md`.
+Phase 5 of `docs/theming/theming-plan.md`: re-pointed `mystery-detail.html` (+ `.scss`), `monster-detail.html` (+ `.scss`), `dashboard.html`, `data-admin.html` (+ `.scss`), `weapon-tag-admin.html` (+ `.scss`) onto tokens, including both admin tables' `nth-child` striping remnants and `monster-detail`'s archetype badge. Full write-up: `.squad/decisions/records/luigi-theming-phase5-medium-pages-admin.md`.
 
 ### Key patterns / gotchas
 - **The `@reference "#styles.css"` obligation applies to files with no `@apply` at all, where it is inert.** Three of Phase 5's four `.scss` files (`mystery-detail`, `data-admin`, `weapon-tag-admin`) carry zero `@apply` lines — the admin ones read tokens directly through `var()` in a plain `nth-child` rule, which needs no Tailwind context whatsoever. Changed them anyway per the plan's literal instruction (consistent convention, zero emitted output, future-proofs a later `@apply`), but the practical consequence is that the **negative control is only demonstrable on the one file that really uses `@apply`** — don't claim a per-file negative control you can't actually run.
@@ -443,7 +443,7 @@ Modified: `mystery-detail.{html,scss}`, `monster-detail.{html,scss}`, `dashboard
 ## 2026-08-03 — Theming Phase 6: The Mystery Wizard (+ deferred verification pass)
 
 ### Task
-Phase 6 of `docs/theming/theming-plan.md`: re-pointed `mystery-create.html` + its six sub-templates (`-tracker`, `-mystery-phase`, `-monster-phase`, `-locations-phase`, `-bystanders-phase`, `-dossier`) and `mystery-create.scss` (`@reference` fix + `@apply` targets only) onto tokens. The code landed in an earlier session that was cut off before the verification report; this entry covers both. Judgment calls: `.squad/decisions/inbox/luigi-theming-phase6-mystery-wizard.md`.
+Phase 6 of `docs/theming/theming-plan.md`: re-pointed `mystery-create.html` + its six sub-templates (`-tracker`, `-mystery-phase`, `-monster-phase`, `-locations-phase`, `-bystanders-phase`, `-dossier`) and `mystery-create.scss` (`@reference` fix + `@apply` targets only) onto tokens. The code landed in an earlier session that was cut off before the verification report; this entry covers both. Judgment calls: `.squad/decisions/records/luigi-theming-phase6-mystery-wizard.md`.
 
 ### Key patterns / gotchas
 - **`page.click('button.bg-accent')` in the wizard silently clicks the *shell's* "Quick action" button, not Next.** Phase 1 gave the page-layout header a round `bg-accent` icon button, so any bare token-class selector now matches two elements app-wide, and `page.click(selector)` is non-strict (first match wins) — the wizard simply never advanced, with no error. `page.locator()` *is* strict and would have raised `strict mode violation`. **Scope every Playwright selector to `.mystery-create section …` (or use `getByRole`) now that the shell shares the app's token classes** — this trap gets worse with every phase, since token class names are by design not unique to one component.
@@ -478,7 +478,7 @@ Modified: `styles.css`, `mysteries-list.html`, `mystery-detail.html`, `mystery-c
 ## 2026-08-03 — Theming Phase 7: Cleanup, Sweep, and Palette Swap-In
 
 ### Task
-Final content phase of `docs/theming/theming-plan.md`. Part 1: sweep the whole app for remaining literal Tailwind classes, arbitrary hex/rgb bindings, and — per Yoshi's mid-project addition (`.squad/decisions/inbox/yoshi-theming-phase7-dead-css-sweep.md`) — dead/unused legacy CSS in every component `.scss`, not just `monsters-list.scss`'s known precedent. Part 2: swap `styles.css`'s `.dark {}` block from the Phase 0 light-value placeholder to Rosalina's real dark fills (`dark-theme-palette.md`). Phase 8 (FOUC inline script) is explicitly out of scope.
+Final content phase of `docs/theming/theming-plan.md`. Part 1: sweep the whole app for remaining literal Tailwind classes, arbitrary hex/rgb bindings, and — per Yoshi's mid-project addition (`.squad/decisions/records/yoshi-theming-phase7-dead-css-sweep.md`) — dead/unused legacy CSS in every component `.scss`, not just `monsters-list.scss`'s known precedent. Part 2: swap `styles.css`'s `.dark {}` block from the Phase 0 light-value placeholder to Rosalina's real dark fills (`dark-theme-palette.md`). Phase 8 (FOUC inline script) is explicitly out of scope.
 
 ### Key patterns / gotchas
 - **All 10 `.scss` files in the app already had correct `@reference "#styles.css"` and zero dead selectors** — Phases 1–6 left this codebase cleaner than the Phase 7 brief assumed. The only real `@apply`-body straggler was `search-results.scss`'s `mark` rule (flagged back in Phase 4), tokenized onto `bg-accent-subtle text-accent` (no dedicated "search highlight" token exists; reused the nearest correct role — a translucent low-emphasis accent wash, which stays visible over any dark-mode surface, unlike `weapon-chip`'s flat near-black dark fill).
@@ -499,7 +499,7 @@ Modified: `styles.css` (palette swap-in), `search-results.{html,scss,ts}`, `mini
 ## 2026-08-04 — Bug 2: Wizard phase-revisit duplicates (frontend half)
 
 ### Task
-Implement Yoshi's resolved Bug 2 design (`.squad/decisions/inbox/yoshi-bug2-wizard-resubmission-resolved.md`): make every wizard phase idempotent across revisits (phase 0 mystery, phase 1 monster+minion, phases 2/3 locations/bystanders), plus conditionally-required Minion Name. Backend blank-Name guard was Bowser's, in parallel.
+Implement Yoshi's resolved Bug 2 design (`.squad/decisions/records/yoshi-bug2-wizard-resubmission-resolved.md`): make every wizard phase idempotent across revisits (phase 0 mystery, phase 1 monster+minion, phases 2/3 locations/bystanders), plus conditionally-required Minion Name. Backend blank-Name guard was Bowser's, in parallel.
 
 ### Key patterns / gotchas
 - **The whole bug was one missing line per phase, not a missing mechanism.** The ID-based upsert branches (`editingMonsterId`, `mysteryId()`) already existed and were correctly shaped — they were just only ever *populated* by `loadEditData()`. Fix is to `.set()` the id signal immediately inside the save's `switchMap`, on both the create and the update path. Same for the sub-collection id arrays. Resist re-architecting when the branch is already there.
@@ -523,7 +523,7 @@ Modified: `core/location.ts`, `core/bystander.ts`, `mystery-create.store.ts`, `m
 ## 2026-08-05 — Standalone Creation SC-2 + SC-4: `MonsterFormComponent` extract + detail rewire
 
 ### Task
-`docs/updates/standalone-creation-phase1-monsters.md` decisions 1-4 and 15, combined into one pass: extract `monster-detail.ts`'s core-fields form into `features/monsters/shared/monster-form/`, then immediately wire the detail page onto it so no unused component and no duplicated form is left behind. SC-3 (`/monsters/new`) deliberately not started. Decision record: `.squad/decisions/inbox/luigi-monster-form-component.md`.
+`docs/updates/standalone-creation-phase1-monsters.md` decisions 1-4 and 15, combined into one pass: extract `monster-detail.ts`'s core-fields form into `features/monsters/shared/monster-form/`, then immediately wire the detail page onto it so no unused component and no duplicated form is left behind. SC-3 (`/monsters/new`) deliberately not started. Decision record: `.squad/decisions/records/luigi-monster-form-component.md`.
 
 ### Key patterns / gotchas
 - **`features/<domain>/shared/` had no component precedent before this** — `features/mysteries/shared/` holds only two plain `.ts` files (`mystery-countdown-stage.ts` is pure data/interfaces, `mystery-section-icon.ts` a single-file inline-template component), no folder-per-component. Used the app-wide `shared/header-search/` layout instead (`<name>/<name>.{ts,html,spec.ts}`, no `.component` infix), which is the only multi-file-component-in-a-folder precedent in the app. Worth knowing the folder convention and the file-layout convention come from two different places here.
@@ -549,7 +549,7 @@ Modified: `core/location.ts`, `core/bystander.ts`, `mystery-create.store.ts`, `m
 ## 2026-08-05 — Standalone Creation SC-3: `/monsters/new` create page + sub-resource drafts
 
 ### Task
-Last of the three sub-phases of `docs/updates/standalone-creation-phase1-monsters.md` (decisions 5-14): the `/monsters/new` page, its route, the `monsters-list` entry point, and the 4 local-draft sub-resource panels with batched submit. Decision record: `.squad/decisions/inbox/luigi-standalone-creation-sc3-create-page.md`.
+Last of the three sub-phases of `docs/updates/standalone-creation-phase1-monsters.md` (decisions 5-14): the `/monsters/new` page, its route, the `monsters-list` entry point, and the 4 local-draft sub-resource panels with batched submit. Decision record: `.squad/decisions/records/luigi-standalone-creation-sc3-create-page.md`.
 
 ### Key patterns / gotchas
 - **The batch-failure branch belongs inside the `switchMap`, not in the subscriber's `error:` handler.** `create$ → switchMap(m => saveSubResourceDrafts(m.id).pipe(map(() => ({id, draftsFailed: false})), catchError(() => of({id, draftsFailed: true}))))`. Doing it this way makes the outer `error:` handler reachable *only* by a failure of the initial create, so "keep the user here with their drafts intact" needs no how-far-did-we-get bookkeeping, and every path where the monster actually exists lands in `next:` and navigates. Worth reaching for whenever an async flow has a point-of-no-return partway through.
@@ -572,7 +572,7 @@ Last of the three sub-phases of `docs/updates/standalone-creation-phase1-monster
 ## 2026-08-05 — Standalone Creation Phase 2 MC-1 + MC-3: `MinionFormComponent` extraction + `minion-detail` rewire
 
 ### Task
-First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (decisions 2-4, 11), run as one task for the same reason the Monster phase's SC-2+SC-4 were: extracting without wiring leaves an unused component next to a still-duplicated inline form. MC-2 (`/minions/new` + `/monsters/:monsterId/minions/new`) deliberately not started. Decision record: `.squad/decisions/inbox/luigi-minion-form-component.md`.
+First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (decisions 2-4, 11), run as one task for the same reason the Monster phase's SC-2+SC-4 were: extracting without wiring leaves an unused component next to a still-duplicated inline form. MC-2 (`/minions/new` + `/monsters/:monsterId/minions/new`) deliberately not started. Decision record: `.squad/decisions/records/luigi-minion-form-component.md`.
 
 ### Key patterns / gotchas
 - **Second run of the exact same extraction shape, and the `MonsterFormComponent` precedent transferred 1:1 at the code level but *not* at the markup level.** Structure (decorator IO, internal `FormGroup`, `ngOnChanges` repopulate, guard split, `toNullable()` copy, `host: { class: 'block' }`, no `.scss`) all copied straight over. The template did not: `minion-detail.html`'s block uses `w-full` where `monster-form.html` uses `font-[inherit]`, is a 3-column grid not 4, and its submit button has no `disabled:*` classes. Take the markup from the page being extracted, never from the sibling component — the two forms were already inconsistent before either extraction, and "mirror the precedent" would have silently restyled the page.
@@ -596,7 +596,7 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 ## 2026-08-05 — Standalone Creation Phase 2 MC-2: `MinionCreateComponent`, two routes, two entry points
 
 ### Task
-`docs/updates/standalone-creation-phase2-minions.md` decisions 5-10, with Skyler's confirmed **Option C** on Open Question 1 (both entry points ship, one component). Decision record: `.squad/decisions/inbox/luigi-standalone-creation-mc2-create-page.md`.
+`docs/updates/standalone-creation-phase2-minions.md` decisions 5-10, with Skyler's confirmed **Option C** on Open Question 1 (both entry points ship, one component). Decision record: `.squad/decisions/records/luigi-standalone-creation-mc2-create-page.md`.
 
 ### Key patterns / gotchas
 - **`By.directive(CustomSelectComponent)` is not unique on a page like this — three instances match** (the page's own monster picker, `MinionFormComponent`'s minion-type picker, and the one `WeaponTagSelectComponent` wraps on the attack draft form). The "monster-locked entry renders *no* dropdown" assertion passed vacuously twice before I scoped the helper to `!closest('app-minion-form') && !closest('app-weapon-tag-select')`. Same category as the Playwright `bg-accent` trap from the theming phases: shared widgets/tokens make the obvious selector match more than you think. Any spec asserting the *absence* of a shared component needs a scoping predicate, and needs a sibling test proving the helper can find it, or it proves nothing.
@@ -618,7 +618,7 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 ## 2026-08-06 — Standalone Creation Phase 3 LC-2 + LC-4: `LocationFormComponent` extraction + detail rewire
 
 ### Task
-`docs/updates/standalone-creation-phase3-locations.md` decisions 4-6 and 12. Third run of the SC-2/SC-4 and MC-1/MC-3 shape. LC-3 (the `/locations/new` page) deliberately not started. Decision record: `.squad/decisions/inbox/luigi-location-form-component.md`.
+`docs/updates/standalone-creation-phase3-locations.md` decisions 4-6 and 12. Third run of the SC-2/SC-4 and MC-1/MC-3 shape. LC-3 (the `/locations/new` page) deliberately not started. Decision record: `.squad/decisions/records/luigi-location-form-component.md`.
 
 ### Key patterns / gotchas
 - **Location's form is a genuinely different shape from Monster's/Minion's, three ways, and all three are load-bearing:** (1) `locationTypeId` has `Validators.required` where `monsterTypeId`/`minionTypeId` don't — preserved verbatim per the plan and pinned by a named spec so nobody "harmonises" it later; (2) single-column `max-w-[30rem]` stack, no `grid-cols-[Nfr...]` row (Location has no harm-capacity field); (3) Description sits *between* Name and Type, not last. Copying `minion-form.html` and adapting would have silently restyled the page. Rule now confirmed three times: take the markup from the page being extracted, never from the sibling component.
@@ -642,7 +642,7 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 ## 2026-08-06 — Standalone Creation Phase 3 LC-3: `/locations/new` Create Page, Route, Entry Point
 
 ### Task
-`docs/updates/standalone-creation-phase3-locations.md` decisions 3, 6-9, 13. Depends on LC-1 (`LocationService.createStandalone()`) and LC-2 (`LocationFormComponent`), both already landed in this tree. Decision record: `.squad/decisions/inbox/luigi-standalone-creation-lc3-create-page.md`.
+`docs/updates/standalone-creation-phase3-locations.md` decisions 3, 6-9, 13. Depends on LC-1 (`LocationService.createStandalone()`) and LC-2 (`LocationFormComponent`), both already landed in this tree. Decision record: `.squad/decisions/records/luigi-standalone-creation-lc3-create-page.md`.
 
 ### Key patterns / gotchas
 - **This is the simplest create page of the three domains so far, exactly as the plan doc predicted** (Resolved Decision 2: Location has no interactive sub-resources at all). `onCreate` is a single service call with no `switchMap` chain past it — no draft signals, no batch panels, no `runBatch`. Closer in shape to `location-detail.ts`'s own `save()` than to `monster-create.ts`'s/`minion-create.ts`'s `onCreate`.
@@ -663,7 +663,7 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 ## 2026-08-06 — Standalone Creation Phase 4 BC-2 + BC-4: `BystanderFormComponent` extraction + detail rewire
 
 ### Task
-`docs/updates/standalone-creation-phase4-bystanders.md` decisions 4-6 and 12. Fourth (final) run of the SC-2/SC-4, MC-1/MC-3, LC-2/LC-4 shape. BC-3 (the `/bystanders/new` page) deliberately not started. Decision record: `.squad/decisions/inbox/luigi-bystander-form-component.md`.
+`docs/updates/standalone-creation-phase4-bystanders.md` decisions 4-6 and 12. Fourth (final) run of the SC-2/SC-4, MC-1/MC-3, LC-2/LC-4 shape. BC-3 (the `/bystanders/new` page) deliberately not started. Decision record: `.squad/decisions/records/luigi-bystander-form-component.md`.
 
 ### Key patterns / gotchas
 - **Bystander's core-fields block really is byte-identical in structure to Location's** — single-column `max-w-[30rem]` stack, Description between Name and Type, same token classes, `bystanderTypeId` with `Validators.required`. Unlike Location (which differed from Monster/Minion three ways), this extraction was a straight 1:1 rename of `location-form.*`. Still took the markup from `bystander-detail.html` itself and diffed it against Location's before concluding that — the plan doc's own Background section makes the "looks the same vs. is the same" point, and it costs one read to check.
@@ -676,7 +676,7 @@ First two sub-phases of `docs/updates/standalone-creation-phase2-minions.md` (de
 ## 2026-08-06 — Required-Field Validation Phase 4: Location (`location-form.html`)
 
 ### Task
-`docs/updates/location-required-fields-validation.md`'s "Revision — Skyler's 2 Answers Resolved" section — smallest phase of the initiative so far. Full write-up: `.squad/decisions/inbox/luigi-location-required-fields-validation.md`.
+`docs/updates/location-required-fields-validation.md`'s "Revision — Skyler's 2 Answers Resolved" section — smallest phase of the initiative so far. Full write-up: `.squad/decisions/records/luigi-location-required-fields-validation.md`.
 
 ### Key patterns / gotchas
 - **Smallest phase yet, genuinely** — unlike Monster/Minion, `location-form.ts`'s `locationTypeId` already had `Validators.required` (pre-dated the standalone-creation extraction per Yoshi's doc), so no validator bug to fix. Only 1 Name `<input>` in the whole feature (no sub-resource authoring UI at all) vs. Monster's/Minion's 9 each.
@@ -908,7 +908,7 @@ Unlike `monster-create.ts`'s labeled draft forms, the wizard's Attack/Power/Weak
 `npm run build`/`npm run test -- --watch=false` clean, 38/272 unchanged (checked `mystery-create.store.spec.ts` first — no test relies on a zero/blank value being valid for the three controls touched). Live Playwright walkthrough: filled the concept phase, advanced to the Monster phase, confirmed all 4 core-field asterisks render inline (not wrapped) via both `getBoundingClientRect()` comparison and screenshot. `ng serve`/`dotnet run` were already running (someone/something else's session) when this task started — used them as-is, didn't kill them since I didn't start them.
 
 ### Files
-`features/mysteries/pages/mystery-create/mystery-create-monster-phase.html`, `features/mysteries/pages/mystery-create/mystery-create.store.ts`. Doc addendum: `docs/updates/monster-required-fields-validation.md` (flagging the wizard-side gap the doc's original audit couldn't have caught, since the wizard was outside its file scope). Full write-up: `.squad/decisions/inbox/luigi-monster-required-fields-validation.md`.
+`features/mysteries/pages/mystery-create/mystery-create-monster-phase.html`, `features/mysteries/pages/mystery-create/mystery-create.store.ts`. Doc addendum: `docs/updates/monster-required-fields-validation.md` (flagging the wizard-side gap the doc's original audit couldn't have caught, since the wizard was outside its file scope). Full write-up: `.squad/decisions/records/luigi-monster-required-fields-validation.md`.
 
 ---
 
@@ -930,7 +930,7 @@ Same shape as `monsterAttackForm.harm`'s pre-fix state — added both `Validator
 `app-custom-select`'s option buttons (`.custom-select__option`) live in the DOM *after* the trigger button (`.custom-select__trigger`), both under the same `app-custom-select` — a `.locator('li, [role="option"], button').first()` picks the trigger itself (closing the just-opened panel) instead of an option. Use `.locator('button.custom-select__trigger')` to open, then `.locator('button.custom-select__option').first()` to pick. Also: the wizard's create route is `/mysteries/create`, not `/mysteries/new` (`/mysteries/new` 404s) — confirmed via `mysteries.routes.ts` rather than guessing from the Monster/Minion domains' `/…/new` convention, which the Mystery domain doesn't share.
 
 ### Files
-`features/minions/shared/minion-form/minion-form.{ts,html,spec.ts}`, `features/minions/pages/minion-create/minion-create.{html,ts}`, `features/minions/pages/minion-detail/minion-detail.{html,ts}`, `features/mysteries/pages/mystery-create/mystery-create.store.ts`. Full write-up: `.squad/decisions/inbox/luigi-minion-required-fields-validation.md`.
+`features/minions/shared/minion-form/minion-form.{ts,html,spec.ts}`, `features/minions/pages/minion-create/minion-create.{html,ts}`, `features/minions/pages/minion-detail/minion-detail.{html,ts}`, `features/mysteries/pages/mystery-create/mystery-create.store.ts`. Full write-up: `.squad/decisions/records/luigi-minion-required-fields-validation.md`.
 
 ### Verification
 `npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 274 tests passed (272 baseline + 2 new specs in `minion-form.spec.ts`). Live Playwright verification against `dotnet run` (5225) + `ng serve --port 4200` (both already running at session start, not started or killed by me): asterisks render inline (not wrapped) on `/monsters/:monsterId/minions/:minionId`, `/minions/new`, and all `maxlength=255` on Name inputs confirmed via `input.maxLength`; conditional Special Description asterisk toggles correctly; wizard minion step renders with no asterisks (correct, out of scope) and no console errors after walking the full wizard flow to reach it.
@@ -946,13 +946,13 @@ Same shape as `monsterAttackForm.harm`'s pre-fix state — added both `Validator
 `bystander-form.html`'s labels use the same `grid font-medium gap-1` class as Monster/Minion/Location — used the wrapper-span trick (`<span>Name <span class="text-danger">*</span></span>`) from the first edit, same discipline as Location's phase.
 
 ### Files
-`features/bystanders/shared/bystander-form/bystander-form.html`, `features/bystanders/shared/bystander-form/bystander-form.spec.ts`. Full write-up: `.squad/decisions/inbox/luigi-bystander-required-fields-validation.md`.
+`features/bystanders/shared/bystander-form/bystander-form.html`, `features/bystanders/shared/bystander-form/bystander-form.spec.ts`. Full write-up: `.squad/decisions/records/luigi-bystander-required-fields-validation.md`.
 
 ### Verification
 `npm run build` clean (same 2 pre-existing budget warnings). `npm run test -- --watch=false`: 38 files / 278 tests passed (276 baseline + 2 new specs in `bystander-form.spec.ts`). Live Playwright verification against `dotnet run` (5225) + `ng serve --port 4200` (both already running at session start, not started or killed by me): asterisks render inline (not wrapped, bounding-box `y` within 2px of label text) on both `/bystanders/new` and an existing bystander's edit page; Name input `maxlength="255"` confirmed on both. This is the final implementation step of the five-phase required-field-validation initiative — all five domains' shared form components (Mystery, Monster, Minion, Location, Bystander) now have consistent `maxlength` guards and the asterisk convention.
 
 ### Note: no Location entry exists in this history file
-Grepped for it before writing this entry — `.squad/decisions/inbox/luigi-location-required-fields-validation.md` exists and was used as the direct reference, but no matching history.md entry was ever appended for that phase. Not backfilled here (out of scope for this task), flagging in case it matters for a future retrospective pass.
+Grepped for it before writing this entry — `.squad/decisions/records/luigi-location-required-fields-validation.md` exists and was used as the direct reference, but no matching history.md entry was ever appended for that phase. Not backfilled here (out of scope for this task), flagging in case it matters for a future retrospective pass.
 
 ---
 
@@ -1115,7 +1115,7 @@ Frontend review at the gate named in that plan's `phases.md` — the two-shell r
 
 ### Reusable technical facts (the point of this entry)
 
-- **`withInterceptors([A, B, C])` is REQUEST order; errors propagate back in reverse, so the LAST entry is the FIRST to see an error response.** Angular builds the chain with `reduceRight`, giving `A(next: B(next: C(next: backend)))`. Consequence: **any interceptor that swallows or transforms an error must be registered last**, below the generic reporter. Both auth designs specified `[credentials, authError, httpError]` with a "so no toast fires" claim; that ordering fires the toast. Full write-up + the code-comment phrasing (*"last in the array = first to see an error"*) in `.squad/decisions/inbox/luigi-interceptor-order-error-direction.md`. Generalises to retry, offline-queue, error-normalisation interceptors.
+- **`withInterceptors([A, B, C])` is REQUEST order; errors propagate back in reverse, so the LAST entry is the FIRST to see an error response.** Angular builds the chain with `reduceRight`, giving `A(next: B(next: C(next: backend)))`. Consequence: **any interceptor that swallows or transforms an error must be registered last**, below the generic reporter. Both auth designs specified `[credentials, authError, httpError]` with a "so no toast fires" claim; that ordering fires the toast. Full write-up + the code-comment phrasing (*"last in the array = first to see an error"*) in `.squad/decisions/records/luigi-interceptor-order-error-direction.md`. Generalises to retry, offline-queue, error-normalisation interceptors.
 - **`provideAppInitializer(() => svc.initialize())` only makes bootstrap wait if `initialize()` RETURNS a Promise/Observable.** `ThemeService.initialize()` (`core/theme.ts:66`) returns `void`, and any new initializer copying that adjacent line compiles and type-checks while silently not blocking. The router's initial navigation is an `APP_BOOTSTRAP_LISTENER`, which runs after initializers *resolve* — that's what makes "auth state is populated before the first `canMatch`" true, but only when the initializer is actually awaitable. Symptom of getting it wrong: signed-in user shown the login page on every cold load; reads as a cookie bug.
 - **Three app-wide things live inside `page-layout.html` and nowhere else**, which breaks the moment a second (auth) shell exists: `<app-icon-sprite />` (line 2 — the ONLY occurrence in `src/`; `icon.component.ts:14` calls it "app-wide", so an `<app-icon>` outside that shell renders a blank `<use>` with no error or console warning), the notification toast host (lines 130–150; `NotificationService` auto-dismisses after 4 s, so anything raised outside the shell is gone before it can render), and `checkApiAvailability()` + the API-unavailable modal (`page-layout.ts:44–46`, template 152–181 — probe runs only in `ngOnInit`, so it never re-fires and never runs at all for a logged-out visitor). `app.html` is a bare `<router-outlet />` and `app.ts` is an empty class, so hoisting all three to `App` is a template move + 3 tests relocated from `page-layout.spec.ts:42,108,117`. **Anyone adding a second shell to this app hits all three.**
 - **A `CanMatchFn` returning `false` cannot attach query params**, so the proactive guard path can never set a `returnUrl` — only the `401` interceptor can. Attaching one needs a `UrlTree`, which in the two-shell pattern (shell 1's `''` prefix-matches everything, including `/login`) causes an infinite redirect. So the lost deep link is structural; document it or stash the attempted path on the service, but never "fix" it with a `UrlTree`.
@@ -1161,7 +1161,7 @@ Implemented Phase 2 of `docs/simple-authentication-update/phases.md` steps 1–1
 ## 2026-08-23 — Favicon + Unified Sidebar Logo Mark
 
 ### Task
-Implement Rosalina's approved favicon/logo redesign: replace the stock Angular CLI `favicon.ico` and the translucent "MOTW" text pill in `page-layout.html` (desktop + mobile) with one unified indigo-600 chip + white monster-glyph mark. Full write-up: `.squad/decisions/inbox/luigi-favicon-logo-mark.md`.
+Implement Rosalina's approved favicon/logo redesign: replace the stock Angular CLI `favicon.ico` and the translucent "MOTW" text pill in `page-layout.html` (desktop + mobile) with one unified indigo-600 chip + white monster-glyph mark. Full write-up: `.squad/decisions/records/luigi-favicon-logo-mark.md`.
 
 ### Reusable technical facts
 - **SVG/XML `<!-- -->` comments cannot contain a literal `--` sequence anywhere in the body**, not just at the boundaries. Writing a CSS custom-property name (`--color-accent`) inside an SVG comment produces a fatal XML parse error — the browser renders its own "this page contains errors" page instead of the icon. `ng build` does NOT catch this (doesn't parse `public/` assets as XML); only caught by actually loading the file in a real browser engine (Playwright/Chromium). Any hand-written comment in a standalone `.svg` (or other XML) file that references `--`-prefixed CSS tokens/flags needs this check — build success is not sufficient verification for static SVG assets under `public/`.
@@ -1181,7 +1181,7 @@ New: `src/web/monster-of-the-week-web/public/favicon.svg`. Modified: `src/index.
 ## 2026-08-23 — Favicon/Logo Mark: Grin Addendum
 
 ### Task
-Rosalina follow-up call: add a filled purple crescent grin (`fill="#7e22ce"`, `purple-700`/`--color-on-badge-archetype`'s value, reused not invented) as a third path in both `public/favicon.svg` and the `icon-logo` symbol. Addendum appended to `.squad/decisions/inbox/luigi-favicon-logo-mark.md` rather than a new decision doc.
+Rosalina follow-up call: add a filled purple crescent grin (`fill="#7e22ce"`, `purple-700`/`--color-on-badge-archetype`'s value, reused not invented) as a third path in both `public/favicon.svg` and the `icon-logo` symbol. Addendum appended to `.squad/decisions/records/luigi-favicon-logo-mark.md` rather than a new decision doc.
 
 ### Reusable technical facts
 - **Hit the exact same `--`-in-XML-comment bug again, immediately** — this time from writing the *token name* itself (`--color-on-badge-archetype`) into the `favicon.svg` comment while explaining the new color's provenance. The prior entry's warning ("any comment referencing a `--`-prefixed CSS custom property") is easy to re-trigger even right after having documented it once — the trap is specifically that referencing *any* custom-property name at all reintroduces the literal `--`. Fix pattern that avoids it entirely: write the Tailwind class name without its CSS custom-property prefix, e.g. `purple-700 (on-badge-archetype)` instead of `purple-700 / --color-on-badge-archetype`.
@@ -1192,14 +1192,14 @@ Rosalina follow-up call: add a filled purple crescent grin (`fill="#7e22ce"`, `p
 `npm run build` clean (2 pre-existing unrelated budget warnings only). `npm run test -- --watch=false`: 38 files / 278 tests green, no regressions. Live-verified via `ng serve` + a throwaway Playwright script (deleted after use): grin renders as a smiling purple crescent at a large scaled-up render, native-size sidebar/drawer renders show no misalignment/clipping, `.dark`-class sidebar unaffected (color is hardcoded), and the fixed `favicon.svg` re-parses/renders correctly standalone after the XML-comment fix.
 
 ### Files
-Modified: `src/web/monster-of-the-week-web/public/favicon.svg`, `src/app/shared/icons/icon-sprite.component.ts`. Addendum appended to `.squad/decisions/inbox/luigi-favicon-logo-mark.md`.
+Modified: `src/web/monster-of-the-week-web/public/favicon.svg`, `src/app/shared/icons/icon-sprite.component.ts`. Addendum appended to `.squad/decisions/records/luigi-favicon-logo-mark.md`.
 
 ---
 
 ## 2026-08-23 — Favicon Bug Fix: Chrome preferred stale `favicon.ico` over the new SVG mark
 
 ### Task
-Skyler tested locally after the favicon/logo-mark work shipped and found the browser tab was still showing the old default `.ico`, not the new SVG mark. Fixed `src/index.html`'s favicon `<link>` pair; addendum appended to `.squad/decisions/inbox/luigi-favicon-logo-mark.md`.
+Skyler tested locally after the favicon/logo-mark work shipped and found the browser tab was still showing the old default `.ico`, not the new SVG mark. Fixed `src/index.html`'s favicon `<link>` pair; addendum appended to `.squad/decisions/records/luigi-favicon-logo-mark.md`.
 
 ### Reusable technical facts
 - **My original SVG-first `<link>` ordering (`svg` link before `ico` link) does NOT make Chrome prefer the SVG.** This is a documented Chromium bug, [crbug 1162276](https://crbug.com/1162276): Chrome prefers `.ico` over `.svg` favicons regardless of document order. Don't trust "first link wins" folklore for favicon resolution in Chrome specifically.
@@ -1216,7 +1216,7 @@ Skyler tested locally after the favicon/logo-mark work shipped and found the bro
 Live Playwright check (headed Chromium, fresh/uncached context) against `ng serve`: only `GET /favicon.svg` (200, `image/svg+xml`) was ever requested by the browser; `favicon.ico` was never requested post-fix. `npm run build` clean (same 2 pre-existing unrelated budget warnings). Throwaway verification script deleted after use.
 
 ### Files
-Modified: `src/web/monster-of-the-week-web/src/index.html` (lines 8-9 only). Addendum appended to `.squad/decisions/inbox/luigi-favicon-logo-mark.md`.
+Modified: `src/web/monster-of-the-week-web/src/index.html` (lines 8-9 only). Addendum appended to `.squad/decisions/records/luigi-favicon-logo-mark.md`.
 
 ---
 
@@ -1258,7 +1258,7 @@ Skyler noticed `adventure_types` and `monster_archetypes` were never surfaced in
 `ng build --configuration production`: clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`). `ng test --watch=false`: 42 files / 336 tests green, against a 324-test baseline measured before any edit (net +12: -2 removed weapon-tag-admin, +5 new name-description-admin, +4 data-admin, +5 reference-data); file count unchanged at 42. Negative control above. Built with `--output-path` into scratchpad so the default `../../api/MonsterOfTheWeek.Api/wwwroot` target was never written to (Bowser had the API live on :5225 during this task). No live browser pass this time — the dropdown-to-child input-change path is covered by `fixture.componentRef.setInput` tests instead, and the only running API was Bowser's instance. Not committed.
 
 ### Files
-New: `src/app/pages/data-admin/components/name-description-admin/name-description-admin.{ts,html,scss,spec.ts}`. Deleted: `src/app/pages/data-admin/components/weapon-tag-admin/` (all 4 files). Modified: `src/app/core/models.ts`, `src/app/core/reference-data.{ts,spec.ts}`, `src/app/pages/data-admin/data-admin.{ts,html,spec.ts}`. Decision filed at `.squad/decisions/inbox/luigi-name-description-reference-tables.md`.
+New: `src/app/pages/data-admin/components/name-description-admin/name-description-admin.{ts,html,scss,spec.ts}`. Deleted: `src/app/pages/data-admin/components/weapon-tag-admin/` (all 4 files). Modified: `src/app/core/models.ts`, `src/app/core/reference-data.{ts,spec.ts}`, `src/app/pages/data-admin/data-admin.{ts,html,spec.ts}`. Decision filed at `.squad/decisions/records/luigi-name-description-reference-tables.md`.
 
 ---
 
@@ -1330,7 +1330,7 @@ The main body of Yoshi's multi-minion plan, landed as one unit because the inter
 - **Heredocs into the Bash tool choke on long multi-line JS containing template literals** ("unexpected EOF while looking for matching `''`") even with a quoted delimiter. Write the script with the Write tool into the scratchpad and `node <path> <target>` instead — that path never failed.
 - **`ng build` writes to `src/api/MonsterOfTheWeek.Api/wwwroot` by default.** Used `--output-path` into the scratchpad for the intermediate checks and only ran the real `npm run build` at the end.
 
-### Judgment calls (filed in full at `.squad/decisions/inbox/luigi-multi-minion-wizard-implementation.md`)
+### Judgment calls (filed in full at `.squad/decisions/records/luigi-multi-minion-wizard-implementation.md`)
 `draftState` keeps `forms.minion` + the four `collections.minion*` (MM-2's "drop them" contradicts §1.1's "keep them as the composer"); the `next()` auto-commit is scoped to `phase 1 / step 1`; `commitComposerIfValid()` sets the wizard error band so the pencil and `+ Add Another Minion` aren't silent no-ops; `saveMinionDrafts()` writes IDs + the four per-draft baselines by index instead of reusing `backfillDraftIds` (which can't carry baselines); confirm-modal state in the phase component, matching every other list page; the dossier's expanded entry renders *in place of* its compact roster entry via `ngTemplateOutlet` rather than in addition to it.
 
 ### Verification
@@ -1356,7 +1356,7 @@ Server-side `HunterService.ValidateBespoke` was tightened same-day to refuse a b
 `ng test --watch=false --reporters=verbose --include hunter-form.spec.ts`: 15/15 green (14 existing + 1 new, covering both the drop-on-untick case and a control where a second taken move's section survives). `npm run test -- --watch=false` (full suite): 44 files / 381 tests green (+1 over the 380 baseline recorded 2026-09-01). `ng build --configuration production` (output redirected to scratchpad, not wwwroot): clean, same 2 pre-existing budget warnings (`mystery-create.scss`, `custom-select.component.scss`).
 
 ### Files
-Modified: `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.spec.ts`. Not committed. Decision filed at `.squad/decisions/inbox/luigi-hunter-form-untick-move-drops-bespoke-state.md`.
+Modified: `features/hunters/shared/hunter-form/hunter-form.ts`, `hunter-form.spec.ts`. Not committed. Decision filed at `.squad/decisions/records/luigi-hunter-form-untick-move-drops-bespoke-state.md`.
 
 ---
 
@@ -1611,3 +1611,350 @@ Not committed.
 - **No detail page in this codebase has a spec asserting on a header action link** — `hunter-detail.html` has the placement precedent Rosalina pointed at but no spec file exists for it at all. When there's no established pattern to match, look at the *target* spec's own existing assertion style (here: `querySelectorAll`/`textContent` on `fixture.nativeElement`) rather than importing a convention from elsewhere.
 - **Verification method now fully repeatable for icon-in-CTA color checks:** same compiled-`styles.css`-in-standalone-Playwright-page trick as the row-icon rounds, just with the real pill markup instead of `action-btn`. Confirms `fill="currentColor"` against `text-on-accent` (white light / slate-900 dark) same as it confirmed it against `text-muted`/`action-btn--edit` before.
 - **Verification:** 73 files / 736 tests (+1, the new wizard-link assertion in `mystery-detail.spec.ts`); `ng build --configuration development` clean.
+
+## 2026-09-19: Mystery Entity Linking Phase 2 — `MysterySelectComponent`, edit-form linking (Locations & Bystanders)
+
+### Task
+`docs/updates/mystery-entity-linking.md` §9 Phase 2, Angular half only. Backend link verb shipped in Phase 1 (`72ebc5c`). Monsters excluded (§6.2). Not committed; Bowser was concurrently in `src/api/` on the duplicate-key race, so my diff stays entirely under `src/web/`.
+
+### Reusable technical facts
+- **`ApiService.put` needs a body argument, so a no-body `PUT` is `put<null, void>(url, null)`.** `HttpClient` sends an empty body and sets no `Content-Type`, which is what the `LinkToMystery` action (no `[FromBody]`) wants.
+- **Line endings in this repo are mixed and it bites.** `core/*.ts`, the four `location-*`/`bystander-*` page and form `.ts`/`.html`, and every `.spec.ts` under `features/` are **CRLF**; `shared/weapon-tag-select.component.*` is **LF**. Consequences: (a) `Write` creates LF, so a rewritten CRLF file shows as a whole-file diff — normalise it back with node before finishing; (b) the `Edit` tool preserves the file's endings and is the safe way to patch; (c) **Git Bash `grep -q $'\r'` and `sed`/`od` lie about CR** — they strip it in text mode. Detect with node: `(s.match(/\r\n/g)||[]).length`.
+- **A negative-control harness must normalise its patterns to the target file's endings**, for the same reason. A multi-line `\n` pattern silently reports PATTERN NOT FOUND against a CRLF file; a single-line one matches fine, so the failure is intermittent and looks like a typo.
+- **`CustomSelectComponent`'s default `optionSubLabel` resolves `motivation` then `description`.** `MysteryListItemResponse` has neither (it has `concept`/`hook`), so the mystery picker must bind `[optionSubLabel]` explicitly or the dropdown silently shows no sub-label. Bind an arrow *property* (`readonly adventureTypeOf = (m) => …`), not a method, or `this` is unbound at call time.
+- **Distinguishing markers for asserting on a `CustomSelectComponent`'s mode**, all from its own template: `.custom-select.multiple-select` for `[multiple]`, `.custom-select__search input` (after clicking `.custom-select__trigger`) for `[searchable]`, `.custom-select__option-sublabel` for the sub-label binding, and the trigger reading `"N selected"` in multi mode. Asserting the component's inputs directly proves nothing about the rendered control.
+- **`FormControl.setValue` replaces the array reference, it does not mutate it** — so a test shaped "alias the input array, then `setValue`, then check the input is unchanged" is vacuous and passes either way. It was MISSED as a negative control. The property that is actually worth asserting, and that the defensive copy actually buys, is `expect(control.value).not.toBe(input.mysteryIds)` plus the same on the emitted payload.
+- **Shared badge class string** (`locations-list.html:20`, `search-results.ts:81-85`): `rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap` + `bg-badge-{domain} text-on-badge-{domain}`. Mystery is amber.
+- **Rewriting a `<span>` to an `<a>` in a template as a negative control fails the *build*, not a test** (unclosed tag). Add a sibling element instead if you want to prove a "renders no links" assertion bites.
+
+### Decisions (filed as `luigi-mystery-entity-linking-phase2-oq9-shared-components.md`)
+- **OQ9:** share when the repetition has one data contract and no slots (`MysterySelectComponent`); copy when it is a layout with structural variation (the roster card and composer shell, four copies — recommendation to Phases 3–5). `…FormSubmit` stays two named copies, not a generic.
+- **Create-page navigation:** exactly one mystery picked → the scoped detail route this page has always used; zero or many → the flat route. Keeps the shipped "← Back to mystery" breadcrumb for the common case without branching the save path, which stays single (`createStandalone` + membership `PUT`s, decision 3).
+- **Two new honest error strings** for the non-atomic paths decision 3 accepts: "Location created, but attaching it to the selected mysteries failed." (create page) and "Location saved, but its mysteries could not be updated." (detail page). The alternative was reporting "Unable to create location." for a location that demonstrably exists.
+
+### Verification
+- `npx ng build --configuration production`: clean, with the two pre-existing budget warnings (`wizard-tracker.scss`, `custom-select.component.scss`).
+- `npm test`: 74 files / 794 tests, up from a 73 / 736 baseline.
+- **17 negative controls, all caught, all restored**, covering: detail page dropping link / dropping unlink / keeping the server's stale `mysteryIds` / skipping `getMysteries()`; create page always-flat and always-scoped routes, skipping the links, and reverting to the scoped create endpoint; chip using the weapon token, chip becoming a link, picker losing `[multiple]`/`[searchable]`/`[optionSubLabel]`/its sub-label source; form dropping, aliasing or live-emitting `mysteryIds`, not hydrating from the entity, the picker not being the last field, and a sharing warning being added (decision 4).
+- Two initially MISSED and fixed: the vacuous aliasing test above, and a `[multiple]` assertion that checked nothing renderable.
+
+### Files
+- **New:** `shared/mystery-select.component.{ts,html,spec.ts}`.
+- **Modified:** `core/{location,bystander}.ts` (`linkToMystery`); `features/{locations,bystanders}/shared/{location,bystander}-form/*.{ts,html,spec.ts}` (`mysteries` input, `mysteryIds` control as the last field, `…FormSubmit` output); `features/{locations,bystanders}/pages/{…}-create/*.{ts,html,spec.ts}` (bespoke `mysteryControl` deleted, single `createStandalone` + membership `PUT` path); `features/{locations,bystanders}/pages/{…}-detail/*.{ts,html,spec.ts}` (`getMysteries()`, membership add/remove diff).
+
+Not committed.
+
+## 2026-09-19 (same day, follow-up): Phase 2 — Rosalina's §9.5 partial-failure ruling, and a `computed()` defect
+
+### Task
+Both error strings I flagged in the entry above were **rejected as written** (`mystery-entity-linking-ux.md` §9.5, with a 13-row failure-state table). Adopt her copy, plus the two behaviour changes it depends on, plus one latent bug Toad found in `MysterySelectComponent`.
+
+### Reusable technical facts
+- **"Entity created, then a second non-atomic round of writes" already had a house answer**, and I invented a second voice for it. `monster-create.ts:286-292` / `minion-create.ts:333-339`: *"{Entity} created, but some details may not have saved. Review them on the {entity} page."* Three properties, all deliberate — it **hedges** (a `forkJoin` tells you one call failed, never that all did), it **carries a next step**, and it is **a success with a caveat, not an error**: `catchError(() => of({ …Failed: true }))` inside the `switchMap`, so the page still navigates and `errorMessage` stays `null`. **Grep for the shape before writing failure copy, not just for the words.**
+- **"failed" / "could not be updated" are the wrong tense for a fan-out.** Pick three, have the third fail, and two *are* attached while the copy says none are.
+- **Routing a post-create failure into `error:` is a duplicate-entity bug, not a wording bug.** The user is left on a populated create form whose only control creates a *second* row. This was the real defect; the string was the symptom.
+- **`@else if (errorMessage())` precedes the content branch on all four `*-detail.html` pages.** Setting `errorMessage` on a *mutation* failure therefore unmounts the form, the picker and the sub-lists, leaving nothing to retry into. Mutation caveats must be toast-only. (Pre-existing and app-wide — `monster-detail.ts:158` does set it. Logged as a four-page follow-up in §9.5.3 D2, not fixed here.)
+- **The refetch is load-bearing, not polish.** `monster-detail.ts:315-346`'s `runAndRefresh` is `switchMap(() => getById(id))` after every mutation instead of merging the payload locally. Two jobs here: the re-rendered control *is* the answer to "which ones failed?", and it resets the diff baseline. Without it, "save again" recomputes `removed` from the stale baseline and re-issues an already-applied unlink — and **`DELETE` on the membership URI is not idempotent in status code, it 404s on repeat** (architecture §4.1) — so the retry fails permanently. **Concluded no 404-tolerant unlink is needed on this surface:** the refetch corrects the baseline in one round trip, so the second save never re-issues an applied delete. Yoshi's §7.3 rule 2 stays scoped to the wizard's `pendingRemovals`.
+- **A `computed()` that reads a plain `@Input()` field never re-evaluates.** `selectedMysteries` was `computed(() => this.options.filter(…))` — swap `options` after a value is written and the chips stay empty forever. Fix without changing the host contract: back it with `private readonly optionList = signal<T[]>([])` and give `options` a setter + getter pair, so `[options]="…"` bindings and `picker.options` reads are unchanged. **`WeaponTagSelectComponent` has the same defect verbatim and was deliberately left alone** — pre-existing, follow-up.
+- **`vi.spyOn(…).mockImplementationOnce(…).mockImplementationOnce(…)` is how to make one call in a `forkJoin` fan-out fail while its sibling lands.** The observables are all constructed at array-build time, so the `Once` mocks are consumed in array order, before any subscribe.
+- **A `putSubject` returned by a stub is re-read per call**, so reassigning `putSubject = new Subject()` between two `save()` calls in one test drives a second round trip without rebuilding the TestBed.
+- **A negative control that leaves a dangling reference fails the *build* and proves nothing.** Reverting the signal-backed input needed one contiguous span covering the field, the doc comment, both accessors *and* the computed — half-reverting either did not reproduce the defect or tripped an unused-member error.
+
+### Corrections to the previous entry
+- **My description of the lost-update residual was wrong in the user-visible direction.** A membership attached elsewhere after page open is in neither `existing` nor `desired`, so it is in neither `added` nor `removed` — **no `DELETE` is issued and it survives on the server.** Only the page's picture of it went stale, and the refetch now closes even that. Toad pinned both halves; I updated the second half of his characterisation test and kept his load-bearing first expectation (removals are drawn from the *loaded* set) with his guard comment intact.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npm test`: 74 files / **816** tests, against Toad's 74 / 799 baseline.
+- `dotnet test src\api\MonsterOfTheWeek.Api.Tests`: **533 passed**, 0 failed — unchanged, and `git status` confirms no `src/api` file in my diff.
+- **8 more negative controls, all caught** (25 across both rounds): partial create routed to `error:`, partial create on the scoped route, partial create also toasting success, partial create setting `errorMessage`, detail page without the refetch, detail caveat setting `errorMessage`, detail membership failure reaching `error:`, and the picker's options reverted to a plain field.
+
+Not committed.
+
+## 2026-09-20: Mystery Entity Linking Phase 3 — roster foundations, the modal hardened and swept, CustomSelect Escape
+
+### Task
+`mystery-entity-linking.md` §9 Phase 3, all three workstreams. Phase 2 committed as `2814168`. Not committed. Phase 4 (wizard attach/re-edit/`pendingRemovals`) and Phase 5 (monsters, roster, minion picker) stay out of scope — this phase makes the shipped pattern *fit to be copied*, it does not copy it.
+
+### Reusable technical facts
+- **`@HostListener('keydown.escape', ['$event'])` types `$event` as `Event`, not `KeyboardEvent`.** Declare the parameter `Event` — `TS2345` otherwise, and nothing in an Escape handler needs the `KeyboardEvent` members anyway.
+- **Escape nesting between two controls that both close on Escape** is three lines, in this order: early-return when already closed, `stopPropagation()`, `preventDefault()`. The early return is what lets the *second* press reach the outer dialog; `stopPropagation()` is what stops the *first* from closing both. Bind the dialog's handler on its own backdrop element rather than on `document`, or the inner control's `stopPropagation()` cannot shield it.
+- **Assert propagation by whether a `document` listener fired, not via `event.cancelBubble`.** jsdom does not reflect `stopPropagation()` on `cancelBubble` after dispatch, so a `cancelBubble` assertion is a false negative. `addEventListener('keydown')` on `document` in a `try/finally` is the honest probe.
+- **`fixture.detectChanges(); await fixture.whenStable();` runs `afterNextRender` hooks** — the `wizard-layout.spec.ts` idiom, and it is what makes focus-move assertions possible. TestBed attaches the fixture to `document.body`, so `element.focus()` really moves `document.activeElement`.
+- **A `track $index` to `track key` change needs a test with teeth.** Removing a row does not change node *identity* under either strategy, so the detectable difference is which row is destroyed: stash a property on the last row's `<li>`, remove the first row, and check the property still travels with its data. A plain render assertion MISSES the mutation.
+- **`vi.spyOn` on a `useValue` object works, but a whole second TestBed is needed to re-run a store's `init()`** with different service mocks. `TestBed.resetTestingModule()` then `configureTestingModule` again inside the `it` is the cheapest way to exercise the edit-mode hydration path; `{ ...existingMock, getByMystery: ... }` keeps the rest of the mock.
+- **Two count-shaped copy rules that are easy to get wrong and now live in one place** (`shared/mystery-usage.ts`): a list page says **"used by 2 mysteries"**, never "2 *other* mysteries" (no current mystery exists for the others to be other than, and the extra word reads as off-by-one); and the count must come from the **resolved names array**, not from `mysteryIds`, or a stale id makes the sentence claim a number the list does not show.
+- **`MonsterDetailResponse` carries `monsterArchetype: { id }`, not `monsterArchetypeId`** — a hand-built mock that follows the `Upsert...Request` shape crashes `loadEditData` at `mystery-create.store.ts:801`.
+- **Shell-escaping traps when appending spec text from a bash `node -e`:** a backtick inside a JS template literal, and a single-quoted `'Edit minion'` inside a single-quoted `it(...)` title, both silently produce mangled output (an emptied comment; a TS1005). Prefer the Edit tool for anything containing backticks or nested quotes, and grep the result. A `<<'EOF'` heredoc whose body contains a line starting with a backtick can also abort the whole command — write long prose to a scratchpad file and `cat` it instead.
+
+### Decisions (filed as `luigi-mystery-entity-linking-phase3-modal-footnote-default.md`)
+- **`footnote` renders unconditionally but its default becomes `''`**, correcting §7.1's parenthetical. Ten of fourteen call sites pass "This cannot be undone." as `message` with empty `items`; the old default would duplicate it on all ten. Rejected: rewording ten templates (out of scope), and suppressing a footnote identical to the message (magic).
+- **`usage`/`usageMessage` render above `message`/`items` and never merge.** `items` already means "what gets destroyed" on `monsters-list`; merging would displace a shipped disclosure to add a new one.
+- **Focus restore is captured inside the component** (`document.activeElement` at open, `isConnected`-guarded on close) rather than via a caller-supplied element reference. Covers Cancel, Escape and backdrop; the confirmed-delete case where the opener is gone falls through to no move, and §8.6's caller-provided fallback is left for the phase that owns the roster's removal flow.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings (`wizard-tracker.scss`, `custom-select.component.scss`).
+- `npm test`: 77 files / **888** tests, from a 74 / 816 baseline.
+- `dotnet test`: **533 passed**; `git status -- src/api` empty — nothing backend touched.
+- **34 negative controls, all caught.** Foundations: roster tracking by index, aria-labels dropped and genericised, heading not focusable, focus move removed on the pencil and on Add Another, focus moving despite a blocked commit, hydration minting no key, a key re-minted on edit, removal ignoring the edited card. Modal: focus on the confirm button, no initial focus, no Escape, Escape not stopping propagation, no trap, no restore, footnote default restored, footnote back inside the items branch, usage merged into items, hardcoded `modal-title`, no `aria-describedby`, secondary button suppressed. Select: no early return, no `stopPropagation`, no refocus, search term kept. Sweep: "other mysteries", fake `(s)` pluralisation, unresolvable ids kept, footnote ignoring the count, count from `mysteryIds`, zero claimed on lookup failure, usage merged, minion cascade dropped.
+- **Three MISSED first, each fixed by adding the missing test, not by weakening the control:** the edit-mode hydration key (no test exercised `init(mysteryId)` for minions), the footnote default (my test set `footnote` explicitly, so it never read the default), and the resolved-name count (no fixture had a stale mystery id).
+
+### Files
+- **New:** `shared/mystery-usage.{ts,spec.ts}`, `shared/escape-nesting.spec.ts`, `features/monsters/pages/monsters-list/monsters-list.spec.ts`.
+- **Modified:** `shared/confirm-delete-modal.component.{ts,html,spec.ts}` (usage pair, footnote rename, secondary action, initial focus / trap / Escape / restore / unique ids); `shared/custom-select.component.{ts,html,spec.ts}` (Escape); `mystery-create.store.{ts,spec.ts}` (`MinionDraft.localKey`, `createDraftKey`, `editingDraftKey`, key-based edit/remove, index-shift block deleted); `mystery-create-monster-phase.{ts,html}` + `mystery-create.spec.ts` (key tracking, entity aria-labels, composer-heading focus move); `mystery-create-dossier.html` (key tracking); `{locations,bystanders,monsters}-list.{ts,html}` + the three specs (sweep); `hunter-create.html` (two `permanenceNote` to `footnote` renames).
+- **Untouched on purpose:** `WeaponTagSelectComponent` (same stale-`computed()` defect as `MysterySelectComponent` had; the Escape work did not force it), `minions-list` (a minion has no mystery membership), and the other eleven modal call sites.
+
+### Left for later phases, named rather than silently skipped
+- **Focus after the composer *collapses*** (§8 item 6) — Save and Cancel unmount their own buttons exactly as the pencil does, so it is the same defect on the other edge. Not among the three fixes this phase was scoped to.
+- **The live region, `role="group"` on the composer, and the row-entrance animation** (§8 items 2, 3, 9) — they belong with the roster replication.
+- **`track $index` in the sub-resource lists.** `AttackDraft`/`PowerDraft`/`WeaknessDraft`/`ArmorDraft` have no identity at all today; Phase 5 gives them `id` under decision 8, and inventing a second key for them now would be reworked immediately.
+- **The modal's "opener no longer exists" focus fallback** — needs per-caller knowledge of where to send focus instead, which is the roster's removal flow.
+
+Not committed.
+
+## 2026-09-20 (same day, follow-up): Phase 3 — two production bugs from Toad's pass, Rosalina's override, and the composer-collapse pair
+
+### Task
+Five items, all in my files. Two production bugs Toad measured in Chromium, one scope addition (§8 item 6 moved into scope by Rosalina and by the coordinator), one missing fallback, and one design override. Plus the `forkJoin` gating question and a stale identifier in a comment.
+
+### Reusable technical facts
+- **A `(keydown)` binding on a modal's own backdrop is not enough, and the hole is one click wide.** The dialog's title, message and padding are not focusable, so clicking any of them drops `document.activeElement` to `<body>` — and a keydown raised on `<body>` never propagates *down* into the backdrop. `Escape` then silently stops working for the rest of the dialog's life. Use `@HostListener('document:keydown')` with a `visible` guard.
+- **That does not cost the nesting property**, and the negative controls got *stronger*, not weaker: removing `CustomSelectComponent.handleEscape`'s `stopPropagation()` now fails 18 tests instead of 2, because with the dialog on `document` the select's `stopPropagation()` is the only thing standing between one press and both closures.
+- **Once the dialog listens on `document`, "did the event reach `document`" stops being a usable assertion** for "was it consumed" — the dialog's own listener is on `document`, and `stopPropagation()` does not stop sibling listeners on the same node (only `stopImmediatePropagation` does). Assert `defaultPrevented` plus the outcome instead, and keep the propagation assertion in the *nesting* spec, where it is still the real property.
+- **Sampling `document.activeElement` when a dialog opens is not the same as knowing what opened it.** `monsters-list` disables its trash button for a minion pre-fetch and opens the dialog a round trip later; Chromium drops focus to `<body>` when a focused button is disabled and does **not** restore it on re-enable. Track focus as it moves — `@HostListener('document:focusin')`, ignoring targets inside the dialog and ignoring `<body>` — and restore from that. It also collapsed two fields into one and made the "outside" guard testable.
+- **jsdom will not `blur()` a disabled element**, so a spec that wants the browser's blur-on-disable state has to drop the attribute for the duration of the call. Focusing some *other* stand-in element instead is worse than useless: it fires `focusin`, overwrites the very opener under test, and makes the test pass before and after the fix. That is exactly how Toad's original version of this test was vacuous, and the same trap applies to any focus-tracking component.
+- **`ngOnChanges` runs before the view updates**, so a close-time focus fallback searching the DOM still sees the dialog's own buttons. Exclude the host subtree explicitly — do not rely on the dialog happening to be rendered last, which every shipped call site does but no call site promises.
+- **`inject(ElementRef<HTMLElement>)` is wrong** and produces `TS2347` "untyped function calls may not accept type arguments" plus a cascade of `unknown`s. Write `private readonly x: ElementRef<HTMLElement> = inject(ElementRef);`.
+- **A guard can be correct and still unobservable.** `afterComposerCollapse`'s "did it actually collapse" check is a no-op today because `+ Add Another Minion` and the composer are the two arms of one `@if`, so the `@ViewChild` is undefined while the composer is open. Kept, annotated as belt-and-braces, and reported rather than left as a silently-untested branch.
+- **The heredoc/backtick trap bit again**, this time eating three backticked identifiers out of a doc comment in a `node -e` string. Grep the result of every generated comment, or use the Edit tool.
+
+### Decisions
+- **`forkJoin` gating: decoupled.** The three swept pages now subscribe to the entity list and to `getMysteries()` independently, and `isLoading` gates only on the entity list. The mystery list is disclosure data for a dialog, not page data, and gating on it let a slow `/api/mysteries` delay the list itself. The mystery subscription's error is swallowed deliberately — it must not put an error band over a list that loaded.
+- **Pending and failed are reported with the same sentence**, and that is flagged for Rosalina rather than resolved unilaterally. Decoupling creates a third state (still in flight) that her §7.7 copy does not name. Inventing a second string would be inventing copy she has not approved; the user-facing consequence is identical (no verified usage, cancel and retry), so `mysteryUsageUnavailableMessage` covers both and the code says so.
+- **The confirmed-delete fallback is derived from the DOM**, not taken as an input: the first focus stop in the dialog's parent container, excluding the dialog. That gives all thirteen call sites the behaviour without a single call-site change, and in the wizard it lands on the surviving roster row rather than on `<body>`.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npm test`: 81 files / **951** tests, from Toad's 81 / 936 baseline.
+- `dotnet test`: **533 passed**; `git status -- src/api` empty.
+- **18 negative controls this round, all caught.** Four of Toad's characterisation tests flipped from asserting the defect to asserting the fix, and his `monsters-list` focus test was rewritten because its jsdom stand-in did not reproduce the browser state it stood in for.
+- **Three MISSED first.** The focus-tracking "outside" guard (unobservable until the restore path was simplified to read from it), the fallback's host-subtree exclusion (needed a call-site shape that renders the dialog first — every shipped one renders it last), and `isLoading` re-gating (no test asserted it *after* the mystery load landed).
+
+### Files
+- **Modified:** `shared/confirm-delete-modal.component.{ts,html,spec.ts}`; `shared/mystery-usage.{ts,spec.ts}`; `mystery-create-monster-phase.{ts,html}`; `mystery-create.store.ts` (comment only); `{locations,bystanders,monsters}-list.{ts,spec.ts}`; `monsters-list.focus.spec.ts` and `mystery-create-roster-keyboard.spec.ts` (Toad's, flipped).
+
+Not committed.
+
+## 2026-09-20: Mystery Entity Linking Phase 4 — wizard attach, re-edit and removal (Locations & Bystanders)
+
+### Task
+`mystery-entity-linking.md` rev 7 §9 Phase 4, against Peach's acceptance criteria (A1–A9, R1–R5, D1–D13, S1–S5) and Rosalina's restructured §7.1 variant table and §14 binding table. Phase 3 committed as `c9d554a`/`a063449`. Monsters excluded — Phase 5. Not committed.
+
+### Reusable technical facts
+- **`pendingRemovals` is wizard-scoped and every `submitPhaseN` drains all of it.** Per-phase is the natural implementation and reintroduces Peach's G1: `jumpToPhase` sets the phase without submitting and `isPhaseAccessible` returns `true` unconditionally in edit mode, so a confirmed Delete on Locations followed by a tracker jump to Bystanders and Finish would never submit phase 2. Draining everywhere costs four one-line `switchMap`s and no navigation surgery.
+- **The removal variant keys on the *baseline*, never on `id`.** `id !== null` answers "does this entity exist"; the modal needs "does *this mystery's membership of it* exist". They are the same answer right up until attach exists, and then keying on `id` offers **Delete** — permanent catalogue destruction — to someone undoing a mis-click. Exposed once as `membershipPersisted(collection, id)` over the same `existing*Ids` signal the submit diff uses: one fact, two consumers.
+- **A disposition and the blind baseline diff will both fire for the same id unless you stop them.** `idsToRemove()` sees an id in the baseline and gone from the drafts and issues `unlinkFromMystery`; `pendingRemovals` issues the `delete`. Both land in the same `forkJoin`, racing, and the unlink can 404 against the row the delete just destroyed and fail the whole phase. `idsToRemove` now excludes anything that collection has a disposition for — it is the consistency check, not the source of truth.
+- **404-as-success belongs to the removal path only.** On detach it means the requested post-condition already holds; on link it means the thing being linked is gone — the opposite. A negative control that extends the rule to the link path is worth keeping, because the symmetry is tempting and the failure is a false success.
+- **A no-op `PUT` of identical values is correct in Phase 4.** Peach's A6 asserts *field values*, not the absence of a request; the dirty check is Phase 5 and monsters-only. A test written as "no PUT is issued" would red-flag a correct implementation.
+- **`deferredChangeTail` on the store, not a string per phase component.** Bystanders is `lastPhaseIndex` and its button says Finish, so "continue to the next step" names a step that does not exist. Derived from `currentPhase() === lastPhaseIndex`; the minion phase's existing note reads from the same helper, so there is one place the wording lives.
+- **`message` still defaults to `'This cannot be undone.'`** — Phase 3 emptied `footnote`'s default and not this one. Every wizard removal must pass `message=""` explicitly or the dialog silently renders a sentence that is false, because wizard removals are deferred. Asserted, not trusted to care.
+- **Section order is load-bearing for focus.** `focusSurroundingSurface()` restores to the first focus stop in the modal host's parent, so roster-before-attach-strip is what puts a confirmed removal back on a roster pencil. A control that inserts any focusable element above the roster fails the focus test — which is the point.
+- **Adding a store dependency breaks every spec that stubs `ApiService` with a partial object.** `loadAttachCatalogues` made the store call `LocationService.getAll()` etc., and three wizard specs provided `{ post: () => of({}) }` with no `get`, producing `TypeError: this.apiService.get is not a function` at `init()`. Adding `get: () => of([])` to those stubs is the fix; the class of breakage is worth expecting whenever a store gains a load.
+- **A redundant guard is worth deleting, not annotating.** I mirrored the minion phase's `validateCurrentStep` branch for phases 2 and 3 alongside the `commitComposerIfValid` call in `next()`. For a single-step phase the pair is redundant — both set the same message and both refuse — and the negative control proved it unobservable. Removed, with a comment saying why the asymmetry with phase 1 is deliberate.
+
+### Decisions
+- **§7.6 taken (Peach's G4, Luigi's call):** a successfully drained `delete` drops that id from the cached attach options, in the same bookkeeping step that updates the baseline. Three lines, reuses a path the drain needs anyway, and it closes the case where a `Back` re-offers a deleted entity whose membership `PUT` then 404s and fails the phase.
+- **The wizard's "other mysteries" copy lives in `shared/mystery-usage.ts`** beside the list-page functions rather than in a new file, so the one-word difference between the two surfaces is visible in one place. `wizardMysteryUsageMessage` and `wizardRemovalFootnote`; the latter takes the deferral tail as a parameter so the file stays free of wizard state.
+- **Two phase components as explicit copies, not one generic** (OQ9, unchanged from Phase 2): the forms, services and signals are distinctly typed, and a generic that erased that would be harder to read than the duplication it removed. The bystander pair is generated from the locations pair by a scripted noun substitution, which is also how it is kept in sync.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npm test`: 83 files / **1007** tests, from a 951 baseline.
+- `dotnet test`: **533 passed**; `git status -- src/api` empty.
+- **24 negative controls, all caught**, including: attach never linking (A5's silent no-op), attach firing a request (A4), the variant keyed on `id` (G3), the drain scoped per-phase and missing from phases 0 and 3 (G1), the baseline bookkeeping dropped, `idsToRemove` ignoring dispositions, the stale-picker prune dropped, re-attach not cancelling, 404 not swallowed on removal, 404 swallowed on link, the commit rule removed, the deferral clause hardcoded, `message=""` dropped, `confirmLabel`/`secondaryLabel` always set, `track $index`, a focusable element above the roster, usage including the current mystery, (A2) falling back to (A1)'s copy, and both halves of the Escape-nesting mechanism.
+- **One MISSED**, resolved by deleting the redundant code rather than by weakening the control: the duplicated blocked-composer branch in `validateCurrentStep`.
+- **Escape nesting holds in the wizard**, which is the first place a select and a dialog share a screen: two presses close the dropdown then the dialog, one press closes the dialog when no dropdown is open, and removing the select's `stopPropagation()` now fails 19 tests.
+
+### Files
+- **New:** `mystery-create-phase4.store.spec.ts`, `mystery-create-phase4.spec.ts`.
+- **Modified:** `mystery-create.store.{ts,spec.ts}`; `mystery-create-{locations,bystanders}-phase.{ts,html}` (rewritten as roster + attach + composer + modal); `mystery-create-monster-phase.{ts,html}` (deferral tail, roster-card class); `shared/mystery-usage.ts` (wizard copy); `shared/wizard/wizard-layout.scss` (row entrance motion); `mystery-create.spec.ts`, `mystery-create-roster-keyboard.spec.ts`, `shared/custom-select-escape-surfaces.spec.ts` (catalogue stubs).
+
+### Left for later phases
+- **Monsters and minions** — Phase 5, on §6.2's sequencing constraint.
+- **A8 and D6/D7's cross-mystery halves** ("verify from the *second* mystery") need a live backend; the client half is asserted here and Phase 1's 36 endpoint tests cover the verb.
+- **§8 items 2 and 3** (the `sr-only` status region and `role="group"` on the composer) — still unbuilt, and §14.3's decision rule now applies: if the composer heading's announcement is still unverified when Phase 5 starts, ship the status region rather than carry the risk into a third and fourth replication.
+
+Not committed.
+
+## 2026-09-20 (same day, follow-up): Phase 4 QA rulings — the count/names split, and the attach guard
+
+### Task
+Rosalina's §15 of `mystery-entity-linking-ux.md`, both build changes: §15.1 the wizard's removal modal asserting "isn't used by any other mystery" when only the *names* failed to load, and §15.2 attach leaving an open composer beside a non-empty roster. Plus her list-page consistency recommendation, taken in the same change set. Not committed.
+
+### Reusable technical facts
+- **Two facts from two sources must not be collapsed into one number.** `usage.length` was doing duty as both "how many other mysteries" and "how many names we resolved". The count comes from the entity's own `mysteryIds`, which rides on every list and detail response and owes nothing to the mystery lookup; the names need the lookup. Collapsing them made a failed lookup render as *"isn't used by any other mystery"* — the opposite of the truth, on the sentence an irreversible decision is made from. The fix is a sourcing change, not new copy: `otherCount` drives the sentence, the buttons and the footnote; `resolveMysteryNames` decides only whether bullets render.
+- **A partial resolution takes the names-missing wording.** Rosalina's table has two states for count > 0; partial is neither. Rendering one bullet under "2 other mysteries:" would be the count and the list disagreeing, which is the invariant Phase 3 established for this block, so bullets render only when *every* id resolved.
+- **Punctuation is load-bearing in this block.** The colon promises a list, so the names-missing variant ends in a full stop. There is a control for it, because the two strings are one character apart and a copy edit would not notice.
+- **Two surfaces holding identical data must make identical claims.** The list pages had the same conflation behind a coarser `mysteriesAvailable` boolean. Aligning them deleted that boolean entirely — with the count sourced correctly, "we cannot say how many" no longer arises — and left `mysteryUsageUnavailableMessage` exported but uncalled, retained per §15.1 with a comment saying so.
+- **"Collapse the composer on attach" is the naive fix and it destroys input.** Start typing "the old mill", realise you already made one, pick it from the strip — an unconditional collapse silently discards what was typed, which breaks the rule the composer has followed since the minion work: nothing discards its contents implicitly. The guard is *collapse only when the composer holds nothing*, reusing `locationComposerDirty` — the same signal `commitComposerIfValid` uses for `Next` — rather than inventing a second notion of "empty".
+- **The dirtiness test matters more than form validity here.** A composer holding a type and no name is invalid but *started*, and that is the case most likely to be lost; a control that swaps `locationComposerDirty()` for `addLocationForm.valid` is caught.
+- **A guard framed as "re-derive" invites the wrong one-liner.** `open.set(dirty)` reads equivalently and additionally *reopens* a composer the user had closed. That was MISSED until the test was reframed from "an already-collapsed composer is left alone" to **"attach only ever collapses — it never opens"**, which is the actual invariant.
+- **No focus move on the attach path**, deliberately: §8.6's contract fires when the *focused* element unmounts, and here focus is in the attach select and stays there, which is right for attaching several in a row.
+
+### Toad's rule, absorbed
+**Assert the complete sorted multiset of calls, not the presence of the right one**, wherever two code paths can reach the same endpoint. He found the hole in my own D6: `toContain('location.unlink(…)')` plus "no delete" both stay true if the unlink goes out **twice** — which is exactly what reverting `idsToRemove`'s disposition exclusion does on the detach path, and a duplicate unlink is worse than a duplicate delete because the drain's copy maps 404 to success and the diff's copy does not. Converted D6/D7 to his `expectLedger` form and moved the recording to `defer()` so it happens at subscribe rather than at method call — `HttpClient` is cold, so a request built and dropped must not reach the ledger. Measurable: the `idstoremove-ignores-dispositions` control went from **2 failing to 7**.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npm test`: 87 files / **1053** tests, from a 1039 baseline.
+- `dotnet test`: **548 passed**, untouched (the one untracked file under `src/api` is Toad's).
+- **14 negative controls, all caught:** count from names in the wizard and on both list shapes, the footnote following the names instead of the count, partial bullets rendered in either place, the colon kept on the names-missing variant, names-missing collapsed back to a zero claim (both functions), attach not collapsing, attach collapsing unconditionally, the guard keyed on form validity instead of dirtiness, and the guard reopening a closed composer.
+- **One MISSED**, fixed by reframing the assertion rather than weakening the control: `attach-reopens-a-collapsed-composer`.
+
+### Files
+- **Modified:** `shared/mystery-usage.{ts,spec.ts}` (`namesResolved` on both message functions, wizard copy unit tests); `mystery-create-{locations,bystanders}-phase.ts` (count/names split); `mystery-create.store.ts` (`collapseComposerIfUntouched`); `{locations,bystanders,monsters}-list.{ts,spec.ts}` (same split, `mysteriesAvailable` deleted); `mystery-create-phase4.store.spec.ts` (ledger form for D6/D7); and Toad's `mystery-create-phase4-ledger.spec.ts` and `mystery-create-phase4-usage-unavailable.spec.ts`, whose characterisations this round flips.
+
+Not committed.
+
+---
+
+## 2026-09-20 (same day, follow-up): Phase 5a — the sub-resource upsert diff, the one hydrator, minions on the drain
+
+### Task
+Phase 5a of `mystery-entity-linking.md` (rev 10, §5.4/§6.6/§7.7a–h) plus UX §16.4 and Peach's `mystery-entity-linking-acceptance-phase-5.md`. Eleven items: the hydrator, the eight-collection upsert diff, the derived per-row dirty check, the parameterised diff function, the weapon-tag sub-diff, minions on the disposition drain, `membershipPersisted`'s dispatch, `applyPendingRemovals` dropping rather than skipping, the drain leaving the monster save chain, `MinionService.moveToMonster`, and deleting `draftState`. Roster/monster-linking work is 5b. Not committed.
+
+### Reusable technical facts
+- **A diff cannot be tested by a stub that cannot represent "unchanged".** Every sub-resource double in this repo returned a bare `{ id }`. That was fine while every submit deleted and recreated the lot; against a diff it reports *every* row as changed on the next pass, so the double manufactures the exact churn the phase removes. Doubles now echo the request into the response, and each create mints a fresh id — a fixed id makes two rows indistinguishable to the diff and lets a genuine mis-identification pass.
+- **A follow-up call that returns nothing poisons the baseline.** `POST /attacks` answers *before* its weapon tags are assigned, so storing the create response as the baseline leaves `weaponTags: []` against a draft that has one. `isDirty` then reports that attack changed on every later submit, re-PUTting it and re-assigning the same tag for ever. Found by 5a-U2 in create mode, not by any edit-mode test. Fix: `afterSave` returns `Observable<TResponse>` — the row as the server now holds it — and whatever it emits becomes the baseline.
+- **`MonsterArmorResponse.specialDescription` is optional; its minion twin is not.** Comparing a draft's `''` against `undefined` marks an untouched armor dirty on every submit. `sameNullableText` normalises both sides to `null`.
+- **The H1/H2/H3 invariant is enforceable structurally, not by discipline.** `toHydratedMonster` builds `attacks` and `existingAttacks` from the same array in the same expression; a caller receives both or neither. The three bugs were one bug — two independent code paths, one of which ran.
+- **`rekeyDrafts` is the post-submit half of the same invariant.** Refreshing the baseline without re-keying the drafts is H2 exactly, and it is the cheapest thing to forget: the NC that removes only the re-key failed 12 tests, including 5a-U1 and 5a-U9.
+- **`jumpToPhase` silently refuses when the target phase is not complete.** A test that jumps and submits will quietly submit the *current* phase instead and pass for the wrong reason. Assert `currentPhase()` after the jump. This is how my first G1 test passed against a store that had dropped minions from the drain entirely.
+- **`false && predicate(x)` un-narrows `x` in TypeScript.** Useless as a negative-control mutation; `predicate(x) && (1 as number) < 0` compiles and does the same job.
+- **`draftState` is gone.** It was a `computed` with one consumer, a test that asserted its own shape. It had to be widened for every field 5a adds and bought nothing; F4 (draft persistence) does not exist. Deleted with its interface, and the test rewritten against the store signals it was proxying.
+
+### Judgment calls
+- **The minion predicate is the baseline form (`existingMinionIds().includes(id)`), not `id !== null`.** Rosalina's UX §16.4 argues for a separate `id !== null` predicate; Yoshi's §7.7b says the baseline implementation is right for all four and only the *name* is wrong. Skyler's standing instruction was to take the baseline form if Rosalina had not landed it, and the two documents still disagree, so: baseline form, renamed `persistedForRemoval`, with both meanings documented on it. For minions the two are observationally identical — a minion is never attached (UX §2.5) so its id can only become non-null by being saved, and the store sets `existingMinionIds` from exactly those saves and from hydration. Using one implementation means the modal and the drain cannot disagree about what the user was shown.
+- **`removalRequest`'s dispatch became a `switch` too**, not just `persistedForRemoval`'s. It was the same nested-ternary shape on the same closed union, deciding destroy-vs-unlink.
+- **The eight dossier `track $index` loops moved to `localKey` as well.** They render the same draft arrays. The locations/bystanders loops at `:232`/`:248` were left on `$index` — pre-existing, and outside 5a.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npx ng test --watch=false`: 89 files / **1088** tests, from a 1053 baseline.
+- `dotnet test src/api/MonsterOfTheWeek.Api.Tests`: **562 passed**, untouched; `git status src/api` is empty.
+- **Seven negative controls, all CAUGHT:** never skip an unchanged row (8 failed); refresh the baseline without re-keying the drafts (12); the minion diff loses the drain exclusion (2, ledger-only); minions resolve to the bystander baseline (4); the drain drops every minion disposition (1 — the G1 test); assign-only weapon tags (1); the minion modal gains a confirm label it should not have (2).
+- The duplicate-minion-delete control is caught **only** by the exact-call ledger — a positive "it was deleted" assertion passes with two DELETEs.
+
+### Files
+- **Added:** `mystery-create/hydrate-monster.ts`, `mystery-create/sub-resource-diff.ts`, `mystery-create/mystery-create-phase5a-ledger.spec.ts`, `core/phase5a-verbs-wire.spec.ts`.
+- **Modified:** `mystery-create.store.ts` (hydrator, eight adapters, the two collection savers, `submitPhase1`, the drain, `persistedForRemoval`, `draftState` deleted); `core/monster.ts` + `core/minion.ts` (updaters, tag remover, `moveToMonster`); `mystery-create-monster-phase.{ts,html}` (variant E, `localKey` loops); `mystery-create-dossier.html`; `mystery-create-{locations,bystanders}-phase.ts` (rename); four existing spec files.
+
+### Left for 5b, deliberately
+Monster roster and `MonsterDraft`, monster attach and its busy strip, the minion monster-picker wired to `moveToMonster`, `monsters[0]`, and monster-optional validation (`validateCurrentStep`'s phase-1/step-0 block is untouched — 5a-B2).
+
+Not committed.
+
+---
+
+## 2026-09-20 (same day, follow-up): Phase 5b — the monster roster, decision 19, attach, and the J-cluster
+
+### Task
+Phase 5b of `mystery-entity-linking.md` (rev 11) plus UX §5/§16/§17/§18 and Peach's `mystery-entity-linking-acceptance-phase-5b.md`. Branch `mystery-entity-linking-phase-5b` off `f8170eb`. The monster roster, decision 19, monster attach, the minion monster-picker, monster linking on the standalone form, the J-cluster (J1/J2/J4/J6), the `monsterPreview()` retirement, and two sweeps. Not committed.
+
+### Reusable technical facts
+- **Ordering was load-bearing twice and both instructions were right.** Renaming the four composer signals to `minion…` first cost four files of pure mechanics; doing it after a second composer existed would have been four files of ambiguity. And landing J1 *before* `submitPhase1` was rewritten meant the rewrite was written against the per-monster baseline rather than retrofitted onto a flat one.
+- **The fix for J1 is a field, not a rule.** `MonsterDraft.existingMinionIds` replaces the store-level flat signal, and `persistedForRemoval('minions', …)` reads a `computed` that flattens the roster. Removing a monster then forgets its minions' baseline *because the baseline went with the draft* — there is no "and also clear these ids" line to omit. `clearDrainedRemovals` lost its minion arm entirely as a result, which is the visible proof.
+- **The baseline is per-owner; the drafts operand stays global.** `removedIds(D) = D.existingMinionIds − *all* minion drafts − disposed`. Scoping the drafts per-monster too deletes a minion re-parented *away* from D, whose id is in D's baseline and whose draft now carries another `monsterKey`. A negative control that scoped both sides failed exactly one test, which is why that test exists.
+- **J2's baseline parent is the server id, never a baseline `monsterKey`.** Keys are client-side and hydration mints fresh ones, so comparing them across a load boundary is meaningless.
+- **The §7.7i third case is the one that is easy to miss**, and it is J1 by another route: a minion whose baseline parent is another roster monster, pending a move to the one being removed, must have its `monsterKey` *revert*. Without it the draft leaves with the removed monster, the minion stays in its real parent's baseline unclaimed, and that parent's own diff deletes it.
+- **A composer's `monsterKey` must be derived, not stored.** The roster can change while the composer is open — attach a second monster, or remove one — and a value written at reset then names the wrong monster. `effectiveMinionMonsterKey()` answers "the sole monster if there is one, else the control".
+- **`TestBed.inject` does not find a component-provided store.** `MysteryCreateStore` is in the component's `providers`, so a spec that renders the wizard must use `fixture.debugElement.injector.get(...)`. `TestBed.inject` throws NG0201.
+- **Dynamic `?raw` imports do not resolve under the Angular unit-test builder** ("Module not found in bundle"). A `track $index` sweep cannot be asserted by reading template source from a test; assert the *consequence* instead — a surviving row's DOM node identity across a splice, which is what the key buys and what reverting one token breaks.
+- **A refetch-ending save needs a double that behaves like a server.** `monster-detail`'s `getById` stub kept answering the original monster after `update`, so the new post-save refetch looked like it had lost the user's edit. The double now holds mutable server truth.
+
+### Judgment calls
+- **The `validateCurrentStep` phase-1/step-0 branch was deleted rather than rewritten.** I first replaced the hard block with a composer-rule branch; a negative control removing it was **NOT CAUGHT**, because `next()` calls `commitMonsterComposerIfValid()` immediately afterwards and that already refuses a started-but-invalid composer with the same message. So the branch was a second copy of one rule — the same redundancy phases 2 and 3 already decline to carry. Deleted it, and the re-aimed control (removing the commit call) failed 26 tests.
+- **`monsterPreview()` was renamed to `monsterComposerPreview()`, not deleted outright.** Under a roster "the monster" has no single referent, and the old name invited exactly the mistake `phaseStepComplete:601` had made — reading the live composer form as if it were saved content. Its one remaining consumer is the dossier's single expanded entry, which is the role `minionPreview` already plays.
+- **`monster-create`'s single-mystery `Attach to Mystery` control is gone**, not kept alongside the form's new multi-select. The create is now always standalone plus membership `PUT`s, which is the Locations/Bystanders shape since Phase 2; keeping both would have left two controls writing the same fact.
+- **`wizardRemovalFootnote` gained an optional cascade clause** rather than a second monster-specific function, so the last-phase deferral branch stays in one place. The clause attaches to the *Delete* sentence only, because that is the only verb it is true of.
+- **Phase 4's A9 was retired, not skipped.** It asserted `attachMonster` did not exist. What survives it is `5b-T9`: the *locations* strip gains no busy or error state, because it has no fetch.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npx ng test --watch=false`: 91 files / **1167** tests, from a 1097 baseline.
+- `dotnet test src/api/MonsterOfTheWeek.Api.Tests`: **565 passed**, untouched; `git status src/api` empty.
+- **Nine negative controls, all CAUGHT** after the one correction above: flat minion baseline (7 failed, incl. all four J1/H4 tests); §7.7i revert removed (1); re-parent fired unconditionally (18); half-hydrated attach committed (9); cascade `[items]` read from the roster (1); the monster composer commit rule removed (26); drafts operand scoped per-monster (1); partial edit-mode hydration (1); `monsters[0]` truncation plus the dropped membership `PUT` (21).
+- **One NOT CAUGHT**, and the production code was changed rather than the control: the redundant `validateCurrentStep` branch.
+
+### Files
+- **Added:** `mystery-create-phase5b-roster.spec.ts`, `mystery-create-phase5b-monster-phase.spec.ts`.
+- **Modified:** `mystery-create.store.ts` (roster, `MonsterDraft`, J1/J2/J4, `submitPhase1`, attach, decision 19, the step dot); `hydrate-monster.ts` (returns a `MonsterDraft` + minions); `mystery-create-monster-phase.{ts,html}` (roster, attach strip, modal variants, picker); `mystery-create-dossier.{ts,html}`; `mystery-create.html`; `core/monster.ts` (membership verbs); `shared/mystery-usage.ts` (cascade clause); `monster-form.{ts,html}` + both its pages; `app.html` and `login.html` (`animate-spin`); nine spec files.
+
+### Left deliberately
+The screen-reader announcement region and roster button labels (UX §8 items 2–3, under Skyler's waiver). Attach/detach from the mystery detail page (F1/F2). An expand-style `GET /api/monsters/{id}` (§8.7). Losing unsubmitted field edits on a tracker jump (F9).
+
+Not committed.
+
+---
+
+## 2026-09-20 (same day, follow-up): Phase 5b QA — the two baseline-lifecycle bugs, and the counting sweep
+
+### Task
+Toad's 5b pass found two production bugs; Yoshi ruled on both in rev 12 (§6.6 BUG 2, §7.7j BUG 1) and both were owned tasks before merge. Plus §8.8: check any other counting assertion in the wizard specs for the shape that let the Escape sweep narrow silently. Branch `mystery-entity-linking-phase-5b`. Not committed.
+
+### Reusable technical facts
+- **"Covered elsewhere" is a claim about *ordering*, not existence** (principle 6, rev 12). BUG 1's justification named a real consumer — `writeBackMinionDrafts` rebuilds `MonsterDraft.existingMinionIds` — and was still false, because the drain runs from all four `submitPhaseN` (decision 15) and the writeback from one. **Decision 15 widened *when* the drain runs without widening the bookkeeping beside it.** When deleting state, enumerate consumers *and the phases each one runs in*.
+- **A baseline and its draft need one writer, and "clear it on the error path" does not achieve that.** BUG 2's obvious fix — clearing `existingMonsterIds` in `loadEditData`'s error handler — passed **every** test I had, including the converted characterisations. The window it leaves is on the *success* path, between the early write and the subscribe. Moving the write removes the interval; clearing on error only shortens it.
+- **A window like that can be pinned, and the oracle is a consumer standing inside it.** I wrapped `monsterService.getById` in a `defer` that samples `persistedForRemoval` at subscribe, mid-fan-out, and asserted the baseline is never populated while the roster is empty. That is the one assertion that fails for the error-handler variant — and it converted a NOT-CAUGHT control into a caught one rather than leaving a structural ruling untested.
+- **A census asserted against itself cannot fail.** `confirm-delete-modal.call-sites.spec.ts` read `expect(Object.keys(perTemplate)).toHaveLength(12)` and `…reduce(…)).toBe(13)` — both facts about the literal three lines above. It sat at 13-in-12 while Phase 4 added two call sites and 5b a third; the truth is **16 in 14**. Fixed the numbers and moved the derivable half (the wizard's four) into the wizard spec, which mounts the app and counts.
+- **A count is only as good as the state it is taken in.** My first version of that derived test counted the minion step's modal with an empty roster and got 0 — because 5b suppresses the whole step body there. That is the identical trap the Escape sweep fell into: the number was right, the *state* did not contain the thing.
+- **An `every`-style loop over a derived set passes vacuously when the set is empty.** Added a length guard to `roster-keyboard`'s tab-order loop for the same reason Toad guarded `sweepEscape` with `toBeGreaterThan(0)`.
+- **`import.meta.glob('../**/*.html', { eager: true })` hangs the Angular unit-test run.** Combined with the earlier finding that dynamic `import('./x.html?raw')` is "not found in bundle", template source is effectively unavailable to a unit test here — derive counts from the *rendered* app instead.
+
+### Judgment calls
+- **BUG 1's arm went in `clearDrainedRemovals`, walking the roster — not `stillTheRostersBusiness`.** Yoshi's ruling, and I checked it: a negative control that fused the bookkeeping into the drain filter was **NOT CAUGHT**, because the two are observationally equivalent for every sequence reachable today. I kept his placement and did not manufacture a test for a structural preference. The argument stands on its own — that function answers "should this run", this is "record that it ran", and fusing them is how §7.7 produced (e), (f) and (i).
+- **The converted characterisations kept their phase-state assertions but lead with the ledger.** `expect(callsMatching(/^minion\.delete/)).toEqual([])` comes first and `submitError`/`currentPhase` follow, because the control has to bite at the destructive assertion — a display-only assertion is what let the §7.7i case hide.
+- **BUG 2's ledger assertion is `/^monster\./`, not `/^monster\.unlink/`.** With the baseline unpopulated there is nothing to update or link either, so the whole monster surface must be silent; the narrower pattern would pass if the diff merely changed which destructive call it made.
+
+### Verification
+- `npx ng build --configuration production`: clean, same two pre-existing budget warnings.
+- `npx ng test --watch=false`: 92 files / **1190** tests, from Toad's 1188 baseline (+1 derived census, +1 mid-load window probe).
+- `dotnet test src/api/MonsterOfTheWeek.Api.Tests`: **568 passed**. The one untracked file under `src/api` is Toad's `MonsterMinionCascadeTests.cs`; I changed nothing there.
+- **Five negative controls, three CAUGHT and two not:** neuter the restored minions arm (4 failed — all four BUG 1 tests); move the baseline write back before the hydration (2 — both BUG 2 tests, biting at the unlink ledger); drop the drafts while keeping the baseline write (28). **NOT CAUGHT:** the error-handler variant of BUG 2 — fixed by adding the mid-load probe, after which it fails; and fusing BUG 1's bookkeeping into `stillTheRostersBusiness`, left uncaught deliberately.
+
+### Files
+- **Modified:** `mystery-create.store.ts` (both fixes); `mystery-create-phase5b-baseline-leaks.spec.ts` (six characterisations → assertions, plus the window probe); `confirm-delete-modal.call-sites.spec.ts` (census corrected 13/12 → 16/14, tautology replaced); `mystery-create-phase5b-monster-phase.spec.ts` (derived wizard census); `mystery-create-roster-keyboard.spec.ts` (empty-set guard); `confirm-delete-modal.component.{ts,spec.ts}` (stale "thirteen" prose).
+
+Not committed.
+
+---
+
+## 2026-09-21: R1(a) — a `typecheck` script, and what it is actually worth
+
+### Task
+`docs/engineering-practice-improvements-plan.md` §3, item R1(a): the web app has no `typecheck` script, and `tsc -p tsconfig.json` is vacuous because the config is solution-style (`"files": []` plus references). Add the script and verify it by seeing it fail. Bowser has R1(b)–(d), Peach R3. Branch `mystery-entity-linking-phase-5b` at `a60a30f`. Not committed.
+
+### Reusable technical facts
+- **`tsc -p tsconfig.json` in this app compiles zero files and exits 0.** Demonstrated against a real `TS2322` in `core/monster.ts` and again against one in `core/monster.spec.ts` — exit 0 both times. A solution-style config does not follow its own `references` unless invoked with `--build`.
+- **`ng build` type-checks the *whole* `tsconfig.app.json` include set, not just what the entry point reaches.** I expected an unimported file to slip through and it does not: a throwaway `src/app/core/r1a-orphan-probe.ts` that nothing imports failed the production build. So the app half of the new script finds nothing `ng build` would miss.
+- **`ng build` exits 0 on a spec-only type error** — `tsconfig.app.json` excludes `**/*.spec.ts`. `ng test` does catch it (the unit-test builder compiles the spec tree and fails before running anything). So the gap the second config closes is real but is *between the two commands*, not beyond them: a developer who builds and does not run the suite gets a green build on a broken spec tree.
+- **`tsc` resolves from `node_modules/.bin` inside an npm script**, so the script works where `npx tsc` does not — `npx tsc` in this repo hits npm's "This is not the tsc command you are looking for" guard because TypeScript is a transitive-looking devDependency from npx's point of view.
+- **There is no CI in this repo.** `.github/` holds only `agents/squad.agent.md`; no `workflows/`, no installed git hooks (samples only), no Makefile or task runner. The `Dockerfile` runs `npm ci && npm run build` and is explicitly ship-only ("the development loop is `docker compose up -d postgres` + `dotnet run` + `npm start`"). Nothing automated runs either suite, so there was nothing to wire the script into and I wired nothing.
+
+### What R1(a) is actually worth, stated narrowly
+Not "it catches errors nothing else catches" — `ng build` plus `ng test` together catch both classes. It is worth having for three narrower reasons, and the plan should say the narrow thing:
+1. **It is the only one-command answer to "does this tree type-check".** Today that takes two commands with different failure vocabularies.
+2. **Seconds, with no bundler, no jsdom and no test execution**, and it names file and line without build noise around it.
+3. **It still works when the suite cannot start.** A spec-tree type error makes `ng test` fail as a *build* failure, so "the tests are broken" and "the types are broken" are indistinguishable from its output.
+
+### Found while verifying
+`src/app/shared/glob-probe.spec.ts` — a throwaway probe of mine from the 5b QA pass — was sitting untracked in the tree, and `npm run typecheck` flagged it (`TS2339: Property 'glob' does not exist on type 'ImportMeta'`) on its first real run. It postdates my last green verification (mtime today 08:46; that run was yesterday), so the 1190 I reported was accurate when reported. Removed. **The lesson is the item's own: a probe file is exactly the thing that survives when the only check you run is the one you were already running.**
+
+### Verification
+- Deliberate app-code error → `npm run typecheck` exit **2**, `TS2322` at `core/monster.ts(53,11)`. `ng build` also exit 1 on the same tree.
+- Deliberate spec-only error → `npm run typecheck` exit **2**, `TS2322` at `core/monster.spec.ts(28,11)`. `ng build` exit **0** on the same tree — the case the second config exists for.
+- Old `tsc -p tsconfig.json --noEmit` → exit **0** with either error present.
+- Clean tree → `npm run typecheck` exit 0; `ng build --configuration production` clean (two pre-existing budget warnings); `ng test` 92 files / 1190; `dotnet test` 568.
+- Working tree afterwards: `package.json` modified, one line added, nothing else.
+
+Not committed.

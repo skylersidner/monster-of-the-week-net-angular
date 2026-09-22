@@ -93,6 +93,44 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Inserts one bridge row and saves it, treating a concurrent insert of the <i>same</i>
+    /// membership as success and every other failure as a failure.
+    /// </summary>
+    /// <remarks>
+    /// The service's already-linked check and this insert are not one atomic step, so two
+    /// concurrent PUTs for the same pair can both pass the check and both insert. The loser's
+    /// <c>SaveChangesAsync</c> then violates the composite primary key. Re-checking membership
+    /// after the failure discriminates on the thing that actually matters — did the row end up
+    /// existing — rather than on a provider-specific error code, so it behaves the same on
+    /// PostgreSQL and on the SQLite the tests run against.
+    /// </remarks>
+    public async Task LinkMonsterToMysteryAndSaveAsync(MysteryMonster link, CancellationToken cancellationToken)
+    {
+        var entry = dbContext.MysteryMonsters.Add(link);
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Drop the failed insert first, so it cannot be retried by a later SaveChanges in the
+            // same request.
+            entry.State = EntityState.Detached;
+
+            // The only failure swallowed here is "the row we wanted is already there". Anything
+            // else — notably the foreign-key violation raised when the mystery or the monster is
+            // deleted between the service's existence checks and this insert — leaves the
+            // membership non-existent, and reporting 204 for it would be a lie the caller builds
+            // on. Rethrow.
+            if (!await MonsterLinkedToMysteryAsync(link.MysteryId, link.MonsterId, cancellationToken))
+            {
+                throw;
+            }
+        }
+    }
+
     public Task<int> UnlinkMonsterFromMysteryAsync(Guid mysteryId, Guid monsterId, CancellationToken cancellationToken) =>
         dbContext.MysteryMonsters
             .Where(x => x.MysteryId == mysteryId && x.MonsterId == monsterId)

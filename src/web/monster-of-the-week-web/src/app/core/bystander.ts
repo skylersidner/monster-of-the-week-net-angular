@@ -38,6 +38,17 @@ export class BystanderService {
     return this.apiService.delete(`/api/bystanders/${id}`);
   }
 
+  /**
+   * Asserts membership of the bystander in the mystery. `PUT` on the membership URI is the
+   * mirror of the `DELETE` below, and is idempotent in effect: re-linking an already linked
+   * bystander is a 204 no-op, never a 409. There is no request body — membership is its own
+   * resource, deliberately not a field on `UpsertBystanderRequest`, because the wizard calls
+   * `update()` with payloads that would carry no `mysteryIds` and would unlink everything.
+   */
+  linkToMystery(mysteryId: string, id: string): Observable<void> {
+    return this.apiService.put<null, void>(`/api/mysteries/${mysteryId}/bystanders/${id}`, null);
+  }
+
   unlinkFromMystery(mysteryId: string, id: string): Observable<void> {
     return this.apiService.delete(`/api/mysteries/${mysteryId}/bystanders/${id}`);
   }

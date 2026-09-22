@@ -114,4 +114,4 @@ features/my-feature/pages/wizard/
 
 First applied in: `mystery-create` wizard  
 Files: `src/app/features/mysteries/pages/mystery-create/`  
-Decision doc: `.squad/decisions/inbox/Luigi-mystery-create-frontend-decomposition.md`
+Decision doc: `.squad/decisions/records/luigi-mystery-create-frontend-decomposition.md`

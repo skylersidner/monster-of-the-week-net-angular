@@ -27,7 +27,7 @@
               type="button"
               class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] no-underline transition-colors"
               title="Delete location"
-              (click)="requestDelete(location.id, location.name)"
+              (click)="requestDelete(location)"
             >
               <app-icon name="trash" class="h-5 w-5" />
             </button>
@@ -38,11 +38,19 @@
   }
 </section>
 
+<!--
+  Variant (D) of the removal modal (UX §7.1): a list page has no current mystery, so there is no
+  Detach button here and no secondary action — what this surface gains is the usage disclosure.
+  A Location cascades nothing, so [message]/[items] stay empty and the footnote carries permanence.
+-->
 <app-confirm-delete-modal
   [visible]="!!pendingDelete()"
   [itemName]="pendingDelete()?.name ?? ''"
-  message="This cannot be undone."
+  [usageMessage]="pendingDelete()?.usageMessage ?? ''"
+  [usage]="pendingDelete()?.usage ?? []"
+  message=""
   [items]="[]"
+  [footnote]="pendingDelete()?.footnote ?? ''"
   (confirmed)="onDeleteConfirmed()"
   (cancelled)="onDeleteCancelled()"
 />

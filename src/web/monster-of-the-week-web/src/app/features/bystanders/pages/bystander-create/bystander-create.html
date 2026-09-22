@@ -11,18 +11,10 @@
     <p class="text-primary font-semibold">Creating bystander...</p>
   }
 
-  <label class="grid font-medium gap-1 mt-4 max-w-md">
-    Attach to Mystery (optional)
-    <app-custom-select
-      [formControl]="mysteryControl"
-      [options]="mysteries()"
-      placeholder="No mystery — create unattached"
-    ></app-custom-select>
-  </label>
-
   <app-bystander-form
     [bystander]="null"
     [bystanderTypes]="bystanderTypes()"
+    [mysteries]="mysteries()"
     [isSaving]="isSaving()"
     submitLabel="Create Bystander"
     (save)="onCreate($event)"

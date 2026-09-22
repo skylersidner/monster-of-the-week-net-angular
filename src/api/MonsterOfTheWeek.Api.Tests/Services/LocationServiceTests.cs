@@ -89,6 +89,198 @@ public sealed class LocationServiceTests
         Assert.Contains(all, x => x.Id == createdId);
     }
 
+    [Fact]
+    public async Task LinkToMysteryAsync_AddsBridgeRow_WhenMysteryAndLocationExist()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
+        var service = new LocationService(repository);
+
+        var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.True(linked);
+        Assert.Equal(1, repository.LinkLocationToMysteryCalls);
+        Assert.Equal(1, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_IsIdempotent_WhenAlreadyLinked()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
+        var service = new LocationService(repository);
+        var mysteryId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None));
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None));
+
+        Assert.Equal(1, repository.LinkLocationToMysteryCalls);
+        Assert.Equal(1, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_ReturnsFalse_WhenMysteryDoesNotExist()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = false, LocationExists = true };
+        var service = new LocationService(repository);
+
+        var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(linked);
+        Assert.Equal(0, repository.LinkLocationToMysteryCalls);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_ReturnsFalse_WhenLocationDoesNotExist()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = false };
+        var service = new LocationService(repository);
+
+        var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(linked);
+        Assert.Equal(0, repository.LinkLocationToMysteryCalls);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_ThenUnlink_RoundTrips()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
+        var service = new LocationService(repository);
+        var mysteryId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None));
+        Assert.True(await service.UnlinkFromMysteryAsync(mysteryId, locationId, CancellationToken.None));
+    }
+
+    // Unlink's "true" only means something if it can be false. Without this the round-trip above
+    // passes against a repository that reports a deletion it never performed.
+    [Fact]
+    public async Task UnlinkFromMysteryAsync_ReturnsFalse_WhenNotLinked()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
+        var service = new LocationService(repository);
+
+        var unlinked = await service.UnlinkFromMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(unlinked);
+    }
+
+    // The idempotency test proves a second link writes nothing. This proves the suppression is
+    // driven by the bridge row and not by a latch: once the row is gone, linking must write again.
+    [Fact]
+    public async Task LinkToMysteryAsync_WritesAgain_AfterUnlink()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
+        var service = new LocationService(repository);
+        var mysteryId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None));
+        Assert.True(await service.UnlinkFromMysteryAsync(mysteryId, locationId, CancellationToken.None));
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None));
+
+        Assert.Equal(2, repository.LinkLocationToMysteryCalls);
+        Assert.Equal(2, repository.SaveChangesCalls);
+        Assert.Equal(1, repository.LinkCount);
+    }
+
+    // Pins the ordering choice recorded in .squad/decisions/inbox/bowser-mystery-entity-linking-phase1-link-verb.md:
+    // existence checks run before the already-linked check, so a PUT naming a mystery that no
+    // longer exists is a 404 even when a bridge row still names it. Cheapest-first ordering
+    // (already-linked first) would return 204 here.
+    [Fact]
+    public async Task LinkToMysteryAsync_ReturnsFalse_WhenMysteryIsGone_EvenWithStaleBridgeRow()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = false, LocationExists = true };
+        var mysteryId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+        repository.SeedLink(mysteryId, locationId);
+        var service = new LocationService(repository);
+
+        var linked = await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None);
+
+        Assert.False(linked);
+        Assert.Equal(0, repository.LinkLocationToMysteryCalls);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task LinkToMysteryAsync_ReturnsFalse_WhenLocationIsGone_EvenWithStaleBridgeRow()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = false };
+        var mysteryId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+        repository.SeedLink(mysteryId, locationId);
+        var service = new LocationService(repository);
+
+        var linked = await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None);
+
+        Assert.False(linked);
+        Assert.Equal(0, repository.LinkLocationToMysteryCalls);
+        Assert.Equal(0, repository.SaveChangesCalls);
+    }
+
+    // Decision 1: shared M:N reuse. One location in two mysteries is the point of the feature,
+    // and the already-linked short-circuit must key on the pair, not on the location.
+    [Fact]
+    public async Task LinkToMysteryAsync_LinksOneLocationToTwoMysteries()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
+        var service = new LocationService(repository);
+        var firstMysteryId = Guid.NewGuid();
+        var secondMysteryId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(firstMysteryId, locationId, CancellationToken.None));
+        Assert.True(await service.LinkToMysteryAsync(secondMysteryId, locationId, CancellationToken.None));
+
+        Assert.Equal(2, repository.LinkLocationToMysteryCalls);
+        Assert.Equal(2, repository.LinkCount);
+
+        // Unlinking one membership leaves the other standing.
+        Assert.True(await service.UnlinkFromMysteryAsync(firstMysteryId, locationId, CancellationToken.None));
+        Assert.True(await repository.LocationLinkedToMysteryAsync(secondMysteryId, locationId, CancellationToken.None));
+        Assert.False(await repository.LocationLinkedToMysteryAsync(firstMysteryId, locationId, CancellationToken.None));
+    }
+
+    // The mirror of the above on the other axis: two locations in one mystery.
+    [Fact]
+    public async Task LinkToMysteryAsync_LinksTwoLocationsToOneMystery()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
+        var service = new LocationService(repository);
+        var mysteryId = Guid.NewGuid();
+        var firstLocationId = Guid.NewGuid();
+        var secondLocationId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, firstLocationId, CancellationToken.None));
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, secondLocationId, CancellationToken.None));
+
+        Assert.Equal(2, repository.LinkLocationToMysteryCalls);
+        Assert.Equal(2, repository.LinkCount);
+    }
+
+    // The bridge row the service writes must carry the ids it was handed, in that order. A
+    // transposed assignment is invisible to every call-count assertion above.
+    [Fact]
+    public async Task LinkToMysteryAsync_WritesTheGivenIdsIntoTheBridgeRow()
+    {
+        var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
+        var service = new LocationService(repository);
+        var mysteryId = Guid.NewGuid();
+        var locationId = Guid.NewGuid();
+
+        Assert.True(await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None));
+
+        var link = Assert.Single(repository.WrittenLinks);
+        Assert.Equal(mysteryId, link.MysteryId);
+        Assert.Equal(locationId, link.LocationId);
+    }
+
+
     // UpsertLocationRequest.Name is the only field this phase adds DataAnnotations to (per
     // docs/updates/location-required-fields-validation.md's Revision section) - it gates all
     // three write paths (mystery-scoped CreateAsync, standalone CreateAsync, UpdateAsync) since
@@ -142,6 +334,7 @@ public sealed class LocationServiceTests
         public int LinkLocationToMysteryCalls { get; private set; }
 
         private readonly List<Location> _locations = [];
+        private readonly List<MysteryLocation> _mysteryLocations = [];
 
         public Task<bool> MysteryExistsAsync(Guid mysteryId, CancellationToken cancellationToken) => Task.FromResult(MysteryExists);
         public Task<bool> LocationTypeExistsAsync(Guid locationTypeId, CancellationToken cancellationToken) => Task.FromResult(LocationTypeExists);
@@ -160,13 +353,44 @@ public sealed class LocationServiceTests
             return Task.CompletedTask;
         }
 
+        /// <summary>The bridge rows the service handed to the repository, in order.</summary>
+        public List<MysteryLocation> WrittenLinks { get; } = [];
+
         public Task LinkLocationToMysteryAsync(MysteryLocation link, CancellationToken cancellationToken)
         {
             LinkLocationToMysteryCalls += 1;
+            WrittenLinks.Add(link);
+            _mysteryLocations.Add(link);
             return Task.CompletedTask;
         }
 
-        public Task<int> UnlinkLocationFromMysteryAsync(Guid mysteryId, Guid locationId, CancellationToken cancellationToken) => Task.FromResult(1);
+        // The insert-and-save pair the link verb goes through. Deliberately delegates to the two
+        // methods above rather than reimplementing them, so the counters keep meaning "the service
+        // wrote a bridge row and committed it" and the duplicate-race guard stays a repository
+        // concern — it is characterised against a real database in MysteryLinkRepositoryTests.
+        public async Task LinkLocationToMysteryAndSaveAsync(MysteryLocation link, CancellationToken cancellationToken)
+        {
+            await LinkLocationToMysteryAsync(link, cancellationToken);
+            await SaveChangesAsync(cancellationToken);
+        }
+
+        // Mirrors the real repository's ExecuteDeleteAsync: returns the number of bridge rows
+        // actually removed, which is 0 when the pair was never linked. A hardcoded 1 here would
+        // make UnlinkFromMysteryAsync unconditionally true and every round-trip assertion vacuous.
+        public Task<int> UnlinkLocationFromMysteryAsync(Guid mysteryId, Guid locationId, CancellationToken cancellationToken) =>
+            Task.FromResult(_mysteryLocations.RemoveAll(x => x.MysteryId == mysteryId && x.LocationId == locationId));
+
+        public Task<bool> LocationLinkedToMysteryAsync(Guid mysteryId, Guid locationId, CancellationToken cancellationToken) =>
+            Task.FromResult(_mysteryLocations.Any(x => x.MysteryId == mysteryId && x.LocationId == locationId));
+
+        /// <summary>
+        /// Puts a bridge row in place without going through the service, so a test can stage a
+        /// row that outlives the mystery or the location it names.
+        /// </summary>
+        public void SeedLink(Guid mysteryId, Guid locationId) =>
+            _mysteryLocations.Add(new MysteryLocation { MysteryId = mysteryId, LocationId = locationId });
+
+        public int LinkCount => _mysteryLocations.Count;
 
         public Task<Location?> GetLocationDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken) =>
             Task.FromResult<Location?>(_locations.FirstOrDefault(x => x.Id == id)

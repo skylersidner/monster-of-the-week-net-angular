@@ -5,7 +5,7 @@
   [class.multiple-select]="multiple"
   [class.is-compact]="size === 'compact'"
 >
-  <button type="button" class="custom-select__trigger" [disabled]="disabled" (click)="toggleOpen()" [attr.aria-expanded]="isOpen()">
+  <button #trigger type="button" class="custom-select__trigger" [disabled]="disabled" (click)="toggleOpen()" [attr.aria-expanded]="isOpen()">
     <span class="overflow-hidden text-left truncate">
       {{ displayText() }}
       @if (selectedTriggerSubLabel()) {

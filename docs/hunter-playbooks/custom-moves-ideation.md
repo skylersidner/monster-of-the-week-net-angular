@@ -243,7 +243,7 @@ Mirroring how Phase 5 actually ran, rather than proposing something new:
 4. Open a `custom-move-catalogue.md`, mirroring `bespoke-ruleset-catalogue.md`'s conventions exactly (one `##` per playbook, one `###` per Move with internal structure, progress tracker, "confirmed none" recorded as a real result). **The 14 rows in 2.1 are its complete worklist** — the census is done, so unlike Phase 5 this catalogue starts with its scope already known rather than discovering it playbook by playbook.
 5. One-playbook-at-a-time authoring, same rigor: verify against the source PDF, run the formatting pipeline, escalate rather than guess.
 
-### Tooling prerequisites — **BUILT 2026-08-30 by Bowser** (`.squad/decisions/inbox/bowser-hunter-playbooks-phase6-inmove-option-extraction.md`)
+### Tooling prerequisites — **BUILT 2026-08-30 by Bowser** (`.squad/decisions/records/bowser-hunter-playbooks-phase6-inmove-option-extraction.md`)
 
 Both prerequisites this doc named are now implemented in `extract-moves.mjs`, behind an additive `--options` flag (all 19 prior build scripts' outputs verified byte-identical). **In building them, Bowser found this doc's own description of the starting state was wrong on one count** — corrected below.
 
@@ -278,4 +278,4 @@ Bowser's new inline path also fired on **The Monstrous's "Pure Drive"** (p37) �
 - **`phases.md` Phase 6** — the phase this supports; its scope boundary and seed-not-census warning are both confirmed by this census (its two-pattern framing is revised — see Section 2).
 - **`bespoke-ruleset-catalogue.md`** — where the pre-existing (half-complete) trap flags live, in place per playbook. Section 2.1 here supersedes that set as the authoritative inventory.
 - **`pdf-extraction-pipeline.md`** / `tools/pdf-extract/` — the extraction mechanism; the inline-list gap above is a prerequisite against it.
-- **`.squad/decisions/inbox/yoshi-hunter-playbooks-phase6-custom-moves-model.md`** — the decision record for this phase's settled approach.
+- **`.squad/decisions/records/yoshi-hunter-playbooks-phase6-custom-moves-model.md`** — the decision record for this phase's settled approach.
