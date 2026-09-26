@@ -8,7 +8,7 @@
 <ul class="grid gap-2 list-none m-0 mb-3 p-0">
   @for (draft of store.bystanders(); track draft.localKey) {
     <li
-      class="roster-card flex items-center border rounded-lg gap-4 justify-between p-4"
+      class="roster-card flex items-center border rounded-lg gap-4 justify-between p-4 min-w-0"
       [class.bg-surface]="store.editingBystanderKey() !== draft.localKey"
       [class.border-default]="store.editingBystanderKey() !== draft.localKey"
       [class.bg-accent-subtle]="store.editingBystanderKey() === draft.localKey"
@@ -20,7 +20,7 @@
             <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-bystander text-on-badge-bystander">{{ typeLabel }}</span>
           }
         </div>
-        <small class="text-muted block truncate">{{ draft.description || '—' }}</small>
+        <small class="text-muted line-clamp-2">{{ draft.description || '—' }}</small>
       </div>
       <div class="flex items-center shrink-0 gap-1">
         @if (store.editingBystanderKey() === draft.localKey) {
