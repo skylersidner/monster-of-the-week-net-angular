@@ -1,0 +1,11 @@
+{
+  "name": "fal-image-gen",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Standalone tool: generates character-sketch images via fal.ai (Seedream v5 Pro, Qwen Image, GPT Image 2) and locally resizes/re-encodes them to a consistent size and format. Not a dependency of the deployed app.",
+  "type": "module",
+  "dependencies": {
+    "@fal-ai/client": "^1.10.1",
+    "sharp": "^0.35.4"
+  }
+}
