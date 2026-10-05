@@ -89,8 +89,8 @@ export class ResourceImageService {
   }
 
   /**
-   * One `POST` of at most `MAX_FILES_PER_UPLOAD_REQUEST` files. Chunking a larger pick is the
-   * caller's job (`app-image-dropzone`).
+   * One `POST` of at most `MAX_FILES_PER_UPLOAD_REQUEST` files — and one is always enough, because
+   * `app-image-upload-modal` refuses to stage past that limit, so there is no chunking anywhere.
    *
    * **A 400 carrying `{ uploaded, rejected }` comes back as a normal result, not an error.** The
    * server returns 400 when every file in the batch was rejected (design.md §3). That is still a

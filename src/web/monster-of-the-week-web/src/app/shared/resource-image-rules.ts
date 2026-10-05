@@ -1,9 +1,4 @@
-import {
-  ACCEPTED_IMAGE_EXTENSIONS,
-  ACCEPTED_IMAGE_MIME_TYPES,
-  MAX_FILES_PER_UPLOAD_REQUEST,
-  MAX_IMAGE_BYTES,
-} from '../core/resource-images';
+import { ACCEPTED_IMAGE_EXTENSIONS, ACCEPTED_IMAGE_MIME_TYPES, MAX_IMAGE_BYTES } from '../core/resource-images';
 import { RejectedResourceImageResponse, ResourceImageResponse, ResourceImageUploadResponse } from '../core/models';
 
 /**
@@ -98,14 +93,7 @@ export function activeImageIdAfterDelete(
   return (remaining[index] ?? remaining[remaining.length - 1]).id;
 }
 
-// --- Upload: pre-flight, chunking, merge, copy ---
-
-/**
- * Client-side rejection for a transport failure, such as a network error or a 5xx on one chunk.
- * Not a server enum value: the server never answered for those files. It renders as the generic
- * copy.
- */
-export const UPLOAD_FAILED_REASON = 'UploadFailed';
+// --- Upload: staging validation, outcome, copy ---
 
 /**
  * Pre-flight type/size check (design.md §7: courtesy, not the gate). The **size** half is still
@@ -180,93 +168,57 @@ export function planUpload(files: readonly File[], remainingSlots: number): Uplo
   return plan;
 }
 
-/** Splits a pick into sequential `POST`s of at most `size` files, keeping pick order (design.md §3, §4.4). */
-export function chunkFiles<T>(files: readonly T[], size: number = MAX_FILES_PER_UPLOAD_REQUEST): T[][] {
-  const chunks: T[][] = [];
-  for (let start = 0; start < files.length; start += size) {
-    chunks.push(files.slice(start, start + size));
-  }
-  return chunks;
-}
-
-/** One rejected file, in pick order, with the reason that will pick its copy. */
+/** One rejected file, in submission order, with the reason that picks its copy. */
 export interface UploadRejection {
   fileName: string;
   reason: string;
 }
 
 /**
- * The single combined result of one pick or drop, across every chunk plus the client's own
- * pre-flight rejections (design.md §4.4). This is what the dropzone emits and what the store merges.
+ * The result of one submit. Still the modal's output contract and the store's input, unchanged in
+ * shape from the dropzone era so `ResourceImagesStore.applyUpload` and its spec are untouched
+ * (phases.md R1).
  */
 export interface UploadOutcome {
-  /** Every file the user picked or dropped, the "Y" in "X of Y images were added". */
+  /** How many files were **submitted** — not how many were staged. Invalid staged files were never part of the attempt. */
   attempted: number;
   /** Stored images, in `SortOrder`. */
   uploaded: ResourceImageResponse[];
-  /** Rejected files, in pick order. */
+  /** Files the server rejected, in submission order. */
   rejected: UploadRejection[];
 }
 
-/** A file's position in the original pick, plus its name. Pre-flight rejections leave gaps, so sent files are not contiguous. */
-export interface IndexedFileName {
-  index: number;
-  name: string;
-}
-
-/** One chunk's request and its answer. A failed request has `response: null`, and every file in it gets `UploadFailed`. */
-export interface ChunkResult {
-  files: readonly IndexedFileName[];
-  response: ResourceImageUploadResponse | null;
-}
-
 /**
- * Merges pre-flight rejections and every chunk's response into one `UploadOutcome`, with
- * rejections in pick order.
+ * Turns one response into an `UploadOutcome` (phases.md R6: one request, so one pass — the
+ * per-chunk reconciliation this used to do is deleted along with the chunking).
  *
- * The server identifies a rejected file only by `fileName`. Inside one chunk, each rejection is
- * matched to the first not-yet-matched file with that name, in order. Two files with the same name
- * in one chunk can therefore swap places in the list. They have the same name, so the user can't
- * tell the difference anyway.
+ * The server identifies a rejected file only by `fileName`, so each rejection is matched to the
+ * first not-yet-matched submitted file with that name, in submission order. Two submitted files
+ * with the same name can swap places in the list; they have the same name, so it isn't observable.
  */
-export function mergeUploadOutcome(
-  attempted: number,
-  preflight: readonly { index: number; rejection: UploadRejection }[],
-  chunks: readonly ChunkResult[],
+export function buildUploadOutcome(
+  submittedFileNames: readonly string[],
+  response: ResourceImageUploadResponse,
 ): UploadOutcome {
-  const rejectedAt: { index: number; rejection: UploadRejection }[] = [...preflight];
-  const uploaded: ResourceImageResponse[] = [];
+  const unmatched: RejectedResourceImageResponse[] = [...response.rejected];
+  const rejected: UploadRejection[] = [];
 
-  for (const chunk of chunks) {
-    if (chunk.response === null) {
-      chunk.files.forEach((file) =>
-        rejectedAt.push({ index: file.index, rejection: { fileName: file.name, reason: UPLOAD_FAILED_REASON } }),
-      );
-      continue;
+  for (const fileName of submittedFileNames) {
+    const match = unmatched.findIndex((rejection) => rejection.fileName === fileName);
+    if (match >= 0) {
+      const [rejection] = unmatched.splice(match, 1);
+      rejected.push({ fileName, reason: rejection.reason });
     }
-
-    uploaded.push(...chunk.response.uploaded);
-    const unmatched: RejectedResourceImageResponse[] = [...chunk.response.rejected];
-    for (const file of chunk.files) {
-      const match = unmatched.findIndex((rejection) => rejection.fileName === file.name);
-      if (match >= 0) {
-        const [rejection] = unmatched.splice(match, 1);
-        rejectedAt.push({ index: file.index, rejection: { fileName: file.name, reason: rejection.reason } });
-      }
-    }
-
-    // A rejection whose name matched no file sent in this chunk. That shouldn't happen, but it is
-    // still shown, after the chunk's own files, rather than dropped.
-    const lastIndex = chunk.files.length > 0 ? chunk.files[chunk.files.length - 1].index : attempted;
-    unmatched.forEach((rejection, offset) =>
-      rejectedAt.push({ index: lastIndex + (offset + 1) / (unmatched.length + 1), rejection: { ...rejection } }),
-    );
   }
 
+  // A rejection naming a file we didn't submit shouldn't happen, but it is shown rather than
+  // dropped — silently losing a server-reported failure is the worse failure mode.
+  rejected.push(...unmatched.map((rejection) => ({ ...rejection })));
+
   return {
-    attempted,
-    uploaded: uploaded.sort(compareImages),
-    rejected: rejectedAt.sort((a, b) => a.index - b.index).map((entry) => entry.rejection),
+    attempted: submittedFileNames.length,
+    uploaded: [...response.uploaded].sort(compareImages),
+    rejected,
   };
 }
 
@@ -292,15 +244,45 @@ export function uploadRejectionCopy(rejection: UploadRejection): { message: stri
   }
 }
 
+/** How many rejected filenames the partial-failure toast names before summarizing (design.md §7.6). */
+const TOAST_NAME_LIMIT = 3;
+
 /**
- * The summary line above the rejection list (design.md §7.2). Shown only when some files were added
- * **and** some were rejected. If every file failed (§7.3) the list stands alone. If every file
- * succeeded, the new images in the carousel already say so.
+ * The total-failure toast (design.md §7.6): a 400 where every file was rejected, a transport error,
+ * or a 5xx. Deliberately names no files — every file in the attempt failed, and they are all still
+ * listed in the modal behind the toast.
  */
-export function uploadSummaryCopy(outcome: UploadOutcome): string | null {
+export const UPLOAD_TOTAL_FAILURE_TOAST = "Something went wrong and your images weren't added. Please try again.";
+
+/**
+ * The partial-failure toast (design.md §7.6), replacing the retired inline "X of Y" summary line
+ * (§7.2). `null` on a clean submit and when nothing landed — the first needs no toast at all, the
+ * second uses `UPLOAD_TOTAL_FAILURE_TOAST` instead.
+ *
+ * **It leads with what worked, then names what didn't.** The successes are persisted and already
+ * visible in the carousel, so opening with the failure would misstate the outcome.
+ *
+ * **The name list truncates at three.** `NotificationService` renders one string for four seconds
+ * (`core/notifications.ts`), so enumerating ten filenames is unreadable in the time it is on
+ * screen. Three names plus a remainder count stays scannable and still answers "which ones?" for
+ * the common small case.
+ */
+export function uploadPartialFailureToast(outcome: UploadOutcome): string | null {
   if (outcome.uploaded.length === 0 || outcome.rejected.length === 0) {
     return null;
   }
 
-  return `${outcome.uploaded.length} of ${outcome.attempted} images were added.`;
+  const lead = `Added ${outcome.uploaded.length} of ${outcome.attempted} images.`;
+  const names = outcome.rejected.map((rejection) => rejection.fileName);
+
+  if (names.length === 1) {
+    return `${lead} This one couldn't be added: ${names[0]}.`;
+  }
+
+  if (names.length <= TOAST_NAME_LIMIT) {
+    return `${lead} These couldn't be added: ${names.join(', ')}.`;
+  }
+
+  const shown = names.slice(0, TOAST_NAME_LIMIT).join(', ');
+  return `${lead} These couldn't be added: ${shown} and ${names.length - TOAST_NAME_LIMIT} more.`;
 }

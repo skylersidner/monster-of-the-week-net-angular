@@ -1,0 +1,145 @@
+@if (visible) {
+  <!--
+    Backdrop and shell copied from confirm-delete-modal.component.html so the two overlays look
+    identical. Wider (520px) because the staged list needs the room. Escape is a document host
+    listener, not a (keydown) here, for the same reason that component documents: a click on the
+    dialog's own text drops focus to <body>.
+  -->
+  <div class="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55" (click)="requestClose()">
+    <div
+      class="bg-surface-raised rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-w-[520px] w-[90%] p-8"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-labelledby]="titleId"
+      data-upload-modal
+      (click)="$event.stopPropagation()"
+    >
+      @if (isConfirmingDiscard()) {
+        <!-- §4.5: a state swap inside this modal, not a second stacked dialog. -->
+        <div data-discard-confirm>
+          <h3 [id]="titleId" class="text-primary text-xl font-bold mb-2">Discard selected files?</h3>
+          <p class="text-muted text-[0.95rem] mb-6" data-discard-prompt>{{ discardPrompt() }}</p>
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              class="border-none rounded-md cursor-pointer text-[0.9rem] font-semibold px-5 py-2 transition-colors bg-surface-sunken text-secondary hover:bg-surface-hover"
+              data-keep-files
+              (click)="keepFiles()"
+            >
+              Keep files
+            </button>
+            <button
+              type="button"
+              class="border-none rounded-md cursor-pointer text-[0.9rem] font-semibold px-5 py-2 transition-colors bg-danger text-on-danger hover:bg-danger-hover"
+              data-discard-files
+              (click)="discardFiles()"
+            >
+              Discard files
+            </button>
+          </div>
+        </div>
+      } @else {
+        <h3 [id]="titleId" class="text-primary text-xl font-bold mb-4">Add images</h3>
+
+        @if (isUploading()) {
+          <!--
+            The body is replaced by the spinner outright, rather than overlaying a click-shield on
+            the staging UI. Nothing interactive remains rendered, so there is nothing to shield and
+            no disabled-but-visible controls inviting a click (Skyler offered either; this is the
+            "replace the view entirely with a spinner" option).
+          -->
+          <div class="flex flex-col items-center justify-center gap-3 py-12 text-secondary" role="status" data-uploading>
+            <app-icon name="spinner" class="h-8 w-8 shrink-0 animate-spin" />
+            <p class="m-0">Uploading images...</p>
+          </div>
+        } @else {
+          <div
+            class="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-8 px-4 text-center transition-colors"
+            data-drop-area
+            [class.border-default]="!isDragOver()"
+            [class.border-accent]="isDragOver()"
+            [class.bg-accent-subtle]="isDragOver()"
+            [attr.data-drag-over]="isDragOver() ? '' : null"
+            (dragenter)="onDragEnter($event)"
+            (dragover)="onDragOver($event)"
+            (dragleave)="onDragLeave($event)"
+            (drop)="onDrop($event)"
+          >
+            <p class="text-muted m-0">
+              Drag images here, or
+              <button
+                type="button"
+                class="entity-link bg-transparent border-0 cursor-pointer font-semibold p-0"
+                data-choose-files
+                (click)="openPicker()"
+              >
+                choose files
+              </button>
+            </p>
+            <small class="text-muted">JPG, PNG, or WebP · up to 2MB each</small>
+          </div>
+
+          <input
+            #fileInput
+            type="file"
+            multiple
+            class="hidden"
+            data-file-input
+            [accept]="accept"
+            (change)="onFilesPicked($event)"
+          />
+
+          @if (hasStagedFiles()) {
+            <ul class="grid gap-1 list-none mt-4 mb-0 p-0 max-h-[240px] overflow-y-auto" data-staged-list>
+              @for (row of rows(); track $index) {
+                <li
+                  class="flex items-start justify-between gap-3 bg-surface border border-default rounded-md px-3 py-2"
+                  [attr.data-staged-row]="row.valid ? 'valid' : 'invalid'"
+                >
+                  <div class="flex-1 min-w-0">
+                    <p class="m-0 break-words" data-staged-name>{{ row.file.name }}</p>
+                    @if (row.message) {
+                      <small class="text-danger" data-staged-error>{{ row.message }}</small>
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    class="action-btn action-btn--delete flex items-center shrink-0 bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] transition-colors"
+                    data-remove-file
+                    [attr.aria-label]="'Remove ' + row.file.name"
+                    title="Remove file"
+                    (click)="removeAt($index)"
+                  >
+                    <app-icon name="close" class="h-4 w-4" />
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        }
+
+        @if (!isUploading()) {
+          <div class="flex justify-end gap-3 mt-6">
+            <button
+              type="button"
+              class="border-none rounded-md cursor-pointer text-[0.9rem] font-semibold px-5 py-2 transition-colors bg-surface-sunken text-secondary hover:bg-surface-hover"
+              data-cancel
+              (click)="requestClose()"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="bg-accent hover:bg-accent-hover border-none rounded-md cursor-pointer text-[0.9rem] text-on-accent font-semibold px-5 py-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              data-submit
+              [disabled]="!canSubmit()"
+              (click)="submit()"
+            >
+              Upload
+            </button>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}

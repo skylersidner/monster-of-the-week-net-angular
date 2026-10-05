@@ -1,15 +1,14 @@
 import { ResourceImageResponse } from '../core/models';
 import {
-  UPLOAD_FAILED_REASON,
+  UPLOAD_TOTAL_FAILURE_TOAST,
   activeImageIdAfterDelete,
-  chunkFiles,
+  buildUploadOutcome,
   derivePrimaryImageId,
-  mergeUploadOutcome,
   planUpload,
   preflightRejectionReason,
   resourceImageDeleteFootnote,
+  uploadPartialFailureToast,
   uploadRejectionCopy,
-  uploadSummaryCopy,
 } from './resource-image-rules';
 
 /** A §3-shaped image fixture. */
@@ -204,56 +203,44 @@ describe('planUpload', () => {
   });
 });
 
-describe('chunkFiles', () => {
-  it('splits into sequential chunks of at most 10, preserving order', () => {
-    const files = Array.from({ length: 14 }, (_, i) => i);
-    expect(chunkFiles(files)).toEqual([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [10, 11, 12, 13]]);
-  });
-
-  it('returns no chunks for no files', () => {
-    expect(chunkFiles([])).toEqual([]);
-  });
-});
-
-describe('mergeUploadOutcome', () => {
-  it('merges two chunks and pre-flight rejections into one outcome, rejections in pick order', () => {
-    const outcome = mergeUploadOutcome(
-      5,
-      [{ index: 1, rejection: { fileName: 'bad.gif', reason: 'UnsupportedType' } }],
-      [
-        {
-          files: [
-            { index: 0, name: 'one.webp' },
-            { index: 2, name: 'two.webp' },
-          ],
-          response: { uploaded: [imageFixture('one', 1)], rejected: [{ fileName: 'two.webp', reason: 'CapExceeded' }] },
-        },
-        {
-          files: [
-            { index: 3, name: 'three.webp' },
-            { index: 4, name: 'four.webp' },
-          ],
-          response: null,
-        },
+describe('buildUploadOutcome', () => {
+  it('counts only the submitted files and matches rejections by name, in submission order', () => {
+    const outcome = buildUploadOutcome(['one.webp', 'two.webp', 'three.webp'], {
+      uploaded: [imageFixture('one', 1)],
+      rejected: [
+        { fileName: 'three.webp', reason: 'UnreadableOrOversizedDimensions' },
+        { fileName: 'two.webp', reason: 'UnsupportedType' },
       ],
-    );
+    });
 
-    expect(outcome.attempted).toBe(5);
+    expect(outcome.attempted).toBe(3);
     expect(outcome.uploaded.map((image) => image.id)).toEqual(['one']);
     expect(outcome.rejected).toEqual([
-      { fileName: 'bad.gif', reason: 'UnsupportedType' },
-      { fileName: 'two.webp', reason: 'CapExceeded' },
-      { fileName: 'three.webp', reason: UPLOAD_FAILED_REASON },
-      { fileName: 'four.webp', reason: UPLOAD_FAILED_REASON },
+      { fileName: 'two.webp', reason: 'UnsupportedType' },
+      { fileName: 'three.webp', reason: 'UnreadableOrOversizedDimensions' },
     ]);
   });
 
-  it('sorts uploaded images by SortOrder across chunks', () => {
-    const outcome = mergeUploadOutcome(2, [], [
-      { files: [{ index: 0, name: 'x' }], response: { uploaded: [imageFixture('late', 9)], rejected: [] } },
-      { files: [{ index: 1, name: 'y' }], response: { uploaded: [imageFixture('early', 4)], rejected: [] } },
-    ]);
+  it('sorts uploaded images by SortOrder', () => {
+    const outcome = buildUploadOutcome(['x', 'y'], {
+      uploaded: [imageFixture('late', 9), imageFixture('early', 4)],
+      rejected: [],
+    });
     expect(outcome.uploaded.map((image) => image.id)).toEqual(['early', 'late']);
+  });
+
+  it('keeps a rejection naming a file that was not submitted rather than dropping it', () => {
+    const outcome = buildUploadOutcome(['a.webp'], {
+      uploaded: [],
+      rejected: [{ fileName: 'ghost.webp', reason: 'CapExceeded' }],
+    });
+    expect(outcome.rejected).toEqual([{ fileName: 'ghost.webp', reason: 'CapExceeded' }]);
+  });
+
+  it('is a clean outcome when every submitted file landed', () => {
+    const outcome = buildUploadOutcome(['a.webp'], { uploaded: [imageFixture('a', 1)], rejected: [] });
+    expect(outcome.rejected).toEqual([]);
+    expect(outcome.attempted).toBe(1);
   });
 });
 
@@ -279,20 +266,56 @@ describe('upload copy', () => {
     });
   });
 
-  it.each(['UnreadableOrOversizedDimensions', UPLOAD_FAILED_REASON, 'SomethingNew'])(
-    '%s falls back to the generic copy',
-    (reason) => {
-      expect(uploadRejectionCopy({ fileName: 'x.png', reason })).toEqual({
-        message: 'File failed to upload. Please try again.',
-        inlineName: false,
-      });
-    },
-  );
+  // Kept because R3's decision rests on it: the two server-only reasons reach the user through
+  // this branch, never through per-file modal copy.
+  it.each(['UnreadableOrOversizedDimensions', 'SomethingNew'])('%s falls back to the generic copy', (reason) => {
+    expect(uploadRejectionCopy({ fileName: 'x.png', reason })).toEqual({
+      message: 'File failed to upload. Please try again.',
+      inlineName: false,
+    });
+  });
+});
 
-  it('summary reads "X of Y images were added." only for a partial batch', () => {
-    const partial = { attempted: 5, uploaded: [a, b, c], rejected: [{ fileName: 'x', reason: 'TooLarge' }, { fileName: 'y', reason: 'TooLarge' }] };
-    expect(uploadSummaryCopy(partial)).toBe('3 of 5 images were added.');
-    expect(uploadSummaryCopy({ attempted: 2, uploaded: [], rejected: partial.rejected })).toBeNull();
-    expect(uploadSummaryCopy({ attempted: 3, uploaded: [a, b, c], rejected: [] })).toBeNull();
+describe('post-submit toast copy (design.md §7.6)', () => {
+  const rejections = (...names: string[]) => names.map((fileName) => ({ fileName, reason: 'UnsupportedType' }));
+
+  it('is silent on a clean submit and when nothing landed', () => {
+    expect(uploadPartialFailureToast({ attempted: 3, uploaded: [a, b, c], rejected: [] })).toBeNull();
+    expect(uploadPartialFailureToast({ attempted: 2, uploaded: [], rejected: rejections('x.png') })).toBeNull();
+  });
+
+  it('one failure uses the singular form', () => {
+    expect(
+      uploadPartialFailureToast({ attempted: 5, uploaded: [a, b, c, imageFixture('d', 4)], rejected: rejections('a.png') }),
+    ).toBe("Added 4 of 5 images. This one couldn't be added: a.png.");
+  });
+
+  it('two or three failures name them all, with no remainder clause', () => {
+    expect(uploadPartialFailureToast({ attempted: 5, uploaded: [a, b, c], rejected: rejections('a.png', 'b.png') })).toBe(
+      "Added 3 of 5 images. These couldn't be added: a.png, b.png.",
+    );
+    expect(
+      uploadPartialFailureToast({ attempted: 5, uploaded: [a, b], rejected: rejections('a.png', 'b.png', 'c.png') }),
+    ).toBe("Added 2 of 5 images. These couldn't be added: a.png, b.png, c.png.");
+  });
+
+  it('four or more truncates at three names and counts the rest — design.md §7.6’s worked example', () => {
+    expect(
+      uploadPartialFailureToast({
+        attempted: 9,
+        uploaded: [a, b],
+        rejected: rejections('a.png', 'b.png', 'c.png', 'd.png', 'e.png', 'f.png', 'g.png'),
+      }),
+    ).toBe("Added 2 of 9 images. These couldn't be added: a.png, b.png, c.png and 4 more.");
+  });
+
+  it('a remainder of one reads "and 1 more."', () => {
+    expect(
+      uploadPartialFailureToast({ attempted: 5, uploaded: [a], rejected: rejections('a.png', 'b.png', 'c.png', 'd.png') }),
+    ).toBe("Added 1 of 5 images. These couldn't be added: a.png, b.png, c.png and 1 more.");
+  });
+
+  it('the total-failure toast names no files', () => {
+    expect(UPLOAD_TOTAL_FAILURE_TOAST).toBe("Something went wrong and your images weren't added. Please try again.");
   });
 });
