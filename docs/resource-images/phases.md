@@ -42,6 +42,17 @@ Luigi's frontend review (`docs/resource-images/reviews/luigi.md`):
    `PrimaryImageId`/thumbnail support in this pass. This was the one open projection-site question; it is
    now resolved "no," settling the projection-site count at four (the main `GetAllAsync` for each of
    Monster, Minion, Location, Bystander).
+**Revised 2026-10-05 (Skyler — modal upload rework, decided):** The upload becomes a button → modal →
+staged list → submit flow, replacing the committed drop-to-upload card. Phases 1–5 are already committed on
+`resource-images`, so this is a rework of shipped frontend code; Skyler answered all nine of the assessment's
+questions and placed the rework **before Phase 6a** as its own commit, **Phase 5r**. Headlines: drag-and-drop
+is modal-only, which unwinds Luigi's dropzone-wraps-carousel projection; the staged list is filenames only;
+magic-byte and dimension rejections stay server-side and surface as a generic toast (a knowing tradeoff); a
+partial rejection keeps the successful uploads and toasts the failed filenames; closing with staged files
+prompts for confirmation; the multi-request chunking is deleted, closing design.md §9.5; **zero API
+changes**. Full detail, all nine answers verbatim, and the work list: the **Phase 5 modal upload rework**
+section after §2 (R1–R11). The Git workflow commit list and the per-phase gate above are updated for it.
+Rosalina is updating design.md's UX/copy side in parallel.
 
 ---
 
@@ -51,16 +62,17 @@ Decided by Skyler, 2026-10-03: "I want to commit after each phase on the current
 of things before manually merging the branch into main."
 
 - **One commit per completed phase, all on a single feature branch.** After the 2026-10-04 restructure (§2
-  Phase 6) that is: Phases 1, 2, 3, 4, 5, 6a (Monster), 6b (Minion), 6c (Bystander), 6d (Location), and 7 —
-  ten commits, not eight.
+  Phase 6) and the 2026-10-05 modal upload rework (which Skyler placed before Phase 6a — "Land this rework
+  now, before phase 6"), that is: Phases 1, 2, 3, 4, 5, **5r (modal upload rework)**, 6a (Monster),
+  6b (Minion), 6c (Bystander), 6d (Location), and 7 — **eleven commits**, not eight and no longer ten.
 - **Skyler reviews the branch and merges to `main` manually.** There is no intermediate merge or PR checkpoint
-  between the backend phases (1–4) and the frontend phases (5, 6a–6d, 7).
+  between the backend phases (1–4) and the frontend phases (5, 5r, 6a–6d, 7).
 - **Branch requirement — decided 2026-10-04:** Skyler confirmed the feature branch is `resource-images`
   (already checked out, one commit ahead of `main` with the fal.ai image-gen tooling). Phase 1 commits land
   there, not on `main`.
-- Commits land in order: 1, 2, 3, 4, 5, 6a, 6b, 6c, 6d, 7. Phases that can run in parallel (for example 5 with
-  1–4) may be worked concurrently, but their commits follow this order so each gate runs against the state
-  the previous commit left.
+- Commits land in order: 1, 2, 3, 4, 5, **5r**, 6a, 6b, 6c, 6d, 7. Phases that can run in parallel (for
+  example 5 with 1–4) may be worked concurrently, but their commits follow this order so each gate runs
+  against the state the previous commit left. Phases 1–5 are landed (`aa75d9e`…`624eef0`); **5r is next**.
 
 ## Per-phase verification gate
 
@@ -70,8 +82,14 @@ still applies in addition.
 - **Backend phases (1–4):** `dotnet build` and `dotnet test` green. Phase 1 also requires
   `dotnet ef migrations has-pending-model-changes` to return clean and a migration that applies to a fresh
   local Postgres.
-- **Frontend phases (5, 6a–6d, 7):** `npm run build` and `npm run test -- --watch=false` green, plus a relevant UI check:
+- **Frontend phases (5, 5r, 6a–6d, 7):** `npm run build` and `npm run test -- --watch=false` green, plus a relevant UI check:
   - Phase 5: each new component rendered in isolation (scratch route or test harness).
+  - **Phase 5r (modal upload rework):** the upload modal exercised on the dev server for the three
+    post-submit outcomes, the close-with-staged-files confirm, and the 10/10 disabled state; plus
+    `shared/escape-nesting.spec.ts` and `shared/confirm-delete-modal.call-sites.spec.ts` still green, since
+    a new overlay surface is exactly what those two census specs exist to catch. No detail page is wired
+    yet, so the UI check runs against a scratch route. Full list: the **Phase 5 modal upload rework**
+    section, R11.
   - Phases 6a–6d: that domain's detail page *and* list page exercised on the dev server (Playwright
     self-check against the real dev server), plus that domain's copy/footnote correctness.
   - Phase 7: whatever cross-cutting check remains (see Phase 7 below) exercised across all four resource types.
@@ -83,7 +101,7 @@ still applies in addition.
 | Reviewer | Focus |
 |---|---|
 | **Bowser** (Backend) | §1 (new architectural calls this pass makes, all backend), Phases 1–4 below, and the risks in §3 items 1, 2, 3, 5, 6, 7 (and the two backend-only additions, §3.6–§3.7) |
-| **Luigi** (Frontend) | Phase 5, Phase 6 (sub-phases 6a–6d), and Phase 7 below, and the risks in §3 items 1 (client half) and 4 |
+| **Luigi** (Frontend) | Phase 5, **Phase 5r (the modal upload rework section, R1–R11)**, Phase 6 (sub-phases 6a–6d), and Phase 7 below, and the risks in §3 items 1 (client half) and 4 |
 
 ---
 
@@ -412,6 +430,12 @@ component takes the computed URL rather than the raw id.
 passes; Storybook-less manual check (open each component in isolation via a scratch route, if that's
 faster than waiting for Phase 6/7 wiring) recommended but not required.
 
+**Built and committed** (`a040ebc`, plus `624eef0` for client-side cap enforcement). **This phase's upload
+mechanism is being reworked in Phase 5r, decided 2026-10-05** — button → modal → staged list → submit,
+replacing the drop-to-upload card above. `app-image-dropzone` is replaced and its drag plumbing deleted; the
+rules, store, carousel and thumbnail work is unaffected. See the **Phase 5 modal upload rework** section
+after §2 (R1–R11), which is the next commit and lands before Phase 6a.
+
 ---
 
 ### Phase 6 — Frontend: Per-Domain Wiring, Monster Pilot Then Rollout (Luigi)
@@ -550,6 +574,399 @@ boxes checked, across all four resource types.
 
 ---
 
+## Phase 5 modal upload rework
+
+**Status: decided and ready to build (Skyler answered all nine questions, 2026-10-05). This is the next
+commit — "Phase 5r" — and it lands before Phase 6a.** Phases 1–4 and 5 are committed on `resource-images`
+(`aa75d9e`…`624eef0`), so this is a rework of shipped code, which is why the cost accounting below is
+concrete rather than hypothetical. R10 records every answer verbatim; R11 is the work list. Each subsection
+below has been rewritten from "recommendation + open question" to the settled call, so nothing here should
+be read as still negotiable.
+
+**Rosalina owns the UX/copy half** (design.md §4.1, §4.3, §4.4, §7.4 all describe the old inline
+drop-to-upload flow) and is updating `design.md` in parallel. Where copy wording is named below, treat it as
+the *shape* the architecture needs, with the exact strings deferred to her.
+
+**Skyler's description, verbatim:**
+
+> "Maybe I need to be sure I understand the upload image mechanism: I was hoping we would have a button to
+> upload files, which would produce a modal for drag and drop/file-system uploading. This modal would capture
+> the browser portion of the process and dole out error messages based on content: too large, too many, wrong
+> file type, etc. Then, once the files have been added to the browser, the user can submit. This fires off the
+> API call with the payload, which should also validate, but we can assume at that point a happy path unless a
+> user is doing something weird/bad, and reject only bad faith attempts (like someone attempting to hit the API
+> endpoint directly with 12 files, etc.) or server-side issues, which would result in an error toast that
+> something went wrong and to try again.
+>
+> This may be a departure from the plan, but I don't think it's a difficult one; I would assume only minor API
+> changes might be required, even if there are a larger number of browser ones. Have Yoshi consider this
+> approach and come back to me with any questions he has. We can amend the Phase 5 document with this
+> information and his perspective as a 'Phase 5 modal upload rework' section."
+
+### R1. What actually changes: drop-is-submit becomes stage-then-submit
+
+The one structural change is that **an upload acquires an intermediate state the committed code has nowhere
+to put**: a staged file list, per-file valid/invalid, that the user can see and change before any request
+goes out. Everything else follows from that.
+
+Today (`shared/image-dropzone.component.ts`) a pick or drop calls `upload(files)`, which calls `planUpload`,
+fires the request(s), and renders the result. The plan is computed and thrown away inside one method; there
+is no moment at which a file is "added to the browser" but not yet sent. The rework makes that plan the
+modal's own state, recomputed on every add and remove, and moves the request behind a submit button.
+
+**What is reusable as-is, and this is most of it.** The validation rules are already pure functions in
+`shared/resource-image-rules.ts`, with their own tests and no Angular or HTTP in them:
+`preflightRejectionReason` (type, size), `planUpload` (type/size then cap, in the server's own order) and
+`uploadRejectionCopy` (§7's copy table) all carry over untouched. The modal calls exactly the same functions
+the dropzone calls today, on each staging change instead of once per submit. Those rules do not change;
+their *consumer* and their *timing* change. (`uploadSummaryCopy` is the one exception — it is replaced by the
+toast-copy function, R5, because the surface it was written for no longer exists.) `derivePrimaryImageId`, the delete footnote, `compareImages`,
+`activeImageIdAfterDelete`, the carousel, the thumbnail component and `core/resource-images.ts` are all
+untouched by this rework.
+
+**Decided: `UploadOutcome` stays the modal's output contract.** `ResourceImagesStore.applyUpload`
+takes an `UploadOutcome` and merges it into carousel state; if the modal emits the same shape the dropzone
+emits today, the store and all 231 lines of its spec are untouched. That seam is worth preserving
+deliberately, not by accident — it is what keeps this rework inside one component instead of spreading into
+page state.
+
+### R2. API changes required: none. Verified against the controller, not inferred
+
+Checked `MonstersController.UploadImages` (and its three siblings) and `ResourceImageService.UploadAsync`
+directly:
+
+- The action is already `[FromForm] IFormFileCollection files` with `[RequestSizeLimit(24 MiB)]` /
+  `[RequestFormLimits]`. A staged submit of ≤10 pre-validated files is a strictly easier request than what
+  it accepts today.
+- It already returns per-file `{ uploaded, rejected }` with reason enum names, 201 when anything landed and
+  400 only when every file was rejected. A payload the client believes is clean produces a 201 with an empty
+  `rejected` array — the happy path Skyler describes, with no contract change.
+- It already validates independently (size → magic-byte sniff → `SKBitmap.DecodeBounds` dimension guard →
+  cap). That *is* the "reject bad faith attempts" backstop; a direct POST of 12 files still gets
+  `CapExceeded` per file past the cap regardless of what any client did.
+
+So Skyler's "only minor API changes might be required" is right, and the answer is zero. The shift is
+entirely in how the frontend *interprets* a rejection: from "render §7's per-file copy inline under the card"
+to "this shouldn't normally happen, show a generic error toast." Nothing server-side needs to know that the
+client changed its mind about staging.
+
+### R3. Two server-only rejections stay server-only — a knowing tradeoff, decided
+
+"Assume the happy path after the browser validates" is only exactly true for the checks a browser can make.
+Of the four rejection reasons, **the browser as currently written can only pre-check two**:
+
+| Reason | Client today | Can the browser check it? |
+|---|---|---|
+| `TooLarge` | yes (`file.size`) | yes |
+| `CapExceeded` | yes (`planUpload`, since `624eef0`) | yes, except for a genuine two-tab race |
+| `UnsupportedType` | **extension + declared MIME only** | yes, but only by reading magic bytes (`file.slice(0,12).arrayBuffer()`) |
+| `UnreadableOrOversizedDimensions` | **no check at all** | yes, via `createImageBitmap` / `<img>.naturalWidth` |
+
+A `.png` that is not really a PNG (a renamed file, a truncated download, an HEIC exported with a `.jpg`
+extension) and a flat-colour or upscaled image above 4096×4096 but under 2 MB are both ordinary user files,
+not attacks. Each therefore reaches the server, is rejected there, and comes back as toast text for a file
+that will fail identically on every retry — which is the same shape as the failure mode Skyler rejected for
+the over-cap copy in design.md §7.4 ("'please try again' would tell the user to retry something that fails
+identically every time"). That was the case for pre-checking them in the browser. It was put to Skyler with
+that consequence stated, and declined:
+
+**Decided (Skyler, 2026-10-05): "Generic toast is fine."** The modal does **not** pre-check magic bytes or
+decoded dimensions. My recommendation was to add both checks for 4-of-4 client/server parity; Skyler
+declined after being shown the consequence, so this is a knowing tradeoff, not an oversight: **a legitimately
+odd file — a `.png` that isn't really a PNG, or a 6000×6000 image under 2 MB — gets a vague "something went
+wrong" message naming the file rather than a specific reason, and retrying will fail the same way.** Accepted
+because those files are rare in a `fal-image-gen`-fed workflow where images arrive as 1024×1024 WebP.
+
+**What this buys, and it is not nothing:** staging stays synchronous. No per-file "checking…" state, no
+`createImageBitmap`, no object-URL or `arrayBuffer` lifecycle in the modal, and `preflightRejectionReason`
+stays the pure, synchronous, already-tested function it is today. Client-side checks remain exactly the two
+the browser can do cheaply (size, type-by-extension/MIME) plus the cap.
+
+**Consequence to hold onto:** the server keeps all four checks and stays authoritative (design.md §7.4's
+"defense-in-depth, not a relocation of the source of truth" still holds literally). The rejection reasons
+`UnsupportedType`-by-magic-bytes and `UnreadableOrOversizedDimensions` are now **reachable only as
+post-submit toast text**, never as modal-side per-file copy. `uploadRejectionCopy`'s generic default branch
+is what renders them — keep that branch, and keep the reason strings flowing from the server, because the
+toast still has to name *which* file failed (R5).
+
+### R4. The three structural decisions, settled
+
+**(a) Drag-and-drop is modal-only. Decided (Skyler, 2026-10-05): "Drag and drop is modal only."**
+
+This is the load-bearing answer, and it unwinds Luigi's dropzone-wraps-carousel projection. That projection
+existed for two reasons: the carousel's zero-image empty state needed access to the dropzone's hidden file
+input, and the whole card including the carousel was the drop target (design.md §4.1). **A button-plus-modal
+dissolves the first reason** (two buttons that both call `openUpload()` share a method, not an `<input>`),
+and **modal-only drop dissolves the second** (there is no card-level drag region left to enclose the
+carousel). Both reasons are gone, so:
+
+- `image-dropzone.component.ts` is **replaced**, not shrunk. All of its drag plumbing goes: `onDragEnter`/
+  `onDragOver`/`onDragLeave`/`onDrop`, the `dragDepth` enter/leave counter, the `carriesFiles` guard, the
+  `isDragOver` signal and the template's six drag-state class bindings. The hidden `<input type="file">`,
+  `openPicker`, `onFilesPicked`, the upload pipeline and the inline result rendering all move to (or die
+  with) the modal.
+- The card becomes **presentational**: a header with "+ Add Images", the 10/10 note, the empty state, the
+  carousel, and nothing that handles a file. The carousel is a plain child, not `<ng-content>`.
+  Whether that card stays a component (`app-resource-images-card`) or becomes markup in each of the four
+  detail pages is a Phase 6a call, not this commit's — but this commit should leave it as a component, since
+  four pages rendering the same header/empty-state/10-of-10 logic is exactly the drift Phase 5's shared
+  components exist to prevent.
+- The carousel's `draggable="false"` on its `<img>`s (design.md §4.1, §5.1) was added so a mouse drag
+  starting on an image wouldn't fight the card's file-drag detection. With no card-level detection left,
+  it is no longer load-bearing — **keep it anyway**, since dragging an image out of a carousel is still not
+  a gesture this UI wants, and removing it is a change with no upside.
+
+**What it accepts:** the drag path costs one extra click (open the modal, then drop), on what is plausibly
+the common case — dragging a generated image from the file manager onto the resource's page. Skyler chose
+the simpler, single-surface model over saving that click, and the simplification is real: one place where
+files enter the app, one validation surface, no page-level drag state at all.
+
+**(b) The modal can be closed before submission, with a confirmation. Decided (Skyler, 2026-10-05):**
+"Yes, the modal can be closed before submission, but after files have been added. We should produce an alert
+to confirm closing the modal." (Question 6, on discarding staged files, answered with "See my answer to 5.")
+
+So: closing with files staged and not yet submitted is allowed and **prompts for confirmation** — the
+opposite of my "discard silently" recommendation, which is withdrawn. Closing with nothing staged needs no
+prompt.
+
+*Implementation shape — my call, within his decision: the confirmation is an inline step inside the upload
+modal (its footer swaps to a "discard these files?" confirm/cancel pair), not a second dialog on top of the
+first and not a native `window.confirm`.* It satisfies "an alert to confirm closing" without introducing a
+modal-over-modal pattern this app has never had, keeps Escape handling single-surface (one overlay, one
+Escape owner), and avoids a blocking native dialog that doesn't match the app's visual language anywhere
+else. **What it accepts:** a modal with two footer states is a small new micro-pattern, rather than reuse of
+`ConfirmDeleteModalComponent`'s shell — which is the right trade here anyway, since the copy is not
+delete-flavoured.
+
+*Correcting my own earlier estimate:* I previously said a confirmation would add "four new
+`<app-confirm-delete-modal>` call sites." That was wrong — the upload modal is one shared component, so even
+the nested-dialog version would have been **+1** call site in +1 template for
+`shared/confirm-delete-modal.call-sites.spec.ts`'s census. The inline-step version is **+0**. Either way the
+cost argument against it was overstated; the real reason to prefer the inline step is Escape ownership and
+the absence of a nesting precedent.
+
+**Close *during* an in-flight upload is a separate thing, and stays blocked.** Skyler's answer is scoped to
+"before submission"; **it does not say an in-flight upload is cancellable, and I am not reading one into
+it.** My R4(b) recommendation stands unless Skyler says otherwise: submit and close are both disabled while
+the request is in flight, with the spinner on the submit button. The reason is mechanical, not stylistic — a
+closed modal is a destroyed component, `takeUntilDestroyed` cancels the request, and **the server may already
+have committed it**, so a cancelled-looking upload could still land. Allowing in-flight close would mean
+moving the request and its state out of the modal into `ResourceImagesStore` (which outlives the modal but
+not the page) and putting a spinner back on the card; that is a bigger change than it looks and nothing in
+the answers asks for it. Flagged here as a one-line correction if that reading is wrong.
+
+**Escape-behaviour specs — plan for them, don't discover them.** A new overlay surface interacts with
+`shared/escape-nesting.spec.ts` and `shared/custom-select-escape-surfaces.spec.ts`, the two cross-cutting
+Escape specs. The upload modal must close on Escape like every other surface; with the inline-confirm shape
+above, Escape with files staged should route to the same confirm step rather than closing straight through
+(otherwise Escape bypasses the very prompt his answer asks for). That pairing belongs in the nesting spec.
+Small, but it is a gate-failing surprise if nobody plans for it.
+
+### R5. Where errors render now: two surfaces, split at submit
+
+**Pre-submit, in the modal, per file.** §7's per-file copy keeps a home and arguably a better one: next to
+each staged file, where the user can act on it (remove it, pick a different one) instead of reading it after
+the fact. The reasons reachable here are exactly the three the browser can judge — `UnsupportedType` (by
+extension/MIME), `TooLarge`, `CapExceeded` — rendered by the existing `uploadRejectionCopy`, which already
+has copy for all three. These are Skyler's "too large, too many, wrong file type, etc."
+
+**Post-submit, as one toast.** design.md §4.3's inline-under-the-card rejection list is gone. The partial
+case is now settled — **decided (Skyler, 2026-10-05): "Partial rejection should keep the successful image
+uploads and produce an error toast identifying the files by name that failed."**
+
+That gives three post-submit outcomes, and the first two were not in the original description:
+
+| Response | Images kept | User sees | Modal |
+|---|---|---|---|
+| 201, nothing rejected | all | nothing (the new images appear in the carousel — that *is* the feedback) | closes |
+| 201, some rejected | **the successful ones, kept** | **one error toast naming the failed files** | closes |
+| 400, all rejected | none | one error toast (same shape, names every file) | **stays open**, files still staged — see below |
+
+**On the 400/all-rejected case:** nothing landed, so closing would throw away a selection the user has to
+rebuild just to retry — and "try again" is the message. Keeping the modal open with the files still staged
+is my call within Skyler's answers rather than something he specified; flag it if he wants the modal to
+close there too.
+
+**The toast is a single auto-dismissed string, and that constrains the copy.** `NotificationService.error()`
+takes one `message: string` and dismisses it after **4 seconds** (`core/notifications.ts`). Naming up to ten
+filenames in one 4-second toast is more than can be read, and this would be the app's first toast that has
+to convey a *list*. Architecturally that means: **one pure function in `resource-image-rules.ts` builds the
+toast string from an `UploadOutcome`** (testable, no Angular, same convention as every other rule here), and
+it should truncate the enumeration rather than concatenate ten names. Exact wording and the truncation
+threshold are Rosalina's copy call, not mine — the structural requirement is just that the toast names files
+and that the string is produced by a tested pure function.
+
+**`uploadSummaryCopy` is replaced, not kept.** Its "X of Y images were added" sentence was built for the
+inline card surface that no longer exists, and its guard (render only when some landed *and* some failed) is
+now exactly the toast's trigger condition. Fold it into the new toast-copy function rather than keeping two
+near-identical copy builders; its existing tests migrate to the new function's name.
+
+**Who fires the toast: the modal, not the store.** The modal owns the request, so it raises
+`NotificationService.error(...)` on the response and still emits the same `UploadOutcome` for the store to
+merge. That preserves R1's seam — `ResourceImagesStore.applyUpload` keeps its early-return-on-nothing-
+uploaded shape and its spec stays untouched — and it keeps notification concerns out of a store whose job is
+carousel state.
+
+**Keep `SUPPRESS_ERROR_TOAST` on the upload request.** `core/resource-images.ts` sets it so the generic
+`httpErrorInterceptor` toast ("Request failed (400) for POST /api/…") never fires for uploads. Now that
+uploads *do* raise a toast, a future reader may see the suppression as obsolete and remove it — that would
+produce two toasts for one failure, one of them useless. The suppression stays; the specific toast is raised
+deliberately by the modal.
+
+### R6. This subsumes the open chunking question (design.md §9.5)
+
+Yes, and more strongly than client-side cap enforcement did on its own. Today the multi-request path is
+unreachable because `remainingSlots ≤ 10` happens to equal the per-request limit. Under staging the modal
+**refuses to stage** past the remaining slots — that is Skyler's "too many" error, produced at add time — so
+the submitted set is ≤10 by construction *and the user has seen the over-cap files flagged before pressing
+submit*. The chunk loop, `ChunkResult`, `IndexedFileName`'s index-gap bookkeeping, `mergeUploadOutcome`'s
+per-chunk reconciliation and design.md §4.4's "spinner spans all chunks" all become unreachable together.
+
+**Decided (Skyler, 2026-10-05): "Delete the chunking logic; it will not be needed."** This closes
+design.md §9.5 and reverses Luigi's "keep it with an explanatory comment" recommendation. Her reasoning —
+it costs little and stops being dead the moment the two caps move independently — is sound for stable
+shipped code, but the cross-chunk merge is the most intricate logic in `resource-image-rules.ts` (~70 lines
+of name-matching rejections to files, with duplicate-name caveats), and carrying it through a rework that
+rewrites its only caller is a different trade than leaving it alone.
+
+**Deleted:** `chunkFiles`, `ChunkResult`, `IndexedFileName`, and `mergeUploadOutcome`'s per-chunk loop
+(including the unmatched-rejection fractional-index bookkeeping). The upload becomes one request, so
+matching the server's `rejected[]` back to submitted files is a single pass over one response.
+
+**What it accepts, and the mitigation:** if `MAX_FILES_PER_UPLOAD_REQUEST` (a 24 MiB request-size concern)
+ever diverges from `MAX_IMAGES_PER_RESOURCE` (a per-owner data rule), multi-request upload has to be
+rebuilt. The two constants in `core/resource-images.ts` therefore **stay separate and distinctly
+commented** even with the loop gone, and the modal stages up to `min(remainingSlots,
+MAX_FILES_PER_UPLOAD_REQUEST)` so the invariant lives in one expression. Today both are 10, so that `min`
+is a no-op — which is the point: it documents why one request is always enough instead of leaving it to
+coincidence.
+
+### R7. Test impact: mostly relocation, one spec substantially reworked
+
+Committed image specs, 1,272 lines across six files:
+
+| Spec | Lines | Impact |
+|---|---|---|
+| `resource-image-rules.spec.ts` | 298 | **Survives nearly whole.** Every pure-rule test (type/size, the 8+5→2/3 cap math, the three per-reason copy strings, derivation, footnote, active-index, ordering) is unchanged, because the rules are unchanged. `chunkFiles` and the multi-chunk `mergeUploadOutcome` cases are **deleted** (R6); `uploadSummaryCopy`'s cases **migrate** to the new toast-copy function (R5). |
+| `image-dropzone.component.spec.ts` | 323, 18 tests | **Replaced by `image-upload-modal.component.spec.ts` plus a small card spec.** ~6 validation/cap tests move to the modal spec with the same assertions on the same rules; ~4 shell tests (empty state, 10/10 block, host disablement, projection→plain child) move to the card spec; the **4 drag tests are deleted outright** (R4(a): no card-level drag exists to test); ~4 tests about the spinner, the merged outcome and "never more than one request" are rewritten as single-request submit tests or deleted with chunking. **New** coverage this spec never had: staged-list add/remove, the close-with-staged-files confirm step, Escape routing to that confirm, and the three post-submit outcomes in R5's table. |
+| `resource-images.store.spec.ts` | 231 | **Untouched** — R1's `UploadOutcome` seam is kept deliberately so this stays true. |
+| `image-carousel.component.spec.ts` | 242 | Untouched. |
+| `core/resource-images.spec.ts` | 100 | Untouched — including the 400-unwrapping test, since the 400 path is still how an all-rejected response reaches the toast. |
+| `resource-thumbnail.component.spec.ts` | 78 | Untouched. |
+
+Plus two cross-cutting specs to check rather than rewrite: `shared/escape-nesting.spec.ts` (the new overlay
+surface, R4(b)) and `shared/confirm-delete-modal.call-sites.spec.ts` (unchanged by the inline-confirm shape —
+census stays at "16 in 14 templates" for this commit; Phase 6a still updates it for the delete footnote).
+
+No backend test changes, since there are no backend changes. The honest summary: one spec file is replaced
+and grows new coverage, one loses its chunking cases and migrates one copy function's, four are untouched,
+and most of what looks like "lost" dropzone coverage is the same assertions re-hosted in the modal.
+
+### R8. Impact on Phase 6, and sequencing
+
+**Small, and modal-only drop makes it smaller than Phase 6 currently assumes.** Each per-domain sub-phase
+(6a–6d) still binds the store, the card and the carousel; it now also renders a second modal instance for
+upload alongside `<app-confirm-delete-modal>`. The upload modal is self-contained (it owns its own
+open/close and staged state, and needs no `pendingDelete`-style host state), so for Bystander and Location —
+the two pages with no modal infrastructure at all — this is one more element and one more `openUpload()`
+call, not a second new pattern. And with no card-level drag, the page templates lose the drag-state wiring
+Phase 6 would otherwise have had to get right four times.
+
+**Sequencing — decided (Skyler, 2026-10-05): "Land this rework now, before phase 6."** This is commit
+**Phase 5r**, between Phase 5 and Phase 6a, with its own gate. The Git workflow commit list (now eleven
+commits) and the per-phase verification gate section have been amended accordingly. Phase 6a stays the pilot
+and gets *more* valuable for it: the modal is new UX built after Phase 5 shipped, so Monster is the first
+real-page proof of it, and any correction lands once rather than four times.
+
+### R9. Cost relative to what is committed
+
+- **New:** `shared/image-upload-modal.component.ts` + `.html` + spec — the real new work, and the only
+  genuinely new component. Staged-list state, per-file validity rendering, the submit call, the
+  close-confirm step, and the post-submit toast. Synchronous throughout, since R3 declined the async
+  signature/dimension checks.
+- **Replaced:** `image-dropzone.component.ts` → a presentational `app-resource-images-card` (header,
+  "+ Add Images", 10/10 note, empty state, carousel as a plain child). All drag plumbing deleted (R4(a)).
+- **Shrinks:** `resource-image-rules.ts` loses `chunkFiles`, `ChunkResult`, `IndexedFileName` and
+  `mergeUploadOutcome`'s per-chunk loop (~70 lines), and swaps `uploadSummaryCopy` for the toast-copy
+  function (R5). Gains nothing: staged state lives in the modal, computed from the `planUpload` that already
+  exists.
+- **One-line change:** `core/resource-images.ts` — the `upload()` doc comment stops saying chunking is "the
+  caller's job." Constants, paths, suppression and the 400-unwrapping all stay exactly as they are.
+- **Untouched:** all four controllers, `ResourceImageService`, the migration, every backend test,
+  `ResourceImagesStore`, the carousel, the thumbnail component.
+
+Frontend-only, one new component, one component replaced by a simpler one, ~70 lines of rules deleted, no
+contract change, no data change, no backend change. Skyler's read that this is "not a difficult one" matches
+what the code shows.
+
+### R10. Decisions — Skyler's answers, verbatim (2026-10-05)
+
+All nine questions from this section's previous revision are answered. Quoted exactly, in the original
+numbering, with where each one is applied. Two of my recommendations were accepted (8 and 9) and two were
+overruled (3 and 6); the overrules are recorded as such rather than smoothed over.
+
+| # | The question it answers | Skyler, verbatim | Applied in |
+|---|---|---|---|
+| 1 | Does drag-and-drop onto the card survive, or is it modal-only? | "Drag and drop is modal only." | R4(a) — **the load-bearing one**: Luigi's dropzone-wraps-carousel projection unwinds, all card-level drag plumbing is deleted |
+| 2 | Previews of staged files, or just names? | "Just a list of file names." | R11 — no object-URL lifecycle, no `<img>` decode in the modal; the staged list is text |
+| 3 | Should the modal pre-check magic bytes and dimensions, or is a generic toast acceptable? | "Generic toast is fine." | R3 — **my recommendation overruled, knowingly**: the two server-only reasons stay server-only and surface as a vague toast; staging stays synchronous |
+| 4 | What happens on a partial server rejection (3 of 5 landed)? | "Partial rejection should keep the successful image uploads and produce an error toast identifying the files by name that failed." | R5 — new post-submit path the original description didn't cover; successes are kept, one toast names the failures |
+| 5 | Is the modal closable mid-upload? | "Yes, the modal can be closed before submission, but after files have been added. We should produce an alert to confirm closing the modal." | R4(b) — closing **before submission** is allowed with a confirm step; in-flight close is *not* addressed by this answer and stays blocked |
+| 6 | Discard staged files silently on close? | "See my answer to 5." | R4(b) — **my "discard silently" recommendation withdrawn**; a confirmation is required |
+| 7 | Keep "+ Add Images" disabled at 10/10? | "Yes, disable when 10 images are present." | R11 — design.md §7.5 as already built, carried over to the card |
+| 8 | Delete the chunking, or keep it with a comment? | "Delete the chunking logic; it will not be needed." | R6 — **recommendation accepted**; closes design.md §9.5 and reverses Luigi's keep-it call |
+| 9 | Before Phase 6a, or after? | "Land this rework now, before phase 6." | R8 — **recommendation accepted**; commit Phase 5r, between 5 and 6a |
+
+**One thing these answers do not settle, flagged rather than assumed:** answer 5 scopes closability to
+"before submission." Whether an upload already in flight can be abandoned is a different question with a
+real mechanical consequence (R4(b)), and I have not read an answer into it — in-flight close stays disabled
+until Skyler says otherwise. Likewise, the 400/all-rejected case keeps the modal open with files staged
+(R5), which is my call inside his answers, not his words.
+
+### R11. Work list for the Phase 5r commit
+
+Implementable as written. Copy wording comes from Rosalina's design.md pass; everything below is structure.
+
+**New — `shared/image-upload-modal.component.ts` / `.html` / `.spec.ts`:**
+- Inputs `ownerType`, `ownerId`, `currentCount`, `visible`; output `uploaded` (an `UploadOutcome`, per R1's
+  seam) plus a `closed` event. Decorator `@Input()`/`@Output()` with signal-backed setters for anything a
+  `computed()` reads, per Luigi's review §1.1 and `mystery-select.component.ts`'s documented bug.
+- Drag-and-drop **inside the modal** (the only drop surface in the app now) plus the hidden
+  `<input type="file" multiple>` and a "choose files" button. The `carriesFiles`/`dragDepth` logic moves here
+  from the dropzone rather than being rewritten.
+- **Staged list is filenames only** (answer 2), each row with its validity and, when invalid,
+  `uploadRejectionCopy`'s message for its reason; a remove control per row. Re-run `planUpload` over the
+  staged set on every add/remove, so the cap arithmetic and the type/size checks stay the single source
+  they already are. Stage up to `min(remainingSlots, MAX_FILES_PER_UPLOAD_REQUEST)` (R6).
+- Submit: one `POST` via the untouched `ResourceImageService.upload`, spinner on the submit button, submit
+  and close both disabled while in flight (R4(b)). Emit one `UploadOutcome`; raise the toast per R5's table.
+- Close: with nothing staged, close immediately; with files staged, swap the footer to the confirm step
+  (R4(b)). Escape routes to the same step rather than closing through it.
+
+**Replaced — `image-dropzone.component.ts` → `shared/resource-images-card.component.ts` (+ `.html`, spec):**
+- Header with "+ Add Images" (opens the modal; **disabled at 10/10** with the existing inline note, answer 7),
+  the zero-image empty state whose button also opens the modal, and the carousel as a **plain child, not
+  `<ng-content>`**. No file input, no drag handlers, no upload pipeline, no inline result list.
+
+**Trimmed — `shared/resource-image-rules.ts`:**
+- Delete `chunkFiles`, `ChunkResult`, `IndexedFileName`, and `mergeUploadOutcome`'s per-chunk loop; reduce
+  the merge to a single-response pass (R6).
+- Replace `uploadSummaryCopy` with the toast-copy function (R5); keep `preflightRejectionReason`,
+  `planUpload`, `uploadRejectionCopy` (all three branches, including the generic default that R3 now relies
+  on) and every non-upload rule exactly as they are.
+
+**Untouched on purpose:** `ResourceImagesStore` (and its spec), `core/resource-images.ts` apart from one doc
+comment, the carousel, the thumbnail component, and the entire backend.
+
+**Verification for this commit's gate:** `npm run build` and `npm run test -- --watch=false` green;
+`shared/escape-nesting.spec.ts` and `shared/confirm-delete-modal.call-sites.spec.ts` still green; the modal
+exercised on the dev server (Playwright self-check) for the three post-submit outcomes in R5's table, the
+close-with-staged-files confirm, and the 10/10 disabled state. Since no detail page is wired until Phase 6a,
+the dev-server check needs a scratch route or the Phase 6a pilot page in a throwaway state — note which was
+used in the commit message.
+
+---
+
 ## 3. Architectural risks and gaps
 
 ### 3.1 List-page thumbnail data source — not addressed in `design.md` at all (highest-priority finding)
@@ -670,8 +1087,16 @@ not the declared dimensions. Needs a header-only dimension read before any full 
 
 1. **Feature-branch name — resolved 2026-10-04.** Skyler: "Continue with this branch." The feature branch is
    `resource-images`. See Git workflow above.
-(Item 2, "ImageSharp vs. SkiaSharp," is decided — see §1 item 6 and §4a below. Item 2's former subject,
-Minion's `GetByMonsterIdAsync`, is resolved — see §4a and the header revision notes.)
+2. **Modal upload rework — in-flight close, the one thing Skyler's answers don't cover.** His answer 5
+   scopes closability to "before submission"; whether an upload *already in flight* can be abandoned is a
+   separate question with a real mechanical consequence (a closed modal is a destroyed component, so the
+   request is cancelled while the server may already have committed it). In-flight close stays **disabled**
+   until he says otherwise, per the rework section R4(b). A one-line answer either way; not a blocker for
+   Phase 5r. Everything else in that rework is decided — see R10 for all nine answers verbatim.
+
+(Item 3, "ImageSharp vs. SkiaSharp," is decided — see §1 item 6 and §4a below. The former item 2's subject,
+Minion's `GetByMonsterIdAsync`, is resolved — see §4a and the header revision notes. The nine modal-rework
+questions that were item 2 in the previous revision are all answered — see the rework section's R10.)
 
 ## 4a. Decisions recorded from Skyler's answers (2026-10-03, Bowser's review 2026-10-04, and Skyler's 2026-10-04 restructure)
 
@@ -721,6 +1146,14 @@ These are settled and applied in the sections named. Listed here so the reasonin
 - **Minion's `GetByMonsterIdAsync` resolved out of scope (§2 Phase 4, Phase 6b, 2026-10-04):** "Minion image
   on monster view: out of scope for this pass." Combined with the by-mystery cut above, this settles the
   projection-site count at four: the main `GetAllAsync` for Monster, Minion, Location, and Bystander.
+- **Modal upload rework — nine answers, 2026-10-05 (Phase 5r):** recorded verbatim in the **Phase 5 modal
+  upload rework** section's R10 table rather than duplicated here, since each answer needs its surrounding
+  assessment to be actionable. In brief: drag-and-drop is modal-only (which unwinds Luigi's
+  dropzone/carousel projection), the staged list is filenames only, the two server-only rejection reasons
+  surface as a generic toast (a knowing tradeoff, my recommendation overruled), a partial rejection keeps
+  the successful uploads and toasts the failed filenames, closing with staged files prompts for
+  confirmation (my "discard silently" recommendation overruled), "+ Add Images" stays disabled at 10/10,
+  the chunking is deleted outright, and the rework lands before Phase 6a as commit Phase 5r.
 - **Phase restructure (§2 Phase 6, 2026-10-04):** Skyler confirmed Luigi's pilot-then-rollout idea and
   extended it to a sub-phase per domain object: "this is an excellent idea, and I actually think we should
   add a sub-phase for each domain object, starting with Monster as the pilot." Old Phases 6, 7, and 8 are
@@ -784,6 +1217,22 @@ These are settled and applied in the sections named. Listed here so the reasonin
 - [ ] `star`/`chevron` icons added per the sprite recipe; `--color-image-primary-indicator` token added
 - [ ] `ResourceImagesStore` and `core/resource-images.ts` built and unit-tested against fixtures; no page
       wiring yet
+
+**Phase 5r (modal upload rework — see the rework section, R11):**
+- [ ] `app-image-upload-modal` built: in-modal drag-and-drop plus file picker, staged list of **filenames
+      only**, per-file validity from `planUpload`/`uploadRejectionCopy`, remove-per-row, one `POST` on submit
+- [ ] `app-image-dropzone` replaced by a presentational card: no file input, no drag handlers, no upload
+      pipeline; carousel is a plain child, **not `<ng-content>`**; "+ Add Images" disabled at 10/10 with the
+      existing inline note
+- [ ] Post-submit behaviour matches R5's table: all-good silent, partial keeps successes and toasts the
+      failed filenames, all-rejected toasts and leaves the modal open with files staged
+- [ ] Closing with files staged shows the inline confirm step; Escape routes to it rather than closing
+      through it; submit and close both disabled while a request is in flight
+- [ ] Chunking deleted: `chunkFiles`, `ChunkResult`, `IndexedFileName` and `mergeUploadOutcome`'s per-chunk
+      loop gone; `uploadSummaryCopy` replaced by the pure toast-copy function, with its tests migrated
+- [ ] `SUPPRESS_ERROR_TOAST` still set on the upload request (one toast, raised by the modal — not two)
+- [ ] `ResourceImagesStore` and its spec untouched (the `UploadOutcome` seam held); `escape-nesting.spec.ts`
+      and `confirm-delete-modal.call-sites.spec.ts` still green
 
 **Phase 6a (Monster, pilot):**
 - [ ] `monster-detail`: upload/delete/set-primary work end-to-end against the real API; Minions-block
