@@ -84,6 +84,7 @@ public sealed class Monster : ITimestamped
     public required string Name { get; set; }
     public string? Description { get; set; }
     public int HarmCapacity { get; set; }
+    public Guid? PrimaryImageId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
@@ -187,6 +188,7 @@ public sealed class Location : ITimestamped
     public Guid LocationTypeId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
+    public Guid? PrimaryImageId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
@@ -220,6 +222,7 @@ public sealed class Bystander : ITimestamped
     public Guid BystanderTypeId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
+    public Guid? PrimaryImageId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
@@ -283,6 +286,7 @@ public sealed class Minion : ITimestamped
     public required string Name { get; set; }
     public string? Description { get; set; }
     public int HarmCapacity { get; set; }
+    public Guid? PrimaryImageId { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
@@ -357,4 +361,44 @@ public sealed class MinionCustomMove
     public string? Description { get; set; }
 
     public Minion Minion { get; set; } = null!;
+}
+
+// Resource images — docs/resource-images/design.md and phases.md Phase 1.
+//
+// The discriminator for ResourceImage.OwnerType. Stored as a string-backed column
+// (.HasConversion<string>() in MotwDbContext.cs), which is a new pattern for this codebase —
+// no other entity uses HasConversion today. Chosen over a plain int for readable raw SQL and
+// no magic numbers, not because it matches an existing precedent.
+public enum ResourceOwnerType
+{
+    Monster,
+    Minion,
+    Bystander,
+    Location,
+}
+
+// One row per uploaded image file, owned by exactly one Monster, Minion, Bystander, or
+// Location via the (OwnerType, OwnerId) discriminator pair rather than a real FK — a
+// discriminator + id pair can't reference four different tables, so ownership (the owner
+// exists, and is the type it claims to be) is validated at the service layer, not the schema.
+// Accepted tradeoff of design.md §1.3's single-table decision, not an oversight.
+//
+// Deliberately does NOT implement ITimestamped: an image row is immutable once stored (replace
+// = delete + re-upload), so there is no UpdatedAt to carry. That also means
+// MotwDbContext.ApplyTimestamps() — which only iterates ITimestamped entries — never touches
+// CreatedAt here; IResourceImageService (Phase 2) must set it explicitly when constructing a row.
+public sealed class ResourceImage
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public ResourceOwnerType OwnerType { get; set; }
+    public Guid OwnerId { get; set; }
+    public required string FileName { get; set; }
+    public required string ContentType { get; set; }
+    public int SizeBytes { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public required byte[] ImageBytes { get; set; }
+    public byte[]? ThumbnailBytes { get; set; }
+    public int SortOrder { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 }
