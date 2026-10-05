@@ -87,12 +87,60 @@ public interface IResourceImageService
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes every <c>ResourceImage</c> row for this owner. Not wired into any controller yet —
-    /// Phase 3 calls this from each of the four existing domain delete flows (phases.md §3.6) so a
-    /// deleted Monster/Minion/Bystander/Location doesn't leave orphaned image bytes behind.
+    /// Deletes every <c>ResourceImage</c> row for this owner. Called from each of the four
+    /// existing domain delete flows (phases.md §3.6) so a deleted
+    /// Monster/Minion/Bystander/Location doesn't leave orphaned image bytes behind.
     /// </summary>
     Task DeleteAllForOwnerAsync(
         ResourceOwnerType ownerType,
         Guid ownerId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every image for this owner, ordered by <c>SortOrder</c> (design.md §3's <c>GET
+    /// .../images</c>). <see cref="ServiceResult{T}.NotFound"/> only when the owner itself
+    /// doesn't exist. Returns raw entities, not response DTOs — the caller (Phase 3's
+    /// controllers) maps each one to a response together with the derived primary id from
+    /// <see cref="GetPrimaryImageIdAsync"/>, since "is this the primary" isn't a property of the
+    /// row itself.
+    /// </summary>
+    Task<ServiceResult<IReadOnlyList<ResourceImage>>> ListAsync(
+        ResourceOwnerType ownerType,
+        Guid ownerId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The one image, if and only if it belongs to this owner — <c>null</c> otherwise, which the
+    /// caller (the <c>GET .../file</c> and <c>GET .../thumbnail</c> actions) turns into a 404
+    /// rather than ever serving an image through the wrong owner's URL.
+    /// </summary>
+    Task<ResourceImage?> GetImageAsync(
+        ResourceOwnerType ownerType,
+        Guid ownerId,
+        Guid imageId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes one image row. The only write is the row delete — no "if this was primary, clear
+    /// it" branch; the `SetNull` FK from Phase 1 does that (phases.md §2.8's auto-promote rule:
+    /// deleting the primary is always allowed, no restriction). Returns <c>false</c> when the
+    /// image doesn't exist or doesn't belong to this owner, which the caller turns into a 404.
+    /// </summary>
+    Task<bool> DeleteAsync(
+        ResourceOwnerType ownerType,
+        Guid ownerId,
+        Guid imageId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sets the owner's explicit <c>PrimaryImageId</c> to <paramref name="imageId"/>. Returns
+    /// <c>false</c> — not an exception, and never an FK violation surfacing as a 500 — when the
+    /// image doesn't exist or doesn't belong to this owner, including the race where it was
+    /// deleted between the client's last read and this call (design.md §3).
+    /// </summary>
+    Task<bool> SetPrimaryAsync(
+        ResourceOwnerType ownerType,
+        Guid ownerId,
+        Guid imageId,
         CancellationToken cancellationToken);
 }

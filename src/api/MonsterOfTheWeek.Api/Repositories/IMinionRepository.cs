@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 
@@ -11,6 +12,11 @@ public interface IMinionRepository
     Task<bool> WeaponTagExistsAsync(Guid id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<MinionListItemResponse>> GetByMonsterIdAsync(Guid monsterId, CancellationToken cancellationToken);
+
+    /// <summary>Bare ids, not the full list DTO — <see cref="MonsterOfTheWeek.Api.Services.MonsterService.DeleteAsync"/>
+    /// needs these only to clean up each Minion's images before the Monster delete cascades them away
+    /// at the DB level (phases.md Phase 3, resource-images).</summary>
+    Task<IReadOnlyList<Guid>> GetIdsByMonsterIdAsync(Guid monsterId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken);
     Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken);
     Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
@@ -46,4 +52,9 @@ public interface IMinionRepository
     Task<int> DeleteCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>See <see cref="IMonsterRepository.BeginTransactionAsync"/> for the full reasoning —
+    /// same shape, used by <see cref="MonsterOfTheWeek.Api.Services.MinionService.DeleteAsync"/> to
+    /// cover its own owner-delete image cleanup.</summary>
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
 }

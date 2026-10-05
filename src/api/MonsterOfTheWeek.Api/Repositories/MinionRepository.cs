@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
@@ -37,6 +38,13 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
                 x.Armors.Count,
                 x.Weaknesses.Count,
                 x.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Guid>> GetIdsByMonsterIdAsync(Guid monsterId, CancellationToken cancellationToken) =>
+        await dbContext.Minions
+            .AsNoTracking()
+            .Where(x => x.MonsterId == monsterId)
+            .Select(x => x.Id)
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
@@ -190,4 +198,7 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
+        dbContext.Database.BeginTransactionAsync(cancellationToken);
 }

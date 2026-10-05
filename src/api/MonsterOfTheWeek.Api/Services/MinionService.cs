@@ -1,10 +1,11 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-public sealed class MinionService(IMinionRepository minionRepository) : IMinionService
+public sealed class MinionService(IMinionRepository minionRepository, IResourceImageService resourceImageService) : IMinionService
 {
     public Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         minionRepository.GetAllAsync(cancellationToken);
@@ -132,8 +133,22 @@ public sealed class MinionService(IMinionRepository minionRepository) : IMinionS
         return true;
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
-        await minionRepository.DeleteMinionAsync(id, cancellationToken) > 0;
+    /// <summary>
+    /// Deletes the Minion and, in the same transaction, every image it owns. Same reasoning as
+    /// <see cref="MonsterService.DeleteAsync"/> — see there for why this needs a transaction at
+    /// all; a Minion has no owned children of its own to cascade-orphan, so this is the simpler
+    /// half of that fix.
+    /// </summary>
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await using var transaction = await minionRepository.BeginTransactionAsync(cancellationToken);
+
+        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Minion, id, cancellationToken);
+        var deleted = await minionRepository.DeleteMinionAsync(id, cancellationToken) > 0;
+
+        await transaction.CommitAsync(cancellationToken);
+        return deleted;
+    }
 
     public async Task<ServiceResult<IReadOnlyList<MinionAttackResponse>>> GetAttacksAsync(Guid id, CancellationToken cancellationToken)
     {

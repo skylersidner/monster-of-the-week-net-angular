@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
@@ -17,7 +18,7 @@ public sealed class LocationServiceTests
             MysteryExists = true,
             LocationTypeExists = false
         };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
         var missingLocationTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -35,7 +36,7 @@ public sealed class LocationServiceTests
     public async Task CreateAsync_NoMysteryId_CreatesStandaloneLocation_WithEmptyMysteryIds()
     {
         var repository = new FakeLocationRepository();
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
 
         var result = await service.CreateAsync(
             new UpsertLocationRequest("Standalone Hideout", "desc", Guid.NewGuid()),
@@ -54,7 +55,7 @@ public sealed class LocationServiceTests
         {
             LocationTypeExists = false
         };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
         var missingLocationTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -71,7 +72,7 @@ public sealed class LocationServiceTests
     public async Task CreateAsync_NoMysteryId_LocationIsRetrievableViaGetByIdAsync_AndAppearsInGetAllAsync()
     {
         var repository = new FakeLocationRepository();
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
 
         var createResult = await service.CreateAsync(
             new UpsertLocationRequest("Standalone Hideout", "desc", Guid.NewGuid()),
@@ -93,7 +94,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_AddsBridgeRow_WhenMysteryAndLocationExist()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -106,7 +107,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_IsIdempotent_WhenAlreadyLinked()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 
@@ -121,7 +122,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_ReturnsFalse_WhenMysteryDoesNotExist()
     {
         var repository = new FakeLocationRepository { MysteryExists = false, LocationExists = true };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -134,7 +135,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_ReturnsFalse_WhenLocationDoesNotExist()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = false };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -147,7 +148,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_ThenUnlink_RoundTrips()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 
@@ -161,7 +162,7 @@ public sealed class LocationServiceTests
     public async Task UnlinkFromMysteryAsync_ReturnsFalse_WhenNotLinked()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
 
         var unlinked = await service.UnlinkFromMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -174,7 +175,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_WritesAgain_AfterUnlink()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 
@@ -198,7 +199,7 @@ public sealed class LocationServiceTests
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
         repository.SeedLink(mysteryId, locationId);
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
 
         var linked = await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None);
 
@@ -214,7 +215,7 @@ public sealed class LocationServiceTests
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
         repository.SeedLink(mysteryId, locationId);
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
 
         var linked = await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None);
 
@@ -229,7 +230,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_LinksOneLocationToTwoMysteries()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
         var firstMysteryId = Guid.NewGuid();
         var secondMysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
@@ -251,7 +252,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_LinksTwoLocationsToOneMystery()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
         var mysteryId = Guid.NewGuid();
         var firstLocationId = Guid.NewGuid();
         var secondLocationId = Guid.NewGuid();
@@ -269,7 +270,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_WritesTheGivenIdsIntoTheBridgeRow()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository);
+        var service = new LocationService(repository, new FakeResourceImageService());
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 
@@ -416,5 +417,8 @@ public sealed class LocationServiceTests
             SaveChangesCalls += 1;
             return Task.CompletedTask;
         }
+
+        public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IDbContextTransaction>(new NoOpDbContextTransaction());
     }
 }

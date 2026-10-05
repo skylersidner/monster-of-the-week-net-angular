@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Data.Entities;
 
 namespace MonsterOfTheWeek.Api.Repositories;
@@ -28,4 +29,9 @@ public interface IBystanderRepository
     Task<int> DeleteBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
     Task<int> DeleteBystanderAsync(Guid id, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>See <see cref="IMonsterRepository.BeginTransactionAsync"/> for the full reasoning —
+    /// same shape, used by <see cref="MonsterOfTheWeek.Api.Services.BystanderService.DeleteAsync"/> to
+    /// cover its own owner-delete image cleanup.</summary>
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
 }

@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Http;
 using MonsterOfTheWeek.Api.Data.Entities;
+using MonsterOfTheWeek.Api.Services.ResourceImages;
 using MonsterOfTheWeek.Api.Services.Search;
 
 namespace MonsterOfTheWeek.Api.Contracts;
@@ -9,6 +11,36 @@ public static class ApiMappers
 
     public static SearchResultItemResponse ToItemResponse(this SearchMatchCandidate value) =>
         new(value.EntityType, value.EntityId, value.Name, value.MatchedField);
+
+    // Resource images — docs/resource-images/design.md §1.1/§3, phases.md Phase 3.
+    //
+    // isPrimary isn't a property of the row itself (design.md §1.2 — it's derived from the
+    // owner's PrimaryImageId, or the lowest SortOrder when that's null), so the caller passes it
+    // in rather than this mapper re-deriving it per image.
+    public static ResourceImageResponse ToResponse(this ResourceImage value, bool isPrimary) =>
+        new(value.Id, value.FileName, value.ContentType, value.SizeBytes, value.Width, value.Height, value.SortOrder, isPrimary, value.CreatedAt);
+
+    public static RejectedResourceImageResponse ToResponse(this RejectedResourceImage value) =>
+        new(value.FileName, value.Reason.ToString());
+
+    /// <summary>
+    /// Reads every file's bytes into memory up front. Safe at this feature's size — the
+    /// multipart body is already capped at 24 MiB by `[RequestSizeLimit]`/`[RequestFormLimits]`
+    /// on the action (phases.md Phase 3) before this ever runs.
+    /// </summary>
+    public static async Task<IReadOnlyList<ResourceImageUploadFile>> ToUploadFilesAsync(
+        this IFormFileCollection files, CancellationToken cancellationToken)
+    {
+        var result = new List<ResourceImageUploadFile>(files.Count);
+        foreach (var file in files)
+        {
+            using var stream = new MemoryStream();
+            await file.CopyToAsync(stream, cancellationToken);
+            result.Add(new ResourceImageUploadFile(file.FileName, stream.ToArray()));
+        }
+
+        return result;
+    }
 
     public static SearchResultDetailResponse ToDetailResponse(this SearchMatchCandidate value) =>
         new(

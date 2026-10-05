@@ -20,6 +20,32 @@ public sealed record CreateMonsterArchetypeRequest(
     [param: Required, MinLength(5)] string Description);
 public sealed record CustomMoveResponse(Guid Id, string Name, string? Description);
 
+// Resource images — docs/resource-images/design.md §1.1/§3, phases.md Phase 3.
+public sealed record ResourceImageResponse(
+    Guid Id,
+    string FileName,
+    string ContentType,
+    int SizeBytes,
+    int Width,
+    int Height,
+    int SortOrder,
+    bool IsPrimary,
+    DateTimeOffset CreatedAt);
+
+/// <summary>`reason` is the rejection enum's name as a string (e.g. `"UnsupportedType"`) — this
+/// codebase has no `JsonStringEnumConverter` configured anywhere, so serializing the enum
+/// itself would come out as a number; the mapper converts explicitly instead.</summary>
+public sealed record RejectedResourceImageResponse(string FileName, string Reason);
+
+/// <summary>
+/// `design.md` §3's deliberately exact, not hedged, per-file upload result: every file in the
+/// batch lands in exactly one of these two lists. `uploaded` can be non-empty alongside a
+/// non-empty `rejected` — a batch that's 3-for-5 is a 201 with detail, not an error.
+/// </summary>
+public sealed record ResourceImageUploadResponse(
+    IReadOnlyList<ResourceImageResponse> Uploaded,
+    IReadOnlyList<RejectedResourceImageResponse> Rejected);
+
 public sealed record MysteryListItemResponse(
     Guid Id,
     string Name,

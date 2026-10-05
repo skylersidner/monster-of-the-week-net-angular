@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
@@ -17,7 +18,7 @@ public sealed class MinionServiceTests
             MonsterExists = true,
             MinionTypeExists = false
         };
-        var service = new MinionService(repository);
+        var service = new MinionService(repository, new FakeResourceImageService());
         var missingMinionTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -35,7 +36,7 @@ public sealed class MinionServiceTests
     public async Task DeleteAsync_ReturnsTrue_WhenRepositoryDeletesRow()
     {
         var repository = new FakeMinionRepository { DeleteMinionResult = 1 };
-        var service = new MinionService(repository);
+        var service = new MinionService(repository, new FakeResourceImageService());
 
         var result = await service.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -46,7 +47,7 @@ public sealed class MinionServiceTests
     public async Task DeleteAsync_ReturnsFalse_WhenMinionDoesNotExist()
     {
         var repository = new FakeMinionRepository { DeleteMinionResult = 0 };
-        var service = new MinionService(repository);
+        var service = new MinionService(repository, new FakeResourceImageService());
 
         var result = await service.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -57,7 +58,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_MovesTheMinion_AndWritesOnce()
     {
         var repository = new FakeMinionRepository { MonsterExists = true };
-        var service = new MinionService(repository);
+        var service = new MinionService(repository, new FakeResourceImageService());
         var oldMonsterId = Guid.NewGuid();
         var newMonsterId = Guid.NewGuid();
         var minion = await repository.SeedMinionAsync(oldMonsterId);
@@ -76,7 +77,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_IsIdempotent_AndWritesNothing_WhenAlreadyOnThatMonster()
     {
         var repository = new FakeMinionRepository { MonsterExists = true };
-        var service = new MinionService(repository);
+        var service = new MinionService(repository, new FakeResourceImageService());
         var monsterId = Guid.NewGuid();
         var minion = await repository.SeedMinionAsync(monsterId);
 
@@ -91,7 +92,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_ReturnsFalse_WhenMonsterDoesNotExist()
     {
         var repository = new FakeMinionRepository { MonsterExists = false };
-        var service = new MinionService(repository);
+        var service = new MinionService(repository, new FakeResourceImageService());
         var oldMonsterId = Guid.NewGuid();
         var minion = await repository.SeedMinionAsync(oldMonsterId);
 
@@ -106,7 +107,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_ReturnsFalse_WhenMinionDoesNotExist()
     {
         var repository = new FakeMinionRepository { MonsterExists = true, MinionExists = false };
-        var service = new MinionService(repository);
+        var service = new MinionService(repository, new FakeResourceImageService());
 
         var moved = await service.MoveToMonsterAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -187,7 +188,10 @@ public sealed class MinionServiceTests
             ?? throw new InvalidOperationException($"{requestType.Name}.{parameterName} is missing {typeof(TAttribute).Name}.");
     }
 
-    private sealed class FakeMinionRepository : IMinionRepository
+    // Internal, not private: MonsterServiceTests reuses this for MonsterService's new
+    // IMinionRepository dependency (the owner-delete cleanup fix, phases.md Phase 3) rather than
+    // duplicating a second near-identical fake.
+    internal sealed class FakeMinionRepository : IMinionRepository
     {
         public bool MonsterExists { get; init; }
         public bool MinionExists { get; init; } = true;
@@ -206,6 +210,9 @@ public sealed class MinionServiceTests
 
         public Task<IReadOnlyList<MinionListItemResponse>> GetByMonsterIdAsync(Guid monsterId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<MinionListItemResponse>>([]);
+
+        public Task<IReadOnlyList<Guid>> GetIdsByMonsterIdAsync(Guid monsterId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Guid>>(_minions.Where(m => m.MonsterId == monsterId).Select(m => m.Id).ToList());
 
         public Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<MinionListItemResponse>>([]);
@@ -317,5 +324,8 @@ public sealed class MinionServiceTests
             SaveChangesCalls += 1;
             return Task.CompletedTask;
         }
+
+        public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IDbContextTransaction>(new NoOpDbContextTransaction());
     }
 }

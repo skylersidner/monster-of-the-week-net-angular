@@ -7,6 +7,7 @@ using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Seed;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
+using MonsterOfTheWeek.Api.Services.ResourceImages;
 using MonsterOfTheWeek.Api.Services.Search;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,6 +35,11 @@ builder.Services.AddScoped<IBystanderRepository, BystanderRepository>();
 builder.Services.AddScoped<IReferenceRepository, ReferenceRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IMysteryService, MysteryService>();
+// Shared across all four owner types (design.md §1.3) — Monster/Minion/Location/Bystander
+// services all take this as a constructor dependency, both for their image sub-resource
+// endpoints and for the owner-delete image cleanup (phases.md Phase 3). Missing this
+// registration doesn't fail the build; it fails the first request to any of those controllers.
+builder.Services.AddScoped<IResourceImageService, ResourceImageService>();
 builder.Services.AddScoped<IMonsterService, MonsterService>();
 builder.Services.AddScoped<IMinionRepository, MinionRepository>();
 builder.Services.AddScoped<IMinionService, MinionService>();
