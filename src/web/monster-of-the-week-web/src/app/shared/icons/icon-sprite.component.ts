@@ -107,6 +107,28 @@ import { Component } from '@angular/core';
         </g>
       </symbol>
 
+      <!--
+        Star: the carousel's primary-image toggle (docs/resource-images/design.md §5.3).
+        It deliberately has NO fill attribute, on the symbol or the path. Don't "fix" it to match
+        icon-trash's fill="currentColor". A fill set inside the symbol beats inherited CSS in the
+        <use> shadow tree, which would lock the star filled. With no fill here, the call site
+        picks the state through the inherited CSS fill on the <app-icon> host: fill-current when
+        this image is primary, fill-none when it isn't. Never leave fill unset at the call site,
+        because the initial value of fill is black, not none.
+      -->
+      <symbol id="icon-star" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+        <path d="M12 2.8l2.84 5.76 6.36.92-4.6 4.49 1.09 6.33L12 17.31l-5.69 2.99 1.09-6.33-4.6-4.49 6.36-.92L12 2.8z" />
+      </symbol>
+
+      <!--
+        Chevron: the carousel's previous/next buttons (design.md §5.4). Points left; the "next"
+        button reuses it with rotate-180 on the host, so there's no mirrored second symbol. Same
+        stroke idiom as icon-close/icon-plus.
+      -->
+      <symbol id="icon-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </symbol>
+
       <!-- Brand logo mark — the unified favicon + sidebar mark (see
         .squad/decisions/inbox/luigi-favicon-logo-mark.md). Redrawn (not exported) from
         icon-nav-monsters' horns+trapezoid silhouette below, as a single filled shape instead of

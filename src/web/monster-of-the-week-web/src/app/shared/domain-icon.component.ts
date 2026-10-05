@@ -32,6 +32,15 @@ const SINGULAR_ENTITY_TYPE_TO_NAV_KEY: Readonly<Record<string, NavIconKey>> = {
   hunter: 'hunters',
 };
 
+export type DomainIconSize = 'sm' | 'md' | 'lg' | 'xl';
+
+const DOMAIN_ICON_SIZE_CLASSES: Readonly<Record<DomainIconSize, string>> = {
+  sm: 'h-4 w-4',
+  md: 'h-5 w-5',
+  lg: 'h-8 w-8',
+  xl: 'h-12 w-12',
+};
+
 /**
  * Renders via a `<use>` reference into the app-wide icon sprite (`shared/icons/icon-sprite.component.ts`,
  * mounted once in `page-layout.html`) rather than an inline `@switch` of hand-copied `<svg>` markup —
@@ -46,12 +55,25 @@ const SINGULAR_ENTITY_TYPE_TO_NAV_KEY: Readonly<Record<string, NavIconKey>> = {
   standalone: true,
   host: { class: 'inline-flex items-center justify-center' },
   template: `
-    <svg class="h-5 w-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+    <svg [attr.class]="sizeClass" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
       <use [attr.href]="'#icon-nav-' + normalizedDomain()" />
     </svg>
   `,
 })
 export class DomainIconComponent {
+  /**
+   * The svg's size. It's set on the inner `<svg>`, so a class on the host can't resize it; that's
+   * why this is an input. `'md'` (h-5 w-5) is the original fixed size, so every existing call
+   * site renders unchanged. The larger sizes are for the resource-image placeholders (a full-size
+   * carousel slide, the carousel's empty state). Literal class strings, so Tailwind's scanner
+   * sees each one.
+   */
+  @Input() size: DomainIconSize = 'md';
+
+  get sizeClass(): string {
+    return DOMAIN_ICON_SIZE_CLASSES[this.size] ?? DOMAIN_ICON_SIZE_CLASSES.md;
+  }
+
   private readonly domainSignal = signal<string>('');
 
   @Input({ required: true })

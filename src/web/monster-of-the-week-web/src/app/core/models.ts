@@ -925,3 +925,43 @@ export interface UpsertHunterRequest {
   bespokeInstances: HunterBespokeInstanceModel[];
   journalEntries: HunterJournalEntryModel[];
 }
+
+// --- Resource images (docs/resource-images/design.md §3; ApiContracts.cs ResourceImage*Response) ---
+
+/** The four owner types a `ResourceImage` can belong to. Same names as the API's `ResourceOwnerType`. */
+export type ResourceOwnerType = 'Monster' | 'Minion' | 'Bystander' | 'Location';
+
+/** One stored image's metadata. `isPrimary` is the server's derived-or-explicit primary (design §1.2). */
+export interface ResourceImageResponse {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  width: number;
+  height: number;
+  sortOrder: number;
+  isPrimary: boolean;
+  createdAt: string;
+}
+
+/**
+ * The API's rejection enum, serialized by name (the mapper converts explicitly; there is no
+ * `JsonStringEnumConverter`). `reason` stays `string` on the wire type so an unknown future value
+ * still renders, through the generic fallback copy.
+ */
+export type ResourceImageRejectionReason =
+  | 'UnsupportedType'
+  | 'TooLarge'
+  | 'CapExceeded'
+  | 'UnreadableOrOversizedDimensions';
+
+export interface RejectedResourceImageResponse {
+  fileName: string;
+  reason: string;
+}
+
+/** One `POST .../images` response — 201 when `uploaded` is non-empty, 400 when every file was rejected. */
+export interface ResourceImageUploadResponse {
+  uploaded: ResourceImageResponse[];
+  rejected: RejectedResourceImageResponse[];
+}

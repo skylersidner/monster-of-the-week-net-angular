@@ -8,7 +8,18 @@ import { Component, Input } from '@angular/core';
  * not through `IconComponent`, and are namespaced separately in the sprite (`icon-nav-*`/
  * `icon-mystery-*`) to avoid name collisions with these.
  */
-export type IconName = 'trash' | 'pencil' | 'close' | 'menu' | 'plus' | 'spinner' | 'search' | 'logo' | 'wizard';
+export type IconName =
+  | 'trash'
+  | 'pencil'
+  | 'close'
+  | 'menu'
+  | 'plus'
+  | 'spinner'
+  | 'search'
+  | 'logo'
+  | 'wizard'
+  | 'star'
+  | 'chevron';
 
 /**
  * Typed wrapper around a `<use>` reference into the app-wide icon sprite (`IconSpriteComponent`),

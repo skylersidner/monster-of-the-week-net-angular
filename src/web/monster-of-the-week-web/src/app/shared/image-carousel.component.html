@@ -1,0 +1,144 @@
+<!--
+  Focus: a solid accent outline, not ring-focus. ring-focus is a 20%-alpha glow that relies on a
+  border for contrast, and this region has no border (styles.css, the .entity-link:focus-visible
+  note, WCAG 2.4.11). No outline-none here either: in Tailwind v4 that sets the outline style to
+  none, and the focus-visible outline would then never paint.
+-->
+<div
+  class="relative rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+  role="group"
+  aria-roledescription="carousel"
+  aria-label="Image carousel"
+  tabindex="0"
+  data-carousel
+  (keydown)="onKeydown($event)"
+>
+  <div class="overflow-hidden py-5">
+    <div
+      class="flex transition-transform duration-300 ease-out motion-reduce:transition-none"
+      data-track
+      [style.transform]="trackTransform()"
+    >
+      @for (image of ordered(); track image.id; let i = $index) {
+        <div
+          class="shrink-0 basis-1/2 px-3"
+          role="group"
+          aria-roledescription="slide"
+          [attr.aria-label]="(i + 1) + ' of ' + count()"
+          [attr.aria-hidden]="slideRole(i) === 'active' ? null : 'true'"
+          [attr.inert]="slideRole(i) === 'active' ? null : ''"
+          [attr.data-slide]="slideRole(i)"
+          [attr.data-image-id]="image.id"
+        >
+          <div
+            class="relative aspect-square rounded-lg transition-[transform,opacity] duration-300 motion-reduce:transition-none"
+            [class.scale-100]="slideRole(i) === 'active'"
+            [class.opacity-100]="slideRole(i) === 'active'"
+            [class.scale-90]="slideRole(i) !== 'active'"
+            [class.opacity-40]="slideRole(i) !== 'active'"
+            [class.image-primary-glow]="slideRole(i) === 'active' && image.id === primaryId()"
+            [attr.data-primary]="image.id === primaryId() ? '' : null"
+          >
+            @switch (slideRole(i)) {
+              @case ('active') {
+                <!-- Thumbnail underneath, original on top: the cached thumbnail shows until the original loads. -->
+                <app-resource-thumbnail
+                  class="absolute inset-0 rounded-lg"
+                  [ownerType]="ownerType"
+                  [thumbnailUrl]="thumbnailUrl(image)"
+                  [alt]="fileFailed(image) ? altFor(i) : ''"
+                  loading="eager"
+                  iconSize="xl"
+                />
+                @if (!fileFailed(image)) {
+                  <img
+                    class="absolute inset-0 h-full w-full rounded-lg object-cover"
+                    [src]="fileUrl(image)"
+                    [alt]="altFor(i)"
+                    draggable="false"
+                    decoding="async"
+                    data-original
+                    (error)="onFileError(image)"
+                  />
+                }
+              }
+              @case ('peek') {
+                <app-resource-thumbnail
+                  class="absolute inset-0 rounded-lg"
+                  [ownerType]="ownerType"
+                  [thumbnailUrl]="thumbnailUrl(image)"
+                  alt=""
+                  iconSize="xl"
+                />
+              }
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Controls overlay the active (centre) slot. They are not inside the slide, so focus survives a slide change. -->
+  @if (activeImage(); as active) {
+    <div class="pointer-events-none absolute inset-y-5 left-1/4 right-1/4 px-3">
+      <div class="relative h-full w-full">
+        <button
+          type="button"
+          class="action-btn action-btn--edit pointer-events-auto absolute bottom-2 left-2 flex items-center justify-center rounded-full border-0 bg-surface text-accent cursor-pointer p-[0.375rem] shadow transition-colors"
+          data-star
+          [attr.aria-pressed]="activeIsPrimary()"
+          [attr.aria-label]="activeIsPrimary() ? 'Primary image' : 'Set as primary image'"
+          [title]="activeIsPrimary() ? 'Primary image' : 'Set as primary image'"
+          [disabled]="busy && !activeIsPrimary()"
+          (click)="onStar()"
+        >
+          <app-icon
+            name="star"
+            class="h-5 w-5"
+            [class.fill-current]="activeIsPrimary()"
+            [class.fill-none]="!activeIsPrimary()"
+          />
+        </button>
+
+        <button
+          type="button"
+          class="action-btn action-btn--delete pointer-events-auto absolute bottom-2 right-2 flex items-center justify-center rounded-full border-0 bg-surface text-muted cursor-pointer p-[0.375rem] shadow transition-colors"
+          data-delete
+          [attr.aria-label]="'Delete image ' + active.fileName"
+          title="Delete image"
+          [disabled]="busy"
+          (click)="onDelete()"
+        >
+          <app-icon name="trash" class="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (count() > 1) {
+    <button
+      type="button"
+      class="action-btn absolute left-1 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full border-0 bg-surface text-secondary cursor-pointer p-[0.375rem] shadow transition-colors"
+      aria-label="Previous image"
+      title="Previous image"
+      data-previous
+      [disabled]="!hasPrevious()"
+      (click)="previous()"
+    >
+      <app-icon name="chevron" class="h-5 w-5" />
+    </button>
+    <button
+      type="button"
+      class="action-btn absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full border-0 bg-surface text-secondary cursor-pointer p-[0.375rem] shadow transition-colors"
+      aria-label="Next image"
+      title="Next image"
+      data-next
+      [disabled]="!hasNext()"
+      (click)="next()"
+    >
+      <app-icon name="chevron" class="h-5 w-5 rotate-180" />
+    </button>
+  }
+
+  <p class="sr-only" aria-live="polite" data-status>Image {{ activeIndex() + 1 }} of {{ count() }}</p>
+</div>
