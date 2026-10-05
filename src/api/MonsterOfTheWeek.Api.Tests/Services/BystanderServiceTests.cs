@@ -340,8 +340,21 @@ public sealed class BystanderServiceTests
         public Task<bool> BystanderTypeExistsAsync(Guid bystanderTypeId, CancellationToken cancellationToken) => Task.FromResult(BystanderTypeExists);
         public Task<bool> BystanderExistsAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(BystanderExists);
 
-        public Task<IReadOnlyList<Bystander>> GetAllBystandersAsync(CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<Bystander>>(_bystanders.ToList());
+        // DTO-returning, matching IBystanderRepository.GetAllAsync's real SQL-projection shape
+        // (phases.md Phase 4) — PrimaryImageId is left at its default (null); none of this
+        // file's tests exercise image/primary behaviour.
+        public Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<BystanderListItemResponse>>(_bystanders
+                .Select(x => new BystanderListItemResponse(
+                    x.Id,
+                    x.Mysteries.Select(mb => mb.MysteryId).ToList(),
+                    x.Name,
+                    x.Description,
+                    x.BystanderTypeId,
+                    x.BystanderType.Name,
+                    x.BystanderType.Motivation,
+                    x.CreatedAt))
+                .ToList());
 
         public Task<IReadOnlyList<Bystander>> GetBystandersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Bystander>>([]);

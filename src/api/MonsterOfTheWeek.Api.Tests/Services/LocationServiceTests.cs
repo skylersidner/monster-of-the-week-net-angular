@@ -341,8 +341,21 @@ public sealed class LocationServiceTests
         public Task<bool> LocationTypeExistsAsync(Guid locationTypeId, CancellationToken cancellationToken) => Task.FromResult(LocationTypeExists);
         public Task<bool> LocationExistsAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(LocationExists);
 
-        public Task<IReadOnlyList<Location>> GetAllLocationsAsync(CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<Location>>(_locations.ToList());
+        // DTO-returning, matching ILocationRepository.GetAllAsync's real SQL-projection shape
+        // (phases.md Phase 4) — PrimaryImageId is left at its default (null); none of this
+        // file's tests exercise image/primary behaviour.
+        public Task<IReadOnlyList<LocationListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<LocationListItemResponse>>(_locations
+                .Select(x => new LocationListItemResponse(
+                    x.Id,
+                    x.Mysteries.Select(ml => ml.MysteryId).ToList(),
+                    x.Name,
+                    x.Description,
+                    x.LocationTypeId,
+                    x.LocationType.Name,
+                    x.LocationType.Motivation,
+                    x.CreatedAt))
+                .ToList());
 
         public Task<IReadOnlyList<Location>> GetLocationsByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Location>>([]);

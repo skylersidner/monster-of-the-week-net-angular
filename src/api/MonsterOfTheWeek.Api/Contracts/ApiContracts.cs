@@ -98,6 +98,10 @@ public sealed record UpsertCountdownRequest(
     string? Nightfall,
     string? Midnight);
 
+// PrimaryImageId defaults to null, not just for "no images" — the by-mystery sites that share
+// this record (GetMonstersByMysteryIdAsync) are out of scope for Phase 4's derivation (phases.md
+// Phase 4, Skyler's scope cut) and are deliberately left untouched; the default is what lets
+// them keep compiling unchanged while the shared response shape still carries the field.
 public sealed record MonsterListItemResponse(
     Guid Id,
     IReadOnlyList<Guid> MysteryIds,
@@ -111,7 +115,8 @@ public sealed record MonsterListItemResponse(
     int ArmorCount,
     int WeaknessCount,
     int MinionCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? PrimaryImageId = null);
 
 public sealed record MonsterAttackResponse(
     Guid Id,
@@ -161,6 +166,8 @@ public sealed record UpsertMonsterArmorRequest(
 public sealed record UpsertMonsterWeaknessRequest([param: Required, MaxLength(255)] string Name, string? Description);
 public sealed record UpsertCustomMoveRequest([param: Required, MaxLength(255)] string Name, string? Description);
 
+// See MonsterListItemResponse's note on PrimaryImageId's default — GetByMonsterIdAsync (the
+// nested-under-a-monster list) is out of scope for Phase 4 and stays untouched.
 public sealed record MinionListItemResponse(
     Guid Id,
     Guid MonsterId,
@@ -173,7 +180,8 @@ public sealed record MinionListItemResponse(
     int PowerCount,
     int ArmorCount,
     int WeaknessCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? PrimaryImageId = null);
 
 public sealed record MinionAttackResponse(
     Guid Id,
@@ -219,6 +227,8 @@ public sealed record UpsertMinionArmorRequest(
     string? SpecialDescription);
 public sealed record UpsertMinionWeaknessRequest([param: Required, MaxLength(255)] string Name, string? Description);
 
+// See MonsterListItemResponse's note on PrimaryImageId's default — the by-mystery site
+// (GetByMysteryAsync/GetLocationsByMysteryIdAsync) is out of scope for Phase 4 and stays untouched.
 public sealed record LocationListItemResponse(
     Guid Id,
     IReadOnlyList<Guid> MysteryIds,
@@ -227,7 +237,8 @@ public sealed record LocationListItemResponse(
     Guid LocationTypeId,
     string LocationTypeName,
     string LocationTypeMotivation,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? PrimaryImageId = null);
 
 public sealed record LocationDetailResponse(
     Guid Id,
@@ -241,6 +252,8 @@ public sealed record LocationDetailResponse(
 
 public sealed record UpsertLocationRequest([param: Required, MaxLength(255)] string Name, string? Description, Guid LocationTypeId);
 
+// See MonsterListItemResponse's note on PrimaryImageId's default — the by-mystery site
+// (GetByMysteryAsync) is out of scope for Phase 4 and stays untouched.
 public sealed record BystanderListItemResponse(
     Guid Id,
     IReadOnlyList<Guid> MysteryIds,
@@ -249,7 +262,8 @@ public sealed record BystanderListItemResponse(
     Guid BystanderTypeId,
     string BystanderTypeName,
     string BystanderTypeMotivation,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? PrimaryImageId = null);
 
 public sealed record BystanderDetailResponse(
     Guid Id,

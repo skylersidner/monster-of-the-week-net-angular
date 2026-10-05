@@ -7,21 +7,8 @@ namespace MonsterOfTheWeek.Api.Services;
 
 public sealed class BystanderService(IBystanderRepository bystanderRepository, IResourceImageService resourceImageService) : IBystanderService
 {
-    public async Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken)
-    {
-        var bystanders = await bystanderRepository.GetAllBystandersAsync(cancellationToken);
-        return bystanders
-            .Select(x => new BystanderListItemResponse(
-                x.Id,
-                x.Mysteries.Select(mb => mb.MysteryId).ToList(),
-                x.Name,
-                x.Description,
-                x.BystanderTypeId,
-                x.BystanderType.Name,
-                x.BystanderType.Motivation,
-                x.CreatedAt))
-            .ToList();
-    }
+    public Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
+        bystanderRepository.GetAllAsync(cancellationToken);
 
     public async Task<ServiceResult<IReadOnlyList<BystanderListItemResponse>>> GetByMysteryAsync(Guid mysteryId, CancellationToken cancellationToken)
     {

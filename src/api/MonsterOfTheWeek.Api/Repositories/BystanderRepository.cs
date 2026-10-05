@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
 
@@ -123,12 +124,25 @@ public sealed class BystanderRepository(MotwDbContext dbContext) : IBystanderRep
     public Task<int> DeleteBystanderAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Bystanders.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Bystander>> GetAllBystandersAsync(CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         await dbContext.Bystanders
             .AsNoTracking()
-            .Include(x => x.BystanderType)
-            .Include(x => x.Mysteries)
             .OrderBy(x => x.Name)
+            .Select(x => new BystanderListItemResponse(
+                x.Id,
+                x.Mysteries.Select(mb => mb.MysteryId).ToList(),
+                x.Name,
+                x.Description,
+                x.BystanderTypeId,
+                x.BystanderType.Name,
+                x.BystanderType.Motivation,
+                x.CreatedAt,
+                // The derived primary — see MonsterRepository.GetAllAsync for the full reasoning.
+                x.PrimaryImageId ?? dbContext.ResourceImages
+                    .Where(i => i.OwnerType == ResourceOwnerType.Bystander && i.OwnerId == x.Id)
+                    .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
+                    .Select(i => (Guid?)i.Id)
+                    .FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>

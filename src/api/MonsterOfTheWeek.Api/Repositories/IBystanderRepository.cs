@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Storage;
+using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 
 namespace MonsterOfTheWeek.Api.Repositories;
@@ -7,7 +8,15 @@ public interface IBystanderRepository
 {
     Task<bool> MysteryExistsAsync(Guid mysteryId, CancellationToken cancellationToken);
     Task<bool> BystanderTypeExistsAsync(Guid bystanderTypeId, CancellationToken cancellationToken);
-    Task<IReadOnlyList<Bystander>> GetAllBystandersAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// A real SQL projection straight to the response DTO (phases.md Phase 4) — replaces the
+    /// former entity-returning <c>GetAllBystandersAsync</c>, which this was the only caller of.
+    /// Needed as a SQL projection, not an in-memory one, so the derived-primary correlated
+    /// subquery (see the implementation) can run server-side instead of per-row after the fact.
+    /// </summary>
+    Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken);
+
     Task<IReadOnlyList<Bystander>> GetBystandersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken);
     Task AddBystanderAsync(Bystander bystander, CancellationToken cancellationToken);
     Task LinkBystanderToMysteryAsync(MysteryBystander link, CancellationToken cancellationToken);

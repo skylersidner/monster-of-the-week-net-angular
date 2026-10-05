@@ -7,21 +7,8 @@ namespace MonsterOfTheWeek.Api.Services;
 
 public sealed class LocationService(ILocationRepository locationRepository, IResourceImageService resourceImageService) : ILocationService
 {
-    public async Task<IReadOnlyList<LocationListItemResponse>> GetAllAsync(CancellationToken cancellationToken)
-    {
-        var locations = await locationRepository.GetAllLocationsAsync(cancellationToken);
-        return locations
-            .Select(x => new LocationListItemResponse(
-                x.Id,
-                x.Mysteries.Select(ml => ml.MysteryId).ToList(),
-                x.Name,
-                x.Description,
-                x.LocationTypeId,
-                x.LocationType.Name,
-                x.LocationType.Motivation,
-                x.CreatedAt))
-            .ToList();
-    }
+    public Task<IReadOnlyList<LocationListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
+        locationRepository.GetAllAsync(cancellationToken);
 
     public async Task<ServiceResult<IReadOnlyList<LocationListItemResponse>>> GetByMysteryAsync(Guid mysteryId, CancellationToken cancellationToken)
     {
