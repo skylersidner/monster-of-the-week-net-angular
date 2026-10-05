@@ -5,6 +5,7 @@ import {
   chunkFiles,
   derivePrimaryImageId,
   mergeUploadOutcome,
+  planUpload,
   preflightRejectionReason,
   resourceImageDeleteFootnote,
   uploadRejectionCopy,
@@ -125,6 +126,81 @@ describe('preflightRejectionReason', () => {
 
   it('rejects one byte over 2 MiB', () => {
     expect(preflightRejectionReason(file('a.png', 2_097_153, 'image/png'))).toBe('TooLarge');
+  });
+});
+
+describe('planUpload', () => {
+  const file = (name: string, size = 1000, type = 'image/webp'): File => {
+    const value = new File(['x'], name, { type });
+    Object.defineProperty(value, 'size', { value: size });
+    return value;
+  };
+
+  it('design.md §7.4 worked example: 8 existing + 5 dropped → 2 accepted, 3 rejected, none sent', () => {
+    const files = Array.from({ length: 5 }, (_, i) => file(`f${i}.webp`));
+    const plan = planUpload(files, 2);
+
+    expect(plan.accepted.map((entry) => entry.file.name)).toEqual(['f0.webp', 'f1.webp']);
+    expect(plan.rejected.map((entry) => entry.rejection)).toEqual([
+      { fileName: 'f2.webp', reason: 'CapExceeded' },
+      { fileName: 'f3.webp', reason: 'CapExceeded' },
+      { fileName: 'f4.webp', reason: 'CapExceeded' },
+    ]);
+  });
+
+  it('accepts in drop order up to the remaining slots', () => {
+    const plan = planUpload([file('first.webp'), file('second.webp'), file('third.webp')], 1);
+    expect(plan.accepted.map((entry) => entry.file.name)).toEqual(['first.webp']);
+    expect(plan.rejected.map((entry) => entry.rejection.fileName)).toEqual(['second.webp', 'third.webp']);
+  });
+
+  it('rejects everything with CapExceeded when no slots are left', () => {
+    const plan = planUpload([file('a.webp')], 0);
+    expect(plan.accepted).toEqual([]);
+    expect(plan.rejected[0].rejection.reason).toBe('CapExceeded');
+  });
+
+  it('checks type and size BEFORE the cap, so an invalid file never consumes a slot', () => {
+    // One slot left. The .gif comes first in drop order; if the cap were applied first it would
+    // take the slot and the valid .webp would be wrongly rejected as CapExceeded.
+    const plan = planUpload([file('bad.gif', 1000, 'image/gif'), file('good.webp')], 1);
+
+    expect(plan.accepted.map((entry) => entry.file.name)).toEqual(['good.webp']);
+    expect(plan.rejected.map((entry) => entry.rejection)).toEqual([
+      { fileName: 'bad.gif', reason: 'UnsupportedType' },
+    ]);
+  });
+
+  it('gives an invalid file its own reason, not CapExceeded, even with zero slots left', () => {
+    // Matches the server, which validates first and so never labels a .gif CapExceeded.
+    const plan = planUpload([file('bad.gif', 1000, 'image/gif'), file('big.png', 3_000_000, 'image/png')], 0);
+    expect(plan.rejected.map((entry) => entry.rejection.reason)).toEqual(['UnsupportedType', 'TooLarge']);
+  });
+
+  it('mixed batch: type, size and cap rejections coexist, each with its own reason, in drop order', () => {
+    const plan = planUpload(
+      [
+        file('ok1.webp'),
+        file('bad.gif', 1000, 'image/gif'),
+        file('ok2.png', 1000, 'image/png'),
+        file('big.png', 3_000_000, 'image/png'),
+        file('ok3.webp'),
+      ],
+      2,
+    );
+
+    expect(plan.accepted.map((entry) => entry.file.name)).toEqual(['ok1.webp', 'ok2.png']);
+    expect(plan.rejected.map((entry) => [entry.index, entry.rejection.fileName, entry.rejection.reason])).toEqual([
+      [1, 'bad.gif', 'UnsupportedType'],
+      [3, 'big.png', 'TooLarge'],
+      [4, 'ok3.webp', 'CapExceeded'],
+    ]);
+  });
+
+  it('keeps every file’s original pick index, so the merged list stays in drop order', () => {
+    const plan = planUpload([file('bad.gif', 1000, 'image/gif'), file('ok.webp'), file('over.webp')], 1);
+    expect(plan.accepted.map((entry) => entry.index)).toEqual([1]);
+    expect(plan.rejected.map((entry) => entry.index)).toEqual([0, 2]);
   });
 });
 

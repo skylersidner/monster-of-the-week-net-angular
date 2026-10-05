@@ -9,10 +9,9 @@ import {
   ChunkResult,
   IndexedFileName,
   UploadOutcome,
-  UploadRejection,
   chunkFiles,
   mergeUploadOutcome,
-  preflightRejectionReason,
+  planUpload,
   uploadRejectionCopy,
   uploadSummaryCopy,
 } from './resource-image-rules';
@@ -91,7 +90,10 @@ export class ImageDropzoneComponent {
   readonly isDragOver = signal(false);
   readonly outcome = signal<UploadOutcome | null>(null);
 
-  readonly atCap = computed(() => this.countSignal() >= MAX_IMAGES_PER_RESOURCE);
+  /** Cap slots left for this owner. The browser rejects anything past this instead of uploading it. */
+  readonly remainingSlots = computed(() => Math.max(0, MAX_IMAGES_PER_RESOURCE - this.countSignal()));
+
+  readonly atCap = computed(() => this.remainingSlots() === 0);
   readonly canAdd = computed(() => !this.disabledSignal() && !this.isUploading() && !this.atCap());
   readonly isEmpty = computed(() => this.countSignal() === 0);
 
@@ -186,16 +188,10 @@ export class ImageDropzoneComponent {
 
     this.outcome.set(null);
 
-    const preflight: { index: number; rejection: UploadRejection }[] = [];
-    const accepted: { index: number; file: File }[] = [];
-    files.forEach((file, index) => {
-      const reason = preflightRejectionReason(file);
-      if (reason) {
-        preflight.push({ index, rejection: { fileName: file.name, reason } });
-      } else {
-        accepted.push({ index, file });
-      }
-    });
+    // Type/size, then the 10-image cap against what is left — the same order, and the same
+    // rejection reasons, as the server's own service. Files past the cap are rejected here and
+    // never sent (design.md §7.4).
+    const { accepted, rejected: preflight } = planUpload(files, this.remainingSlots());
 
     if (accepted.length === 0) {
       this.finish(mergeUploadOutcome(files.length, preflight, []));

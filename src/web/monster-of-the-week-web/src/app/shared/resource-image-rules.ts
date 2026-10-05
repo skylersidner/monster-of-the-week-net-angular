@@ -130,6 +130,56 @@ export function preflightRejectionReason(file: Pick<File, 'name' | 'size' | 'typ
   return null;
 }
 
+/** What `planUpload` decided for one pick: which files to send, and which to reject without sending. */
+export interface UploadPlan {
+  /** Files to send, in pick order, each with its index in the original pick. */
+  accepted: { index: number; file: File }[];
+  /** Files rejected in the browser, each with its index in the original pick. */
+  rejected: { index: number; rejection: UploadRejection }[];
+}
+
+/**
+ * Decides, for one pick or drop, which files are worth sending (design.md §7, §7.4).
+ *
+ * **Check order: type and size first, then the cap — deliberately matching
+ * `ResourceImageService.UploadAsync`'s own order.** The server checks the cap last, against files
+ * that are otherwise valid, so an invalid file never consumes a cap slot. The client does the same,
+ * which is what makes the two agree on which reason each file gets in a mixed batch. Reverse the
+ * order and a resource with 9 images that gets a `.gif` and a valid `.webp` would call the `.gif`
+ * `CapExceeded` here while the server calls it `UnsupportedType`.
+ *
+ * **The cap trim rejects in the browser rather than sending files already known to be doomed**
+ * (Skyler, 2026-10-05). `remainingSlots` is `10 - currentCount`. Files past it are rejected in pick
+ * order with the same `CapExceeded` reason and copy the server would have used. Server-side
+ * enforcement is untouched and stays authoritative: this only avoids spending an upload on files
+ * that cannot land.
+ *
+ * §7.5's "already at 10" block covers the case where the resource was full before the drop started.
+ * This covers a drop that starts under the cap and goes partway past it.
+ */
+export function planUpload(files: readonly File[], remainingSlots: number): UploadPlan {
+  const plan: UploadPlan = { accepted: [], rejected: [] };
+  let slotsLeft = Math.max(0, remainingSlots);
+
+  files.forEach((file, index) => {
+    const reason = preflightRejectionReason(file);
+    if (reason) {
+      plan.rejected.push({ index, rejection: { fileName: file.name, reason } });
+      return;
+    }
+
+    if (slotsLeft <= 0) {
+      plan.rejected.push({ index, rejection: { fileName: file.name, reason: 'CapExceeded' } });
+      return;
+    }
+
+    plan.accepted.push({ index, file });
+    slotsLeft -= 1;
+  });
+
+  return plan;
+}
+
 /** Splits a pick into sequential `POST`s of at most `size` files, keeping pick order (design.md §3, §4.4). */
 export function chunkFiles<T>(files: readonly T[], size: number = MAX_FILES_PER_UPLOAD_REQUEST): T[][] {
   const chunks: T[][] = [];
