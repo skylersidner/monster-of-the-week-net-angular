@@ -55,8 +55,9 @@ of things before manually merging the branch into main."
   ten commits, not eight.
 - **Skyler reviews the branch and merges to `main` manually.** There is no intermediate merge or PR checkpoint
   between the backend phases (1–4) and the frontend phases (5, 6a–6d, 7).
-- **Branch requirement:** Phase 1 must not start on `main`. A feature branch has to exist before Phase 1 begins.
-  This document does not create it. The branch name is open (§4, item 1).
+- **Branch requirement — decided 2026-10-04:** Skyler confirmed the feature branch is `resource-images`
+  (already checked out, one commit ahead of `main` with the fal.ai image-gen tooling). Phase 1 commits land
+  there, not on `main`.
 - Commits land in order: 1, 2, 3, 4, 5, 6a, 6b, 6c, 6d, 7. Phases that can run in parallel (for example 5 with
   1–4) may be worked concurrently, but their commits follow this order so each gate runs against the state
   the previous commit left.
@@ -665,10 +666,8 @@ not the declared dimensions. Needs a header-only dimension read before any full 
 
 ## 4. Open questions
 
-1. **Feature-branch name.** Phase 1 cannot start on `main`, and the branch must exist before Phase 1 begins
-   (see Git workflow). The session-start git status showed `resource-images` as the checked-out branch; the
-   Architect direction for this pass said `main`. Skyler to confirm: use `resource-images` as the feature branch,
-   or create a new one off `main`?
+1. **Feature-branch name — resolved 2026-10-04.** Skyler: "Continue with this branch." The feature branch is
+   `resource-images`. See Git workflow above.
 (Item 2, "ImageSharp vs. SkiaSharp," is decided — see §1 item 6 and §4a below. Item 2's former subject,
 Minion's `GetByMonsterIdAsync`, is resolved — see §4a and the header revision notes.)
 
