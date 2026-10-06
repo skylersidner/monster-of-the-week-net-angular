@@ -126,10 +126,10 @@ class FootnoteHostComponent {
 }
 
 /**
- * `monster-detail` since Phase 6a: a name and a footnote, and nothing else. It gained `[footnote]`
- * for the image-delete flow's §6 branches (`docs/resource-images/design.md`), while every
- * non-image delete on that page still passes no footnote at all and so must render exactly as the
- * name-only shape did before.
+ * `monster-detail` since Phase 6a and `minion-detail` since Phase 6b: a name and a footnote, and
+ * nothing else. Both gained `[footnote]` for the image-delete flow's §6 branches
+ * (`docs/resource-images/design.md`), while every non-image delete on those pages still passes no
+ * footnote at all and so must render exactly as the name-only shape did before.
  *
  * Its own host rather than reusing `FootnoteHostComponent`, per this file's rule that a host binds
  * only what its real template binds — that host also binds `verb`, `message`, `items` and four
@@ -230,7 +230,14 @@ const untouched: ReadonlyArray<{ site: string; shape: HostShape; inputs: CallSit
     shape: 'name-and-footnote',
     inputs: { itemName: 'Grave Chill' },
   },
-  { site: 'minion-detail.html:206', shape: 'name-only', inputs: { itemName: 'Rusted Blade' } },
+  // minion-detail.html:236 — same Phase 6b change as monster-detail's: it gained `[footnote]` for
+  // the image-delete flow, and every other delete on the page still passes none, so `?? ''`
+  // supplies the component's own default and nothing renders.
+  {
+    site: 'minion-detail.html:236 (attack/power/armor/weakness — no footnote)',
+    shape: 'name-and-footnote',
+    inputs: { itemName: 'Rusted Blade' },
+  },
   // --- hunter-create's discard dialog: an explicit empty footnote, before and after -----------
   {
     site: 'hunter-create.html:69 (discard a dirty draft)',

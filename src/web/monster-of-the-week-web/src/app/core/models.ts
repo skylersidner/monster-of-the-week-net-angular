@@ -312,6 +312,16 @@ export interface MinionListItemResponse {
   armorCount: number;
   weaknessCount: number;
   createdAt: string;
+  /**
+   * The derived-or-explicit primary image (phases.md Phase 4), or `null` when the minion has no
+   * images. Only the standalone `GET /api/minions` projection carries it.
+   *
+   * Optional, and that is load-bearing here: this same record is returned by the by-monster
+   * projection behind `monster-detail`'s Minions block, which is deliberately out of scope
+   * ("Minion image on monster view: out of scope for this pass") and omits the field. A row from
+   * there legitimately has no such property rather than a null one.
+   */
+  primaryImageId?: string | null;
 }
 
 export interface MinionAttackResponse {
