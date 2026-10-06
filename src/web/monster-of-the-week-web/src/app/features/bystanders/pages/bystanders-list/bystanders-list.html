@@ -20,8 +20,19 @@
           delete button off-screen. The `min-w-0` on the inner `flex-1` div does not substitute — it
           shrinks the text, but the row has already claimed its width a level up.
         -->
-        <li class="flex items-center min-w-0 bg-surface border border-default rounded-lg gap-4 justify-between p-4">
-          <div class="flex-1 min-w-0">
+        <li class="flex flex-col items-center sm:flex-row min-w-0 bg-surface border border-default rounded-lg gap-4 justify-between p-4">
+          <!--
+            First flex child, with the row's existing `gap-4` for spacing (§4.2). Thumbnail endpoint
+            only; a null `primaryImageId` yields a null URL, which is the placeholder's trigger. The
+            128px box comes from the component's own `size="row"` default (§4.2.1).
+          -->
+          <app-resource-thumbnail
+            ownerType="Bystander"
+            [thumbnailUrl]="thumbnailUrl(bystander)"
+            [alt]="bystander.name"
+            loading="lazy"
+          />
+          <div class="w-full sm:w-auto flex-1 min-w-0">
             <div class="flex flex-wrap items-baseline gap-2 mb-1">
               <a class="entity-link font-semibold" [routerLink]="['/bystanders', bystander.id]">{{ bystander.name }}</a>
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-bystander text-on-badge-bystander">{{ bystander.bystanderTypeName }}: {{ bystander.bystanderTypeMotivation }}</span>
@@ -30,7 +41,7 @@
             <p class="my-1 line-clamp-2 lg:line-clamp-none">{{ bystander.description || 'No description provided' }}</p>
             <small>Created: {{ bystander.createdAt | date: 'mediumDate' }}</small>
           </div>
-          <div class="flex items-center shrink-0 gap-1">
+          <div class="flex items-center self-end sm:self-auto shrink-0 gap-1">
             <button
               type="button"
               class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] no-underline transition-colors"

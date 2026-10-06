@@ -436,6 +436,14 @@ export interface BystanderListItemResponse {
   bystanderTypeName: string;
   bystanderTypeMotivation: string;
   createdAt: string;
+  /**
+   * The derived-or-explicit primary image (phases.md Phase 4), or `null` when the bystander has no
+   * images. Only the standalone `GET /api/bystanders` projection carries it.
+   *
+   * Optional, because the by-mystery projection shares this record and is out of Phase 4's scope,
+   * so a row from there has no such property rather than a null one.
+   */
+  primaryImageId?: string | null;
 }
 
 export interface BystanderDetailResponse {

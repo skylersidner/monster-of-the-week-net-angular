@@ -193,7 +193,7 @@ function buttonLabels(element: HTMLElement): string[] {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * The eight call sites this phase must leave alone. Each entry is the exact input set its template
+ * The nine call sites whose rendering must not change. Each entry is the exact input set its template
  * passes; `null`-ish inputs are omitted so the component's own defaults apply, exactly as they do in
  * the real template.
  */
@@ -238,6 +238,16 @@ const untouched: ReadonlyArray<{ site: string; shape: HostShape; inputs: CallSit
     shape: 'name-and-footnote',
     inputs: { itemName: 'Rusted Blade' },
   },
+  // bystander-detail.html — NEW in Phase 6c, and the first *added* call site since this census was
+  // written rather than a shape change to an existing one. It is that page's only modal, and every
+  // delete it serves is an image delete, so the footnote is always bound — `''` for a non-primary
+  // image, which renders as nothing. The store owns the pending state here, because this page had
+  // no `pendingDelete` to coordinate with.
+  {
+    site: 'bystander-detail.html (image delete, non-primary — empty footnote)',
+    shape: 'name-and-footnote',
+    inputs: { itemName: 'extra.webp', footnote: '' },
+  },
   // --- hunter-create's discard dialog: an explicit empty footnote, before and after -----------
   {
     site: 'hunter-create.html:69 (discard a dirty draft)',
@@ -274,6 +284,7 @@ describe('ConfirmDeleteModalComponent · the shipped call sites', () => {
    * non-wizard rows stay pinned and are each exercised individually further down this file.
    */
   const perTemplate = {
+    'bystander-detail.html': 1,
     'bystanders-list.html': 1,
     'hunter-create.html': 2,
     'hunter-detail.html': 1,
@@ -298,9 +309,11 @@ describe('ConfirmDeleteModalComponent · the shipped call sites', () => {
     'mystery-create-bystanders-phase.html': perTemplate['mystery-create-bystanders-phase.html'],
   };
 
-  it('there are 16 of them, in 14 templates — and the wizard now carries four, not one', () => {
-    expect(Object.keys(perTemplate)).toHaveLength(14);
-    expect(Object.values(perTemplate).reduce((a, b) => a + b, 0)).toBe(16);
+  it('there are 17 of them, in 15 templates — and the wizard now carries four, not one', () => {
+    // 16-in-14 until Phase 6c, which added bystander-detail's first modal (its image-delete
+    // confirmation). Monster's and Minion's image flows reused modals that were already counted.
+    expect(Object.keys(perTemplate)).toHaveLength(15);
+    expect(Object.values(perTemplate).reduce((a, b) => a + b, 0)).toBe(17);
 
     // The half that is a real claim rather than arithmetic: the wizard's share. Phase 4 gave
     // Locations and Bystanders one each and 5b gave the monster phase a second, and the census
@@ -308,7 +321,7 @@ describe('ConfirmDeleteModalComponent · the shipped call sites', () => {
     expect(Object.values(wizardCensus).reduce((a, b) => a + b, 0)).toBe(4);
   });
 
-  describe('the eight that must render byte-identically', () => {
+  describe('the nine that must render byte-identically', () => {
     for (const { site, shape, inputs } of untouched) {
       it(`${site}`, async () => {
         const element = await render(inputs, shape);

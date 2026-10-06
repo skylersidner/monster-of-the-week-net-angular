@@ -4,10 +4,12 @@ import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { BystanderService } from '../../../../core/bystander';
+import { resourceImageThumbnailUrl } from '../../../../core/resource-images';
 import { BystanderListItemResponse, MysteryListItemResponse } from '../../../../core/models';
 import { MysteryService } from '../../../../core/mystery';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 import { IconComponent } from '../../../../shared/icons/icon.component';
+import { ResourceThumbnailComponent } from '../../../../shared/resource-thumbnail.component';
 import {
   mysteryUsageFootnote,
   mysteryUsageMessage,
@@ -25,7 +27,7 @@ interface PendingBystanderDelete {
 
 @Component({
   selector: 'app-bystanders-list',
-  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent, ResourceThumbnailComponent],
   templateUrl: './bystanders-list.html',
 })
 export class BystandersListComponent implements OnInit {
@@ -86,6 +88,17 @@ export class BystandersListComponent implements OnInit {
    * Bullets render only when *every* id resolved, so the number in the sentence and the length of
    * the list can never disagree.
    */
+  /**
+   * The row's thumbnail URL, or `null` when the bystander has no images — which is what makes
+   * `app-resource-thumbnail` render the domain placeholder (design.md §4.2, §5.5).
+   *
+   * `primaryImageId` rides along on the list response (Phase 4), so this costs no extra request per
+   * row; `loading="lazy"` keeps the fetches proportional to the rows on screen.
+   */
+  thumbnailUrl(bystander: BystanderListItemResponse): string | null {
+    return resourceImageThumbnailUrl('Bystander', bystander.id, bystander.primaryImageId);
+  }
+
   requestDelete(bystander: BystanderListItemResponse): void {
     const count = bystander.mysteryIds.length;
     const names = resolveMysteryNames(bystander.mysteryIds, this.mysteries());
