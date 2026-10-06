@@ -38,6 +38,17 @@
               <a class="entity-link font-semibold" [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-minion text-on-badge-minion">{{ minion.minionType.name }}: {{ minion.minionType.motivation }}</span>
             </div>
+            <!--
+              Byte-identical to the description paragraph on monsters-list, locations-list and
+              bystanders-list, and placed in the same slot — straight after the name/badge block, so
+              the two muted metadata lines ("Belongs to", the counts) group together beneath it.
+              Clamped to 2 lines below `lg` with the app's `line-clamp-2` treatment (§4.2.2).
+
+              Added in its own commit after 6b: the data was always on the list response, the row
+              just never rendered it. Skyler: "the lack of description on the Minion list row seems
+              like a design oversight."
+            -->
+            <p class="my-1 line-clamp-2 lg:line-clamp-none">{{ minion.description || 'No description provided' }}</p>
             <p class="text-muted text-[0.82rem] mt-[0.15rem] mb-[0.25rem]">
               Belongs to: <a class="entity-link entity-link--inline" [routerLink]="['/monsters', minion.monsterId]">{{ minion.monsterName }}</a>
             </p>

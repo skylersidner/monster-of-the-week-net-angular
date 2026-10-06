@@ -65,9 +65,6 @@ describe('MinionsListComponent', () => {
    * The `<ul>` is a grid, so without `min-w-0` on the `<li>` the row claims its min-content width
    * and overflows its track, pushing the delete action off-screen on a phone. Shared across all
    * four list pages.
-   *
-   * This page gets no description clamp, because it renders no description — its second line is
-   * "Belongs to: {monster}", which is a single short link, not free text.
    */
   it('lets each row shrink below its content width', () => {
     const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li'));
@@ -77,11 +74,42 @@ describe('MinionsListComponent', () => {
     }
   });
 
-  it('has no description paragraph to clamp', () => {
-    const paragraphs = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li p'));
-    for (const paragraph of paragraphs) {
-      expect(paragraph.textContent).toContain('Belongs to:');
+  /**
+   * This page renders a description like the other three. It did not until after Phase 6b — the
+   * field was always on the list response and the row simply never showed it, which Skyler ruled a
+   * design oversight rather than an intentional difference. The spec that used to assert the
+   * absence is gone, not skipped.
+   */
+  it('renders the description, clamped to two lines below lg and released from desktop up', () => {
+    const descriptions = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li p')).filter((p) =>
+      p.classList.contains('my-1'),
+    );
+    expect(descriptions.length).toBeGreaterThan(0);
+    for (const description of descriptions) {
+      expect(description.classList).toContain('line-clamp-2');
+      expect(description.classList).toContain('lg:line-clamp-none');
+      // `line-clamp-*` carries its own display; a co-occurring display utility kills it.
+      for (const conflicting of ['block', 'truncate']) {
+        expect(description.classList).not.toContain(conflicting);
+      }
     }
+  });
+
+  it('falls back to the same placeholder sentence the other three lists use', () => {
+    // The fixture minion has `description: null`.
+    const description = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li p')).find((p) =>
+      p.classList.contains('my-1'),
+    )!;
+    expect(description.textContent!.trim()).toBe('No description provided');
+  });
+
+  it('keeps the description above the Belongs-to line, matching the other three lists’ slot', () => {
+    const paragraphs = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li p'));
+    const descriptionIndex = paragraphs.findIndex((p) => p.classList.contains('my-1'));
+    const belongsToIndex = paragraphs.findIndex((p) => p.textContent!.includes('Belongs to:'));
+
+    expect(descriptionIndex).toBeGreaterThanOrEqual(0);
+    expect(belongsToIndex).toBeGreaterThan(descriptionIndex);
   });
 
   /**
