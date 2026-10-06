@@ -16,6 +16,38 @@
       </span>
     </div>
 
+    <!--
+      Images sits directly under the title/badges, and the Minions block below moved down one
+      position to make room (design.md §4.1.1). The ordering rule is identity header (title →
+      badges → Images) → rosters of related entities → the edit form → owned sub-resources: this
+      card is about the same record the title names, while every Minions row is an entity-link to a
+      different record.
+    -->
+    <div class="mt-6">
+      @if (imagesStore.errorMessage()) {
+        <p class="text-danger" data-images-error>{{ imagesStore.errorMessage() }}</p>
+      }
+      <app-resource-images-card
+        ownerType="Monster"
+        [currentCount]="imagesStore.count()"
+        [disabled]="imagesStore.isMutating()"
+        (addImages)="openImageUpload()"
+      >
+        <app-image-carousel
+          ownerType="Monster"
+          [ownerId]="monster()!.id"
+          [ownerName]="monster()!.name"
+          [images]="imagesStore.images()"
+          [primaryImageId]="imagesStore.primaryImageId()"
+          [activeImageId]="imagesStore.activeImageId()"
+          [busy]="imagesStore.isMutating()"
+          (activeImageIdChange)="imagesStore.setActive($event)"
+          (setPrimary)="imagesStore.setPrimary($event)"
+          (deleteRequested)="requestDeleteImage($event)"
+        />
+      </app-resource-images-card>
+    </div>
+
     <div class="mt-6">
       <div class="flex items-center justify-between mb-2">
         <h3 class="m-0">Minions</h3>
@@ -234,10 +266,27 @@
     </div>
   }
 
+  <!--
+    One modal for every delete on this page, images included. `[footnote]` is new in Phase 6a and is
+    only populated by the image flow (§6's three branches); every other call site leaves it
+    undefined, so the modal keeps its own `''` default and renders no footnote.
+  -->
   <app-confirm-delete-modal
     [visible]="pendingDelete() !== null"
     [itemName]="pendingDelete()?.label ?? ''"
+    [footnote]="pendingDelete()?.footnote ?? ''"
     (confirmed)="onDeleteConfirmed()"
     (cancelled)="onDeleteCancelled()"
   ></app-confirm-delete-modal>
+
+  @if (monster()) {
+    <app-image-upload-modal
+      ownerType="Monster"
+      [ownerId]="monster()!.id"
+      [currentCount]="imagesStore.count()"
+      [visible]="isUploadingImages()"
+      (uploaded)="imagesStore.applyUpload($event)"
+      (closed)="isUploadingImages.set(false)"
+    />
+  }
 </section>

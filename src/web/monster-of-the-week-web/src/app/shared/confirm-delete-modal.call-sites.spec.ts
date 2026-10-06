@@ -125,12 +125,33 @@ class FootnoteHostComponent {
   readonly i = signal<CallSiteInputs>({ itemName: '' });
 }
 
-type HostShape = 'name-only' | 'message-only' | 'footnote';
+/**
+ * `monster-detail` since Phase 6a: a name and a footnote, and nothing else. It gained `[footnote]`
+ * for the image-delete flow's §6 branches (`docs/resource-images/design.md`), while every
+ * non-image delete on that page still passes no footnote at all and so must render exactly as the
+ * name-only shape did before.
+ *
+ * Its own host rather than reusing `FootnoteHostComponent`, per this file's rule that a host binds
+ * only what its real template binds — that host also binds `verb`, `message`, `items` and four
+ * more, none of which monster-detail passes.
+ */
+@Component({
+  imports: [ConfirmDeleteModalComponent],
+  template: `
+    <app-confirm-delete-modal [visible]="true" [itemName]="i().itemName" [footnote]="i().footnote ?? ''" />
+  `,
+})
+class NameAndFootnoteHostComponent {
+  readonly i = signal<CallSiteInputs>({ itemName: '' });
+}
+
+type HostShape = 'name-only' | 'message-only' | 'footnote' | 'name-and-footnote';
 
 const hostFor: Record<HostShape, unknown> = {
   'name-only': NameOnlyHostComponent,
   'message-only': MessageOnlyHostComponent,
   footnote: FootnoteHostComponent,
+  'name-and-footnote': NameAndFootnoteHostComponent,
 };
 
 async function render(inputs: CallSiteInputs, shape: HostShape): Promise<HTMLElement> {
@@ -200,7 +221,15 @@ const untouched: ReadonlyArray<{ site: string; shape: HostShape; inputs: CallSit
   },
   // --- pass nothing but a name, so `message`'s own default carries the sentence ---------------
   { site: 'mysteries-list.html:42', shape: 'name-only', inputs: { itemName: 'The Quiet' } },
-  { site: 'monster-detail.html:236', shape: 'name-only', inputs: { itemName: 'Grave Chill' } },
+  // monster-detail.html:274 — still here, and still byte-identical, because its `[footnote]` (new
+  // in Phase 6a) is only populated by the image-delete flow. An attack/power/armor/weakness delete
+  // passes no footnote, so `?? ''` supplies the component's own default and nothing renders.
+  // The image flow's three populated branches are asserted separately below.
+  {
+    site: 'monster-detail.html:274 (attack/power/armor/weakness — no footnote)',
+    shape: 'name-and-footnote',
+    inputs: { itemName: 'Grave Chill' },
+  },
   { site: 'minion-detail.html:206', shape: 'name-only', inputs: { itemName: 'Rusted Blade' } },
   // --- hunter-create's discard dialog: an explicit empty footnote, before and after -----------
   {
@@ -285,6 +314,60 @@ describe('ConfirmDeleteModalComponent · the shipped call sites', () => {
         expect(buttonLabels(element)).toEqual(['Cancel', inputs.verb ?? 'Delete']);
       });
     }
+  });
+
+  /**
+   * Phase 6a's addition to an existing call site: monster-detail's one modal now also serves image
+   * deletes, which are the first thing on that page to pass a footnote. The three branches come
+   * from `resourceImageDeleteFootnote` (unit-tested in `resource-image-rules.spec.ts`); what is
+   * under test here is that this call site actually *renders* them, which the name-only shape
+   * could not.
+   */
+  describe('monster-detail.html:274 — the image-delete footnote branches (Phase 6a)', () => {
+    it('renders the still-has-images branch, naming the replacement', async () => {
+      const element = await render(
+        {
+          itemName: 'swamp-thing-2.webp',
+          footnote: "This is the current primary image. After it's deleted, swamp-thing-1.webp becomes primary instead.",
+        },
+        'name-and-footnote',
+      );
+
+      expect(renderedNow(element)).toContain(
+        "p:This is the current primary image. After it's deleted, swamp-thing-1.webp becomes primary instead.",
+      );
+      expect(buttonLabels(element)).toEqual(['Cancel', 'Delete']);
+    });
+
+    it('renders the last-image branch, which must not mention "primary"', async () => {
+      const element = await render(
+        { itemName: 'only.webp', footnote: 'This is the last image. Grave Chill will have no images afterward.' },
+        'name-and-footnote',
+      );
+
+      const rendered = renderedNow(element);
+      expect(rendered).toContain('p:This is the last image. Grave Chill will have no images afterward.');
+      expect(rendered).not.toContain('primary');
+    });
+
+    it('renders no footnote for a non-primary image, same as every other delete on the page', async () => {
+      const inputs: CallSiteInputs = { itemName: 'extra.webp', footnote: '' };
+      const element = await render(inputs, 'name-and-footnote');
+
+      // The empty string renders nothing, so this is byte-identical to the pre-phase rendering —
+      // the same oracle the untouched call sites above are held to.
+      expect(renderedNow(element)).toEqual(renderedBeforeThisPhase(inputs));
+      expect(renderedNow(element).join('|')).not.toContain('primary');
+    });
+
+    it('still shows the permanence sentence exactly once alongside a footnote', async () => {
+      const element = await render(
+        { itemName: 'swamp-thing-2.webp', footnote: 'This is the last image. Grave Chill will have no images afterward.' },
+        'name-and-footnote',
+      );
+
+      expect((element.textContent ?? '').match(/This cannot be undone\./g)).toHaveLength(1);
+    });
   });
 
   describe('the two that change, and the change is the fix', () => {

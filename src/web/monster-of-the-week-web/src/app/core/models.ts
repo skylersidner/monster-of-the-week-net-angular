@@ -202,6 +202,15 @@ export interface MonsterListItemResponse {
   weaknessCount: number;
   minionCount: number;
   createdAt: string;
+  /**
+   * The derived-or-explicit primary image (docs/resource-images/design.md §3.1, phases.md Phase 4),
+   * or `null` when the monster has no images. The list row turns it into a thumbnail URL; the
+   * placeholder renders when it is null.
+   *
+   * Optional because the by-mystery projection is out of Phase 4's scope and omits it, so a row
+   * from that endpoint legitimately has no such property rather than a null one.
+   */
+  primaryImageId?: string | null;
 }
 
 export interface MonsterAttackResponse {

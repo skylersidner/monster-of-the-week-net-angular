@@ -153,28 +153,49 @@ export class ResourceImagesStore {
       });
   }
 
-  /** The carousel's `deleteRequested`. Opens the modal, with the footnote worked out now from current state. */
+  /**
+   * The §6 footnote for deleting this image, from current state. Public so a host that already owns
+   * a `pendingDelete` and a single `<app-confirm-delete-modal>` — which `monster-detail` and
+   * `minion-detail` both do — can put the footnote in its own pending state instead of adopting
+   * this store's modal signals and holding the pending image in two places.
+   *
+   * Added in Phase 6a: Phase 5 only exposed the footnote through `requestDelete`, which forced a
+   * host into `pendingDelete` even when it had its own.
+   */
+  deleteFootnoteFor(image: ResourceImageResponse): string {
+    return resourceImageDeleteFootnote(this.images(), this.primaryImageId(), image.id, this.ownerName());
+  }
+
+  /** The carousel's `deleteRequested`, for a host that wants this store to own the modal state. */
   requestDelete(image: ResourceImageResponse): void {
-    this.pendingDelete.set({
-      image,
-      footnote: resourceImageDeleteFootnote(this.images(), this.primaryImageId(), image.id, this.ownerName()),
-    });
+    this.pendingDelete.set({ image, footnote: this.deleteFootnoteFor(image) });
   }
 
   cancelDelete(): void {
     this.pendingDelete.set(null);
   }
 
+  /** Confirms the delete this store is holding. A host owning its own modal calls `deleteImage` instead. */
   confirmDelete(): void {
     const pending = this.pendingDelete();
+    this.pendingDelete.set(null);
+    if (pending) {
+      this.deleteImage(pending.image);
+    }
+  }
+
+  /**
+   * Deletes one image now, with no pending state involved — the confirmed half of the delete flow,
+   * callable directly by a host whose own modal already did the confirming (Phase 6a).
+   */
+  deleteImage(image: ResourceImageResponse): void {
     const ownerType = this.ownerType();
     const ownerId = this.ownerId();
-    this.pendingDelete.set(null);
-    if (!pending || !ownerType || !ownerId) {
+    if (!ownerType || !ownerId) {
       return;
     }
 
-    const imageId = pending.image.id;
+    const imageId = image.id;
     this.errorMessage.set(null);
     this.activeMutation.set('Deleting image...');
     this.imageService

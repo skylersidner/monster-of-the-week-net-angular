@@ -10,6 +10,10 @@ import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 import { IconComponent } from '../../../../shared/icons/icon.component';
+import { ImageCarouselComponent } from '../../../../shared/image-carousel.component';
+import { ImageUploadModalComponent } from '../../../../shared/image-upload-modal.component';
+import { ResourceImagesCardComponent } from '../../../../shared/resource-images-card.component';
+import { ResourceImagesStore } from '../../../../shared/resource-images.store';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
 import { MonsterFormComponent, MonsterFormSubmit } from '../../shared/monster-form/monster-form';
 import {
@@ -17,6 +21,7 @@ import {
   MonsterArchetypeResponse,
   MonsterDetailResponse,
   MonsterAttackResponse,
+  ResourceImageResponse,
   MysteryListItemResponse,
   TypeRefResponse,
   UpsertMonsterArmorRequest,
@@ -29,7 +34,20 @@ import {
 
 @Component({
   selector: 'app-monster-detail-component',
-  imports: [ReactiveFormsModule, RouterLink, MonsterFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent, IconComponent],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    MonsterFormComponent,
+    WeaponTagSelectComponent,
+    ConfirmDeleteModalComponent,
+    IconComponent,
+    ResourceImagesCardComponent,
+    ImageCarouselComponent,
+    ImageUploadModalComponent,
+  ],
+  // Component-scoped, so the section's state is torn down with the page (the MysteryCreateStore
+  // precedent). Not `providedIn: 'root'` — a second monster's images must not inherit the first's.
+  providers: [ResourceImagesStore],
   templateUrl: './monster-detail.html',
 })
 export class MonsterDetailComponent implements OnInit {
@@ -46,9 +64,18 @@ export class MonsterDetailComponent implements OnInit {
   readonly isLoading = signal(true);
   readonly activeMutation = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
-  readonly pendingDelete = signal<{ label: string; perform: () => void } | null>(null);
+  /**
+   * `footnote` is new in Phase 6a and only ever set by the image delete flow (§6) — every other
+   * call site leaves it undefined, so the modal keeps its `''` default and renders no footnote,
+   * exactly as before.
+   */
+  readonly pendingDelete = signal<{ label: string; footnote?: string; perform: () => void } | null>(null);
   readonly mysteryId = signal<string | null>(null);
   readonly isMutating = computed(() => this.activeMutation() !== null);
+
+  /** The Images section's state (design.md §4.1). Provided on this component, so it dies with the page. */
+  readonly imagesStore = inject(ResourceImagesStore);
+  readonly isUploadingImages = signal(false);
 
   readonly backLink = computed(() =>
     this.mysteryId() ? ['/mysteries', this.mysteryId()] : ['/monsters']
@@ -128,6 +155,9 @@ export class MonsterDetailComponent implements OnInit {
       )
       .subscribe({
         next: ({ monster, monsterTypes, monsterArchetypes, weaponTags, minions, mysteries }) => {
+          // Deliberately outside the forkJoin above: the images section loads independently and
+          // renders its own inline error, so a failing image list must not fail the whole page.
+          this.imagesStore.load('Monster', monster.id, monster.name);
           this.monster.set(monster);
           this.mysteries.set(mysteries);
           this.monsterTypes.set(monsterTypes);
@@ -189,6 +219,9 @@ export class MonsterDetailComponent implements OnInit {
       .subscribe({
         next: ({ monster, membershipFailed }) => {
           this.monster.set(monster);
+          // The only write on this page that can rename the monster, and the §6 last-image footnote
+          // quotes that name ("{name} will have no images afterward").
+          this.imagesStore.setOwnerName(monster.name);
           this.activeMutation.set(null);
           this.errorMessage.set(null);
 
@@ -404,6 +437,32 @@ export class MonsterDetailComponent implements OnInit {
 
   weaponTagNames(attack: MonsterAttackResponse): string {
     return attack.weaponTags.map((tag) => tag.name).join(', ');
+  }
+
+  // --- Images (design.md §4.1, §4.1.1, §6) ---
+  //
+  // Every image write fires its own request through `imagesStore` and updates the section's own
+  // state, independent of `saveMonster()` — the same decoupling Attacks/Powers/Armors/Weaknesses
+  // already have on this page. A user never saves to keep an image change, and an image failure
+  // stays inside the section rather than touching `errorMessage`, which would unmount the page.
+
+  /** Opens the upload modal. The 10/10 block lives on the card's button, so this is only reachable below the cap. */
+  openImageUpload(): void {
+    this.isUploadingImages.set(true);
+  }
+
+  /**
+   * The carousel's `deleteRequested`. Routed through **this page's** single
+   * `<app-confirm-delete-modal>` rather than the store's own pending signals, so the page keeps one
+   * modal and one pending-delete concept instead of two that can disagree. The store still computes
+   * the footnote, since it owns the image list and the primary id.
+   */
+  requestDeleteImage(image: ResourceImageResponse): void {
+    this.pendingDelete.set({
+      label: image.fileName,
+      footnote: this.imagesStore.deleteFootnoteFor(image),
+      perform: () => this.imagesStore.deleteImage(image),
+    });
   }
 
   onDeleteConfirmed(): void {
