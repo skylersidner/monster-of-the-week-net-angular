@@ -138,6 +138,52 @@ describe('MonstersListComponent — row thumbnails (Phase 6a)', () => {
     }
   });
 
+  /**
+   * Stacking and truncation are breakpoint behaviour, so these assert the classes that produce it
+   * rather than computed geometry — jsdom resolves no media queries. The rendered geometry at each
+   * breakpoint is measured on the dev server instead.
+   */
+  describe('narrow-viewport layout', () => {
+    it('stacks the row below sm, with the image centred and the text full width', async () => {
+      await create();
+
+      for (const row of rows()) {
+        // Column by default, row from `sm` (540px) up; `items-center` centres the thumbnail.
+        expect(row.classList).toContain('flex-col');
+        expect(row.classList).toContain('sm:flex-row');
+        expect(row.classList).toContain('items-center');
+      }
+
+      // The content block spans the row when stacked, instead of shrinking to its content width.
+      const content = rows()[0].querySelector('.flex-1')!;
+      expect(content.classList).toContain('w-full');
+      expect(content.classList).toContain('sm:w-auto');
+    });
+
+    it('keeps the delete action at the trailing edge when stacked', async () => {
+      await create();
+
+      const actions = rows()[0].querySelector('button')!.parentElement!;
+      expect(actions.classList).toContain('self-end');
+      expect(actions.classList).toContain('sm:self-auto');
+    });
+
+    it('clamps the description to two lines below lg, and releases it from desktop up', async () => {
+      await create();
+
+      const description = Array.from(rows()[0].querySelectorAll('p')).find((p) =>
+        p.textContent!.includes('Tall and quiet.'),
+      )!;
+      expect(description.classList).toContain('line-clamp-2');
+      expect(description.classList).toContain('lg:line-clamp-none');
+      // `line-clamp-*` supplies its own `display`, so a co-occurring display utility would
+      // silently defeat it.
+      for (const conflicting of ['block', 'inline', 'inline-block', 'truncate']) {
+        expect(description.classList).not.toContain(conflicting);
+      }
+    });
+  });
+
   it('issues no extra request per row — the ids come from the list response', async () => {
     let getAllCalls = 0;
     await TestBed.configureTestingModule({

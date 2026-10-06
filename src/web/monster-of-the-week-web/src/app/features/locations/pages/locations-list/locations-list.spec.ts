@@ -75,6 +75,39 @@ describe('LocationsListComponent', () => {
       Array.from(list.querySelectorAll('li')).map((item) => item.textContent?.trim() ?? ''),
     );
 
+  /**
+   * The shared narrow-viewport row treatment (docs/resource-images/design.md §4.2). Asserted as
+   * classes, not geometry: jsdom resolves no media queries, so the rendered breakpoint behaviour is
+   * measured on the dev server instead.
+   */
+  describe("narrow-viewport row treatment", () => {
+    it("lets each row shrink below its content width", () => {
+      // The `<ul>` is a grid, so without `min-w-0` here the row claims its min-content width and
+      // overflows its track, pushing the delete action off-screen on a phone.
+      const rows = Array.from(element().querySelectorAll("li"));
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.classList).toContain("min-w-0");
+      }
+    });
+
+    it("clamps the description to two lines below lg and releases it from desktop up", () => {
+      // Selected structurally, not by its text: the description is the row's `my-1` paragraph.
+      const descriptions = Array.from(element().querySelectorAll('li p')).filter((p) =>
+        p.classList.contains('my-1'),
+      );
+      expect(descriptions.length).toBeGreaterThan(0);
+      for (const description of descriptions) {
+        expect(description.classList).toContain("line-clamp-2");
+        expect(description.classList).toContain("lg:line-clamp-none");
+        // `line-clamp-*` carries its own display; a co-occurring display utility kills it.
+        for (const conflicting of ["block", "truncate"]) {
+          expect(description.classList).not.toContain(conflicting);
+        }
+      }
+    });
+  });
+
   beforeEach(async () => {
     getMysteries = () => of(mysteries);
     await create();

@@ -61,6 +61,29 @@ describe('MinionsListComponent', () => {
     expect(component.minions()[0].name).toBe('Grunt');
   });
 
+  /**
+   * The `<ul>` is a grid, so without `min-w-0` on the `<li>` the row claims its min-content width
+   * and overflows its track, pushing the delete action off-screen on a phone. Shared across all
+   * four list pages.
+   *
+   * This page gets no description clamp, because it renders no description — its second line is
+   * "Belongs to: {monster}", which is a single short link, not free text.
+   */
+  it('lets each row shrink below its content width', () => {
+    const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li'));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.classList).toContain('min-w-0');
+    }
+  });
+
+  it('has no description paragraph to clamp', () => {
+    const paragraphs = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li p'));
+    for (const paragraph of paragraphs) {
+      expect(paragraph.textContent).toContain('Belongs to:');
+    }
+  });
+
   it('shows the parent monster name', () => {
     expect(component.minions()[0].monsterName).toBe('The Beast');
   });

@@ -13,7 +13,14 @@
   } @else {
     <ul class="grid gap-4 list-none p-0">
       @for (minion of minions(); track minion.id) {
-        <li class="flex items-center bg-surface border border-default rounded-lg gap-4 justify-between p-4">
+        <!--
+          `min-w-0` on the `<li>` itself: this is a grid item (the `<ul>` is `grid`), and grid items
+          default to `min-width: auto`, so without it the row claims its content's min-content width
+          and overflows its track on a narrow viewport, scrolling `main` sideways and pushing the
+          delete button off-screen. The `min-w-0` on the inner `flex-1` div does not substitute — it
+          shrinks the text, but the row has already claimed its width a level up.
+        -->
+        <li class="flex items-center min-w-0 bg-surface border border-default rounded-lg gap-4 justify-between p-4">
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-baseline gap-2 mb-1">
               <a class="entity-link font-semibold" [routerLink]="['/minions', minion.id]">{{ minion.name }}</a>
