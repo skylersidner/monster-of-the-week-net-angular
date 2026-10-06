@@ -134,6 +134,22 @@ One new card section, matching the existing `<article class="bg-surface border b
 
 **Confirmed by Skyler:** this placement and its reasoning are agreed — the image is meant to work as an immediate visual identifier for instant recognition when scanning lists, and as part of the creative process during create/edit, both of which line up with treating it as identity-level rather than a stats sub-section.
 
+#### 4.1.1 Ordering against existing sections — the Minions-block collision, ruled
+
+`monster-detail.html` is the only one of the four detail pages with anything already occupying the title-to-form range: a **Minions** block (`mt-6`, its own header row with a "+ Add Minion" CTA, then a roster of minion rows). Verified against the current file, plus all three siblings: `minion-detail`, `location-detail` and `bystander-detail` go straight from title/badges to their shared form, with Custom Moves *below* the form on the latter two. So this is one collision on one page, not a general contest.
+
+**Ruling: Images goes first, directly under the title/badges. The Minions block moves down one position, to sit between the Images card and the form.**
+
+**The principle, stated so it generalizes rather than reading as "Images wins because it's new":** sections above the form are ordered by *what they are about*. The Images card is about **this** record — it is the same object the title and the badges name, and together those three form one continuous identity header (name → type badges → picture). The Minions block is about **other** records: every row is an `entity-link` to a different page that has its own title, badges, images and form, and its own CTA navigates away to a create page. A roster of links to elsewhere interrupting the name-and-picture cluster is the thing to avoid, so:
+
+> **Identity header (title → badges → Images) → rosters of related entities → the edit form → owned sub-resources.**
+
+That ordering already describes every shipped detail page; monster-detail is simply the one place where the new card lands inside it rather than at the end of it.
+
+**On the counter-argument, which is real:** a monster's minions are thematically part of the threat it represents, so "identity-adjacent" isn't wrong. The test that settles it is whether the block renders an *attribute of this record* or *navigation to other records*. If minions appeared as a count or a sentence (the way `monsters-list` renders "Minions: 3"), they'd belong in the identity cluster; as a navigable roster with a link per row, they don't. Worth noting the cost honestly: this does move an existing page's established block, which is a change rather than a pure addition — but it moves by exactly one section, keeps its position relative to the form and the sub-resource grid, and the Images card above it is short (one header row plus one carousel), so nothing is pushed out of easy reach.
+
+**What Luigi applies four times:** the rule is *not* "Images is unconditionally the first section, pushing everything down" — it's the ordering above. In practice the two coincide today: for Monster the displacement clause fires once (Minions moves down), and for Minion, Location and Bystander there is nothing in range, so Images lands directly under title/badges exactly as §4.1 already said. The distinction matters only if a domain later grows a section that genuinely *is* about the record itself (a stat summary, say) — that would belong in the identity cluster and would need ordering against Images on its own merits, which "Images is always first" would have silently pre-decided wrongly.
+
 **The card itself is not a drop target. The only entry point is a labelled "+ Add Images" button in the section header, which opens the upload modal (§4.4).** Decided by Skyler: *"Drag and drop is modal only."* The button takes the same position and visual weight as `monster-detail.html`'s existing "+ Add Minion" button (`bg-accent hover:bg-accent-hover rounded-lg text-on-accent ... px-5`, `flex items-center justify-between` header row). It is `disabled` with an inline note when the resource is already at 10/10 (§7.5).
 
 **This still satisfies the original drag-and-drop-*or*-file-picker requirement** — both paths exist, both live in the modal, and the cost is one click before dragging. What it buys is a single validation surface and a single submission path: with the card no longer accepting drops, there is exactly one place where files enter the browser and exactly one place where per-file errors render, rather than two code paths that have to agree.
