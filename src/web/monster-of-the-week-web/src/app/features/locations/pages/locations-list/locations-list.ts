@@ -4,10 +4,12 @@ import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { LocationService } from '../../../../core/location';
+import { resourceImageThumbnailUrl } from '../../../../core/resource-images';
 import { LocationListItemResponse, MysteryListItemResponse } from '../../../../core/models';
 import { MysteryService } from '../../../../core/mystery';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 import { IconComponent } from '../../../../shared/icons/icon.component';
+import { ResourceThumbnailComponent } from '../../../../shared/resource-thumbnail.component';
 import {
   mysteryUsageFootnote,
   mysteryUsageMessage,
@@ -25,7 +27,7 @@ interface PendingLocationDelete {
 
 @Component({
   selector: 'app-locations-list',
-  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent, ResourceThumbnailComponent],
   templateUrl: './locations-list.html',
 })
 export class LocationsListComponent implements OnInit {
@@ -86,6 +88,17 @@ export class LocationsListComponent implements OnInit {
    * Bullets render only when *every* id resolved, so the number in the sentence and the length of
    * the list can never disagree.
    */
+  /**
+   * The row's thumbnail URL, or `null` when the location has no images — which is what makes
+   * `app-resource-thumbnail` render the domain placeholder (design.md §4.2, §5.5).
+   *
+   * `primaryImageId` rides along on the list response (Phase 4), so this costs no extra request per
+   * row; `loading="lazy"` keeps the fetches proportional to the rows on screen.
+   */
+  thumbnailUrl(location: LocationListItemResponse): string | null {
+    return resourceImageThumbnailUrl('Location', location.id, location.primaryImageId);
+  }
+
   requestDelete(location: LocationListItemResponse): void {
     const count = location.mysteryIds.length;
     const names = resolveMysteryNames(location.mysteryIds, this.mysteries());

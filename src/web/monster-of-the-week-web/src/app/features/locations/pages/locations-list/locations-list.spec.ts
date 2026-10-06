@@ -80,6 +80,58 @@ describe('LocationsListComponent', () => {
    * classes, not geometry: jsdom resolves no media queries, so the rendered breakpoint behaviour is
    * measured on the dev server instead.
    */
+  describe("row thumbnail (Phase 6d)", () => {
+    const thumbnails = (): HTMLElement[] =>
+      Array.from(element().querySelectorAll<HTMLElement>("app-resource-thumbnail"));
+
+    it("renders one thumbnail per row, as the row's first child", () => {
+      const rows = Array.from(element().querySelectorAll("li"));
+      expect(thumbnails().length).toBe(rows.length);
+      for (const row of rows) {
+        expect(row.firstElementChild!.tagName).toBe("APP-RESOURCE-THUMBNAIL");
+      }
+    });
+
+    it("renders the Location placeholder when there is no image", () => {
+      const placeholder = thumbnails()[0].querySelector("[data-placeholder]")!;
+      expect(thumbnails()[0].querySelector("img")).toBeNull();
+      expect(placeholder.className).toContain("bg-badge-location/40");
+      expect(placeholder.querySelector("use")!.getAttribute("href")).toBe("#icon-nav-locations");
+    });
+
+    it("inherits the 128px box from the component", () => {
+      for (const expected of ["h-32", "w-32", "shrink-0", "rounded-lg", "border-default"]) {
+        expect(thumbnails()[0].classList).toContain(expected);
+      }
+    });
+
+    it("points at the thumbnail endpoint, never the original", () => {
+      expect(component.thumbnailUrl({ id: "l9", primaryImageId: "img-4" } as never)).toBe(
+        "/api/locations/l9/images/img-4/thumbnail",
+      );
+      expect(component.thumbnailUrl({ id: "l9", primaryImageId: null } as never)).toBeNull();
+      // The by-mystery projection omits the field; that must read as "no image", not a crash.
+      expect(component.thumbnailUrl({ id: "l9" } as never)).toBeNull();
+    });
+
+    it("stacks the row below sm, image centred and text full width", () => {
+      for (const row of Array.from(element().querySelectorAll("li"))) {
+        expect(row.classList).toContain("flex-col");
+        expect(row.classList).toContain("sm:flex-row");
+        expect(row.classList).toContain("items-center");
+      }
+      const content = element().querySelector("li .flex-1")!;
+      expect(content.classList).toContain("w-full");
+      expect(content.classList).toContain("sm:w-auto");
+    });
+
+    it("keeps the delete action at the trailing edge when stacked", () => {
+      const actions = element().querySelector("li button")!.parentElement!;
+      expect(actions.classList).toContain("self-end");
+      expect(actions.classList).toContain("sm:self-auto");
+    });
+  });
+
   describe("narrow-viewport row treatment", () => {
     it("lets each row shrink below its content width", () => {
       // The `<ul>` is a grid, so without `min-w-0` here the row claims its min-content width and
