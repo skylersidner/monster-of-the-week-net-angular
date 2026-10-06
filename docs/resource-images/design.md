@@ -228,6 +228,21 @@ A horizontal flex track, one slide fully visible and centered, with the previous
 
 **At the ends of the list, a peek slot is simply empty rather than wrapping** (no wraparound — §5.4): at the first image there is no previous peek, at the last image there is no next peek. The track just ends; nothing fills the missing slot.
 
+#### 5.1.1 Vertical size: capped by width, not height
+
+**The carousel region is capped at `max-w-xl` (576px) and centred.** Requested by Skyler after reviewing Phase 6a on the dev server — *"I would like the carousel to take up about half of the vertical space it currently does… The mobile scaling looks perfect as is. This should be the same across all of the image carousel domains."*
+
+**The rule, in one line (Luigi's):** a slide is `basis-1/2` of the region inside an `aspect-square` frame, so its height is derived as roughly half the region's width — which makes a width cap the way to control height, and makes a breakpoint unnecessary, since a max-width is inert below its own threshold.
+
+The non-obvious parts, recorded so they don't get "fixed" later:
+
+- **The height is derived, never set.** Nothing in the carousel declares a height; it falls out of `basis-1/2` × `aspect-square`. Halving the width cap is therefore what halves the height.
+- **A `vh`-based cap would have been actively wrong, not merely different.** Measurement showed 1440×2560 and 1440×900 rendering identically (651px) — viewport *height* never enters the formula at all. `max-h-[50vh]` would compute to 1280px on Skyler's tall screen (no constraint whatsoever) and 450px at 1080p (a hard clamp), i.e. backwards in both directions.
+- **A max-height would also letterbox the images**, cropping the square 1024×1024 source through `object-cover` — the one thing a square-source carousel shouldn't do.
+- **The cap belongs on the outer carousel region, not the inner scroll viewport**, because the star/trash overlay (§5.3) and the chevrons (§5.4) are absolutely positioned against the outer element; capping the inner one would decouple the controls from the frame they're meant to sit on.
+- **Measured result:** a flat 304px from 1024px viewport width upward (down from 651px at 1440 and 891px at 1920); phones byte-identical; the 768px tablet case moves by 11px. That's 47% rather than exactly 50% because `max-w-xl` is a named Tailwind scale step and the next step up lands at 54% — the named step is worth more than hitting the number precisely.
+- **All four domains inherit this**, since it lives on the shared `app-image-carousel`. That's what Skyler asked for ("the same across all of the image carousel domains"), and 6b–6d get it without any per-page work.
+
 **Every `<img>` in the carousel (active and both peeks) is rendered with `draggable="false"`.** The original reason for this — that a mouse drag on an image would fight the card's own file-drop detection — no longer applies, since drag-and-drop is modal-only and the card accepts no drops (§4.1). It's kept as a small nicety (dragging a carousel image does nothing useful, so suppressing the native drag ghost is tidier) rather than as a requirement.
 
 **Motion:** advancing between slides (chevron press or keyboard) animates as a slide transition. Under `prefers-reduced-motion: reduce`, that transition is disabled — the slide change becomes instant rather than animated. The static peek treatment itself (the `scale-90 opacity-40` de-emphasis on neighboring slides, above) is unaffected either way, since it's a steady-state visual treatment, not an animation. This is my default per the app's existing reduced-motion precedent (`.entity-link`/`.back-link` in `styles.css` disable their own transitions the same way); Skyler hasn't objected when it was explained in chat, but it's noted here as a default pending final confirmation, not a verbatim instruction.
