@@ -4,8 +4,27 @@
   note, WCAG 2.4.11). No outline-none here either: in Tailwind v4 that sets the outline style to
   none, and the focus-visible outline would then never paint.
 -->
+<!--
+  Sizing: `max-w-xl` is what keeps the carousel from eating the page on a desktop screen, and it is
+  a *width* cap on purpose.
+
+  The height here is derived, not set: a slide is `basis-1/2` of this region and its frame is
+  `aspect-square`, so height ≈ half this region's width. Capping the width therefore halves the
+  height while keeping every other property intact — the peek offsets are percentages of this same
+  region, so the centring maths is untouched, and the 1024×1024 source images stay square rather
+  than being cropped to a letterbox by a bare height cap.
+
+  **Not a `vh` cap, deliberately.** Measured on the dev server, a 1440×2560 screen and a 1440×900
+  screen render this carousel identically (651px), because only the width differs in the formula
+  above. `max-h-[50vh]` would read those two as 1280px and 450px — no constraint at all on the tall
+  screen and a hard clamp on the short one, which is backwards.
+
+  **No breakpoint needed.** A max-width only binds when the available width exceeds it, so this is
+  inert on phones (a 390px-wide viewport gives a ~332px region) and leaves small-screen rendering
+  byte-identical. One rule, no `md:` variant to keep in sync.
+-->
 <div
-  class="relative rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+  class="relative mx-auto max-w-xl rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
   role="group"
   aria-roledescription="carousel"
   aria-label="Image carousel"
