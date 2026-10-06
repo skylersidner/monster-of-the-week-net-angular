@@ -107,12 +107,34 @@ describe('MonstersListComponent — row thumbnails (Phase 6a)', () => {
     expect(thumbnails()[2].querySelector('[data-placeholder]')).not.toBeNull();
   });
 
-  it('sizes the thumbnail per §4.2 and keeps it from shrinking', async () => {
+  it('gets its 128px box from the component, not from classes on this row', async () => {
     await create();
 
-    const classes = thumbnails()[0].className;
-    for (const expected of ['h-16', 'w-16', 'shrink-0', 'rounded-lg']) {
-      expect(classes).toContain(expected);
+    // The size lives in `app-resource-thumbnail`'s `size="row"` default, so all four domains'
+    // lists share one number instead of four call sites agreeing on it.
+    for (const expected of ['h-32', 'w-32', 'shrink-0', 'rounded-lg', 'border-default']) {
+      expect(thumbnails()[0].classList).toContain(expected);
+    }
+  });
+
+  it('scales the placeholder icon with the larger box', async () => {
+    await create();
+
+    expect(thumbnails()[1].querySelector('[data-placeholder] svg')!.getAttribute('class')).toBe('h-12 w-12');
+  });
+
+  /**
+   * The row is a grid item (`<ul class="grid">`), and grid items default to `min-width: auto`, so
+   * without `min-w-0` on the `<li>` itself the row claims its content's min-content width and
+   * overflows its track. Measured at 390px wide: 488px row in a 358px track, which scrolled `main`
+   * horizontally and pushed the delete button off-screen. `min-w-0` on the inner `flex-1` div does
+   * not substitute — it shrinks the text, but the row has already claimed its width a level up.
+   */
+  it('lets the row shrink below its content width, so a narrow viewport cannot push the actions off-screen', async () => {
+    await create();
+
+    for (const row of rows()) {
+      expect(row.classList).toContain('min-w-0');
     }
   });
 

@@ -13,14 +13,27 @@
   } @else {
     <ul class="grid gap-4 list-none p-0">
       @for (monster of monsters(); track monster.id) {
-        <li class="flex items-center bg-surface border border-default rounded-lg gap-4 justify-between p-4">
+        <!--
+          `min-w-0` on the `<li>` itself, not just on the content block inside it. This is a grid
+          item (the `<ul>` is `grid`), and grid items default to `min-width: auto` — content-based —
+          so the row refuses to shrink below the sum of its children and overflows its track. The
+          `min-w-0` on the inner `flex-1` div cannot fix that: it lets the *text* shrink, but the
+          row has already claimed its min-content width one level up.
+          Measured at 390px wide before this class: the row was 488px inside a 358px track, which
+          made `main` scroll horizontally and put the delete button off-screen at x=487. The row
+          already overflowed at the old 64px thumbnail (424px); the larger thumbnail only widened
+          the gap. Same trap, same fix as the wizard roster list (Luigi, 2026-09-26).
+        -->
+        <li class="flex items-center min-w-0 bg-surface border border-default rounded-lg gap-4 justify-between p-4">
           <!--
             First flex child, ahead of the content block, with the row's existing `gap-4` providing
             the spacing (design.md §4.2). Always the thumbnail endpoint, never the original; a null
             `primaryImageId` yields a null URL, which is the placeholder's trigger.
+
+            No size classes here: the component's default `size="row"` carries the 128px box, so
+            every domain's list gets the same number without four call sites agreeing on it.
           -->
           <app-resource-thumbnail
-            class="h-16 w-16 shrink-0 rounded-lg border border-default"
             ownerType="Monster"
             [thumbnailUrl]="thumbnailUrl(monster)"
             [alt]="monster.name"

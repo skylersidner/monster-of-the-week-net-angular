@@ -35,7 +35,22 @@ const PLACEHOLDER_CLASSES: Readonly<Record<ResourceOwnerType, string>> = {
   selector: 'app-resource-thumbnail',
   standalone: true,
   imports: [DomainIconComponent],
-  host: { class: 'block overflow-hidden' },
+  host: {
+    class: 'block overflow-hidden',
+    // `'row'` carries its own box, so the four list pages don't each repeat the number and risk
+    // disagreeing (6b–6d inherit it by rendering the component at all). `'fill'` adds nothing,
+    // because the carousel positions the host itself with `absolute inset-0`.
+    //
+    // Written as per-class bindings rather than one `[class]` expression so these merge with the
+    // call site's own classes instead of competing with them — two sources both emitting `h-*`
+    // would be resolved by cascade order in the compiled stylesheet, not by what the template says.
+    '[class.h-32]': "size === 'row'",
+    '[class.w-32]': "size === 'row'",
+    '[class.shrink-0]': "size === 'row'",
+    '[class.rounded-lg]': "size === 'row'",
+    '[class.border]': "size === 'row'",
+    '[class.border-default]': "size === 'row'",
+  },
   template: `
     @if (showImage()) {
       <img
@@ -79,7 +94,21 @@ export class ResourceThumbnailComponent {
   /** `lazy` for list rows, so fetches track the rows on screen (workflow §1.5). */
   @Input() loading: 'lazy' | 'eager' = 'lazy';
 
-  @Input() iconSize: DomainIconSize = 'md';
+  /**
+   * `'row'` — a list row's fixed 128px square, the box included (design.md §4.2). `'fill'` — fills
+   * whatever box the caller positions, which is what the carousel's slides need.
+   *
+   * Defaults to `'row'` so a list page needs no size classes at all; the carousel is the one place
+   * that opts out.
+   */
+  @Input() size: 'row' | 'fill' = 'row';
+
+  /**
+   * `'xl'` (48px) suits both sizes: it is ~37% of the 128px row box, and the carousel slide is
+   * larger still. `DomainIconComponent` fixes its own svg size internally, so this input is the
+   * only way to scale the placeholder's icon with its box.
+   */
+  @Input() iconSize: DomainIconSize = 'xl';
 
   private readonly urlSignal = signal<string | null>(null);
   private readonly failedUrl = signal<string | null>(null);

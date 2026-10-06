@@ -67,7 +67,7 @@
                   [thumbnailUrl]="thumbnailUrl(image)"
                   [alt]="fileFailed(image) ? altFor(i) : ''"
                   loading="eager"
-                  iconSize="xl"
+                  size="fill"
                 />
                 @if (!fileFailed(image)) {
                   <img
@@ -87,7 +87,7 @@
                   [ownerType]="ownerType"
                   [thumbnailUrl]="thumbnailUrl(image)"
                   alt=""
-                  iconSize="xl"
+                  size="fill"
                 />
               }
             }
