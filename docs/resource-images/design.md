@@ -160,7 +160,32 @@ The carousel's `<img>` elements (§5.1) keep `draggable="false"`, but the origin
 
 ### 4.2 List pages
 
-Thumbnail on the **left** of each row's content, before the name/badges block — the convention named in the brief and the one already implied by how these rows lay out today (`flex items-center ... gap-4`, content in a `flex-1 min-w-0` block). A `h-16 w-16 shrink-0 rounded-lg object-cover border border-default` image pointed at the **thumbnail** endpoint (§2.1/§3) — never the original — or the placeholder (§5.5), slots in as a new first flex child ahead of the existing `<div class="flex-1 min-w-0">`, with `gap-4` already providing the spacing. Small, additive change to `monsters-list.html`/`minions-list.html`/`locations-list.html`/`bystanders-list.html`, not a restructure.
+Thumbnail on the **left** of each row's content on desktop, before the name/badges block — the convention named in the brief and the one already implied by how these rows lay out today (`flex items-center ... gap-4`, content in a `flex-1 min-w-0` block). It points at the **thumbnail** endpoint (§2.1/§3) — never the original — or the placeholder (§5.5), and slots in as a new first flex child ahead of the existing `<div class="flex-1 min-w-0">`, with `gap-4` already providing the spacing. Small, additive change to `monsters-list.html`/`minions-list.html`/`locations-list.html`/`bystanders-list.html`, not a restructure.
+
+#### 4.2.1 Thumbnail size: 128px, and it lives in the component
+
+**The list-row thumbnail is a 128px square**, doubled from its original 64px at Skyler's request (*"can we double the visual size of the thumbnail on the list page?"*). Implemented as the shared component's own default — `size="row"`, which also carries the box and the border — so **all four domains inherit it by rendering the component; there is no per-call-site number to keep in sync.** The carousel opts out with `size="fill"`. The placeholder's domain icon scales with it, to `xl`/48px.
+
+**128px is the ceiling, not a preference.** The stored thumbnail is 256×256 (§2.1), so a 128px box is pixel-exact at 2× DPR and anything larger would upscale. If a bigger row thumbnail is ever wanted, the stored thumbnail dimension has to move first.
+
+#### 4.2.2 Mobile: stack the row, and clamp the description
+
+Skyler's follow-up after seeing 128px rows on a phone: *"Let's stack the image above and centered, leaving the 128px resolution for now… the amount of copy displayed on the screen for the description of the resource on mobile sizes can easily become too much. I would like to apply the elipsis trimming measure we used elsewhere here for mobile screens… And while this should definitely happen for the smallest snap point, even the tablet sizing still seems a bit verbose, so we should probably apply this to tablets as well."*
+
+**Two independent thresholds, and they are deliberately not the same number:**
+
+- **Rows stack below `sm` (540px):** thumbnail above and centred, text full width, delete action at the trailing edge. 540px is the last width at which a horizontal row still leaves the text a workable column (282px); below it the column collapses — 132px at a 390px phone, 102px at 360px — which is what made stacking necessary rather than cosmetic.
+- **Descriptions clamp to two lines below `lg` (1024px):** full text from desktop up. **Releasing at `lg` rather than `md` is the point, not an accident** — a `md` release would have left tablet verbose, which is precisely what Skyler flagged.
+
+**Watch the breakpoint numbers: this project overrides Tailwind's defaults.** `sm` is **540px** (not 640) and `xl` is **1200px** (not 1280), per the `@theme static` block in `styles.css`; `md` (768) and `lg` (1024) are standard. Anyone reasoning about these rules from Tailwind's documented defaults will be wrong about `sm` by 100px.
+
+**The clamp is by lines, not words — which answers Skyler's open question rather than picking a number.** He asked how many words to show and left it to Luigi; the better answer is that `line-clamp-2` clamps by *rendered* lines, so the cutoff tracks the actual column width at every breakpoint instead of a word count that would be too long at 360px and too short at 768px. It also isn't new vocabulary: `line-clamp-2` is already used in `hunter-sheet-preview.html` and the wizard's rosters, so this is reuse, and two lines matches every existing use in the app. It lands around 90–110 characters at these widths — and notably, two lines is also roughly what a long description already occupies on a wide desktop row, so the clamped shape matches what desktop users already see rather than inventing a second visual language for small screens.
+
+**Scope correction worth stating so it doesn't read as an oversight: the clamp applies to three of the four lists.** `minions-list` renders no description at all — its second line is "Belongs to: {monster}", a short link — so there is nothing there to clamp. Luigi added a spec asserting that absence deliberately.
+
+**A pre-existing layout bug was fixed in the same pass**, and it's worth recording because it looked like a thumbnail regression and wasn't: the list `<ul>` is a grid, grid items default to `min-width: auto`, so rows claimed their min-content width and overflowed their track — a 488px row in a 358px track on a 390px phone, which scrolled the page horizontally and pushed the delete button off-screen. `min-w-0` on the `<li>` fixes it, applied to all four list templates with a regression test. Verified by stash that it predates this feature's work entirely.
+
+**Measured outcome:** at 390px a long-description row goes 726px → 414px (text column 132 → 324px, description 19 rendered lines → 2); at 768px tablet, 289 → 193px; desktop unchanged at both 1024 and 1440. Residual horizontal overflow is gone.
 
 ### 4.3 Where validation errors surface — two surfaces, split by when they're knowable
 
