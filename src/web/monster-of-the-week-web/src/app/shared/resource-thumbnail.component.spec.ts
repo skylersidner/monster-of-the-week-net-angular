@@ -18,7 +18,7 @@ import { ResourceThumbnailComponent } from './resource-thumbnail.component';
 class HostComponent {
   readonly ownerType = signal<ResourceOwnerType>('Monster');
   readonly url = signal<string | null>(null);
-  readonly size = signal<'row' | 'fill'>('row');
+  readonly size = signal<'row' | 'compact' | 'fill'>('row');
 }
 
 describe('ResourceThumbnailComponent', () => {
@@ -49,6 +49,19 @@ describe('ResourceThumbnailComponent', () => {
     for (const expected of ['h-32', 'w-32', 'shrink-0', 'rounded-lg', 'border', 'border-default']) {
       expect(host.classList).toContain(expected);
     }
+  });
+
+  it('size="compact" carries a 64px box for a short row', () => {
+    fixture.componentInstance.size.set('compact');
+    fixture.detectChanges();
+
+    const host = element().querySelector('app-resource-thumbnail')!;
+    for (const expected of ['h-16', 'w-16', 'shrink-0', 'rounded-lg', 'border-default']) {
+      expect(host.classList).toContain(expected);
+    }
+    // Not the 128px row size — the two must not both apply.
+    expect(host.classList).not.toContain('h-32');
+    expect(host.classList).not.toContain('w-32');
   });
 
   it('size="fill" drops the box, leaving the caller to position it', () => {

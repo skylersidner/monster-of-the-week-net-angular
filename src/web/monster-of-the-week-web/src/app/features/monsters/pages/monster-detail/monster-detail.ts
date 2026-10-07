@@ -6,6 +6,7 @@ import { catchError, forkJoin, map, Observable, of, startWith, switchMap } from 
 import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
 import { MysteryService } from '../../../../core/mystery';
+import { resourceImageThumbnailUrl } from '../../../../core/resource-images';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
@@ -14,6 +15,7 @@ import { ImageCarouselComponent } from '../../../../shared/image-carousel.compon
 import { ImageUploadModalComponent } from '../../../../shared/image-upload-modal.component';
 import { ResourceImagesCardComponent } from '../../../../shared/resource-images-card.component';
 import { ResourceImagesStore } from '../../../../shared/resource-images.store';
+import { ResourceThumbnailComponent } from '../../../../shared/resource-thumbnail.component';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
 import { MonsterFormComponent, MonsterFormSubmit } from '../../shared/monster-form/monster-form';
 import {
@@ -44,6 +46,7 @@ import {
     ResourceImagesCardComponent,
     ImageCarouselComponent,
     ImageUploadModalComponent,
+    ResourceThumbnailComponent,
   ],
   // Component-scoped, so the section's state is torn down with the page (the MysteryCreateStore
   // precedent). Not `providedIn: 'root'` — a second monster's images must not inherit the first's.
@@ -437,6 +440,19 @@ export class MonsterDetailComponent implements OnInit {
 
   weaponTagNames(attack: MonsterAttackResponse): string {
     return attack.weaponTags.map((tag) => tag.name).join(', ');
+  }
+
+  /**
+   * The nested Minions block's row thumbnail (scope reversed 2026-10-07). Points at the **Minion**
+   * endpoint, not this Monster's — each row is a different owner — and returns `null` when that
+   * minion has no images, which is what makes the placeholder render.
+   *
+   * `primaryImageId` rides along on `GET /api/monsters/{id}/minions` as of Bowser's `5c697a6`, so
+   * this costs no request per row; before that the field was absent from this projection, which is
+   * why the block was excluded.
+   */
+  minionThumbnailUrl(minion: MinionListItemResponse): string | null {
+    return resourceImageThumbnailUrl('Minion', minion.id, minion.primaryImageId);
   }
 
   // --- Images (design.md §4.1, §4.1.1, §6) ---

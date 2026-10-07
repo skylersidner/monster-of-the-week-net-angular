@@ -46,10 +46,12 @@ const PLACEHOLDER_CLASSES: Readonly<Record<ResourceOwnerType, string>> = {
     // would be resolved by cascade order in the compiled stylesheet, not by what the template says.
     '[class.h-32]': "size === 'row'",
     '[class.w-32]': "size === 'row'",
-    '[class.shrink-0]': "size === 'row'",
-    '[class.rounded-lg]': "size === 'row'",
-    '[class.border]': "size === 'row'",
-    '[class.border-default]': "size === 'row'",
+    '[class.h-16]': "size === 'compact'",
+    '[class.w-16]': "size === 'compact'",
+    '[class.shrink-0]': "size === 'row' || size === 'compact'",
+    '[class.rounded-lg]': "size === 'row' || size === 'compact'",
+    '[class.border]': "size === 'row' || size === 'compact'",
+    '[class.border-default]': "size === 'row' || size === 'compact'",
   },
   template: `
     @if (showImage()) {
@@ -95,18 +97,25 @@ export class ResourceThumbnailComponent {
   @Input() loading: 'lazy' | 'eager' = 'lazy';
 
   /**
-   * `'row'` — a list row's fixed 128px square, the box included (design.md §4.2). `'fill'` — fills
-   * whatever box the caller positions, which is what the carousel's slides need.
+   * - `'row'` — a list page row's 128px square, the box included (design.md §4.2.1).
+   * - `'compact'` — a 64px square, for a row whose content is too short to carry 128px. Used by
+   *   `monster-detail`'s nested Minions block, whose rows measure 42px of content against a list
+   *   page row's 177px: at 128px the image would be more than three times the text it sits beside
+   *   and would drive the row height, where 64px grows the row by 10px. 64px is also the size the
+   *   list rows themselves used before Skyler asked to double them, and that request was scoped to
+   *   "the thumbnail on the list page" — so this keeps the nested block at the previously-approved
+   *   size rather than extending a decision that was made about somewhere else.
+   * - `'fill'` — fills whatever box the caller positions, which is what the carousel's slides need.
    *
-   * Defaults to `'row'` so a list page needs no size classes at all; the carousel is the one place
-   * that opts out.
+   * Defaults to `'row'` so a list page needs no size classes at all.
    */
-  @Input() size: 'row' | 'fill' = 'row';
+  @Input() size: 'row' | 'compact' | 'fill' = 'row';
 
   /**
-   * `'xl'` (48px) suits both sizes: it is ~37% of the 128px row box, and the carousel slide is
-   * larger still. `DomainIconComponent` fixes its own svg size internally, so this input is the
-   * only way to scale the placeholder's icon with its box.
+   * Scales the placeholder's domain icon with its box, since `DomainIconComponent` fixes its own
+   * svg size internally and a class on this host cannot reach it. `'xl'` (48px) is ~37% of the
+   * 128px row box and suits the larger carousel slide too; `'compact'` call sites pass `'md'`
+   * (20px), the same proportion against 64px.
    */
   @Input() iconSize: DomainIconSize = 'xl';
 

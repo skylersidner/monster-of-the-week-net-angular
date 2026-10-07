@@ -58,14 +58,40 @@
       } @else {
         <ul class="grid gap-2 list-none p-0">
           @for (minion of minions(); track minion.id) {
-            <li class="bg-surface border border-default rounded-[0.4rem] block p-[0.6rem_0.75rem]">
-              <div class="flex flex-wrap items-baseline gap-2 mb-[0.2rem]">
-                <a class="entity-link font-semibold" [routerLink]="['/monsters', monster()!.id, 'minions', minion.id]">{{ minion.name }}</a>
-                <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-minion text-on-badge-minion">{{ minion.minionType.name }}: {{ minion.minionType.motivation }}</span>
+            <!--
+              `min-w-0` because this `<li>` is a grid item (the `<ul>` is `grid`) and grid items
+              default to `min-width: auto`, so without it a long row claims its min-content width
+              and overflows its track — the same trap fixed on the four list pages.
+
+              No stacking at narrow widths, unlike those pages: at 64px the thumbnail still leaves
+              the text ~258px at a 390px viewport, where the list pages' 128px left only 132px and
+              had to stack.
+            -->
+            <li class="flex items-center min-w-0 bg-surface border border-default rounded-[0.4rem] gap-3 p-[0.6rem_0.75rem]">
+              <!--
+                `size="compact"` (64px), not the 128px list-row default: these rows carry 42px of
+                content against a list row's 177px. Scope was reversed on 2026-10-07 — Skyler asked
+                for minion thumbnails on the monster view after Phase 4/6b had excluded them, and
+                Bowser's `5c697a6` made `GetByMonsterIdAsync` derive `primaryImageId` so the data is
+                there. A null id still yields a null URL, which is the placeholder's trigger.
+              -->
+              <app-resource-thumbnail
+                ownerType="Minion"
+                size="compact"
+                iconSize="md"
+                [thumbnailUrl]="minionThumbnailUrl(minion)"
+                [alt]="minion.name"
+                loading="lazy"
+              />
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-baseline gap-2 mb-[0.2rem]">
+                  <a class="entity-link font-semibold" [routerLink]="['/monsters', monster()!.id, 'minions', minion.id]">{{ minion.name }}</a>
+                  <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-minion text-on-badge-minion">{{ minion.minionType.name }}: {{ minion.minionType.motivation }}</span>
+                </div>
+                <small>
+                  Attacks: {{ minion.attackCount }} · Powers: {{ minion.powerCount }} · Armors: {{ minion.armorCount }} · Weaknesses: {{ minion.weaknessCount }}
+                </small>
               </div>
-              <small>
-                Attacks: {{ minion.attackCount }} · Powers: {{ minion.powerCount }} · Armors: {{ minion.armorCount }} · Weaknesses: {{ minion.weaknessCount }}
-              </small>
             </li>
           }
         </ul>

@@ -321,9 +321,14 @@ export interface MinionListItemResponse {
    * thumbnail support to the minions on the monster detail page"); the two now share one
    * projection expression server-side, so neither can quietly stop sending it.
    *
-   * Still declared optional only because narrowing it to required is a frontend-side change
-   * (it would force every object literal in the specs to supply it) — safe to tighten, just not
-   * done here.
+   * **Staying optional is a decision, not a leftover** (reviewed 2026-10-07 when the nested block
+   * was wired). Tightening it would cost spec-fixture churn and buy nothing at runtime: the
+   * frontend already treats absent and `null` identically, since `resourceImageThumbnailUrl` takes
+   * `string | null | undefined` and both yield the placeholder. And `required` would be a claim
+   * TypeScript cannot back — this value crosses a process boundary from the C# projection, which is
+   * precisely where all four of these interfaces silently lacked the field while the server was
+   * sending it. Optional is the honest shape for a wire value; the server-side shared projection,
+   * not this marker, is what stops it going missing.
    */
   primaryImageId?: string | null;
 }
