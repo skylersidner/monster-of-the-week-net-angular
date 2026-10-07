@@ -9,12 +9,22 @@ using MonsterOfTheWeek.Api.Services.ResourceImages;
 namespace MonsterOfTheWeek.Api.Tests.Services.ResourceImages;
 
 /// <summary>
-/// Skyler's scope cut (phases.md Phase 4, 2026-10-04): the by-mystery/by-monster list variants
-/// get no derivation work. These sites are literally untouched by Phase 4 — the shared response
-/// records' new <c>PrimaryImageId</c> parameter has a <c>= null</c> default precisely so that
-/// holds (see <c>ApiContracts.cs</c>'s comment on <c>MonsterListItemResponse</c>). This is the
-/// one thing worth a test: that an owner with real images still reports <c>null</c> through the
-/// by-mystery/by-monster path, proving the field isn't accidentally derived there too.
+/// Skyler's scope cut (phases.md Phase 4, 2026-10-04): the <b>by-mystery</b> list variants get no
+/// derivation work. These sites are literally untouched — the shared response records'
+/// <c>PrimaryImageId</c> parameter has a <c>= null</c> default precisely so that holds (see
+/// <c>ApiContracts.cs</c>'s comment on <c>MonsterListItemResponse</c>). This is the one thing
+/// worth a test: that an owner with real images still reports <c>null</c> through the by-mystery
+/// path, proving the field isn't accidentally derived there too.
+///
+/// <para>
+/// <b>The by-monster minion list used to be asserted here too, and no longer is</b> (2026-10-07):
+/// Skyler reversed that half of the cut — "I would like Luigi to add thumbnail support to the
+/// minions on the monster detail page" — so <c>GetByMonsterIdAsync</c> now derives the primary
+/// like any in-scope projection. Its positive coverage lives in
+/// <see cref="ListProjectionPrimaryImageAgreementTests"/> instead. Left as a note rather than a
+/// silent deletion because an assertion of absence is exactly the thing that keeps being true
+/// in a test file long after it stops being true in the product.
+/// </para>
 /// </summary>
 public sealed class ByMysteryVariantsStayOutOfScopeTests
 {
@@ -57,33 +67,6 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
         var byMystery = await repository.GetMonstersByMysteryIdAsync(mystery.Id, CancellationToken.None);
 
         Assert.Null(Assert.Single(byMystery).PrimaryImageId);
-    }
-
-    [Fact]
-    public async Task GetByMonsterIdAsync_ReturnsNullPrimaryImageId_EvenWhenTheMinionHasImages()
-    {
-        await using var context = await CreateContextAsync();
-
-        var monsterType = new MonsterType { Name = "Devourer", Motivation = "To consume." };
-        var archetype = new MonsterArchetype { Name = "Heavy Hitter", Description = "It is the threat." };
-        var minionType = new MinionType { Name = "Thug", Motivation = "To hurt." };
-        var monster = new Monster { Name = "Test Monster", HarmCapacity = 1, MonsterType = monsterType, MonsterArchetype = archetype };
-        context.Monsters.Add(monster);
-        await context.SaveChangesAsync();
-        var minion = new Minion { Name = "Grunt", MonsterId = monster.Id, MinionType = minionType, HarmCapacity = 1 };
-        context.Minions.Add(minion);
-        await context.SaveChangesAsync();
-
-        var imageService = new ResourceImageService(context);
-        await imageService.UploadAsync(
-            ResourceOwnerType.Minion, minion.Id,
-            [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
-            CancellationToken.None);
-
-        var repository = new MinionRepository(context);
-        var byMonster = await repository.GetByMonsterIdAsync(monster.Id, CancellationToken.None);
-
-        Assert.Null(Assert.Single(byMonster).PrimaryImageId);
     }
 
     [Fact]

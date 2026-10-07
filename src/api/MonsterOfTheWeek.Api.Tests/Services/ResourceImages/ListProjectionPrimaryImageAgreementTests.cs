@@ -110,6 +110,60 @@ public sealed class ListProjectionPrimaryImageAgreementTests
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == minion.Id).PrimaryImageId);
     }
 
+    /// <summary>
+    /// The nested Minions block on <c>monster-detail</c> (2026-10-07, Skyler reversing Phase 4's
+    /// scope cut: "I would like Luigi to add thumbnail support to the minions on the monster
+    /// detail page"). Same four cases as the standalone list above, through
+    /// <see cref="MinionRepository.GetByMonsterIdAsync"/> — the two share one projection
+    /// expression, and this is what proves the by-monster caller actually gets the derived value
+    /// rather than the null it served until now.
+    /// </summary>
+    [Fact]
+    public async Task MinionByMonster_ListProjection_AgreesWithTheServiceDerivation_AcrossAllFourCases()
+    {
+        var (context, imageService) = await CreateContextAsync();
+        await using var _1 = context;
+
+        var monsterType = new MonsterType { Name = "Devourer", Motivation = "To consume." };
+        var archetype = new MonsterArchetype { Name = "Heavy Hitter", Description = "It is the threat." };
+        var minionType = new MinionType { Name = "Thug", Motivation = "To hurt." };
+        var monster = new Monster { Name = "Test Monster", HarmCapacity = 1, MonsterType = monsterType, MonsterArchetype = archetype };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+        var minion = new Minion { Name = "Grunt", MonsterId = monster.Id, MinionType = minionType, HarmCapacity = 1 };
+        context.Minions.Add(minion);
+        await context.SaveChangesAsync();
+
+        var repository = new MinionRepository(context);
+        Task<Guid?> ByMonster() => GetSinglePrimaryImageIdAsync(repository, monster.Id, minion.Id);
+
+        // Case 1: no images -> null.
+        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService, ByMonster);
+
+        // Case 2: derived (lowest SortOrder) — the case that was serving null before this change.
+        var upload = await imageService.UploadAsync(
+            ResourceOwnerType.Minion, minion.Id,
+            [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg()), new ResourceImageUploadFile("b.jpg", ResourceImageTestFixtures.TinyJpeg())],
+            CancellationToken.None);
+        var images = upload.Value!.Uploaded;
+        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService, ByMonster);
+        Assert.Equal(images[0].Id, await ByMonster());
+
+        // Case 3: explicit.
+        minion.PrimaryImageId = images[1].Id;
+        await context.SaveChangesAsync();
+        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService, ByMonster);
+        Assert.Equal(images[1].Id, await ByMonster());
+
+        // Case 4: delete the explicit primary -> falls through to derivation.
+        await context.ResourceImages.Where(i => i.Id == images[1].Id).ExecuteDeleteAsync();
+        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService, ByMonster);
+        Assert.Equal(images[0].Id, await ByMonster());
+    }
+
+    private static async Task<Guid?> GetSinglePrimaryImageIdAsync(MinionRepository repository, Guid monsterId, Guid minionId) =>
+        (await repository.GetByMonsterIdAsync(monsterId, CancellationToken.None)).Single(x => x.Id == minionId).PrimaryImageId;
+
     [Fact]
     public async Task Location_ListProjection_AgreesWithTheServiceDerivation_AcrossAllFourCases()
     {

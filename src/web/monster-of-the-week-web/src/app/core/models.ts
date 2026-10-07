@@ -313,13 +313,17 @@ export interface MinionListItemResponse {
   weaknessCount: number;
   createdAt: string;
   /**
-   * The derived-or-explicit primary image (phases.md Phase 4), or `null` when the minion has no
-   * images. Only the standalone `GET /api/minions` projection carries it.
+   * The derived-or-explicit primary image, or `null` when the minion has no images.
    *
-   * Optional, and that is load-bearing here: this same record is returned by the by-monster
-   * projection behind `monster-detail`'s Minions block, which is deliberately out of scope
-   * ("Minion image on monster view: out of scope for this pass") and omits the field. A row from
-   * there legitimately has no such property rather than a null one.
+   * **Both** minion projections carry it as of 2026-10-07: the standalone `GET /api/minions`
+   * and the by-monster one behind `monster-detail`'s Minions block. The latter was excluded by
+   * Phase 4's scope cut and added when Skyler reversed that ("I would like Luigi to add
+   * thumbnail support to the minions on the monster detail page"); the two now share one
+   * projection expression server-side, so neither can quietly stop sending it.
+   *
+   * Still declared optional only because narrowing it to required is a frontend-side change
+   * (it would force every object literal in the specs to supply it) — safe to tighten, just not
+   * done here.
    */
   primaryImageId?: string | null;
 }

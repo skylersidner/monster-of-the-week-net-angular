@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Contracts;
@@ -8,6 +9,37 @@ namespace MonsterOfTheWeek.Api.Repositories;
 
 public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepository
 {
+    /// <summary>
+    /// The one Minion-to-list-item projection, shared by <see cref="GetAllAsync"/> and
+    /// <see cref="GetByMonsterIdAsync"/> so the two cannot drift. It was duplicated between them
+    /// until 2026-10-07, which is exactly how the nested minion list ended up serving a null
+    /// <c>PrimaryImageId</c> for a minion that had images: the derived-primary expression was
+    /// added to one copy and not the other. Extracted as an
+    /// <see cref="Expression{TDelegate}"/> rather than a method so EF still translates it —
+    /// the two callers differ only in their filter and ordering, which is the real difference
+    /// between them.
+    /// </summary>
+    private Expression<Func<Minion, MinionListItemResponse>> ToListItem =>
+        x => new MinionListItemResponse(
+            x.Id,
+            x.MonsterId,
+            x.Monster.Name,
+            x.Name,
+            x.Description,
+            x.HarmCapacity,
+            new TypeRefResponse(x.MinionTypeId, x.MinionType.Name, x.MinionType.Motivation),
+            x.Attacks.Count,
+            x.Powers.Count,
+            x.Armors.Count,
+            x.Weaknesses.Count,
+            x.CreatedAt,
+            // The derived primary — see MonsterRepository.GetAllAsync for the full reasoning.
+            x.PrimaryImageId ?? dbContext.ResourceImages
+                .Where(i => i.OwnerType == ResourceOwnerType.Minion && i.OwnerId == x.Id)
+                .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
+                .Select(i => (Guid?)i.Id)
+                .FirstOrDefault());
+
     public Task<bool> MonsterExistsAsync(Guid monsterId, CancellationToken cancellationToken) =>
         dbContext.Monsters.AnyAsync(x => x.Id == monsterId, cancellationToken);
 
@@ -25,19 +57,7 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
             .AsNoTracking()
             .Where(x => x.MonsterId == monsterId)
             .OrderBy(x => x.Name)
-            .Select(x => new MinionListItemResponse(
-                x.Id,
-                x.MonsterId,
-                x.Monster.Name,
-                x.Name,
-                x.Description,
-                x.HarmCapacity,
-                new TypeRefResponse(x.MinionTypeId, x.MinionType.Name, x.MinionType.Motivation),
-                x.Attacks.Count,
-                x.Powers.Count,
-                x.Armors.Count,
-                x.Weaknesses.Count,
-                x.CreatedAt))
+            .Select(ToListItem)
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Guid>> GetIdsByMonsterIdAsync(Guid monsterId, CancellationToken cancellationToken) =>
@@ -52,25 +72,7 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
             .AsNoTracking()
             .OrderBy(x => x.Monster.Name)
             .ThenBy(x => x.Name)
-            .Select(x => new MinionListItemResponse(
-                x.Id,
-                x.MonsterId,
-                x.Monster.Name,
-                x.Name,
-                x.Description,
-                x.HarmCapacity,
-                new TypeRefResponse(x.MinionTypeId, x.MinionType.Name, x.MinionType.Motivation),
-                x.Attacks.Count,
-                x.Powers.Count,
-                x.Armors.Count,
-                x.Weaknesses.Count,
-                x.CreatedAt,
-                // The derived primary — see MonsterRepository.GetAllAsync for the full reasoning.
-                x.PrimaryImageId ?? dbContext.ResourceImages
-                    .Where(i => i.OwnerType == ResourceOwnerType.Minion && i.OwnerId == x.Id)
-                    .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
-                    .Select(i => (Guid?)i.Id)
-                    .FirstOrDefault()))
+            .Select(ToListItem)
             .ToListAsync(cancellationToken);
 
     public Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken) =>

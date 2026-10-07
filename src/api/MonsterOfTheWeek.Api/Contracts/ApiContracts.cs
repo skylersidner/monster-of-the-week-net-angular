@@ -166,8 +166,12 @@ public sealed record UpsertMonsterArmorRequest(
 public sealed record UpsertMonsterWeaknessRequest([param: Required, MaxLength(255)] string Name, string? Description);
 public sealed record UpsertCustomMoveRequest([param: Required, MaxLength(255)] string Name, string? Description);
 
-// See MonsterListItemResponse's note on PrimaryImageId's default — GetByMonsterIdAsync (the
-// nested-under-a-monster list) is out of scope for Phase 4 and stays untouched.
+// Both sites that build this record populate PrimaryImageId with the derived primary:
+// MinionRepository.GetAllAsync and GetByMonsterIdAsync (the nested-under-a-monster list on the
+// monster detail page). The by-monster site was excluded by Phase 4's scope cut and added on
+// 2026-10-07 when Skyler reversed it; both now share one projection expression so they can't
+// drift apart again. The parameter keeps its default only because the record is constructed
+// positionally in test fakes.
 public sealed record MinionListItemResponse(
     Guid Id,
     Guid MonsterId,
