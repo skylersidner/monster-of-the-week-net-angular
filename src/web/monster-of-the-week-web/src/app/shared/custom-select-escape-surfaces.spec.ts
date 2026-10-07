@@ -48,7 +48,18 @@ import { WeaponTagSelectComponent } from './weapon-tag-select.component';
  *
  * **Every template in the app that renders `<app-custom-select>` is covered**, mounted through the
  * smallest component that owns that template. The inventory, taken from
- * `grep -rn '<app-custom-select' --include=*.html`, is 17 instances across 15 templates:
+ * `grep -rn '<app-custom-select' --include=*.html`, is 17 instances across 15 templates.
+ *
+ * **What this file is not.** It is not a register of every surface that handles `Escape`. Its unit
+ * is a template that renders `<app-custom-select>`, and what it measures is that the press reaches
+ * the *select* there. `ImageUploadModalComponent` was considered for this sweep during Phase 7's
+ * close-out and deliberately left out: it renders no select, so there is nothing here to measure on
+ * it. Its own Escape behaviour is covered in `image-upload-modal.component.spec.ts`, and its
+ * interaction with a second overlay — where the real cross-surface risk lives, and where a genuine
+ * defect was found — is covered in `escape-nesting.spec.ts`. Recorded so the absence reads as a
+ * decision rather than an oversight.
+ *
+ * The inventory:
  *
  * | Template | Instances | Mounted here as |
  * |---|---|---|

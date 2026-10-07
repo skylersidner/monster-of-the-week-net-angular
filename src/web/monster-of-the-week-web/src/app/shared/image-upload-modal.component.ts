@@ -332,6 +332,23 @@ export class ImageUploadModalComponent {
       return;
     }
 
+    // Yield to a dialog stacked above this one, so Escape only ever closes the topmost surface.
+    //
+    // This cannot be done with `stopPropagation()`, which is how the `CustomSelect`-inside-a-dialog
+    // pair solves the same problem: that works because the select's handler sits on its own host,
+    // below `document`, so it runs first during bubbling. This handler and
+    // `ConfirmDeleteModalComponent`'s are *both* on `document`, and `stopPropagation` does not stop
+    // other listeners on the same node — only `stopImmediatePropagation` does, and that would still
+    // leave the outcome dependent on which component registered first. Checking for the other
+    // overlay is order-independent.
+    //
+    // Reachable rather than theoretical: this modal has no Tab trap, so a keyboard user can tab out
+    // to the carousel's delete button behind it and raise the confirm dialog on top. Found by
+    // `escape-nesting.spec.ts`, which covers the pair.
+    if (document.querySelector('[role="dialog"]:not([data-upload-modal])')) {
+      return;
+    }
+
     event.stopPropagation();
     event.preventDefault();
 
