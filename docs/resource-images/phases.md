@@ -6,7 +6,31 @@ re-litigate that design's settled calls (single `ResourceImage` table, `bytea` s
 `PrimaryImageId`, 10×2MB cap, JPG/PNG/WebP, no Mystery Wizard integration). It breaks the design into
 implementable phases, names what blocks what, and surfaces the structural gaps a phasing pass is
 supposed to catch before Bowser and Luigi start building.
-**Status:** Not started. For Bowser (backend) and Luigi (frontend) review before implementation begins.
+**Status (2026-10-07): built end to end. All eleven planned commits have landed on `resource-images`.**
+This document is now a record of what was built rather than a plan for what to build. Phase sections keep
+their original reasoning — that is the point of the record — with a **Landed** line naming the commit. The
+branch has not been merged to `main`; Skyler reviews and merges manually (Git workflow below). What remains
+is in Phase 7, and it is two in-flight follow-ups rather than feature work.
+
+| Commit | Phase | What landed |
+|---|---|---|
+| `aa75d9e` | 1 | `ResourceImage` schema and migration |
+| `7cf5e17` | 2 | Backend service layer (`IResourceImageService`) |
+| `eb1911e` | 3 | API surface, multipart upload, owner-delete cleanup |
+| `9d9b054` | 4 | Derived `primaryImageId` on the four main list endpoints |
+| `a040ebc` | 5 | Shared components, store, and core service |
+| `8921029` | 5r | Inline dropzone replaced by the staging upload modal |
+| `93d719e` | 6a | Monster: images section + row thumbnails (pilot) |
+| `2cb7d87` | 6b | Minion |
+| `78b9626` | 6c | Bystander |
+| `624aa3e` | 6d | Location, plus the cross-domain consistency comparison (Phase 7 below) |
+
+Skyler-requested adjustments, landed between phases: `624eef0` client-side cap enforcement (folded into
+Phase 5's record), `2606e09` carousel desktop height halved via a width cap, `dcb2acf` list thumbnail
+doubled to 128px with the row allowed to shrink, `767f1ae` mobile row stacking and description clamp,
+`1c1a580` Minion list-row description added. Each of these was followed by a record-keeping commit
+(`7e17cf0`, `3cc1632`, `b8f6115`, `a661cbd`) putting the reasoning in `design.md` and Luigi's `.squad`
+history, so the *why* behind each visual adjustment sits with the design rather than only in a diff.
 **Revised 2026-10-03:** Thumbnail fetch strategy, primary-image lifecycle, and the §3.2/§3.3 decisions were
 revisited in `docs/resource-images/thumbnail-and-primary-workflow.md`. Where this document changed, the
 affected section says so and points there. Summary of changes: index now includes `SortOrder`; `Cache-Control`
@@ -72,12 +96,22 @@ of things before manually merging the branch into main."
   there, not on `main`.
 - Commits land in order: 1, 2, 3, 4, 5, **5r**, 6a, 6b, 6c, 6d, 7. Phases that can run in parallel (for
   example 5 with 1–4) may be worked concurrently, but their commits follow this order so each gate runs
-  against the state the previous commit left. Phases 1–5 are landed (`aa75d9e`…`624eef0`); **5r is next**.
+  against the state the previous commit left.
+- **Done as of 2026-10-07: all eleven landed in that order**, each past its own gate, plus five
+  Skyler-requested adjustment commits and their record-keeping commits (see the header table). Phase 7 held
+  no feature work in the end — see its section. **The branch is unmerged and awaiting Skyler's review**,
+  which is the checkpoint this workflow was built around.
 
 ## Per-phase verification gate
 
 Each phase's commit must pass the gate below before the next phase starts. The phase's own verification list
 still applies in addition.
+
+**Retrospective (2026-10-07): the gate held for all eleven commits** — each landed green, and the Playwright
+dev-server check on 6a–6d is what surfaced the TypeScript-interface gap (§5(a)), the mobile grid overflow
+(§5(b)) and Minion's missing description (§5(c)). None of those three would have been caught by `npm run
+test` alone, which is the argument for having required a real-browser check per domain rather than only at
+the end.
 
 - **Backend phases (1–4):** `dotnet build` and `dotnet test` green. Phase 1 also requires
   `dotnet ef migrations has-pending-model-changes` to return clean and a migration that applies to a fresh
@@ -97,6 +131,11 @@ still applies in addition.
 ---
 
 ## Gate — review focus before implementation starts
+
+**Historical (both reviews happened, 2026-10-04 and 2026-10-05).** Bowser's backend review is folded into
+Phases 1–4 and §1 items 7–12; Luigi's frontend review produced the per-domain restructure and the
+`ResourceImagesStore`, and her reviews are at `docs/resource-images/reviews/bowser.md` and
+`.../luigi.md`. Kept for the record of who was asked to check what.
 
 | Reviewer | Focus |
 |---|---|
@@ -133,6 +172,9 @@ rediscovering each one mid-implementation.
 ## 2. Phase breakdown
 
 ### Phase 1 — Schema & Migration (Bowser)
+
+**Landed: `aa75d9e`.** Gate passed. The opt-in real-Postgres migration test this phase called for exists as
+`ResourceImageMigrationPostgresTests`, so "the migration applies" is asserted rather than assumed.
 
 **Goal:** `ResourceImage` table and the four `PrimaryImageId` columns exist, migrated, and match every
 existing convention in `MotwDbContext.cs`.
@@ -174,6 +216,14 @@ the migration applies.
 ---
 
 ### Phase 2 — Backend Service Layer (Bowser)
+
+**Landed: `7cf5e17`.** Gate passed. Both halves of this phase's test strategy were built: SQLite for the
+service tests, plus the opt-in trait-gated `ResourceImageServicePostgresTests`. Binary fixtures came in as
+`ResourceImageTestFixtures` — SkiaSharp-encoded at test time (`TinyJpeg`, `TinyWebp`,
+`OversizedDimensionJpeg`, `TruncatedJpeg`, `GifBytes`, `RiffWaveBytes`) rather than the committed/base64
+files §3.5 suggested. Same intent (self-contained, no external assets), better coverage: the RIFF-WAVE case
+proves the WebP container check rejects a non-WebP RIFF file, which a hand-written byte array would have
+been unlikely to exercise.
 
 **Goal:** `IResourceImageService` — the single shared service `design.md` §1.3 calls for — fully
 implemented and unit-tested, with **no HTTP surface yet**. This is deliberately its own phase: the
@@ -248,6 +298,12 @@ MonsterOfTheWeek.slnx` plainly.
 
 ### Phase 3 — Backend API Surface: Nested Endpoints + Multipart Handling (Bowser)
 
+**Landed: `eb1911e`.** Gate passed, with one correction committed separately (`c680918`): an oversized
+upload returns **400, not 413**, so the doc's own numbers matched the framework's behaviour. The owner-delete
+orphan fix (§3.6) and the `Program.cs` registration both landed here as planned. **Still outstanding by
+decision, not by omission:** the Railway 24 MiB multipart test is a post-deploy item (§3.2), as is the
+Linux-container SkiaSharp smoke test (§1 item 6) — neither is reachable before the branch deploys.
+
 **Goal:** The six endpoints from `design.md` §3, wired onto all four controllers, with multipart request
 handling actually configured (not just defaulted into) for the first time in this app.
 
@@ -313,6 +369,11 @@ test` green for controller-level tests.
 ---
 
 ### Phase 4 — Backend: List-Response Thumbnail Data (Bowser)
+
+**Landed: `9d9b054`.** Gate passed. **One thing this phase's work list got wrong, and it cost time in all
+four Phase 6 sub-phases:** it enumerated the four C# response records and no TypeScript interfaces, so
+`primaryImageId` existed server-side and was invisible to the client until each domain sub-phase noticed and
+added it. See §5(a) — this is the finding from this feature most worth carrying forward.
 
 **Goal:** Close the gap in §3.1 below — give the four list pages a way to know, per row, whether an
 image exists and what to fetch for the thumbnail, without an N+1 request per row.
@@ -430,11 +491,14 @@ component takes the computed URL rather than the raw id.
 passes; Storybook-less manual check (open each component in isolation via a scratch route, if that's
 faster than waiting for Phase 6/7 wiring) recommended but not required.
 
-**Built and committed** (`a040ebc`, plus `624eef0` for client-side cap enforcement). **This phase's upload
-mechanism is being reworked in Phase 5r, decided 2026-10-05** — button → modal → staged list → submit,
-replacing the drop-to-upload card above. `app-image-dropzone` is replaced and its drag plumbing deleted; the
-rules, store, carousel and thumbnail work is unaffected. See the **Phase 5 modal upload rework** section
-after §2 (R1–R11), which is the next commit and lands before Phase 6a.
+**Landed: `a040ebc`**, plus `624eef0` for client-side cap enforcement. Gate passed. **This phase's upload
+mechanism was then reworked in Phase 5r (`8921029`)** — button → modal → staged list → submit, replacing the
+drop-to-upload card described above. `app-image-dropzone` no longer exists: it was replaced by
+`app-resource-images-card` (presentational) and `app-image-upload-modal`, and all card-level drag plumbing
+was deleted. **The description of the dropzone above is therefore historical** — kept because the rest of
+this phase's reasoning (component split, the icons, the token, `ResourceImagesStore`, the pure rules) is
+what actually shipped and is still accurate. See the **Phase 5 modal upload rework** section after §2
+(R1–R11) for what replaced it.
 
 ---
 
@@ -483,6 +547,13 @@ components + store). **Blocks:** nothing structural — Phase 7 only runs if som
 
 #### Phase 6a — Monster, pilot (Luigi)
 
+**Landed: `93d719e`.** Gate passed, Playwright-verified on the real dev server. **The pilot did its job:**
+every Skyler-requested visual adjustment landed here, on one page, *before* 6b started — section ordering
+(`7e17cf0`), carousel height halved via a width cap (`2606e09`, reasoning in `3cc1632`), the 128px list
+thumbnail (`dcb2acf`), and mobile row stacking with a description clamp (`767f1ae`, reasoning in `b8f6115`).
+Minion, Bystander and Location inherited all four through the shared components without re-deciding
+anything. That is the specific payoff the pilot-then-rollout structure was chosen for.
+
 **Goal:** Prove the pattern end-to-end on the hardest host, both halves at once: `monster-detail`'s Images
 section and `monsters-list`'s thumbnail column.
 
@@ -508,6 +579,11 @@ thumbnails and the domain-badge placeholder; `npm run test` green including the 
 
 #### Phase 6b — Minion (Luigi)
 
+**Landed: `2cb7d87`.** Gate passed, Playwright-verified. One finding came out of this one and it was not a
+domain difference: `minions-list` rows had **no description at all**, where the other three did. Fixed in
+`1c1a580`, with the record corrected in `a661cbd`. A spec had encoded the absence as if it were intended,
+and passed while the UI was wrong — see §5(c).
+
 **Goal:** Same two halves for `minion-detail` and `minions-list`.
 
 **Work:** both halves per the Phase 6 umbrella above. `minion-detail` already has `pendingDelete`/the modal
@@ -527,6 +603,9 @@ Minions block, if in scope) renders real thumbnails; `npm run test` green; §7's
 
 #### Phase 6c — Bystander (Luigi)
 
+**Landed: `78b9626`.** Gate passed, Playwright-verified. The delete/modal infrastructure this page lacked
+was built from the 6a pattern as planned, with no new pattern invented for it.
+
 **Goal:** Same two halves for `bystander-detail` and `bystanders-list`.
 
 **Work:** both halves per the Phase 6 umbrella above. `bystander-detail` has **no** `pendingDelete`,
@@ -543,6 +622,14 @@ real thumbnails; `npm run test` green; §7's rejection strings verbatim.
 
 #### Phase 6d — Location (Luigi)
 
+**Landed: `624aa3e`.** Gate passed, Playwright-verified. **This sub-phase also ran the cross-domain
+consistency comparison that Phase 7 had been scoped to perform** — a normalised hash comparison of the four
+domains' images sections and list rows. Result: the card and carousel blocks collapsed to two hashes
+differing by exactly the one intentional line (modal ownership), while the upload modal, row classes and
+thumbnail block were byte-identical across all four; one real misplacement was found and fixed. Because the
+last sub-phase was in a position to compare all four, the audit happened where the evidence was, rather than
+in a later phase. See Phase 7 for what that leaves.
+
 **Goal:** Same two halves for `location-detail` and `locations-list`.
 
 **Work:** both halves per the Phase 6 umbrella above. Like Bystander, `location-detail` has no delete/modal
@@ -557,35 +644,63 @@ thumbnails; `npm run test` green; §7's rejection strings verbatim.
 
 ---
 
-### Phase 7 — Final Cross-Resource Check (Luigi, light Bowser involvement)
+### Phase 7 — Resolved: the audit already happened in 6d; two follow-ups remain
 
-**Restructured 2026-10-04:** with each domain sub-phase (6a–6d) already ending in its own copy/footnote
-correctness check, most of the old Phase 8 is gone. This phase is **small and only runs if something is
-genuinely still cross-cutting** after 6a–6d — for example, confirming the shared icon/token work (star,
-chevron, `--color-image-primary-indicator`) renders identically now that all four domains use it, or
-confirming upload-progress behaves identically across all four dropzones (shared component should make
-this automatic; this is the check that it actually is). If 6a–6d's per-domain checks already cover
-everything, this phase is a short confirmation pass, not new work.
+**Resolved 2026-10-07 (Luigi's position, accepted by Skyler). No feature work is left in this phase.**
 
-**Depends on:** Phases 6a, 6b, 6c, 6d. **Blocks:** nothing — this is the last phase before merge.
+This phase was scoped — twice — as the cross-cutting consistency audit across the four domains. **Phase 6d
+ran it** (see above): a normalised hash comparison of each domain's images section and list row, which came
+back consistent. The card and carousel blocks collapsed to two hashes differing by exactly the one
+intentional line (modal ownership); the upload modal, row classes and thumbnail block were byte-identical
+across all four domains; one real misplacement was found and fixed in that sub-phase. Re-running that
+comparison as its own phase would assert the same thing twice.
 
-**Verification:** the phased-implementation verification checklist at the bottom of this document, all
-boxes checked, across all four resource types.
+**Why it landed there instead of here, worth keeping as a structural lesson:** the last per-domain sub-phase
+is the first moment all four implementations exist, so it is also the cheapest moment to compare them —
+and the comparison is most useful *while* the fourth is being written, when a drift finding is a correction
+rather than a bug report. A terminal audit phase, on this shape of work, schedules the check later than the
+evidence appears. If a future feature is phased per-domain, put the comparison in the last sub-phase by
+design rather than in a phase after it.
+
+**What actually remains, both in flight and neither blocking a merge:**
+
+1. **A standing drift-guard spec (Luigi).** 6d's hash comparison was a one-off command. Turning it into a
+   committed spec makes the invariant enforceable on every future change instead of true once. The natural
+   first thing for it to cover is the gap noted in the rework section: the upload modal is absent from
+   `shared/escape-nesting.spec.ts` and `shared/custom-select-escape-surfaces.spec.ts`, so the app's newest
+   overlay surface is not in the cross-surface Escape census even though its own spec asserts its behaviour.
+2. **A `design.md` staleness pass (Rosalina).** The design document accumulated corrections and additions
+   throughout implementation (§4.5 and §7.6 for the modal rework; the carousel width cap, 128px thumbnail,
+   mobile stacking and description notes from 6a's adjustments). It needs one read-through for passages the
+   implementation has since overtaken — particularly anything still describing the inline drop-to-upload
+   flow that Phase 5r replaced.
+
+**Depends on:** Phases 6a–6d (all landed). **Blocks:** nothing. Neither follow-up is a gate on Skyler's
+review or on merging the branch; both improve what the next change to this feature costs.
 
 ---
 
 ## Phase 5 modal upload rework
 
-**Status: decided and ready to build (Skyler answered all nine questions, 2026-10-05). This is the next
-commit — "Phase 5r" — and it lands before Phase 6a.** Phases 1–4 and 5 are committed on `resource-images`
-(`aa75d9e`…`624eef0`), so this is a rework of shipped code, which is why the cost accounting below is
-concrete rather than hypothetical. R10 records every answer verbatim; R11 is the work list. Each subsection
-below has been rewritten from "recommendation + open question" to the settled call, so nothing here should
-be read as still negotiable.
+**Landed: `8921029`** ("phase 5r: replace the inline dropzone with a staging upload modal"), with the design
+and phasing record in `de12713`. Gate passed. Built as specified in R11, and the pieces are now
+`shared/image-upload-modal.component.ts` (in-modal drag-and-drop plus picker, filenames-only staged list,
+inline close-confirmation, single `POST`) and `shared/resource-images-card.component.ts` (presentational;
+carousel as a plain child, not `<ng-content>`). The chunking is gone — no `chunkFiles`, `ChunkResult` or
+`IndexedFileName` remain — and `uploadSummaryCopy` was replaced by the two toast builders
+(`uploadPartialFailureToast` plus the total-failure string), which is design.md §7.6's copy.
 
-**Rosalina owns the UX/copy half** (design.md §4.1, §4.3, §4.4, §7.4 all describe the old inline
-drop-to-upload flow) and is updating `design.md` in parallel. Where copy wording is named below, treat it as
-the *shape* the architecture needs, with the exact strings deferred to her.
+**What the implementation changed relative to R11, worth recording:** the Escape pairing. R4(b) said the new
+overlay's Escape behaviour "belongs in the nesting spec"; it ended up asserted in the modal's **own** spec
+(`'Escape does not bypass the confirmation: first press asks, second closes'`) plus a `stopPropagation` whose
+comment names the two cross-cutting specs — but `shared/escape-nesting.spec.ts` and
+`shared/custom-select-escape-surfaces.spec.ts` were **not extended** to include the upload modal. The
+behaviour is covered; the cross-surface census is not. That is the clearest candidate for Luigi's standing
+drift-guard spec (Phase 7).
+
+The rest of this section is the decision record for the rework: R10 holds Skyler's nine answers verbatim,
+R11 the work list it was built from. Rosalina's parallel `design.md` pass carried the UX/copy half (§4.5,
+§7.6).
 
 **Skyler's description, verbatim:**
 
@@ -1087,12 +1202,17 @@ not the declared dimensions. Needs a header-only dimension read before any full 
 
 1. **Feature-branch name — resolved 2026-10-04.** Skyler: "Continue with this branch." The feature branch is
    `resource-images`. See Git workflow above.
-2. **Modal upload rework — in-flight close, the one thing Skyler's answers don't cover.** His answer 5
-   scopes closability to "before submission"; whether an upload *already in flight* can be abandoned is a
-   separate question with a real mechanical consequence (a closed modal is a destroyed component, so the
-   request is cancelled while the server may already have committed it). In-flight close stays **disabled**
-   until he says otherwise, per the rework section R4(b). A one-line answer either way; not a blocker for
-   Phase 5r. Everything else in that rework is decided — see R10 for all nine answers verbatim.
+2. **In-flight close — shipped as disabled; never explicitly ruled on, and that is fine.** Skyler's answer 5
+   scoped closability to "before submission," so whether an upload *already in flight* can be abandoned was
+   never answered. It shipped the way R4(b) recommended: submit and close are both disabled while the
+   request is in flight, because a closed modal is a destroyed component and `takeUntilDestroyed` would
+   cancel a request the server may already have committed. **Not open in any blocking sense** — the
+   behaviour exists, is tested, and only needs revisiting if Skyler wants a cancel affordance (which
+   design.md §8/§9.3 already hold as a deferred nice-to-have).
+
+**Nothing in this section blocks Skyler's review or the merge.** The two genuinely outstanding items are
+post-deploy checks (Phase 3's Railway upload test and the Linux-container SkiaSharp smoke test, both
+deferred by decision) and Phase 7's two in-flight follow-ups.
 
 (Item 3, "ImageSharp vs. SkiaSharp," is decided — see §1 item 6 and §4a below. The former item 2's subject,
 Minion's `GetByMonsterIdAsync`, is resolved — see §4a and the header revision notes. The nine modal-rework
@@ -1162,99 +1282,181 @@ These are settled and applied in the sections named. Listed here so the reasonin
 
 ---
 
+## 5. Findings that outlived their phases
+
+Three things this feature turned up that are **not** about resource images, and are worth more than the
+sub-phase notes they were found in. Recorded here because the next feature will meet them again.
+
+### 5(a) A contract change needs both sides enumerated, because nothing links the two artifacts
+
+Phase 4's work list named four C# records (`MonsterListItemResponse` and its three siblings in
+`ApiContracts.cs`) and **zero TypeScript interfaces**. The field was added server-side, the phase's gate went
+green — backend tests pass, the JSON is correct — and the client simply never saw `primaryImageId`, because
+`core/models.ts`'s list DTOs were a separate, unmentioned artifact. **The gap then recurred in all four
+domain sub-phases**: each one rediscovered it, independently, as "the thumbnail is null and the API says it
+isn't."
+
+This is a tooling gap, not carelessness. There is no generated client, no shared schema and no test that can
+fail when a C# record and a TypeScript interface disagree — the two files are joined only by convention and
+by whoever remembers. **The practice: any plan item that adds or changes a field across the API boundary
+lists the C# record *and* the TypeScript interface in the same work-list bullet, and its verification step
+asserts the value arrives in the browser, not merely that the endpoint returns it.** "Add `X` to the response"
+is only half a task in this repo. Recurrence across four sub-phases is the evidence that one reminder in one
+phase is not enough — it belongs in the work-list line itself.
+
+### 5(b) The list `<ul>`'s grid rows overflowed their track on mobile — a pre-existing bug, fixed here
+
+The four list templates put each row in a grid track, and grid items default to `min-width: auto`, so a row
+whose content could not shrink below its intrinsic width pushed past the track instead of wrapping. The
+visible symptom was the **delete button sliding off-screen** on a phone, on all four lists. It had nothing
+to do with images — adding a 128px thumbnail to each row simply made an existing overflow impossible to
+miss. Fixed across all four templates during 6a's adjustment pass (`dcb2acf`, `767f1ae`), with the reasoning
+in `b8f6115`.
+
+Two things to carry: **`min-width: 0` (or an equivalent shrink allowance) is required on grid/flex children
+that hold unbounded text**, and this is the kind of defect that only surfaces at a viewport nobody checks by
+default. The feature that exposes a latent layout bug is rarely the feature that caused it; budget for
+fixing it there anyway, because the alternative is shipping a known-broken row.
+
+### 5(c) A spec that encodes an absence will pass while the UI is wrong
+
+`minions-list` rows rendered no description, where Monster, Bystander and Location rows all did. It read as
+a deliberate domain difference for long enough to be written into the plan's record as one — and a spec
+asserted the row's contents in a shape that was satisfied by the description's absence, so the suite stayed
+green while the page was wrong. It was simply an oversight, corrected in `1c1a580` and the record set
+straight in `a661cbd`.
+
+**The lesson is about what a passing test proves.** A spec written from the implementation rather than from
+the intent locks in whatever the implementation happened to do, including nothing. Where four domains are
+meant to be alike, "each page renders what it should" is weaker than "these four pages render the same
+fields" — the second kind of assertion is exactly what Phase 7's drift-guard spec is for, and the Minion
+description is the concrete case that argues for it.
+
+---
+
 ## Verification Checklist
 
-**Phase 1:**
-- [ ] `dotnet ef migrations has-pending-model-changes` returns clean after `AddResourceImages`; migration
+**Where the evidence comes from.** Each box below was verified at its own phase's gate before the next phase
+started (that was the point of the per-phase gate): `dotnet build`/`dotnet test` for Phases 1–4, `npm run
+build`/`npm run test -- --watch=false` for 5, 5r and 6a–6d. **Phases 6a–6d were additionally
+Playwright-verified against the real dev server on seeded data**, with throwaway records created and deleted
+so the checks exercised the actual endpoints and the actual DB rather than fixtures. The artifact-existence
+items (test classes, fixtures, deleted functions, component files) were re-confirmed by code inspection
+during this closing pass, 2026-10-07. Unchecked boxes below are unchecked on purpose and say why.
+
+**Phase 1** — `aa75d9e`:
+- [x] `dotnet ef migrations has-pending-model-changes` returns clean after `AddResourceImages`; migration
       applies to a fresh DB (app starts against an empty `docker compose up -d postgres` database)
-- [ ] `PrimaryImageId` FKs configured `SetNull` on all four owner entities, via `HasOne<ResourceImage>().WithMany()`
-- [ ] Composite index on `(OwnerType, OwnerId, SortOrder)`, named `idx_resource_images_owner_sort`, present on `ResourceImage`
-- [ ] Four FK indexes present: `idx_monsters_primary_image_id`, `idx_minions_primary_image_id`,
+- [x] `PrimaryImageId` FKs configured `SetNull` on all four owner entities, via `HasOne<ResourceImage>().WithMany()`
+- [x] Composite index on `(OwnerType, OwnerId, SortOrder)`, named `idx_resource_images_owner_sort`, present on `ResourceImage`
+- [x] Four FK indexes present: `idx_monsters_primary_image_id`, `idx_minions_primary_image_id`,
       `idx_bystanders_primary_image_id`, `idx_locations_primary_image_id`
-- [ ] `OwnerType` stored via `.HasConversion<string>()`, documented as a new pattern (no existing `HasConversion` elsewhere)
-- [ ] Opt-in real-Postgres test (`Category=Postgres`) runs `MigrateAsync()` against the compose Postgres and passes
+- [x] `OwnerType` stored via `.HasConversion<string>()`, documented as a new pattern (no existing `HasConversion` elsewhere)
+- [x] Opt-in real-Postgres test (`Category=Postgres`) runs `MigrateAsync()` against the compose Postgres and
+      passes — `ResourceImageMigrationPostgresTests`
 
-**Phase 2:**
-- [ ] All four rejection reasons (§7.1) unit-tested, including WebP RIFF-container detection specifically
-- [ ] Decompression-bomb dimension guard unit-tested (oversized declared dimensions rejected before full decode)
-- [ ] Cap partial-accept math tested (8+5→2 accepted/3 rejected, per §7.4's worked example)
-- [ ] Primary derivation tested, including the `SortOrder`-then-`Id` tie-break: null-default, explicit-set,
+**Phase 2** — `7cf5e17`:
+- [x] All four rejection reasons (§7.1) unit-tested, including WebP RIFF-container detection specifically
+      (`ResourceImageTestFixtures.RiffWaveBytes` proves a non-WebP RIFF file is rejected)
+- [x] Decompression-bomb dimension guard unit-tested (oversized declared dimensions rejected before full decode)
+- [x] Cap partial-accept math tested (8+5→2 accepted/3 rejected, per §7.4's worked example)
+- [x] Primary derivation tested, including the `SortOrder`-then-`Id` tie-break: null-default, explicit-set,
       delete-current-primary (confirms `SetNull` FK), duplicate-`SortOrder` tie resolved deterministically
-- [ ] `ResourceImage.CreatedAt` is set explicitly and asserted `!= default` in a test
-- [ ] Batch upload is a single `SaveChangesAsync()` call, not one per file
-- [ ] Opt-in `Category=Postgres` test confirms `SetNull` and the derivation projection against real Postgres
+- [x] `ResourceImage.CreatedAt` is set explicitly and asserted `!= default` in a test
+- [x] Batch upload is a single `SaveChangesAsync()` call, not one per file
+- [x] Opt-in `Category=Postgres` test confirms `SetNull` and the derivation projection against real Postgres —
+      `ResourceImageServicePostgresTests`
 
-**Phase 3:**
-- [ ] All six endpoints present on all four controllers
-- [ ] `IResourceImageService` registered in `Program.cs`
-- [ ] `[RequestSizeLimit(24 MiB)]`/`[RequestFormLimits(MultipartBodyLengthLimit = 24 MiB)]` set on the upload
-      action; a body over 24 MiB returns 400 Bad Request (confirmed in Phase 3; not 413) rather than
-      hanging or 500ing
-- [ ] `/file` and `/thumbnail` responses carry correct `Content-Type` and `private, ... immutable` cache headers
-- [ ] `/file` and `/thumbnail` return 404 when `imageId` does not belong to `{id}`; `PUT .../primary` 404s on a non-owned id
-- [ ] **Owner-delete cleanup:** deleting a Monster, Minion, Bystander, or Location also deletes that owner's
+**Phase 3** — `eb1911e`:
+- [x] All six endpoints present on all four controllers
+- [x] `IResourceImageService` registered in `Program.cs`
+- [x] `[RequestSizeLimit(24 MiB)]`/`[RequestFormLimits(MultipartBodyLengthLimit = 24 MiB)]` set on the upload
+      action; a body over 24 MiB returns 400 Bad Request (confirmed in Phase 3; not 413, corrected in
+      `c680918`) rather than hanging or 500ing
+- [x] `/file` and `/thumbnail` responses carry correct `Content-Type` and `private, ... immutable` cache headers
+- [x] `/file` and `/thumbnail` return 404 when `imageId` does not belong to `{id}`; `PUT .../primary` 404s on a non-owned id
+- [x] **Owner-delete cleanup:** deleting a Monster, Minion, Bystander, or Location also deletes that owner's
       images in the same transaction; deleting a Monster with an imaged Minion leaves zero `resource_images`
       rows for either
-- [ ] Post-deploy only (deferred, §3.2): manual batch upload test against a real Railway deploy
+- [ ] **Post-deploy, still outstanding (deferred by decision, §3.2):** manual batch upload test against a
+      real Railway deploy. Not reachable until the branch deploys; deferred by Skyler, not dropped.
+- [ ] **Post-deploy, still outstanding (§1 item 6):** Linux-container SkiaSharp smoke test. A missing or
+      mismatched native library is a runtime `DllNotFoundException` on first upload, which no amount of
+      Windows-side `dotnet test` can catch. Same bucket as the Railway check: do both on first deploy.
 
-**Phase 4:**
-- [ ] The four main `GetAllAsync` list endpoints return `PrimaryImageId`, correct for both zero-image and
+**Phase 4** — `9d9b054`:
+- [x] The four main `GetAllAsync` list endpoints return `PrimaryImageId`, correct for both zero-image and
       populated resources — **by-mystery variants (`GetMonstersByMysteryIdAsync`,
-      `GetByMysteryAsync`×2) are out of scope (scope cut, 2026-10-04) and must not carry the field**
-- [ ] Four projection sites carry the field: Monster's, Minion's, Location's, and Bystander's `GetAllAsync`
-      (Minion's `GetByMonsterIdAsync` is out of scope for this pass, per Skyler) — **Monster and Minion via
-      a SQL correlated subquery; Location and Bystander via a reworked SQL projection or a grouped query,
-      not the in-memory `.Select` they use today**
-- [ ] Derived primary (null column → lowest `SortOrder`, then lowest `Id`) returned by the list; agreement
+      `GetByMysteryAsync`×2) are out of scope (scope cut, 2026-10-04) and do not carry the field**
+- [x] Four projection sites carry the field: Monster's, Minion's, Location's, and Bystander's `GetAllAsync`
+      (Minion's `GetByMonsterIdAsync` out of scope, per Skyler)
+- [x] Derived primary (null column → lowest `SortOrder`, then lowest `Id`) returned by the list; agreement
       test against `IResourceImageService`'s derivation (not over HTTP) passes for the four cases in
       workflow doc §2.2, for all four owner types
+- [ ] **Never in this phase's list, and that was the defect:** the matching TypeScript interfaces. Added
+      later, per domain, in 6a–6d. Left unchecked deliberately as the standing record of §5(a).
 
-**Phase 5:**
-- [ ] `app-image-dropzone`, `app-image-carousel`, `app-resource-thumbnail` unit-tested against `design.md`
-      §3's response shapes
-- [ ] `app-resource-thumbnail`: `thumbnailUrl: string | null`; placeholder on null and on `<img>` error; error
+**Phase 5** — `a040ebc` (+ `624eef0`):
+- [x] `app-image-dropzone`, `app-image-carousel`, `app-resource-thumbnail` unit-tested against `design.md`
+      §3's response shapes — **the dropzone was then replaced in 5r**; the carousel and thumbnail stand
+- [x] `app-resource-thumbnail`: `thumbnailUrl: string | null`; placeholder on null and on `<img>` error; error
       state resets when the URL changes
-- [ ] `star`/`chevron` icons added per the sprite recipe; `--color-image-primary-indicator` token added
-- [ ] `ResourceImagesStore` and `core/resource-images.ts` built and unit-tested against fixtures; no page
+- [x] `star`/`chevron` icons added per the sprite recipe; `--color-image-primary-indicator` token added
+- [x] `ResourceImagesStore` and `core/resource-images.ts` built and unit-tested against fixtures; no page
       wiring yet
 
-**Phase 5r (modal upload rework — see the rework section, R11):**
-- [ ] `app-image-upload-modal` built: in-modal drag-and-drop plus file picker, staged list of **filenames
+**Phase 5r (modal upload rework — see the rework section, R11)** — `8921029`:
+- [x] `app-image-upload-modal` built: in-modal drag-and-drop plus file picker, staged list of **filenames
       only**, per-file validity from `planUpload`/`uploadRejectionCopy`, remove-per-row, one `POST` on submit
-- [ ] `app-image-dropzone` replaced by a presentational card: no file input, no drag handlers, no upload
-      pipeline; carousel is a plain child, **not `<ng-content>`**; "+ Add Images" disabled at 10/10 with the
-      existing inline note
-- [ ] Post-submit behaviour matches R5's table: all-good silent, partial keeps successes and toasts the
+- [x] `app-image-dropzone` replaced by a presentational card (`app-resource-images-card`): no file input, no
+      drag handlers, no upload pipeline; carousel is a plain child, **not `<ng-content>`**; "+ Add Images"
+      disabled at 10/10 with the existing inline note
+- [x] Post-submit behaviour matches R5's table: all-good silent, partial keeps successes and toasts the
       failed filenames, all-rejected toasts and leaves the modal open with files staged
-- [ ] Closing with files staged shows the inline confirm step; Escape routes to it rather than closing
+- [x] Closing with files staged shows the inline confirm step; Escape routes to it rather than closing
       through it; submit and close both disabled while a request is in flight
-- [ ] Chunking deleted: `chunkFiles`, `ChunkResult`, `IndexedFileName` and `mergeUploadOutcome`'s per-chunk
-      loop gone; `uploadSummaryCopy` replaced by the pure toast-copy function, with its tests migrated
-- [ ] `SUPPRESS_ERROR_TOAST` still set on the upload request (one toast, raised by the modal — not two)
-- [ ] `ResourceImagesStore` and its spec untouched (the `UploadOutcome` seam held); `escape-nesting.spec.ts`
-      and `confirm-delete-modal.call-sites.spec.ts` still green
+- [x] Chunking deleted: `chunkFiles`, `ChunkResult`, `IndexedFileName` and `mergeUploadOutcome`'s per-chunk
+      loop gone; `uploadSummaryCopy` replaced by `uploadPartialFailureToast` and the total-failure string
+      (design.md §7.6), with its tests migrated
+- [x] `SUPPRESS_ERROR_TOAST` still set on the upload request (one toast, raised by the modal — not two)
+- [x] `ResourceImagesStore` and its spec untouched (the `UploadOutcome` seam held);
+      `confirm-delete-modal.call-sites.spec.ts` and `escape-nesting.spec.ts` still green
+- [ ] **Partially done:** the upload modal is **not** represented in `escape-nesting.spec.ts` or
+      `custom-select-escape-surfaces.spec.ts`. Its Escape behaviour is asserted in its own spec and it
+      `stopPropagation`s correctly, so behaviour is covered — the cross-surface census is not. First
+      candidate for Phase 7's drift-guard spec.
 
-**Phase 6a (Monster, pilot):**
-- [ ] `monster-detail`: upload/delete/set-primary work end-to-end against the real API; Minions-block
-      placement resolved with Rosalina before building
-- [ ] `monsters-list` renders real thumbnails and the domain-badge empty state
-- [ ] All three footnote cases (§6) reachable and correctly worded; all §7 rejection strings render verbatim
-- [ ] `confirm-delete-modal.call-sites.spec.ts` census updated for monster-detail's new `[footnote]` shape
+**Phase 6a (Monster, pilot)** — `93d719e`:
+- [x] `monster-detail`: upload/delete/set-primary work end-to-end against the real API (Playwright, dev
+      server, seeded data); Minions-block placement resolved with Rosalina before building, principle
+      recorded in `7e17cf0`
+- [x] `monsters-list` renders real thumbnails and the domain-badge empty state
+- [x] All three footnote cases (§6) reachable and correctly worded; all §7 rejection strings render verbatim
+- [x] `confirm-delete-modal.call-sites.spec.ts` census updated for monster-detail's new `[footnote]` shape
 
-**Phase 6b (Minion):**
-- [ ] `minion-detail`: upload/delete/set-primary work end-to-end; `minions-list` renders real thumbnails
-- [ ] Footnote cases and §7 rejection strings verbatim; modal census spec updated
-- [ ] Nested Minions-list-in-monster-detail shows no thumbnail (explicitly out of scope for this pass, per Skyler)
+**Phase 6b (Minion)** — `2cb7d87`:
+- [x] `minion-detail`: upload/delete/set-primary work end-to-end; `minions-list` renders real thumbnails
+- [x] Footnote cases and §7 rejection strings verbatim; modal census spec updated for minion-detail
+- [x] Nested Minions-list-in-monster-detail shows no thumbnail (explicitly out of scope for this pass, per Skyler)
+- [x] List-row description added (`1c1a580`) — found here, not a domain difference; see §5(c)
 
-**Phase 6c (Bystander):**
-- [ ] `bystander-detail`: delete/modal infrastructure built from scratch; upload/delete/set-primary work end-to-end
-- [ ] `bystanders-list` renders real thumbnails; footnote cases and §7 rejection strings verbatim
+**Phase 6c (Bystander)** — `78b9626`:
+- [x] `bystander-detail`: delete/modal infrastructure built from scratch; upload/delete/set-primary work end-to-end
+- [x] `bystanders-list` renders real thumbnails; footnote cases and §7 rejection strings verbatim
 
-**Phase 6d (Location):**
-- [ ] `location-detail`: delete/modal infrastructure built from scratch; upload/delete/set-primary work end-to-end
-- [ ] `locations-list` renders real thumbnails; footnote cases and §7 rejection strings verbatim
+**Phase 6d (Location)** — `624aa3e`:
+- [x] `location-detail`: delete/modal infrastructure built from scratch; upload/delete/set-primary work end-to-end
+- [x] `locations-list` renders real thumbnails; footnote cases and §7 rejection strings verbatim
+- [x] **Cross-domain consistency comparison run here** (the check Phase 7 was scoped for): normalised hashes
+      consistent across all four domains — card/carousel collapse to two hashes differing by exactly the
+      intentional modal-ownership line; upload modal, row classes and thumbnail block byte-identical; one
+      real misplacement found and fixed
 
-**Phase 7 (final cross-resource check):**
-- [ ] Shared icon/token work (star, chevron, primary-indicator glow) confirmed consistent across all four domains
-- [ ] Upload-progress behaves identically across all four dropzones
-- [ ] Full checklist above green across all four resource types before merge
+**Phase 7 (resolved — see the Phase 7 section):**
+- [x] Shared icon/token work and cross-domain consistency confirmed — by 6d's hash comparison, not by a
+      separate pass
+- [x] Upload behaviour identical across all four domains — guaranteed structurally, since all four render the
+      same `app-image-upload-modal` instance rather than four copies (the comparison confirms it)
+- [ ] **In flight (Luigi):** standing drift-guard spec, turning 6d's one-off comparison into an enforceable
+      invariant; first target is the Escape-census gap above
+- [ ] **In flight (Rosalina):** `design.md` staleness pass for passages the implementation overtook
