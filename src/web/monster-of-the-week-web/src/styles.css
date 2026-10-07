@@ -416,6 +416,37 @@
   }
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * `min-w-0` on a grid or flex item that is itself a flex row.
+ * ---------------------------------------------------------------------------
+ * Not a class defined here — `min-w-0` is Tailwind-generated. This note lives
+ * with the other conventions because the trap is invisible in a class-name
+ * diff and has been rediscovered repeatedly: every list row in this app needed
+ * the same one-class fix, found separately each time.
+ *
+ * The mechanism: a grid item (and a flex item) defaults to `min-width: auto`,
+ * not `0`. Its minimum size is therefore its *content's* min-content width, so
+ * it will not shrink below the widest thing inside it. Put a `flex` row inside
+ * an `<li>` of a `<ul class="grid">` — a thumbnail, a text block, a trailing
+ * action — and the row claims the sum of its children and overflows its grid
+ * track on a narrow viewport.
+ *
+ * What it costs when missed, measured rather than guessed: a 488px row inside a
+ * 358px track at a 390px viewport, which makes `main` scroll horizontally and
+ * puts the row's trailing delete button off-screen at x=487. It looks like a
+ * styling nitpick and behaves like an unreachable control.
+ *
+ * The fix: `min-w-0` on the grid item itself. `min-w-0` on the inner
+ * `flex-1` child is NOT a substitute and is the usual near-miss — that lets the
+ * *text* shrink, but the row has already claimed its width one level up. When
+ * the chain crosses several containers (the wizard's `grid` → `<li>` → `flex`
+ * → truncating `<small>`), each level in the chain needs it; fixing only the
+ * innermost does not propagate upward.
+ *
+ * Standing decision: `.squad/decisions/records/rosalina-grid-li-needs-min-w-0.md`.
+ */
+
 @layer base {
   html,
   body {
