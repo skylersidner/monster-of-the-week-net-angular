@@ -9,8 +9,14 @@ supposed to catch before Bowser and Luigi start building.
 **Status (2026-10-07): built end to end. All eleven planned commits have landed on `resource-images`.**
 This document is now a record of what was built rather than a plan for what to build. Phase sections keep
 their original reasoning — that is the point of the record — with a **Landed** line naming the commit. The
-branch has not been merged to `main`; Skyler reviews and merges manually (Git workflow below). What remains
-is in Phase 7, and it is two in-flight follow-ups rather than feature work.
+branch has not been merged to `main`; Skyler reviews and merges manually (Git workflow below).
+
+**Amended after completion — see §6.** Three commits have landed since: the four-domain drift guard
+(`e551111`, which closed Phase 7's first follow-up and found a real Escape collision while doing it), and a
+**reversed scope cut** — nested Minion thumbnails on `monster-detail` (`5c697a6` backend, `3eb8f7a`
+frontend), which moves Phase 4 from four projection sites to five. The phase sections below keep their
+original four-site text with the superseded passages struck through, because that text is the record of why
+the exclusion existed. The only thing still outstanding is Rosalina's `design.md` staleness pass.
 
 | Commit | Phase | What landed |
 |---|---|---|
@@ -53,6 +59,8 @@ Luigi's frontend review (`docs/resource-images/reviews/luigi.md`):
    `LocationService.GetByMysteryAsync`/`GetLocationsByMysteryIdAsync`, and `BystanderService.GetByMysteryAsync`
    no longer carry `PrimaryImageId`. Combined with Skyler's resolution of Minion's `GetByMonsterIdAsync`
    (below), this drops the projection-site count from eight to **four**. See Phase 4 below.
+   *(Superseded 2026-10-07: back to **five** — the `GetByMonsterIdAsync` half of this was reversed, the
+   by-mystery half was not. §6.1.)*
 2. **Phase restructure:** Skyler confirmed Luigi's pilot-then-rollout idea and extended it — "this is an
    excellent idea, and I actually think we should add a sub-phase for each domain object, starting with
    Monster as the pilot." Phases 6 and 7 (detail wiring, list wiring) are replaced by four domain sub-phases
@@ -375,6 +383,12 @@ four Phase 6 sub-phases:** it enumerated the four C# response records and no Typ
 `primaryImageId` existed server-side and was invisible to the client until each domain sub-phase noticed and
 added it. See §5(a) — this is the finding from this feature most worth carrying forward.
 
+**Amended 2026-10-07 (`5c697a6`): this phase now covers five projection sites, not four.** Skyler reversed
+the `GetByMonsterIdAsync` exclusion, so Minion's by-monster projection derives `primaryImageId` too. The
+four-site statements below are **historical and superseded** — kept in place, not edited away, because they
+record *why* the exclusion existed and therefore why four separate places encoded it. The three by-mystery
+exclusions are untouched and still in force. Full detail: §6.1.
+
 **Goal:** Close the gap in §3.1 below — give the four list pages a way to know, per row, whether an
 image exists and what to fetch for the thumbnail, without an N+1 request per row.
 
@@ -400,19 +414,22 @@ derivation work. This also removes them from Phase 6's per-domain list-wiring wo
   agreement test flakes. A bare pass-through of the nullable column would return `null` for every
   resource whose primary is derived, which is most of them, and the list would show placeholders for
   resources that have images. The earlier "plain column pass-through" wording was wrong and is withdrawn.
-- **Four projection sites, not eight (count settled 2026-10-04: three by-mystery sites cut per the scope
-  cut above; Minion's `GetByMonsterIdAsync` resolved out of scope, see header revision note).** Checked
+- **~~Four projection sites, not eight~~ → five, as of `5c697a6` (count settled 2026-10-04: three
+  by-mystery sites cut per the scope cut above; Minion's `GetByMonsterIdAsync` resolved out of scope, see
+  header revision note — ***that last exclusion was reversed 2026-10-07; see §6.1***).** Checked
   directly against the current code, not assumed:
 
   | Owner | Sites | How it is projected today |
   |---|---|---|
   | Monster | `MonsterRepository.GetAllAsync` | **SQL** — `.Select(...)` on an `IQueryable` |
-  | Minion | `MinionRepository.GetAllAsync` (`GetByMonsterIdAsync` is out of scope — Skyler: "Minion image on monster view: out of scope for this pass") | **SQL** |
+  | Minion | `MinionRepository.GetAllAsync` **and `GetByMonsterIdAsync`** — both now share one `Expression<Func<Minion, MinionListItemResponse>> ToListItem` (`5c697a6`). ~~`GetByMonsterIdAsync` is out of scope — Skyler: "Minion image on monster view: out of scope for this pass"~~ *(superseded 2026-10-07)* | **SQL** |
   | Location | `LocationService.GetAllAsync` | **In-memory** — `.Select(...)` over `Include`d entities already materialized by `ToListAsync` |
   | Bystander | `BystanderService.GetAllAsync` | **In-memory** |
 
   `GetMonstersByMysteryIdAsync` (Monster), `GetByMysteryAsync`/`GetLocationsByMysteryIdAsync` (Location), and
   `GetByMysteryAsync` (Bystander) are cut from scope — no `PrimaryImageId`, no derivation work, no rework.
+  **Those three remain excluded after the 2026-10-07 reversal**, and `ByMysteryVariantsStayOutOfScopeTests`
+  still asserts all three return `null`.
 
   **Monster and Minion can use the correlated-subquery form directly** (`dbContext.ResourceImages.Where(i
   => i.OwnerType == … && i.OwnerId == x.Id).OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => (Guid?)i.Id).FirstOrDefault()`,
@@ -425,7 +442,8 @@ derivation work. This also removes them from Phase 6's per-domain list-wiring wo
   sub-task in this phase), or (b) adding one grouped query per list —
   `ResourceImages.Where(i => i.OwnerType == X).GroupBy(i => i.OwnerId).Select(g => new { OwnerId = g.Key,
   Id = g.OrderBy(i => i.SortOrder).ThenBy(i => i.Id).Select(i => i.Id).First() })` — and merging the result
-  in memory. Either way, **two of the four sites need real rework** — Location's and Bystander's
+  in memory. Either way, **two of the sites need real rework** (two of four as scoped then; two of five
+  after §6.1's reversal, since the added minion site was already SQL) — Location's and Bystander's
   `GetAllAsync` — **not a uniform one-line change applied to all of them.**
 - Test: for each of the four cases in `thumbnail-and-primary-workflow.md` §2.2, the list's `primaryImageId`
   equals the `isPrimary` image from `GET .../images`. This is the guard against the two implementations
@@ -584,14 +602,24 @@ domain difference: `minions-list` rows had **no description at all**, where the 
 `1c1a580`, with the record corrected in `a661cbd`. A spec had encoded the absence as if it were intended,
 and passed while the UI was wrong — see §5(c).
 
+**Amended 2026-10-07 (`3eb8f7a`): the nested Minions block on `monster-detail` now renders thumbnails.**
+Skyler reversed the exclusion this sub-phase was built under — "I would like Luigi to add thumbnail support
+to the minions on the monster detail page." The out-of-scope note below is **historical and superseded**,
+kept in place because it is the reason this sub-phase's list half covered only the standalone page. The
+nested rows use a new `size="compact"` (64px) thumbnail variant rather than the list page's 128px `"row"`
+variant. Full detail: §6.1.
+
 **Goal:** Same two halves for `minion-detail` and `minions-list`.
 
 **Work:** both halves per the Phase 6 umbrella above. `minion-detail` already has `pendingDelete`/the modal
 (name-only, same census-spec update as Monster) and `activeMutation`, so this sub-phase reuses Phase 6a's
-pattern directly rather than building delete infrastructure from scratch. **Resolved (Skyler, 2026-10-04):**
-"Minion image on monster view: out of scope for this pass." `minions-list` as rendered inside
-`monster-detail`'s own Minions block (the `GetByMonsterIdAsync` projection) does not get a thumbnail in
-this pass. This sub-phase's list half covers only the standalone Minions list page.
+pattern directly rather than building delete infrastructure from scratch. **~~Resolved (Skyler,
+2026-10-04):~~** ~~"Minion image on monster view: out of scope for this pass." `minions-list` as rendered
+inside `monster-detail`'s own Minions block (the `GetByMonsterIdAsync` projection) does not get a thumbnail
+in this pass. This sub-phase's list half covers only the standalone Minions list page.~~
+*(Superseded 2026-10-07 — the nested block does get thumbnails; see the amendment note above and §6.1. The
+scope-cut reasoning is struck through rather than deleted so the four places that encoded this exclusion
+still make sense to a later reader.)*
 
 **Depends on:** Phase 5, Phase 3, Phase 4 (Minion's `GetAllAsync` only), Phase 6a (pattern proven, any
 corrections already applied).
@@ -662,21 +690,26 @@ rather than a bug report. A terminal audit phase, on this shape of work, schedul
 evidence appears. If a future feature is phased per-domain, put the comparison in the last sub-phase by
 design rather than in a phase after it.
 
-**What actually remains, both in flight and neither blocking a merge:**
+**What remained, as of the closing pass — neither blocking a merge. Item 1 has since landed:**
 
-1. **A standing drift-guard spec (Luigi).** 6d's hash comparison was a one-off command. Turning it into a
-   committed spec makes the invariant enforceable on every future change instead of true once. The natural
-   first thing for it to cover is the gap noted in the rework section: the upload modal is absent from
-   `shared/escape-nesting.spec.ts` and `shared/custom-select-escape-surfaces.spec.ts`, so the app's newest
-   overlay surface is not in the cross-surface Escape census even though its own spec asserts its behaviour.
-2. **A `design.md` staleness pass (Rosalina).** The design document accumulated corrections and additions
+1. **A standing drift-guard spec (Luigi). ✅ Landed `e551111`** (§6.2). 6d's hash comparison was a one-off
+   command. Turning it into a committed spec makes the invariant enforceable on every future change instead
+   of true once. The natural first thing for it to cover was the gap noted in the rework section: the upload
+   modal was absent from `shared/escape-nesting.spec.ts` and
+   `shared/custom-select-escape-surfaces.spec.ts`, so the app's newest overlay surface was not in the
+   cross-surface Escape census even though its own spec asserted its behaviour. Both specs now cover it, and
+   building the guard surfaced a real Escape collision that was fixed in the same commit — the clearest
+   argument available for having written it.
+2. **A `design.md` staleness pass (Rosalina).** Still outstanding. The design document accumulated corrections and additions
    throughout implementation (§4.5 and §7.6 for the modal rework; the carousel width cap, 128px thumbnail,
    mobile stacking and description notes from 6a's adjustments). It needs one read-through for passages the
    implementation has since overtaken — particularly anything still describing the inline drop-to-upload
    flow that Phase 5r replaced.
 
-**Depends on:** Phases 6a–6d (all landed). **Blocks:** nothing. Neither follow-up is a gate on Skyler's
-review or on merging the branch; both improve what the next change to this feature costs.
+**Depends on:** Phases 6a–6d (all landed). **Blocks:** nothing. Neither follow-up was a gate on Skyler's
+review or on merging the branch; both improve what the next change to this feature costs — and §6.1's
+reversal, landing two commits against this feature days after it was "finished", is the case in point for
+why the drift guard was worth committing rather than running once.
 
 ---
 
@@ -1210,9 +1243,11 @@ not the declared dimensions. Needs a header-only dimension read before any full 
    behaviour exists, is tested, and only needs revisiting if Skyler wants a cancel affordance (which
    design.md §8/§9.3 already hold as a deferred nice-to-have).
 
-**Nothing in this section blocks Skyler's review or the merge.** The two genuinely outstanding items are
+**Nothing in this section blocks Skyler's review or the merge.** Outstanding as of 2026-10-07: the two
 post-deploy checks (Phase 3's Railway upload test and the Linux-container SkiaSharp smoke test, both
-deferred by decision) and Phase 7's two in-flight follow-ups.
+deferred by decision) and Rosalina's `design.md` staleness pass. Phase 7's drift-guard follow-up has landed
+(`e551111`, §6.2), and the one reopened scope question — nested Minion thumbnails — is built and recorded in
+§6.1 rather than open.
 
 (Item 3, "ImageSharp vs. SkiaSharp," is decided — see §1 item 6 and §4a below. The former item 2's subject,
 Minion's `GetByMonsterIdAsync`, is resolved — see §4a and the header revision notes. The nine modal-rework
@@ -1266,6 +1301,10 @@ These are settled and applied in the sections named. Listed here so the reasonin
 - **Minion's `GetByMonsterIdAsync` resolved out of scope (§2 Phase 4, Phase 6b, 2026-10-04):** "Minion image
   on monster view: out of scope for this pass." Combined with the by-mystery cut above, this settles the
   projection-site count at four: the main `GetAllAsync` for Monster, Minion, Location, and Bystander.
+  — **Reversed 2026-10-07** (§6.1): "I would like Luigi to add thumbnail support to the minions on the
+  monster detail page." Five sites now; the by-mystery three stay excluded. The 2026-10-04 decision is left
+  above as written, since it was correct for the scope it was made in and explains the four places that
+  encoded it.
 - **Modal upload rework — nine answers, 2026-10-05 (Phase 5r):** recorded verbatim in the **Phase 5 modal
   upload rework** section's R10 table rather than duplicated here, since each answer needs its surrounding
   assessment to be actionable. In brief: drag-and-drop is modal-only (which unwinds Luigi's
@@ -1304,6 +1343,23 @@ asserts the value arrives in the browser, not merely that the endpoint returns i
 is only half a task in this repo. Recurrence across four sub-phases is the evidence that one reminder in one
 phase is not enough — it belongs in the work-list line itself.
 
+**The sharper instance, found by the 2026-10-07 reversal (§6.1): the same contract change had to be made
+twice on the *server* side too, and was made once.** `MinionRepository`'s two methods — `GetAllAsync` and
+`GetByMonsterIdAsync` — had duplicated all twelve projected fields, so the derived-primary expression was
+added to one and not the other. That produced no compiler error, no failing test and no visible defect
+except a null thumbnail in one view, because **nothing required the two projections to agree.** The
+exclusion was a deliberate scope cut, so the omission looked intentional; the duplication is what made an
+unintentional version of it equally invisible.
+
+So the finding generalises past the client/server split it was first written about: **a field addition is
+unsafe wherever the same shape is built in more than one place, and the fix is to remove the duplication
+rather than to remember the second site.** Bowser's `Expression<Func<Minion, MinionListItemResponse>>`
+extraction (`5c697a6`) makes the two minion projections structurally incapable of diverging. The question to
+ask of any "add a field to X" task in this repo is therefore not just "which layers?" but **"how many places
+construct X?"** — and if the answer is more than one, the first task is collapsing them. Two of this
+feature's three contract-shaped defects (the TypeScript gap, the minion projection) were duplication, not
+forgetfulness.
+
 ### 5(b) The list `<ul>`'s grid rows overflowed their track on mobile — a pre-existing bug, fixed here
 
 The four list templates put each row in a grid track, and grid items default to `min-width: auto`, so a row
@@ -1331,6 +1387,63 @@ the intent locks in whatever the implementation happened to do, including nothin
 meant to be alike, "each page renders what it should" is weaker than "these four pages render the same
 fields" — the second kind of assertion is exactly what Phase 7's drift-guard spec is for, and the Minion
 description is the concrete case that argues for it.
+
+---
+
+## 6. Post-completion amendments
+
+Changes after the 2026-10-07 closing pass. Recorded as amendments rather than edits to the phase record
+above: the phases say what was planned and why, these say what changed afterwards. Where an amendment
+contradicts a phase, the phase keeps its original text with the superseded passage struck through and a
+pointer here.
+
+### 6.1 The `GetByMonsterIdAsync` exclusion reversed — nested Minion thumbnails (2026-10-07)
+
+**Skyler, verbatim:** "I would like Luigi to add thumbnail support to the minions on the monster detail
+page."
+
+This reverses the one scope cut that had been settled twice (Phase 4's projection-site count and Phase 6b's
+list half) and recorded in four places: §4's open-questions entry, §4a's decision log, Phase 4's table, and
+Phase 6b's work list. **Shipped in two commits:**
+
+| Commit | Who | What |
+|---|---|---|
+| `5c697a6` | Bowser | `MinionRepository.GetByMonsterIdAsync` derives `primaryImageId`. The whole Minion→list-item projection was extracted into one shared `Expression<Func<Minion, MinionListItemResponse>> ToListItem`, used by both minion sites. Confirmed a single correlated subquery (no N+1), green on the opt-in Postgres suite, and verified against seeded data — Scarlett Wells, who has two images and a null explicit primary, so the **derived** path is what was exercised, not just the explicit one. Removed the test asserting the old null behaviour and three stale comments; left the by-mystery exclusions and their tests intact. |
+| `3eb8f7a` | Luigi | The nested rows render thumbnails at a new `size="compact"` (64px) variant on `app-resource-thumbnail`, beside the existing 128px `"row"`. **No stacking at narrow widths** — 64px leaves enough text column that the list pages' mobile stack isn't needed. Drift guard confirmed unaffected *structurally* (the Minions block is a sibling of the Images card the guard extracts), not inferred from a green run. |
+
+**Why the `Expression<>` extraction is the interesting part, and why it belongs in §5(a).** The two minion
+methods had duplicated all twelve projected fields. That duplication is *the mechanism by which this
+exclusion survived*: adding the derived-primary expression to one method and not the other produced no
+error, no failing test and no compiler complaint, because the two projections were never required to agree.
+Bowser's fix removes the possibility rather than the instance. See §5(a) — this is the same failure class as
+the C#/TypeScript gap, one level deeper.
+
+**Scope boundaries that did *not* move:** the three by-mystery projections (`GetMonstersByMysteryIdAsync`,
+Location's and Bystander's `GetByMysteryAsync`) are still excluded, still asserted by
+`ByMysteryVariantsStayOutOfScopeTests`, and still backed by Skyler's 2026-10-04 reasoning that mystery lists
+don't need photos. The reversal is specific to the minion-by-monster site.
+
+**What this invalidates in the record above:** Phase 4's "four projection sites" (now five) and Phase 6b's
+out-of-scope note, both struck through in place; §4a's decision-log entry and the Verification Checklist's
+by-monster lines, updated to point here. Nothing else — the derivation rule, the agreement test, the
+`primaryImageId` contract, the thumbnail endpoint and all four domains' own pages are untouched by it, which
+is the payoff of having put the derivation in one documented rule rather than per-site logic.
+
+### 6.2 Phase 7's follow-ups: the drift guard landed (`e551111`)
+
+Recorded here because the closing pass called both Phase 7 items "in flight" and one of them was already
+done. **`e551111` ("add the four-domain drift guard, and fix an escape collision it surfaced")** added
+`shared/resource-images-four-domain-parity.spec.ts` — 424 lines turning 6d's one-off hash comparison into a
+standing invariant — **and it immediately earned its keep: it surfaced a real Escape collision**, fixed in
+`image-upload-modal.component.ts` in the same commit.
+
+It also closed the "partially done" blank the closing pass left: both `shared/escape-nesting.spec.ts` and
+`shared/custom-select-escape-surfaces.spec.ts` now cover `ImageUploadModalComponent`, so the app's newest
+overlay surface is in the cross-surface Escape census, not just in its own spec. **That is the vindication
+of the drift-guard recommendation worth keeping:** a spec written to assert that four things stay alike
+found a defect in the thing they have in common, which no per-domain check had.
+
+**Still outstanding:** Rosalina's `design.md` staleness pass (one item, not two).
 
 ---
 
@@ -1388,13 +1501,16 @@ during this closing pass, 2026-10-07. Unchecked boxes below are unchecked on pur
 - [x] The four main `GetAllAsync` list endpoints return `PrimaryImageId`, correct for both zero-image and
       populated resources — **by-mystery variants (`GetMonstersByMysteryIdAsync`,
       `GetByMysteryAsync`×2) are out of scope (scope cut, 2026-10-04) and do not carry the field**
-- [x] Four projection sites carry the field: Monster's, Minion's, Location's, and Bystander's `GetAllAsync`
-      (Minion's `GetByMonsterIdAsync` out of scope, per Skyler)
+- [x] ~~Four~~ **Five** projection sites carry the field: Monster's, Minion's, Location's and Bystander's
+      `GetAllAsync`, **plus Minion's `GetByMonsterIdAsync`** — out of scope at the time, reversed 2026-10-07
+      and shipped in `5c697a6` (§6.1). Both minion sites now share one `Expression<>`, so they cannot
+      diverge again.
 - [x] Derived primary (null column → lowest `SortOrder`, then lowest `Id`) returned by the list; agreement
       test against `IResourceImageService`'s derivation (not over HTTP) passes for the four cases in
       workflow doc §2.2, for all four owner types
 - [ ] **Never in this phase's list, and that was the defect:** the matching TypeScript interfaces. Added
-      later, per domain, in 6a–6d. Left unchecked deliberately as the standing record of §5(a).
+      later, per domain, in 6a–6d. Left unchecked deliberately as the standing record of §5(a) — which
+      `5c697a6` then sharpened, since the *server-side* projection had the same two-places problem (§6.1).
 
 **Phase 5** — `a040ebc` (+ `624eef0`):
 - [x] `app-image-dropzone`, `app-image-carousel`, `app-resource-thumbnail` unit-tested against `design.md`
@@ -1421,10 +1537,10 @@ during this closing pass, 2026-10-07. Unchecked boxes below are unchecked on pur
 - [x] `SUPPRESS_ERROR_TOAST` still set on the upload request (one toast, raised by the modal — not two)
 - [x] `ResourceImagesStore` and its spec untouched (the `UploadOutcome` seam held);
       `confirm-delete-modal.call-sites.spec.ts` and `escape-nesting.spec.ts` still green
-- [ ] **Partially done:** the upload modal is **not** represented in `escape-nesting.spec.ts` or
-      `custom-select-escape-surfaces.spec.ts`. Its Escape behaviour is asserted in its own spec and it
-      `stopPropagation`s correctly, so behaviour is covered — the cross-surface census is not. First
-      candidate for Phase 7's drift-guard spec.
+- [x] ~~**Partially done:** the upload modal is **not** represented in `escape-nesting.spec.ts` or
+      `custom-select-escape-surfaces.spec.ts`.~~ → **closed by `e551111`** (§6.2): both cross-surface Escape
+      specs now cover `ImageUploadModalComponent`, and the drift guard that prompted the work found a real
+      Escape collision, fixed in the same commit.
 
 **Phase 6a (Monster, pilot)** — `93d719e`:
 - [x] `monster-detail`: upload/delete/set-primary work end-to-end against the real API (Playwright, dev
@@ -1437,7 +1553,9 @@ during this closing pass, 2026-10-07. Unchecked boxes below are unchecked on pur
 **Phase 6b (Minion)** — `2cb7d87`:
 - [x] `minion-detail`: upload/delete/set-primary work end-to-end; `minions-list` renders real thumbnails
 - [x] Footnote cases and §7 rejection strings verbatim; modal census spec updated for minion-detail
-- [x] Nested Minions-list-in-monster-detail shows no thumbnail (explicitly out of scope for this pass, per Skyler)
+- [x] ~~Nested Minions-list-in-monster-detail shows no thumbnail (explicitly out of scope for this pass, per
+      Skyler)~~ → **reversed 2026-10-07: the nested block renders 64px `size="compact"` thumbnails**
+      (`5c697a6` + `3eb8f7a`, §6.1), with no narrow-width stacking since 64px leaves the text column intact
 - [x] List-row description added (`1c1a580`) — found here, not a domain difference; see §5(c)
 
 **Phase 6c (Bystander)** — `78b9626`:
@@ -1457,6 +1575,9 @@ during this closing pass, 2026-10-07. Unchecked boxes below are unchecked on pur
       separate pass
 - [x] Upload behaviour identical across all four domains — guaranteed structurally, since all four render the
       same `app-image-upload-modal` instance rather than four copies (the comparison confirms it)
-- [ ] **In flight (Luigi):** standing drift-guard spec, turning 6d's one-off comparison into an enforceable
-      invariant; first target is the Escape-census gap above
-- [ ] **In flight (Rosalina):** `design.md` staleness pass for passages the implementation overtook
+- [x] **Landed (Luigi), `e551111`:** standing drift-guard spec
+      (`shared/resource-images-four-domain-parity.spec.ts`), turning 6d's one-off comparison into an
+      enforceable invariant. It surfaced an Escape collision in the upload modal, fixed in the same commit,
+      and closed the Escape-census gap above — see §6.2
+- [ ] **In flight (Rosalina):** `design.md` staleness pass for passages the implementation overtook. The
+      only item still outstanding on this feature, alongside the two post-deploy checks under Phase 3.
