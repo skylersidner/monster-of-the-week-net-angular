@@ -336,6 +336,127 @@ describe('ImageUploadModalComponent', () => {
     });
   });
 
+  /**
+   * Focus containment, via the shared `appFocusTrap`. This modal had none before 2026-10-08, which
+   * is what made the Escape collision with the confirm dialog reachable: a keyboard user could tab
+   * out to the carousel's delete button behind this overlay and raise that dialog on top.
+   *
+   * The interesting case is the in-flight state, which renders **no controls at all** — the trap has
+   * to cope with zero focus stops rather than letting `Tab` escape to the page behind.
+   */
+  describe('focus containment', () => {
+    const pressTab = (shift = false): KeyboardEvent => {
+      const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: shift, bubbles: true, cancelable: true });
+      document.dispatchEvent(event);
+      fixture.detectChanges();
+      return event;
+    };
+    const dialog = (): HTMLElement => query('[data-upload-modal]')!;
+    const focusStops = (): HTMLElement[] =>
+      Array.from(dialog().querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(
+        (el) => !el.hasAttribute('disabled'),
+      );
+
+    it('lands initial focus on "choose files", the action the modal exists for', () => {
+      expect(document.activeElement).toBe(button('data-choose-files'));
+    });
+
+    it('is itself focusable, so focus has somewhere to park', () => {
+      expect(dialog().getAttribute('tabindex')).toBe('-1');
+    });
+
+    it('wraps Tab from the last control back to the first', () => {
+      const stops = focusStops();
+      stops[stops.length - 1].focus();
+
+      const event = pressTab();
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(stops[0]);
+    });
+
+    it('wraps Shift+Tab from the first control to the last', () => {
+      const stops = focusStops();
+      stops[0].focus();
+
+      const event = pressTab(true);
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(stops[stops.length - 1]);
+    });
+
+    it('pulls focus back in when it is outside the modal', () => {
+      const outside = document.createElement('button');
+      document.body.appendChild(outside);
+      outside.focus();
+
+      pressTab();
+
+      expect(dialog().contains(document.activeElement)).toBe(true);
+      outside.remove();
+    });
+
+    it('swallows Tab and parks focus on the dialog while the request is in flight', () => {
+      stage(file('one.webp'));
+      button('data-submit').click();
+      fixture.detectChanges();
+
+      // The whole body is a spinner panel here: no controls are rendered at all.
+      expect(focusStops()).toHaveLength(0);
+
+      const event = pressTab();
+
+      expect(event.defaultPrevented).toBe(true);
+      // Parked on the dialog rather than escaping to the page behind, and not left on <body>.
+      expect(document.activeElement).toBe(dialog());
+      expect(document.activeElement).not.toBe(document.body);
+    });
+
+    it('re-homes focus when a state swap destroys the focused control', async () => {
+      // "choose files" has focus; opening the discard step removes it from the DOM entirely.
+      stage(file('one.webp'));
+      expect(document.activeElement).toBe(button('data-choose-files'));
+
+      button('data-cancel').click();
+      fixture.detectChanges();
+
+      expect(query('[data-choose-files]')).toBeNull();
+
+      // The trap re-homes focus by MutationObserver, whose callback is a microtask.
+      await Promise.resolve();
+      // Rather than leaving it on a removed node.
+      expect(dialog().contains(document.activeElement)).toBe(true);
+      expect(document.activeElement).not.toBe(document.body);
+    });
+
+    it('returns focus to the opener when it closes', async () => {
+      const opener = document.createElement('button');
+      document.body.appendChild(opener);
+
+      // Close first, so this opener is what the tracker last saw before the overlay re-renders —
+      // the same open-from-a-real-control sequence the confirm dialog's spec sets up.
+      host.visible.set(false);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      opener.focus();
+      expect(document.activeElement).toBe(opener);
+
+      host.visible.set(true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      // The trap took focus off the opener, which is why closing has to give it back.
+      expect(document.activeElement).not.toBe(opener);
+
+      host.visible.set(false);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(opener);
+      opener.remove();
+    });
+  });
+
   describe('closing', () => {
     it('closes immediately with nothing staged — no confirmation', () => {
       button('data-cancel').click();

@@ -21,6 +21,7 @@ import {
   ResourceImageService,
 } from '../core/resource-images';
 import { NotificationService } from '../core/notifications';
+import { FocusReturnTracker, FocusTrapDirective } from './focus-trap.directive';
 import { IconComponent } from './icons/icon.component';
 import {
   UPLOAD_TOTAL_FAILURE_TOAST,
@@ -75,13 +76,15 @@ let nextInstanceId = 0;
 @Component({
   selector: 'app-image-upload-modal',
   standalone: true,
-  imports: [IconComponent],
+  imports: [IconComponent, FocusTrapDirective],
   templateUrl: './image-upload-modal.component.html',
 })
 export class ImageUploadModalComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly imageService = inject(ResourceImageService);
   private readonly notificationService = inject(NotificationService);
+  /** Injected, never called: it must be alive before this modal opens. See its own doc comment. */
+  private readonly focusReturn = inject(FocusReturnTracker);
 
   @Input({ required: true }) ownerType!: ResourceOwnerType;
   @Input({ required: true }) ownerId!: string;
@@ -117,6 +120,22 @@ export class ImageUploadModalComponent {
   @Output() closed = new EventEmitter<void>();
 
   @ViewChild('fileInput') private readonly fileInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('chooseFiles') private readonly chooseFiles?: ElementRef<HTMLButtonElement>;
+  @ViewChild('discardKeep') private readonly discardKeep?: ElementRef<HTMLButtonElement>;
+
+  /**
+   * Where `appFocusTrap` puts focus when this modal opens, and after each state swap.
+   *
+   * "Choose files" rather than the first focus stop: it is the action the modal exists for, and the
+   * first stop would be whatever happens to be earliest in the markup. On the discard-confirmation
+   * step it is "Keep files" instead — the non-destructive option, matching the confirm dialog's own
+   * least-destructive rule. In flight there are no controls at all, and the trap parks focus on the
+   * dialog itself.
+   *
+   * An arrow property so `this` survives being passed as a function.
+   */
+  readonly resolveInitialFocus = (): HTMLElement | null =>
+    (this.isConfirmingDiscard() ? this.discardKeep?.nativeElement : this.chooseFiles?.nativeElement) ?? null;
 
   readonly accept = IMAGE_INPUT_ACCEPT;
   readonly titleId = `image-upload-title-${++nextInstanceId}`;
@@ -342,9 +361,17 @@ export class ImageUploadModalComponent {
     // leave the outcome dependent on which component registered first. Checking for the other
     // overlay is order-independent.
     //
-    // Reachable rather than theoretical: this modal has no Tab trap, so a keyboard user can tab out
-    // to the carousel's delete button behind it and raise the confirm dialog on top. Found by
-    // `escape-nesting.spec.ts`, which covers the pair.
+    // **Kept deliberately after the focus trap landed, and not redundant — the justification for it
+    // changed, so read this before deleting either.** The path that originally made stacking
+    // reachable was keyboard: this modal had no Tab trap, so a user could tab out to the carousel's
+    // delete button behind it and raise the confirm dialog on top. `appFocusTrap` closed that path
+    // (proved by a Playwright control: 30 Tab presses cannot reach that button).
+    //
+    // But the trap closes one *route* to the state, while this closes the *state*: two overlays
+    // open at once is still expressible in code — any future path that sets a confirm dialog
+    // visible while this modal is open, from an async result or a page-level handler, reaches it
+    // without any tabbing. Belt and braces, on two different mechanisms, is the right level here
+    // for something whose failure mode is one keypress silently dismissing two surfaces.
     if (document.querySelector('[role="dialog"]:not([data-upload-modal])')) {
       return;
     }

@@ -6,7 +6,16 @@
     dialog's own text drops focus to <body>.
   -->
   <div class="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55" (click)="requestClose()">
+    <!--
+      `appFocusTrap` (shared with the confirm dialog) contains Tab here, which this modal had no
+      focus management for at all. That is what made the Escape collision reachable: a keyboard user
+      could tab out to the carousel's delete button behind this overlay and raise the confirm dialog
+      on top of it. The resolver sends initial focus to "choose files" — the action this modal exists
+      for — rather than the first stop, which would be whatever the browser reaches first.
+    -->
     <div
+      appFocusTrap
+      [appFocusTrapInitial]="resolveInitialFocus"
       class="bg-surface-raised rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-w-[520px] w-[90%] p-8"
       role="dialog"
       aria-modal="true"
@@ -23,6 +32,7 @@
             <button
               type="button"
               class="border-none rounded-md cursor-pointer text-[0.9rem] font-semibold px-5 py-2 transition-colors bg-surface-sunken text-secondary hover:bg-surface-hover"
+              #discardKeep
               data-keep-files
               (click)="keepFiles()"
             >
@@ -70,6 +80,7 @@
               <button
                 type="button"
                 class="entity-link bg-transparent border-0 cursor-pointer font-semibold p-0"
+                #chooseFiles
                 data-choose-files
                 (click)="openPicker()"
               >
