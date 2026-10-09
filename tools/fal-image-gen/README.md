@@ -85,8 +85,9 @@ succeeded.
 
 ## Usage log
 
-Every invocation — success or failure — appends one line to `log.jsonl` (git-ignored, local
-only): timestamp, model, the exact resolved prompt, response time in ms, the source image's
+Every invocation — success or failure — appends one line to `log.jsonl`, which **is committed**
+so the generation history and its cost record travel with the repo: timestamp, model, the exact
+resolved prompt, response time in ms, the source image's
 native size and the final output's size/format/path, the seed and fal.ai request id when
 available, and an **estimated** cost in USD.
 
