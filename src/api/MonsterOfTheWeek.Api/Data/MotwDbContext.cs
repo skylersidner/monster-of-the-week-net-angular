@@ -31,6 +31,7 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<MysteryMonster> MysteryMonsters => Set<MysteryMonster>();
     public DbSet<MysteryLocation> MysteryLocations => Set<MysteryLocation>();
     public DbSet<MysteryBystander> MysteryBystanders => Set<MysteryBystander>();
+    public DbSet<ResourceImage> ResourceImages => Set<ResourceImage>();
     public DbSet<Minion> Minions => Set<Minion>();
     public DbSet<MinionAttack> MinionAttacks => Set<MinionAttack>();
     public DbSet<MinionAttackWeaponTag> MinionAttackWeaponTags => Set<MinionAttackWeaponTag>();
@@ -161,12 +162,26 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.HarmCapacity).HasColumnName("harm_capacity");
+            entity.Property(e => e.PrimaryImageId).HasColumnName("primary_image_id");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
             entity.HasOne(e => e.MonsterType).WithMany(e => e.Monsters).HasForeignKey(e => e.MonsterTypeId);
             entity.Property(e => e.MonsterArchetypeId).HasColumnName("monster_archetype_id").IsRequired();
             entity.HasOne(e => e.MonsterArchetype).WithMany(e => e.Monsters).HasForeignKey(e => e.MonsterArchetypeId);
+
+            // Resource images — docs/resource-images/phases.md Phase 1. Real FK (unlike
+            // ResourceImage.OwnerId, which has no FK): PrimaryImageId always points at one
+            // specific ResourceImage row, so it is enforceable. SetNull, not Cascade or Restrict:
+            // deleting the current primary image clears the pointer rather than deleting the
+            // Monster or blocking the image delete; the derivation rule (lowest SortOrder when
+            // null) picks the next primary at read time, with no app-side "if this was primary"
+            // branch needed. WithMany() with no navigation, matching Hunter -> Playbook: a
+            // ResourceImage has no business carrying a collection of the four entity types that
+            // might point at it as their primary.
+            entity.HasOne<ResourceImage>().WithMany().HasForeignKey(e => e.PrimaryImageId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.PrimaryImageId).HasDatabaseName("idx_monsters_primary_image_id");
         });
 
         modelBuilder.Entity<MonsterAttack>(entity =>
@@ -266,10 +281,16 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.LocationTypeId).HasColumnName("location_type_id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.PrimaryImageId).HasColumnName("primary_image_id");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
             entity.HasOne(e => e.LocationType).WithMany(e => e.Locations).HasForeignKey(e => e.LocationTypeId);
+
+            // Resource images — see the Monster config above for the full reasoning.
+            entity.HasOne<ResourceImage>().WithMany().HasForeignKey(e => e.PrimaryImageId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.PrimaryImageId).HasDatabaseName("idx_locations_primary_image_id");
         });
 
         modelBuilder.Entity<LocationCustomMove>(entity =>
@@ -300,10 +321,16 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.BystanderTypeId).HasColumnName("bystander_type_id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.PrimaryImageId).HasColumnName("primary_image_id");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
             entity.HasOne(e => e.BystanderType).WithMany(e => e.Bystanders).HasForeignKey(e => e.BystanderTypeId);
+
+            // Resource images — see the Monster config above for the full reasoning.
+            entity.HasOne<ResourceImage>().WithMany().HasForeignKey(e => e.PrimaryImageId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.PrimaryImageId).HasDatabaseName("idx_bystanders_primary_image_id");
         });
 
         modelBuilder.Entity<BystanderCustomMove>(entity =>
@@ -368,6 +395,7 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.HarmCapacity).HasColumnName("harm_capacity");
+            entity.Property(e => e.PrimaryImageId).HasColumnName("primary_image_id");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
@@ -376,6 +404,11 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasOne(e => e.MinionType).WithMany(e => e.Minions).HasForeignKey(e => e.MinionTypeId);
             entity.HasIndex(e => e.MonsterId).HasDatabaseName("idx_minions_monster_id");
             entity.HasIndex(e => e.MinionTypeId).HasDatabaseName("idx_minions_minion_type_id");
+
+            // Resource images — see the Monster config above for the full reasoning.
+            entity.HasOne<ResourceImage>().WithMany().HasForeignKey(e => e.PrimaryImageId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.PrimaryImageId).HasDatabaseName("idx_minions_primary_image_id");
         });
 
         modelBuilder.Entity<MinionAttack>(entity =>
@@ -452,6 +485,42 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Description).HasColumnName("description");
             entity.HasOne(e => e.Minion).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MinionId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Resource images — docs/resource-images/design.md and phases.md Phase 1.
+        //
+        // OwnerId has no FK: a discriminator + id pair can't reference four different tables,
+        // so ownership (the owner exists, and is the type it claims to be) is validated at the
+        // service layer, not the schema. Accepted tradeoff of design.md §1.3's single-table
+        // decision, not an oversight. The four owning entities' PrimaryImageId FKs, by contrast,
+        // are configured on each of Monster/Minion/Bystander/Location above, since each one does
+        // point at exactly one specific ResourceImage row.
+        modelBuilder.Entity<ResourceImage>(entity =>
+        {
+            entity.ToTable("resource_images");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            // String-backed, not a plain int: readable raw SQL, no magic numbers. This is a new
+            // pattern for this codebase — no other entity uses HasConversion today — so it is a
+            // deliberate first, not an inherited convention.
+            entity.Property(e => e.OwnerType).HasColumnName("owner_type").HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(e => e.OwnerId).HasColumnName("owner_id").IsRequired();
+            entity.Property(e => e.FileName).HasColumnName("file_name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.ContentType).HasColumnName("content_type").HasMaxLength(100).IsRequired();
+            entity.Property(e => e.SizeBytes).HasColumnName("size_bytes");
+            entity.Property(e => e.Width).HasColumnName("width");
+            entity.Property(e => e.Height).HasColumnName("height");
+            entity.Property(e => e.ImageBytes).HasColumnName("image_bytes").IsRequired();
+            entity.Property(e => e.ThumbnailBytes).HasColumnName("thumbnail_bytes");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+
+            // Not unique: the cap-check/SortOrder-assignment race (phases.md §3.3) is accepted,
+            // not hardened, so this index is read-path only — it makes "every list read, every
+            // cap check, every primary-derivation query" an index seek rather than a sort, and
+            // does not guarantee SortOrder is distinct within an owner.
+            entity.HasIndex(e => new { e.OwnerType, e.OwnerId, e.SortOrder })
+                .HasDatabaseName("idx_resource_images_owner_sort");
         });
 
         modelBuilder.Entity<AppUser>(entity =>

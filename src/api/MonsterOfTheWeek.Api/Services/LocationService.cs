@@ -1,26 +1,14 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-public sealed class LocationService(ILocationRepository locationRepository) : ILocationService
+public sealed class LocationService(ILocationRepository locationRepository, IResourceImageService resourceImageService) : ILocationService
 {
-    public async Task<IReadOnlyList<LocationListItemResponse>> GetAllAsync(CancellationToken cancellationToken)
-    {
-        var locations = await locationRepository.GetAllLocationsAsync(cancellationToken);
-        return locations
-            .Select(x => new LocationListItemResponse(
-                x.Id,
-                x.Mysteries.Select(ml => ml.MysteryId).ToList(),
-                x.Name,
-                x.Description,
-                x.LocationTypeId,
-                x.LocationType.Name,
-                x.LocationType.Motivation,
-                x.CreatedAt))
-            .ToList();
-    }
+    public Task<IReadOnlyList<LocationListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
+        locationRepository.GetAllAsync(cancellationToken);
 
     public async Task<ServiceResult<IReadOnlyList<LocationListItemResponse>>> GetByMysteryAsync(Guid mysteryId, CancellationToken cancellationToken)
     {
@@ -131,8 +119,20 @@ public sealed class LocationService(ILocationRepository locationRepository) : IL
         return ServiceResult<LocationDetailResponse>.Success(response!);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
-        await locationRepository.DeleteLocationAsync(id, cancellationToken) > 0;
+    /// <summary>
+    /// Deletes the Location and, in the same transaction, every image it owns. Same reasoning as
+    /// <see cref="MonsterService.DeleteAsync"/>.
+    /// </summary>
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await using var transaction = await locationRepository.BeginTransactionAsync(cancellationToken);
+
+        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Location, id, cancellationToken);
+        var deleted = await locationRepository.DeleteLocationAsync(id, cancellationToken) > 0;
+
+        await transaction.CommitAsync(cancellationToken);
+        return deleted;
+    }
 
     /// <summary>
     /// Asserts that the membership row exists. Idempotent: re-linking an already-linked location

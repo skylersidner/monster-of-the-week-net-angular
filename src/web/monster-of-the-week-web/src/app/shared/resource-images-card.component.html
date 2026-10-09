@@ -1,0 +1,43 @@
+<article class="bg-surface border border-default rounded-lg p-3" data-images-card>
+  <div class="flex items-center justify-between gap-3 mb-2">
+    <h3 class="m-0">Images</h3>
+    <div class="flex items-center gap-3">
+      @if (atCap()) {
+        <small class="text-muted" data-at-cap>{{ maxImages }}/{{ maxImages }} images — delete one to add another</small>
+      }
+      <button
+        type="button"
+        class="bg-accent hover:bg-accent-hover rounded-lg text-on-accent text-[0.9rem] font-semibold py-[0.55rem] px-5 transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
+        data-add-images
+        [disabled]="!canAdd()"
+        (click)="addImages.emit()"
+      >
+        + Add Images
+      </button>
+    </div>
+  </div>
+
+  @if (isEmpty()) {
+    <!--
+      No dashed border here any more (§5.5): the card isn't droppable, so dressing the empty state
+      to look droppable would advertise an interaction that doesn't exist. The dashed border lives
+      in the modal, where dropping actually works. The empty state still offers the action that
+      resolves it — it just hands off to the modal.
+    -->
+    <div class="flex flex-col items-center justify-center gap-2 rounded-lg py-8 text-muted" data-empty-state>
+      <app-domain-icon class="opacity-60" [domain]="ownerType" size="xl" />
+      <p class="m-0">No images yet.</p>
+      <button
+        type="button"
+        class="bg-accent hover:bg-accent-hover rounded-lg text-on-accent text-[0.9rem] font-semibold py-[0.55rem] px-5 transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40"
+        data-empty-add-images
+        [disabled]="!canAdd()"
+        (click)="addImages.emit()"
+      >
+        + Add Images
+      </button>
+    </div>
+  } @else {
+    <ng-content />
+  }
+</article>

@@ -60,6 +60,9 @@
   --color-accent-subtle: var(--color-indigo-50); /* indigo-50 */
   --color-on-accent: var(--color-white);
   --color-focus-ring: color-mix(in oklab, var(--color-indigo-500) 20%, transparent); /* indigo-500 @ ~20% */
+  /* Primary-image outline + glow on the carousel's active slide (docs/resource-images/design.md §5.2).
+     An alias of the accent, so a later change of hue is one line here and no template sweep. */
+  --color-image-primary-indicator: var(--color-accent);
 
   /* Danger (destructive/error) */
   --color-danger: var(--color-red-600); /* red-600 / red-800 */
@@ -130,6 +133,10 @@
   --color-accent-subtle: color-mix(in oklab, var(--color-indigo-400) 16%, transparent); /* indigo-400/16 */
   --color-on-accent: var(--color-slate-900); /* #0f172a — flipped to a dark neutral */
   --color-focus-ring: color-mix(in oklab, var(--color-indigo-400) 35%, transparent); /* indigo-400/35 */
+  /* Same alias in both scopes, per this block's every-token-in-both convention. The dark row is
+     redundant today: .dark sits on <html>, the same element as :root, so the light row's var()
+     already resolves to the dark accent. It's here so it stays right if .dark ever moves. */
+  --color-image-primary-indicator: var(--color-accent);
 
   --color-danger: var(--color-red-400); /* #f87171 */
   --color-danger-hover: var(--color-red-300); /* #fca5a5 — lighter, not darker; Philosophy #4 */
@@ -234,6 +241,19 @@
 /* Focus indication (from --color-focus-ring) */
 @utility ring-focus {
   box-shadow: 0 0 0 2px var(--color-focus-ring);
+}
+
+/*
+ * Primary-image indicator (docs/resource-images/design.md §5.2): a solid outline plus a soft glow.
+ * The glow uses the same color-mix alpha construction as --color-focus-ring, kept here in one
+ * place, not repeated as an arbitrary shadow-[...] at each call site.
+ *
+ * The glow spreads 16px past the slide. Any overflow-hidden ancestor needs at least 16px of
+ * padding around the slide, or the glow is clipped (app-image-carousel's viewport does this).
+ */
+@utility image-primary-glow {
+  outline: 2px solid var(--color-image-primary-indicator);
+  box-shadow: 0 0 16px color-mix(in oklab, var(--color-image-primary-indicator) 45%, transparent);
 }
 
 /*
@@ -395,6 +415,37 @@
     }
   }
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * `min-w-0` on a grid or flex item that is itself a flex row.
+ * ---------------------------------------------------------------------------
+ * Not a class defined here — `min-w-0` is Tailwind-generated. This note lives
+ * with the other conventions because the trap is invisible in a class-name
+ * diff and has been rediscovered repeatedly: every list row in this app needed
+ * the same one-class fix, found separately each time.
+ *
+ * The mechanism: a grid item (and a flex item) defaults to `min-width: auto`,
+ * not `0`. Its minimum size is therefore its *content's* min-content width, so
+ * it will not shrink below the widest thing inside it. Put a `flex` row inside
+ * an `<li>` of a `<ul class="grid">` — a thumbnail, a text block, a trailing
+ * action — and the row claims the sum of its children and overflows its grid
+ * track on a narrow viewport.
+ *
+ * What it costs when missed, measured rather than guessed: a 488px row inside a
+ * 358px track at a 390px viewport, which makes `main` scroll horizontally and
+ * puts the row's trailing delete button off-screen at x=487. It looks like a
+ * styling nitpick and behaves like an unreachable control.
+ *
+ * The fix: `min-w-0` on the grid item itself. `min-w-0` on the inner
+ * `flex-1` child is NOT a substitute and is the usual near-miss — that lets the
+ * *text* shrink, but the row has already claimed its width one level up. When
+ * the chain crosses several containers (the wizard's `grid` → `<li>` → `flex`
+ * → truncating `<small>`), each level in the chain needs it; fixing only the
+ * innermost does not propagate upward.
+ *
+ * Standing decision: `.squad/decisions/records/rosalina-grid-li-needs-min-w-0.md`.
+ */
 
 @layer base {
   html,

@@ -8,6 +8,7 @@ using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
+using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Tests.Controllers;
 
@@ -109,8 +110,10 @@ internal sealed class MysteryLinkApiHarness : IAsyncDisposable
         builder.Services.AddControllers().AddApplicationPart(typeof(MonstersController).Assembly);
         builder.Services.AddDbContext<MotwDbContext>(o => o.UseSqlite(harness.connectionString));
         builder.Services.AddScoped<IMonsterRepository, MonsterRepository>();
+        builder.Services.AddScoped<IMinionRepository, MinionRepository>();
         builder.Services.AddScoped<ILocationRepository, LocationRepository>();
         builder.Services.AddScoped<IBystanderRepository, BystanderRepository>();
+        builder.Services.AddScoped<IResourceImageService, ResourceImageService>();
         builder.Services.AddScoped<IMonsterService, MonsterService>();
         builder.Services.AddScoped<ILocationService, LocationService>();
         builder.Services.AddScoped<IBystanderService, BystanderService>();

@@ -329,6 +329,10 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
 
+                    b.Property<Guid?>("PrimaryImageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("primary_image_id");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -336,6 +340,9 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BystanderTypeId");
+
+                    b.HasIndex("PrimaryImageId")
+                        .HasDatabaseName("idx_bystanders_primary_image_id");
 
                     b.ToTable("bystanders", (string)null);
                 });
@@ -750,6 +757,10 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
 
+                    b.Property<Guid?>("PrimaryImageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("primary_image_id");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -757,6 +768,9 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("LocationTypeId");
+
+                    b.HasIndex("PrimaryImageId")
+                        .HasDatabaseName("idx_locations_primary_image_id");
 
                     b.ToTable("locations", (string)null);
                 });
@@ -845,6 +859,10 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
 
+                    b.Property<Guid?>("PrimaryImageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("primary_image_id");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -856,6 +874,9 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
 
                     b.HasIndex("MonsterId")
                         .HasDatabaseName("idx_minions_monster_id");
+
+                    b.HasIndex("PrimaryImageId")
+                        .HasDatabaseName("idx_minions_primary_image_id");
 
                     b.ToTable("minions", (string)null);
                 });
@@ -1089,6 +1110,10 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
 
+                    b.Property<Guid?>("PrimaryImageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("primary_image_id");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1098,6 +1123,9 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.HasIndex("MonsterArchetypeId");
 
                     b.HasIndex("MonsterTypeId");
+
+                    b.HasIndex("PrimaryImageId")
+                        .HasDatabaseName("idx_monsters_primary_image_id");
 
                     b.ToTable("monsters", (string)null);
                 });
@@ -1934,6 +1962,72 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.ToTable("playbook_stat_array_options", (string)null);
                 });
 
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.ResourceImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
+
+                    b.Property<byte[]>("ImageBytes")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("image_bytes");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("owner_type");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("integer")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<byte[]>("ThumbnailBytes")
+                        .HasColumnType("bytea")
+                        .HasColumnName("thumbnail_bytes");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerType", "OwnerId", "SortOrder")
+                        .HasDatabaseName("idx_resource_images_owner_sort");
+
+                    b.ToTable("resource_images", (string)null);
+                });
+
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.WeaponTag", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2021,6 +2115,11 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .HasForeignKey("BystanderTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.ResourceImage", null)
+                        .WithMany()
+                        .HasForeignKey("PrimaryImageId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("BystanderType");
                 });
@@ -2246,6 +2345,11 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.ResourceImage", null)
+                        .WithMany()
+                        .HasForeignKey("PrimaryImageId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("LocationType");
                 });
 
@@ -2273,6 +2377,11 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .HasForeignKey("MonsterId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.ResourceImage", null)
+                        .WithMany()
+                        .HasForeignKey("PrimaryImageId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("MinionType");
 
@@ -2366,6 +2475,11 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .HasForeignKey("MonsterTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.ResourceImage", null)
+                        .WithMany()
+                        .HasForeignKey("PrimaryImageId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("MonsterArchetype");
 

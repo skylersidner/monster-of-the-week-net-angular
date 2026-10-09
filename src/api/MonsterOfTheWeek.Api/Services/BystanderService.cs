@@ -1,26 +1,14 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-public sealed class BystanderService(IBystanderRepository bystanderRepository) : IBystanderService
+public sealed class BystanderService(IBystanderRepository bystanderRepository, IResourceImageService resourceImageService) : IBystanderService
 {
-    public async Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken)
-    {
-        var bystanders = await bystanderRepository.GetAllBystandersAsync(cancellationToken);
-        return bystanders
-            .Select(x => new BystanderListItemResponse(
-                x.Id,
-                x.Mysteries.Select(mb => mb.MysteryId).ToList(),
-                x.Name,
-                x.Description,
-                x.BystanderTypeId,
-                x.BystanderType.Name,
-                x.BystanderType.Motivation,
-                x.CreatedAt))
-            .ToList();
-    }
+    public Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
+        bystanderRepository.GetAllAsync(cancellationToken);
 
     public async Task<ServiceResult<IReadOnlyList<BystanderListItemResponse>>> GetByMysteryAsync(Guid mysteryId, CancellationToken cancellationToken)
     {
@@ -138,8 +126,20 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository) :
         return ServiceResult<BystanderDetailResponse>.Success(response!);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
-        await bystanderRepository.DeleteBystanderAsync(id, cancellationToken) > 0;
+    /// <summary>
+    /// Deletes the Bystander and, in the same transaction, every image it owns. Same reasoning as
+    /// <see cref="MonsterService.DeleteAsync"/>.
+    /// </summary>
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await using var transaction = await bystanderRepository.BeginTransactionAsync(cancellationToken);
+
+        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Bystander, id, cancellationToken);
+        var deleted = await bystanderRepository.DeleteBystanderAsync(id, cancellationToken) > 0;
+
+        await transaction.CommitAsync(cancellationToken);
+        return deleted;
+    }
 
     /// <summary>
     /// Asserts that the membership row exists. Idempotent: re-linking an already-linked bystander

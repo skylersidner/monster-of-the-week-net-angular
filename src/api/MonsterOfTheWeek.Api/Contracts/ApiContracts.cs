@@ -20,6 +20,32 @@ public sealed record CreateMonsterArchetypeRequest(
     [param: Required, MinLength(5)] string Description);
 public sealed record CustomMoveResponse(Guid Id, string Name, string? Description);
 
+// Resource images — docs/resource-images/design.md §1.1/§3, phases.md Phase 3.
+public sealed record ResourceImageResponse(
+    Guid Id,
+    string FileName,
+    string ContentType,
+    int SizeBytes,
+    int Width,
+    int Height,
+    int SortOrder,
+    bool IsPrimary,
+    DateTimeOffset CreatedAt);
+
+/// <summary>`reason` is the rejection enum's name as a string (e.g. `"UnsupportedType"`) — this
+/// codebase has no `JsonStringEnumConverter` configured anywhere, so serializing the enum
+/// itself would come out as a number; the mapper converts explicitly instead.</summary>
+public sealed record RejectedResourceImageResponse(string FileName, string Reason);
+
+/// <summary>
+/// `design.md` §3's deliberately exact, not hedged, per-file upload result: every file in the
+/// batch lands in exactly one of these two lists. `uploaded` can be non-empty alongside a
+/// non-empty `rejected` — a batch that's 3-for-5 is a 201 with detail, not an error.
+/// </summary>
+public sealed record ResourceImageUploadResponse(
+    IReadOnlyList<ResourceImageResponse> Uploaded,
+    IReadOnlyList<RejectedResourceImageResponse> Rejected);
+
 public sealed record MysteryListItemResponse(
     Guid Id,
     string Name,
@@ -72,6 +98,10 @@ public sealed record UpsertCountdownRequest(
     string? Nightfall,
     string? Midnight);
 
+// PrimaryImageId defaults to null, not just for "no images" — the by-mystery sites that share
+// this record (GetMonstersByMysteryIdAsync) are out of scope for Phase 4's derivation (phases.md
+// Phase 4, Skyler's scope cut) and are deliberately left untouched; the default is what lets
+// them keep compiling unchanged while the shared response shape still carries the field.
 public sealed record MonsterListItemResponse(
     Guid Id,
     IReadOnlyList<Guid> MysteryIds,
@@ -85,7 +115,8 @@ public sealed record MonsterListItemResponse(
     int ArmorCount,
     int WeaknessCount,
     int MinionCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? PrimaryImageId = null);
 
 public sealed record MonsterAttackResponse(
     Guid Id,
@@ -135,6 +166,12 @@ public sealed record UpsertMonsterArmorRequest(
 public sealed record UpsertMonsterWeaknessRequest([param: Required, MaxLength(255)] string Name, string? Description);
 public sealed record UpsertCustomMoveRequest([param: Required, MaxLength(255)] string Name, string? Description);
 
+// Both sites that build this record populate PrimaryImageId with the derived primary:
+// MinionRepository.GetAllAsync and GetByMonsterIdAsync (the nested-under-a-monster list on the
+// monster detail page). The by-monster site was excluded by Phase 4's scope cut and added on
+// 2026-10-07 when Skyler reversed it; both now share one projection expression so they can't
+// drift apart again. The parameter keeps its default only because the record is constructed
+// positionally in test fakes.
 public sealed record MinionListItemResponse(
     Guid Id,
     Guid MonsterId,
@@ -147,7 +184,8 @@ public sealed record MinionListItemResponse(
     int PowerCount,
     int ArmorCount,
     int WeaknessCount,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? PrimaryImageId = null);
 
 public sealed record MinionAttackResponse(
     Guid Id,
@@ -193,6 +231,8 @@ public sealed record UpsertMinionArmorRequest(
     string? SpecialDescription);
 public sealed record UpsertMinionWeaknessRequest([param: Required, MaxLength(255)] string Name, string? Description);
 
+// See MonsterListItemResponse's note on PrimaryImageId's default — the by-mystery site
+// (GetByMysteryAsync/GetLocationsByMysteryIdAsync) is out of scope for Phase 4 and stays untouched.
 public sealed record LocationListItemResponse(
     Guid Id,
     IReadOnlyList<Guid> MysteryIds,
@@ -201,7 +241,8 @@ public sealed record LocationListItemResponse(
     Guid LocationTypeId,
     string LocationTypeName,
     string LocationTypeMotivation,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? PrimaryImageId = null);
 
 public sealed record LocationDetailResponse(
     Guid Id,
@@ -215,6 +256,8 @@ public sealed record LocationDetailResponse(
 
 public sealed record UpsertLocationRequest([param: Required, MaxLength(255)] string Name, string? Description, Guid LocationTypeId);
 
+// See MonsterListItemResponse's note on PrimaryImageId's default — the by-mystery site
+// (GetByMysteryAsync) is out of scope for Phase 4 and stays untouched.
 public sealed record BystanderListItemResponse(
     Guid Id,
     IReadOnlyList<Guid> MysteryIds,
@@ -223,7 +266,8 @@ public sealed record BystanderListItemResponse(
     Guid BystanderTypeId,
     string BystanderTypeName,
     string BystanderTypeMotivation,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? PrimaryImageId = null);
 
 public sealed record BystanderDetailResponse(
     Guid Id,

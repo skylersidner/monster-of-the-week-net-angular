@@ -8,8 +8,16 @@
     class="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/55"
     (click)="onBackdropClick()"
   >
+    <!--
+      `appFocusTrap` owns initial focus, Tab cycling and the focus-return-on-close that this
+      component used to implement itself; the resolver below keeps the "least destructive
+      actionable control" choice here, where the ViewChild refs live. Escape stays on the
+      component — see its `onKeydown`.
+    -->
     <div
       #dialog
+      appFocusTrap
+      [appFocusTrapInitial]="resolveInitialFocus"
       class="bg-surface-raised rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] max-w-[420px] w-[90%] p-8"
       role="dialog"
       aria-modal="true"

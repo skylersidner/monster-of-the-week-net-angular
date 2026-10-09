@@ -11,6 +11,38 @@
       Belongs to: <a class="entity-link entity-link--inline" [routerLink]="['/monsters', minion()!.monsterId]">{{ minion()!.monsterName }}</a>
     </p>
 
+    <!--
+      Images closes the identity header (design.md §4.1.1: title → badges → Images), and on this
+      page the "Belongs to" line above stands in for Monster's badge row. It stays in the header
+      rather than counting as a related-entity roster, by §4.1.1's own test: it renders an
+      attribute of *this* record as a sentence, not a roster with a link per row. This page has no
+      roster, so Images runs straight into the form.
+    -->
+    <div class="mt-6">
+      @if (imagesStore.errorMessage()) {
+        <p class="text-danger" data-images-error>{{ imagesStore.errorMessage() }}</p>
+      }
+      <app-resource-images-card
+        ownerType="Minion"
+        [currentCount]="imagesStore.count()"
+        [disabled]="imagesStore.isMutating()"
+        (addImages)="openImageUpload()"
+      >
+        <app-image-carousel
+          ownerType="Minion"
+          [ownerId]="minion()!.id"
+          [ownerName]="minion()!.name"
+          [images]="imagesStore.images()"
+          [primaryImageId]="imagesStore.primaryImageId()"
+          [activeImageId]="imagesStore.activeImageId()"
+          [busy]="imagesStore.isMutating()"
+          (activeImageIdChange)="imagesStore.setActive($event)"
+          (setPrimary)="imagesStore.setPrimary($event)"
+          (deleteRequested)="requestDeleteImage($event)"
+        />
+      </app-resource-images-card>
+    </div>
+
     @if (activeMutation()) {
       <p class="text-primary font-semibold">{{ activeMutation() }}</p>
     }
@@ -203,10 +235,27 @@
     </div>
   }
 
+  <!--
+    One modal for every delete on this page, images included. `[footnote]` is only populated by the
+    image flow (§6's three branches); every other call site leaves it undefined, so the modal keeps
+    its own `''` default and renders no footnote.
+  -->
   <app-confirm-delete-modal
     [visible]="pendingDelete() !== null"
     [itemName]="pendingDelete()?.label ?? ''"
+    [footnote]="pendingDelete()?.footnote ?? ''"
     (confirmed)="onDeleteConfirmed()"
     (cancelled)="onDeleteCancelled()"
   ></app-confirm-delete-modal>
+
+  @if (minion()) {
+    <app-image-upload-modal
+      ownerType="Minion"
+      [ownerId]="minion()!.id"
+      [currentCount]="imagesStore.count()"
+      [visible]="isUploadingImages()"
+      (uploaded)="imagesStore.applyUpload($event)"
+      (closed)="isUploadingImages.set(false)"
+    />
+  }
 </section>

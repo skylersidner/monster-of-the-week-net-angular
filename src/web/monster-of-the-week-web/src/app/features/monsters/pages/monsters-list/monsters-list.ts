@@ -7,8 +7,10 @@ import { MonsterService } from '../../../../core/monster';
 import { MinionService } from '../../../../core/minion';
 import { MonsterListItemResponse, MysteryListItemResponse } from '../../../../core/models';
 import { MysteryService } from '../../../../core/mystery';
+import { resourceImageThumbnailUrl } from '../../../../core/resource-images';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 import { IconComponent } from '../../../../shared/icons/icon.component';
+import { ResourceThumbnailComponent } from '../../../../shared/resource-thumbnail.component';
 import {
   mysteryUsageFootnote,
   mysteryUsageMessage,
@@ -32,7 +34,7 @@ interface PendingMonsterDelete {
 
 @Component({
   selector: 'app-monsters-list',
-  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent, ResourceThumbnailComponent],
   templateUrl: './monsters-list.html',
 })
 export class MonstersListComponent implements OnInit {
@@ -85,6 +87,17 @@ export class MonstersListComponent implements OnInit {
         // the count is not lost with it — it comes from each row's own `mysteryIds` (§15.1).
         error: () => {},
       });
+  }
+
+  /**
+   * The row's thumbnail URL, or `null` when the monster has no images — which is exactly what makes
+   * `app-resource-thumbnail` render the domain placeholder (design.md §4.2, §5.5).
+   *
+   * `primaryImageId` rides along on the list response (Phase 4), so this costs no extra request per
+   * row; the `<img loading="lazy">` then keeps the actual fetches proportional to the rows on screen.
+   */
+  thumbnailUrl(monster: MonsterListItemResponse): string | null {
+    return resourceImageThumbnailUrl('Monster', monster.id, monster.primaryImageId);
   }
 
   requestDelete(monster: MonsterListItemResponse): void {

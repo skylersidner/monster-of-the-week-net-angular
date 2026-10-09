@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
@@ -39,7 +40,18 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
                 x.Armors.Count,
                 x.Weaknesses.Count,
                 x.Minions.Count,
-                x.CreatedAt))
+                x.CreatedAt,
+                // The derived primary (design.md §1.2, phases.md Phase 4): the owner's explicit
+                // column if set, else the lowest-SortOrder image for this owner with lowest Id as
+                // the tie-break — the exact rule IResourceImageService.GetPrimaryImageIdAsync
+                // implements, restated here as a correlated subquery so the list needs no extra
+                // round trip. Confirmed via EF logging that this translates to a single SQL
+                // COALESCE over a correlated subquery, not a second query per row.
+                x.PrimaryImageId ?? dbContext.ResourceImages
+                    .Where(i => i.OwnerType == ResourceOwnerType.Monster && i.OwnerId == x.Id)
+                    .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
+                    .Select(i => (Guid?)i.Id)
+                    .FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<MonsterListItemResponse>> GetMonstersByMysteryIdAsync(Guid mysteryId, CancellationToken cancellationToken) =>
@@ -249,4 +261,7 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
+        dbContext.Database.BeginTransactionAsync(cancellationToken);
 }

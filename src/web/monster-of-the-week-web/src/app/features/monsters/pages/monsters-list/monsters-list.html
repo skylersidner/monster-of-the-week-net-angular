@@ -13,21 +13,69 @@
   } @else {
     <ul class="grid gap-4 list-none p-0">
       @for (monster of monsters(); track monster.id) {
-        <li class="flex items-center bg-surface border border-default rounded-lg gap-4 justify-between p-4">
-          <div class="flex-1 min-w-0">
+        <!--
+          `min-w-0` on the `<li>` itself, not just on the content block inside it. This is a grid
+          item (the `<ul>` is `grid`), and grid items default to `min-width: auto` — content-based —
+          so the row refuses to shrink below the sum of its children and overflows its track. The
+          `min-w-0` on the inner `flex-1` div cannot fix that: it lets the *text* shrink, but the
+          row has already claimed its min-content width one level up.
+          Measured at 390px wide before this class: the row was 488px inside a 358px track, which
+          made `main` scroll horizontally and put the delete button off-screen at x=487. The row
+          already overflowed at the old 64px thumbnail (424px); the larger thumbnail only widened
+          the gap. Same trap, same fix as the wizard roster list (Luigi, 2026-09-26).
+        -->
+        <!--
+          Stacks below `sm` (540px, customized in styles.css from Tailwind's 640px): image above and
+          centred, text full width beneath. `items-center` does both jobs — it centres the
+          thumbnail horizontally in the stacked column and vertically in the row — so the only
+          extra work is `w-full` on the content block, which `items-center` would otherwise shrink
+          to its content width, and `self-end` on the actions so the delete button stays at the
+          row's trailing edge rather than floating centred under the text.
+
+          Measured at 390px before stacking: the text column was 132px wide and a long description
+          ran to 19 lines. 540px is the first width where the horizontal row still gives the text a
+          workable column (282px), which is why the switch sits there and not at `md`.
+        -->
+        <li class="flex flex-col items-center sm:flex-row min-w-0 bg-surface border border-default rounded-lg gap-4 justify-between p-4">
+          <!--
+            First flex child, ahead of the content block, with the row's existing `gap-4` providing
+            the spacing (design.md §4.2). Always the thumbnail endpoint, never the original; a null
+            `primaryImageId` yields a null URL, which is the placeholder's trigger.
+
+            No size classes here: the component's default `size="row"` carries the 128px box, so
+            every domain's list gets the same number without four call sites agreeing on it.
+          -->
+          <app-resource-thumbnail
+            ownerType="Monster"
+            [thumbnailUrl]="thumbnailUrl(monster)"
+            [alt]="monster.name"
+            loading="lazy"
+          />
+          <div class="w-full sm:w-auto flex-1 min-w-0">
             <div class="flex flex-wrap items-baseline gap-2 mb-1">
               <a class="entity-link font-semibold" [routerLink]="['/monsters', monster.id]">{{ monster.name }}</a>
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-monster text-on-badge-monster">{{ monster.monsterType.name }}: {{ monster.monsterType.motivation }}</span>
               <span class="rounded-full text-[0.72rem] font-semibold tracking-[0.02em] px-[0.55rem] py-[0.15rem] whitespace-nowrap bg-badge-archetype text-on-badge-archetype">{{ monster.monsterArchetype.name }}: {{ monster.monsterArchetype.description }}</span>
             </div>
-            <p class="my-1">{{ monster.description || 'No description provided' }}</p>
+            <!--
+              `line-clamp-2` is the app's established ellipsis treatment (hunter-sheet-preview, the
+              wizard's location/bystander rosters). It clamps by *lines*, not characters, so the
+              cutoff follows the real column width instead of a word count that would be wrong at
+              one of these breakpoints. Released at `lg` (1024px) so phone and tablet both clamp —
+              a long description measured 19 lines at 390px and 6 at 768px, against 2 at 1440px,
+              which is why desktop needs no clamp at all.
+
+              No `block`/`truncate` utility alongside it: `line-clamp-*` carries its own
+              `display: -webkit-box`, and a co-occurring display utility silently kills the clamp.
+            -->
+            <p class="my-1 line-clamp-2 lg:line-clamp-none">{{ monster.description || 'No description provided' }}</p>
             <small>
               Attacks: {{ monster.attackCount }} · Powers: {{ monster.powerCount }} · Armors:
               {{ monster.armorCount }} · Weaknesses: {{ monster.weaknessCount }} · Minions:
               {{ monster.minionCount }} · Created: {{ monster.createdAt | date: 'mediumDate' }}
             </small>
           </div>
-          <div class="flex items-center shrink-0 gap-1">
+          <div class="flex items-center self-end sm:self-auto shrink-0 gap-1">
             <button
               type="button"
               class="action-btn action-btn--delete flex items-center bg-transparent border-0 rounded-md text-muted cursor-pointer justify-center p-[0.375rem] transition-colors"

@@ -8,6 +8,37 @@
   } @else if (location()) {
     <h2>{{ location()!.name }}</h2>
 
+    <!--
+      Images closes the identity header (design.md §4.1.1). This page has no badge row and no
+      roster of related entities, so there is nothing for Images to displace — it sits directly
+      under the title, and Custom Moves stays below the form as an owned sub-resource. Same shape
+      as bystander-detail.
+    -->
+    <div class="mt-6">
+      @if (imagesStore.errorMessage()) {
+        <p class="text-danger" data-images-error>{{ imagesStore.errorMessage() }}</p>
+      }
+      <app-resource-images-card
+        ownerType="Location"
+        [currentCount]="imagesStore.count()"
+        [disabled]="imagesStore.isMutating()"
+        (addImages)="openImageUpload()"
+      >
+        <app-image-carousel
+          ownerType="Location"
+          [ownerId]="location()!.id"
+          [ownerName]="location()!.name"
+          [images]="imagesStore.images()"
+          [primaryImageId]="imagesStore.primaryImageId()"
+          [activeImageId]="imagesStore.activeImageId()"
+          [busy]="imagesStore.isMutating()"
+          (activeImageIdChange)="imagesStore.setActive($event)"
+          (setPrimary)="imagesStore.setPrimary($event)"
+          (deleteRequested)="imagesStore.requestDelete($event)"
+        />
+      </app-resource-images-card>
+    </div>
+
     @if (isSaving()) {
       <p class="text-primary font-semibold">Saving location...</p>
     }
@@ -31,5 +62,31 @@
         }
       </ul>
     }
+  }
+
+  <!--
+    This page's first and only confirm-delete modal, and the only delete flow on it, so the store
+    holds the pending state rather than the page keeping a parallel `pendingDelete` — see the note
+    on `imagesStore`. `[footnote]` carries §6's three branches and is `''` for a non-primary image,
+    which the modal renders as nothing. `?.` at each step: Angular's template type-checker rejects
+    `?.image.fileName` even though TypeScript accepts it.
+  -->
+  <app-confirm-delete-modal
+    [visible]="imagesStore.pendingDelete() !== null"
+    [itemName]="imagesStore.pendingDelete()?.image?.fileName ?? ''"
+    [footnote]="imagesStore.pendingDelete()?.footnote ?? ''"
+    (confirmed)="imagesStore.confirmDelete()"
+    (cancelled)="imagesStore.cancelDelete()"
+  ></app-confirm-delete-modal>
+
+  @if (location()) {
+    <app-image-upload-modal
+      ownerType="Location"
+      [ownerId]="location()!.id"
+      [currentCount]="imagesStore.count()"
+      [visible]="isUploadingImages()"
+      (uploaded)="imagesStore.applyUpload($event)"
+      (closed)="isUploadingImages.set(false)"
+    />
   }
 </section>

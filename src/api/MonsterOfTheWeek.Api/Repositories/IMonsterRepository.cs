@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 
@@ -57,4 +58,15 @@ public interface IMonsterRepository
     Task<int> DeleteCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The first explicit transaction in this codebase (phases.md Phase 3, resource-images):
+    /// <see cref="MonsterOfTheWeek.Api.Services.MonsterService.DeleteAsync"/> needs the Monster's
+    /// own image cleanup, its Minions' image cleanup, and the Monster row delete to land
+    /// together or not at all. Delegates straight to <c>Database.BeginTransactionAsync</c>, so
+    /// work done against the same <c>MotwDbContext</c> instance through any other
+    /// repository/service in the same DI scope — <c>IResourceImageService</c>
+    /// included — participates in it.
+    /// </summary>
+    Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
 }

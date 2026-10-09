@@ -8,11 +8,16 @@ import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 import { IconComponent } from '../../../../shared/icons/icon.component';
+import { ImageCarouselComponent } from '../../../../shared/image-carousel.component';
+import { ImageUploadModalComponent } from '../../../../shared/image-upload-modal.component';
+import { ResourceImagesCardComponent } from '../../../../shared/resource-images-card.component';
+import { ResourceImagesStore } from '../../../../shared/resource-images.store';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
 import { MinionFormComponent } from '../../shared/minion-form/minion-form';
 import {
   MinionDetailResponse,
   MinionAttackResponse,
+  ResourceImageResponse,
   TypeRefResponse,
   UpsertMinionArmorRequest,
   UpsertMinionAttackRequest,
@@ -24,7 +29,20 @@ import {
 
 @Component({
   selector: 'app-minion-detail',
-  imports: [ReactiveFormsModule, RouterLink, MinionFormComponent, WeaponTagSelectComponent, ConfirmDeleteModalComponent, IconComponent],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    MinionFormComponent,
+    WeaponTagSelectComponent,
+    ConfirmDeleteModalComponent,
+    IconComponent,
+    ResourceImagesCardComponent,
+    ImageCarouselComponent,
+    ImageUploadModalComponent,
+  ],
+  // Component-scoped, as on monster-detail: the section's state dies with the page, so a second
+  // minion cannot inherit the first's images.
+  providers: [ResourceImagesStore],
   templateUrl: './minion-detail.html',
 })
 export class MinionDetailComponent implements OnInit {
@@ -37,7 +55,16 @@ export class MinionDetailComponent implements OnInit {
   readonly isLoading = signal(true);
   readonly activeMutation = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
-  readonly pendingDelete = signal<{ label: string; perform: () => void } | null>(null);
+  /**
+   * `footnote` is only ever set by the image delete flow (§6). Every other call site leaves it
+   * undefined, so the modal keeps its `''` default and renders no footnote — same shape as
+   * monster-detail since Phase 6a.
+   */
+  readonly pendingDelete = signal<{ label: string; footnote?: string; perform: () => void } | null>(null);
+
+  /** The Images section's state (design.md §4.1). Provided on this component, so it dies with the page. */
+  readonly imagesStore = inject(ResourceImagesStore);
+  readonly isUploadingImages = signal(false);
   readonly mysteryId = signal<string | null>(null);
   readonly monsterId = signal<string | null>(null);
   readonly isMutating = computed(() => this.activeMutation() !== null);
@@ -121,6 +148,9 @@ export class MinionDetailComponent implements OnInit {
       )
       .subscribe({
         next: ({ minion, minionTypes, weaponTags }) => {
+          // Deliberately outside the forkJoin above: the images section loads independently and
+          // renders its own inline error, so a failing image list must not fail the whole page.
+          this.imagesStore.load('Minion', minion.id, minion.name);
           this.minion.set(minion);
           this.minionTypes.set(minionTypes);
           this.weaponTags.set(weaponTags);
@@ -146,6 +176,9 @@ export class MinionDetailComponent implements OnInit {
       .subscribe({
         next: (minion) => {
           this.minion.set(minion);
+          // The one write here that can rename the minion, and the §6 last-image footnote quotes
+          // that name ("{name} will have no images afterward").
+          this.imagesStore.setOwnerName(minion.name);
           this.activeMutation.set(null);
           this.notificationService.success('Minion details saved.');
           this.errorMessage.set(null);
@@ -353,6 +386,33 @@ export class MinionDetailComponent implements OnInit {
 
   weaponTagNames(attack: MinionAttackResponse): string {
     return attack.weaponTags.map((tag) => tag.name).join(', ');
+  }
+
+  // --- Images (design.md §4.1, §4.1.1, §6) ---
+  //
+  // Every image write fires its own request through `imagesStore` and updates the section's own
+  // state, independent of `saveMinion()` — the same decoupling Attacks/Powers/Armors/Weaknesses
+  // already have here. An image failure stays inside the section rather than touching
+  // `errorMessage`, which this template's `@else if` would use to unmount the page.
+
+  /** Opens the upload modal. The 10/10 block lives on the card's button, so this is only reachable below the cap. */
+  openImageUpload(): void {
+    this.isUploadingImages.set(true);
+  }
+
+  /**
+   * The carousel's `deleteRequested`. Routed through **this page's** single
+   * `<app-confirm-delete-modal>` using the store's `deleteFootnoteFor`/`deleteImage` pair, rather
+   * than the store's own pending signals — this page already owns a `pendingDelete`, and adopting
+   * the store's too would hold the pending image in two places. That pair was split out in Phase 6a
+   * for exactly this case.
+   */
+  requestDeleteImage(image: ResourceImageResponse): void {
+    this.pendingDelete.set({
+      label: image.fileName,
+      footnote: this.imagesStore.deleteFootnoteFor(image),
+      perform: () => this.imagesStore.deleteImage(image),
+    });
   }
 
   onDeleteConfirmed(): void {

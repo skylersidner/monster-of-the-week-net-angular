@@ -202,6 +202,15 @@ export interface MonsterListItemResponse {
   weaknessCount: number;
   minionCount: number;
   createdAt: string;
+  /**
+   * The derived-or-explicit primary image (docs/resource-images/design.md §3.1, phases.md Phase 4),
+   * or `null` when the monster has no images. The list row turns it into a thumbnail URL; the
+   * placeholder renders when it is null.
+   *
+   * Optional because the by-mystery projection is out of Phase 4's scope and omits it, so a row
+   * from that endpoint legitimately has no such property rather than a null one.
+   */
+  primaryImageId?: string | null;
 }
 
 export interface MonsterAttackResponse {
@@ -303,6 +312,25 @@ export interface MinionListItemResponse {
   armorCount: number;
   weaknessCount: number;
   createdAt: string;
+  /**
+   * The derived-or-explicit primary image, or `null` when the minion has no images.
+   *
+   * **Both** minion projections carry it as of 2026-10-07: the standalone `GET /api/minions`
+   * and the by-monster one behind `monster-detail`'s Minions block. The latter was excluded by
+   * Phase 4's scope cut and added when Skyler reversed that ("I would like Luigi to add
+   * thumbnail support to the minions on the monster detail page"); the two now share one
+   * projection expression server-side, so neither can quietly stop sending it.
+   *
+   * **Staying optional is a decision, not a leftover** (reviewed 2026-10-07 when the nested block
+   * was wired). Tightening it would cost spec-fixture churn and buy nothing at runtime: the
+   * frontend already treats absent and `null` identically, since `resourceImageThumbnailUrl` takes
+   * `string | null | undefined` and both yield the placeholder. And `required` would be a claim
+   * TypeScript cannot back — this value crosses a process boundary from the C# projection, which is
+   * precisely where all four of these interfaces silently lacked the field while the server was
+   * sending it. Optional is the honest shape for a wire value; the server-side shared projection,
+   * not this marker, is what stops it going missing.
+   */
+  primaryImageId?: string | null;
 }
 
 export interface MinionAttackResponse {
@@ -389,6 +417,14 @@ export interface LocationListItemResponse {
   locationTypeName: string;
   locationTypeMotivation: string;
   createdAt: string;
+  /**
+   * The derived-or-explicit primary image (phases.md Phase 4), or `null` when the location has no
+   * images. Only the standalone `GET /api/locations` projection carries it.
+   *
+   * Optional, because the by-mystery projection shares this record and is out of Phase 4's scope,
+   * so a row from there has no such property rather than a null one.
+   */
+  primaryImageId?: string | null;
 }
 
 export interface LocationDetailResponse {
@@ -417,6 +453,14 @@ export interface BystanderListItemResponse {
   bystanderTypeName: string;
   bystanderTypeMotivation: string;
   createdAt: string;
+  /**
+   * The derived-or-explicit primary image (phases.md Phase 4), or `null` when the bystander has no
+   * images. Only the standalone `GET /api/bystanders` projection carries it.
+   *
+   * Optional, because the by-mystery projection shares this record and is out of Phase 4's scope,
+   * so a row from there has no such property rather than a null one.
+   */
+  primaryImageId?: string | null;
 }
 
 export interface BystanderDetailResponse {
@@ -924,4 +968,44 @@ export interface UpsertHunterRequest {
   bespokeSelections: HunterBespokeSelectionModel[];
   bespokeInstances: HunterBespokeInstanceModel[];
   journalEntries: HunterJournalEntryModel[];
+}
+
+// --- Resource images (docs/resource-images/design.md §3; ApiContracts.cs ResourceImage*Response) ---
+
+/** The four owner types a `ResourceImage` can belong to. Same names as the API's `ResourceOwnerType`. */
+export type ResourceOwnerType = 'Monster' | 'Minion' | 'Bystander' | 'Location';
+
+/** One stored image's metadata. `isPrimary` is the server's derived-or-explicit primary (design §1.2). */
+export interface ResourceImageResponse {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  width: number;
+  height: number;
+  sortOrder: number;
+  isPrimary: boolean;
+  createdAt: string;
+}
+
+/**
+ * The API's rejection enum, serialized by name (the mapper converts explicitly; there is no
+ * `JsonStringEnumConverter`). `reason` stays `string` on the wire type so an unknown future value
+ * still renders, through the generic fallback copy.
+ */
+export type ResourceImageRejectionReason =
+  | 'UnsupportedType'
+  | 'TooLarge'
+  | 'CapExceeded'
+  | 'UnreadableOrOversizedDimensions';
+
+export interface RejectedResourceImageResponse {
+  fileName: string;
+  reason: string;
+}
+
+/** One `POST .../images` response — 201 when `uploaded` is non-empty, 400 when every file was rejected. */
+export interface ResourceImageUploadResponse {
+  uploaded: ResourceImageResponse[];
+  rejected: RejectedResourceImageResponse[];
 }

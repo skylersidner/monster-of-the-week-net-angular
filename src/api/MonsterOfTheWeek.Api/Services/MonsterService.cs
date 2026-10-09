@@ -1,10 +1,14 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-public sealed class MonsterService(IMonsterRepository monsterRepository) : IMonsterService
+public sealed class MonsterService(
+    IMonsterRepository monsterRepository,
+    IMinionRepository minionRepository,
+    IResourceImageService resourceImageService) : IMonsterService
 {
     public async Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         await monsterRepository.GetAllAsync(cancellationToken);
@@ -161,8 +165,40 @@ public sealed class MonsterService(IMonsterRepository monsterRepository) : IMons
     public async Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
         await monsterRepository.UnlinkMonsterFromMysteryAsync(mysteryId, id, cancellationToken) > 0;
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) =>
-        await monsterRepository.DeleteMonsterAsync(id, cancellationToken) > 0;
+    /// <summary>
+    /// Deletes the Monster and, in the same transaction, every image it or its Minions own.
+    ///
+    /// <para>
+    /// <b>The first explicit transaction in this codebase</b> (phases.md Phase 3, resource-images;
+    /// <c>BeginTransactionAsync</c>/<c>IDbContextTransaction</c>, grepped, nothing else uses it).
+    /// `ResourceImage` has no FK to its owner (design.md §1.3's accepted tradeoff), so the plain
+    /// `DeleteMonsterAsync` below does nothing to the Monster's own `resource_images` rows, and —
+    /// worse — deleting a Monster already cascades to its Minions <b>at the database level</b>
+    /// (`Minion.MonsterId` is `OnDelete(Cascade)`), which runs no application code at all and
+    /// would silently orphan the Minions' images too. So Minion ids are read <i>before</i> the
+    /// Monster delete (not after — the cascade would have already removed the rows that name
+    /// them), both sets of images are cleaned up via `IResourceImageService`, and only then is
+    /// the Monster row deleted — all under one transaction, so a failure partway through leaves
+    /// neither a Monster with orphaned images nor a half-cleaned set of `resource_images` rows.
+    /// </para>
+    /// </summary>
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await using var transaction = await monsterRepository.BeginTransactionAsync(cancellationToken);
+
+        var minionIds = await minionRepository.GetIdsByMonsterIdAsync(id, cancellationToken);
+
+        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Monster, id, cancellationToken);
+        foreach (var minionId in minionIds)
+        {
+            await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Minion, minionId, cancellationToken);
+        }
+
+        var deleted = await monsterRepository.DeleteMonsterAsync(id, cancellationToken) > 0;
+
+        await transaction.CommitAsync(cancellationToken);
+        return deleted;
+    }
 
     public async Task<ServiceResult<IReadOnlyList<MonsterAttackResponse>>> GetAttacksAsync(Guid id, CancellationToken cancellationToken)
     {

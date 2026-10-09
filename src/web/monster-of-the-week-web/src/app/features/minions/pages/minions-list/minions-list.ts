@@ -4,12 +4,14 @@ import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MinionService } from '../../../../core/minion';
 import { MinionListItemResponse } from '../../../../core/models';
+import { resourceImageThumbnailUrl } from '../../../../core/resource-images';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
 import { IconComponent } from '../../../../shared/icons/icon.component';
+import { ResourceThumbnailComponent } from '../../../../shared/resource-thumbnail.component';
 
 @Component({
   selector: 'app-minions-list',
-  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent],
+  imports: [RouterLink, DatePipe, ConfirmDeleteModalComponent, IconComponent, ResourceThumbnailComponent],
   templateUrl: './minions-list.html',
 })
 export class MinionsListComponent implements OnInit {
@@ -37,6 +39,17 @@ export class MinionsListComponent implements OnInit {
           this.isLoading.set(false);
         },
       });
+  }
+
+  /**
+   * The row's thumbnail URL, or `null` when the minion has no images — which is what makes
+   * `app-resource-thumbnail` render the domain placeholder (design.md §4.2, §5.5).
+   *
+   * `primaryImageId` rides along on the list response (Phase 4), so this costs no extra request per
+   * row; `loading="lazy"` then keeps the fetches proportional to the rows on screen.
+   */
+  thumbnailUrl(minion: MinionListItemResponse): string | null {
+    return resourceImageThumbnailUrl('Minion', minion.id, minion.primaryImageId);
   }
 
   requestDelete(id: string, name: string): void {

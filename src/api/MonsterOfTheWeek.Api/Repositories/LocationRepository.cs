@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
 
@@ -123,14 +125,30 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
     public Task<int> DeleteLocationAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Locations.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Location>> GetAllLocationsAsync(CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<LocationListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         await dbContext.Locations
             .AsNoTracking()
-            .Include(x => x.LocationType)
-            .Include(x => x.Mysteries)
             .OrderBy(x => x.Name)
+            .Select(x => new LocationListItemResponse(
+                x.Id,
+                x.Mysteries.Select(ml => ml.MysteryId).ToList(),
+                x.Name,
+                x.Description,
+                x.LocationTypeId,
+                x.LocationType.Name,
+                x.LocationType.Motivation,
+                x.CreatedAt,
+                // The derived primary — see MonsterRepository.GetAllAsync for the full reasoning.
+                x.PrimaryImageId ?? dbContext.ResourceImages
+                    .Where(i => i.OwnerType == ResourceOwnerType.Location && i.OwnerId == x.Id)
+                    .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
+                    .Select(i => (Guid?)i.Id)
+                    .FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
+        dbContext.Database.BeginTransactionAsync(cancellationToken);
 }
