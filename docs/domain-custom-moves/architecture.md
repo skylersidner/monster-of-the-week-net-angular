@@ -3646,14 +3646,43 @@ bodiless 404, measured), `SUPPRESS_ERROR_TOAST` silences the diagnosis, and *"§
 requires the service spec to assert all five segments by string. Keep that requirement; it is the only
 guard."*
 
+> **Superseded in my favour, 2026-10-11 (Phase 4).** Bowser withdrew the byte-identical claim and I
+> re-measured it first-hand during Phase 4's live probe. The two 404s **are** distinguishable:
+>
+> | Request | Status | Body | `Content-Type` |
+> |---|---|---|---|
+> | good segment, unknown owner id | 404 | **162 B** | `application/problem+json; charset=utf-8` |
+> | bad segment, real owner id | 404 | **0 B** | *none* |
+>
+> A controller `NotFound()` goes through `AddProblemDetails()`; the route constraint rejects a bad
+> segment before any application code runs and `Program.cs`'s `/api/{**rest}` catch-all answers a bare
+> 404. **What that changes, and what it does not** — three things, because the answer is not simply
+> "the problem is smaller":
+>
+> 1. **Correction A below is now wrong in the same direction Bowser's was, and I am correcting it
+>    rather than quietly keeping the stronger framing.** A segment typo is **diagnosable** — not from
+>    the UI, where it still surfaces only as the hedged caveat, but from the network tab in one look.
+>    The create pages are still where it *hides*; it is no longer true that nothing can tell you why.
+>    L-R4's severity drops accordingly.
+> 2. **It makes the live probe strictly sharper, and that is the real win.** The discriminator becomes
+>    *"did the request reach application code?"*, which is a **positive** signal about the segment
+>    rather than an absence — and it works with a **bogus** owner id, so a probe needs no real data at
+>    all. I still ran the probe with real owners (below), because a real id is the only thing that also
+>    catches a segment that is legal but points at the *wrong* owner type; the bogus-id form is what I
+>    would reach for in any later phase that just wants to re-confirm the map.
+> 3. **It does not retire the derived guard**, and the reason is timing rather than strength: the probe
+>    is a one-off manual check, and the derived assertions run in CI on every change, forever. They
+>    protect against different things at different moments. Both stay.
+
 **Two corrections and one better guard.**
 
 **Correction A — "silent" is too strong, and where it *is* nearly silent is not where the gate looks.**
-The write still fails and the host still reacts:
+The write still fails and the host still reacts (and per the note above, "undiagnosable" in this table
+should be read as "undiagnosable *from the UI*" — the response itself says which kind of 404 it is):
 
 | Surface | What the user sees on a typo'd segment |
 |---|---|
-| Detail page | The host's own message — *"Unable to add custom move."* — as a toast. Visible, undiagnosable. |
+| Detail page | The host's own message — *"Unable to add custom move."* — as a toast. Visible, undiagnosable from the UI. |
 | **Create page** | **The hedged caveat** (§13.6.1) and navigation to a detail page where the moves are simply absent. This is the one that hides: the entity saved, the copy is deliberately vague, and "some details may not have saved" is *true*. |
 | Wizard | `handleSubmitError('Could not save locations. Please try again.')` in the footer band, and the phase does not advance. Loud, misattributed. |
 
@@ -4010,7 +4039,49 @@ useful: *"Tests obviously won't be useful until then, either."* Writing a hollow
 would be worse than the gap — it would read as coverage. The matching half is §30.5's 5f-3 gate, which
 does not close until the real caller and its coverage exist.
 
----
+### What Phase 4 actually ran, 2026-10-11
+
+Recorded because §27 was written before the backend existed, and a spec whose predictions were never
+checked against the shipped thing is just a plan.
+
+**Suite: 1497 → 1524 (109 files), `npm run typecheck` clean.** 27 new assertions: the 4 × 5 table (20), a
+guard that the table really generates twenty, the three path tests, the status-code test, the
+error-propagation test and the draft-key test.
+
+**The derived guard, with its negative control — and the control found a real limit of the 4 × 5 table.**
+Typo `minions` → `minionz` and **two** tests fail: the literal-path test and the derived agreement test.
+Typo `mysteries` → `mystery` and the other two fail: the literal-path test and the `MysteryService`
+derivation. So each of the two derived mechanisms catches its own segment independently. **But the 4 × 5
+table does *not* fail in either case**, and that is worth stating plainly: it builds its expected URL from
+`customMovesPath` itself, so it is self-consistent and structurally blind to a segment typo. It proves
+verb, body and the context token — not the segment. The derived assertions are doing the segment work
+alone, which is exactly why they exist and why five transcribed literals would not have been enough.
+
+**The live probe: 18 checks, 0 failures, zero data footprint.** Run against the real `Program.cs` host on
+scratch port 5399, signed in with the dev cookie. Three parts:
+
+1. **All five segments against a real owner of that type → `200`**, and the *item* route
+   (`.../custom-moves/{moveId}`) against a bogus move id → `404`, which reaches the controller and writes
+   nothing. Ten checks. Real ids are what also catch a segment that is legal but points at the wrong
+   owner type — `Minion: 'monsters'` would 404 here while a bogus-id probe could not tell.
+2. **The 404 distinction, measured first-hand**: 162 B `application/problem+json` versus 0 B and no
+   content-type, plus `xmonstersx` → 404 confirming the regex anchors hold on the real host and not only
+   in Bowser's scratch project.
+3. **The five segments were parsed out of `core/custom-moves.ts` by the probe script rather than typed
+   into it**, so the probe tests the client's map and not the author's memory of it. A typo in the map
+   produces a probe URL that fails.
+
+**Footprint: nothing created, nothing to clean up.** Every request was a `GET` or a `PUT` at a
+non-existent move id, so no write path ever completed. Audited afterwards anyway:
+`SELECT count(*) FROM custom_moves` is **0**, no row matching `probe%`, and exactly one custom-move table
+in `information_schema` — the five old ones are gone. No reference types created, so no `psql` cleanup was
+needed. The API was stopped and `dotnet build` confirmed clean afterwards, so nothing holds `bin/`.
+
+**One thing that differed from §27, and it is in the service's favour.** §27.2 argued `list()` earns its
+place because the detail pages do not need it and 5f-3 does. That still holds — and the live probe turned
+out to be a second, immediate use: it is the only verb that can validate a segment read-only. Not a reason
+to keep the method on its own, but worth recording that the "ships unexercised" window is narrower in
+practice than the doc implies: it is unexercised *by the application*, not unused.
 
 # 28. `app-custom-moves-card` — the component contract
 
