@@ -107,4 +107,68 @@ public sealed class CustomMoveMigrationPostgresTests
         Assert.Equal("Close In", stored.Name);
         Assert.Null(stored.Description);
     }
+
+    /// <summary>
+    /// Phase 3's gate (B5's third test, and §21.2): after the full history replays, the five
+    /// per-domain tables are gone.
+    ///
+    /// <para>
+    /// <b>This catches a different failure from the test above, and both are needed.</b> A
+    /// <i>typo'd</i> table name in <c>DropPerDomainCustomMoves.Up</c> makes
+    /// <c>MigrateAsync()</c> throw at the server — <c>Migrating_a_fresh_database_…</c> catches
+    /// that. A <i>missing</i> <c>DropTable</c> line throws nothing at all: the migration
+    /// succeeds, the table quietly survives, and nothing else in the suite would ever look. Only
+    /// an explicit absence assertion sees that one, and absence is exactly what this commit is
+    /// for.
+    /// </para>
+    ///
+    /// <para>
+    /// Queried through <c>information_schema</c> rather than the model, necessarily: the five
+    /// entities no longer exist, so there is no <c>DbSet</c> to count. Named one by one rather
+    /// than with a <c>LIKE '%_custom_moves'</c> pattern, so that <c>custom_moves</c> itself
+    /// cannot be swept up by a sloppy pattern and so a sixth name could not hide.
+    /// </para>
+    /// </summary>
+    [PostgresFact]
+    [Trait("Category", "Postgres")]
+    public async Task The_five_per_domain_custom_move_tables_are_gone_after_the_full_history()
+    {
+        var options = new DbContextOptionsBuilder<MotwDbContext>().UseNpgsql(ConnectionString).Options;
+
+        await using var context = new MotwDbContext(options);
+        await context.Database.EnsureDeletedAsync();
+        await context.Database.MigrateAsync();
+
+        var connection = context.Database.GetDbConnection();
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name IN (
+                'mystery_custom_moves',
+                'monster_custom_moves',
+                'minion_custom_moves',
+                'location_custom_moves',
+                'bystander_custom_moves')
+            ORDER BY table_name
+            """;
+
+        var surviving = new List<string>();
+        await using (var reader = await command.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                surviving.Add(reader.GetString(0));
+            }
+        }
+
+        Assert.Empty(surviving);
+
+        // And the table that replaced them is still there — otherwise "all five are gone" would
+        // also pass on a database where the whole feature had been dropped.
+        Assert.Equal(0, await context.CustomMoves.CountAsync());
+    }
 }
