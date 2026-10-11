@@ -41,7 +41,6 @@ public sealed class Mystery : ITimestamped
     public ICollection<MysteryMonster> MysteryMonsters { get; set; } = [];
     public ICollection<MysteryLocation> MysteryLocations { get; set; } = [];
     public ICollection<MysteryBystander> MysteryBystanders { get; set; } = [];
-    public ICollection<MysteryCustomMove> CustomMoves { get; set; } = [];
 }
 
 public sealed class Countdown
@@ -95,7 +94,6 @@ public sealed class Monster : ITimestamped
     public ICollection<MonsterPower> Powers { get; set; } = [];
     public ICollection<MonsterArmor> Armors { get; set; } = [];
     public ICollection<MonsterWeakness> Weaknesses { get; set; } = [];
-    public ICollection<MonsterCustomMove> CustomMoves { get; set; } = [];
     public ICollection<Minion> Minions { get; set; } = [];
 }
 
@@ -163,16 +161,6 @@ public sealed class MonsterWeakness
     public Monster Monster { get; set; } = null!;
 }
 
-public sealed class MonsterCustomMove
-{
-    public Guid Id { get; init; } = Guid.NewGuid();
-    public Guid MonsterId { get; set; }
-    public required string Name { get; set; }
-    public string? Description { get; set; }
-
-    public Monster Monster { get; set; } = null!;
-}
-
 public sealed class LocationType
 {
     public Guid Id { get; init; } = Guid.NewGuid();
@@ -194,17 +182,6 @@ public sealed class Location : ITimestamped
 
     public LocationType LocationType { get; set; } = null!;
     public ICollection<MysteryLocation> Mysteries { get; set; } = [];
-    public ICollection<LocationCustomMove> CustomMoves { get; set; } = [];
-}
-
-public sealed class LocationCustomMove
-{
-    public Guid Id { get; init; } = Guid.NewGuid();
-    public Guid LocationId { get; set; }
-    public required string Name { get; set; }
-    public string? Description { get; set; }
-
-    public Location Location { get; set; } = null!;
 }
 
 public sealed class BystanderType
@@ -228,27 +205,6 @@ public sealed class Bystander : ITimestamped
 
     public BystanderType BystanderType { get; set; } = null!;
     public ICollection<MysteryBystander> Mysteries { get; set; } = [];
-    public ICollection<BystanderCustomMove> CustomMoves { get; set; } = [];
-}
-
-public sealed class BystanderCustomMove
-{
-    public Guid Id { get; init; } = Guid.NewGuid();
-    public Guid BystanderId { get; set; }
-    public required string Name { get; set; }
-    public string? Description { get; set; }
-
-    public Bystander Bystander { get; set; } = null!;
-}
-
-public sealed class MysteryCustomMove
-{
-    public Guid Id { get; init; } = Guid.NewGuid();
-    public Guid MysteryId { get; set; }
-    public required string Name { get; set; }
-    public string? Description { get; set; }
-
-    public Mystery Mystery { get; set; } = null!;
 }
 
 public sealed class MysteryMonster
@@ -296,7 +252,6 @@ public sealed class Minion : ITimestamped
     public ICollection<MinionPower> Powers { get; set; } = [];
     public ICollection<MinionArmor> Armors { get; set; } = [];
     public ICollection<MinionWeakness> Weaknesses { get; set; } = [];
-    public ICollection<MinionCustomMove> CustomMoves { get; set; } = [];
 }
 
 public sealed class MinionAttack
@@ -344,16 +299,6 @@ public sealed class MinionArmor
 }
 
 public sealed class MinionWeakness
-{
-    public Guid Id { get; init; } = Guid.NewGuid();
-    public Guid MinionId { get; set; }
-    public required string Name { get; set; }
-    public string? Description { get; set; }
-
-    public Minion Minion { get; set; } = null!;
-}
-
-public sealed class MinionCustomMove
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public Guid MinionId { get; set; }

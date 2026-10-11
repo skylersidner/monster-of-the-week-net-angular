@@ -129,6 +129,9 @@ public sealed class MinionServiceTests
     // attributes are read via ParameterInfo, not PropertyInfo/Validator.TryValidateObject.
     // UpsertCustomMoveRequest is deliberately excluded here: it's the shared cross-domain DTO
     // already fixed and covered in MonsterServiceTests.cs during Phase 2, no new coverage needed.
+    // Still true, and the reason is now stronger rather than weaker: as of domain-custom-moves
+    // Phase 2 there is exactly one custom-move endpoint for all five owners, so a per-domain copy
+    // of this assertion would be five tests of one DTO (architecture.md §9).
     public static IEnumerable<object[]> NameRequestTypes =>
     [
         [typeof(UpsertMinionRequest)],
@@ -316,17 +319,6 @@ public sealed class MinionServiceTests
         public Task AddWeaknessAsync(MinionWeakness weakness, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<int> DeleteWeaknessAsync(Guid minionId, Guid weaknessId, CancellationToken cancellationToken) => Task.FromResult(1);
-
-        public Task<IReadOnlyList<MinionCustomMove>> GetCustomMovesAsync(Guid minionId, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<MinionCustomMove>>([]);
-
-        public Task<MinionCustomMove?> GetCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken) =>
-            Task.FromResult<MinionCustomMove?>(null);
-
-        public Task AddCustomMoveAsync(MinionCustomMove move, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task<int> DeleteCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken) => Task.FromResult(1);
-
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {
             SaveChangesCalls += 1;

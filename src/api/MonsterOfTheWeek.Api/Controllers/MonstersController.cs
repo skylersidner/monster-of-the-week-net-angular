@@ -148,8 +148,8 @@ public sealed class MonstersController(IMonsterService monsterService, IResource
 
     // Custom moves moved to CustomMovesController in Phase 2 of domain-custom-moves
     // (architecture.md §3.3). The four actions that were here answered the same URLs it answers
-    // now; IMonsterService's four custom-move methods are still present and are now called by
-    // nothing, which Phase 3 removes along with monster_custom_moves.
+    // now. IMonsterService's four custom-move methods went in Phase 3, with
+    // monster_custom_moves and its entity.
 
     // --- Images (docs/resource-images/design.md §3, phases.md Phase 3) ---
 

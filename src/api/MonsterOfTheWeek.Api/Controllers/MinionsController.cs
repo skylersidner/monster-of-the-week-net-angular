@@ -151,8 +151,8 @@ public sealed class MinionsController(IMinionService minionService, IResourceIma
     // --- Custom Moves ---
 
     // Custom moves moved to CustomMovesController in Phase 2 of domain-custom-moves
-    // (architecture.md §3.3). IMinionService's four custom-move methods are now called by
-    // nothing; Phase 3 removes them with minion_custom_moves.
+    // (architecture.md §3.3). IMinionService's four custom-move methods went in Phase 3, with
+    // minion_custom_moves and its entity.
 
     // --- Images (docs/resource-images/design.md §3, phases.md Phase 3) ---
 

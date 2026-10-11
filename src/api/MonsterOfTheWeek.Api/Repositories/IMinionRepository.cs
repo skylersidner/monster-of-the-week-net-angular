@@ -46,11 +46,6 @@ public interface IMinionRepository
     Task AddWeaknessAsync(MinionWeakness weakness, CancellationToken cancellationToken);
     Task<int> DeleteWeaknessAsync(Guid minionId, Guid weaknessId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<MinionCustomMove>> GetCustomMovesAsync(Guid minionId, CancellationToken cancellationToken);
-    Task<MinionCustomMove?> GetCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken);
-    Task AddCustomMoveAsync(MinionCustomMove move, CancellationToken cancellationToken);
-    Task<int> DeleteCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken);
-
     Task SaveChangesAsync(CancellationToken cancellationToken);
 
     /// <summary>See <see cref="IMonsterRepository.BeginTransactionAsync"/> for the full reasoning —

@@ -89,11 +89,12 @@ internal sealed class MinionReparentApiHarness : IAsyncDisposable
             setup.MinionArmors.Add(new MinionArmor { Id = harness.ArmorId, MinionId = harness.MinionId, Name = "Grave Dirt", HarmSoak = 1 });
             setup.MinionWeaknesses.Add(new MinionWeakness { Id = harness.WeaknessId, MinionId = harness.MinionId, Name = "Salt" });
 
-            // A custom_moves row, not a MinionCustomMove, as of Phase 2 of domain-custom-moves
-            // (architecture.md §5 Phase 2, B7 item 5). The assertion it serves gets *stronger*
-            // for the switch: the move used to follow a reparented minion because the FK did not
-            // change, and now follows because OwnerId does not change. Same test, a different and
-            // more fragile-looking mechanism, which is exactly why it is worth keeping.
+            // A custom_moves row. This seeded a per-domain minion_custom_moves row until
+            // domain-custom-moves Phase 2 (architecture.md §5, B7 item 5); Phase 3 deleted that
+            // table and its entity. The assertion it serves got *stronger* for the switch: the
+            // move used to follow a reparented minion because the FK did not change, and now
+            // follows because OwnerId does not change — no FK enforces it, so the test is doing
+            // real work rather than restating a schema constraint.
             setup.CustomMoves.Add(new CustomMove
             {
                 Id = harness.CustomMoveId,

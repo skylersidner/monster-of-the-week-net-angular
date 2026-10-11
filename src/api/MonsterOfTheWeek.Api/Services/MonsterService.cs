@@ -491,51 +491,6 @@ public sealed class MonsterService(
     public async Task<bool> DeleteWeaknessAsync(Guid id, Guid weaknessId, CancellationToken cancellationToken) =>
         await monsterRepository.DeleteWeaknessAsync(id, weaknessId, cancellationToken) > 0;
 
-    public async Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken)
-    {
-        if (!await monsterRepository.MonsterExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<IReadOnlyList<CustomMoveResponse>>.NotFound($"Monster {id} was not found.");
-        }
-
-        var values = await monsterRepository.GetCustomMovesAsync(id, cancellationToken);
-        return ServiceResult<IReadOnlyList<CustomMoveResponse>>.Success(values.Select(x => x.ToResponse()).ToList());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(Guid id, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
-    {
-        if (!await monsterRepository.MonsterExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Monster {id} was not found.");
-        }
-
-        var value = new MonsterCustomMove { MonsterId = id, Name = request.Name.Trim(), Description = request.Description?.Trim() };
-        await monsterRepository.AddCustomMoveAsync(value, cancellationToken);
-        await monsterRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(value.ToResponse());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(
-        Guid id,
-        Guid moveId,
-        UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        var value = await monsterRepository.GetCustomMoveAsync(id, moveId, cancellationToken);
-        if (value is null)
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Custom move {moveId} was not found.");
-        }
-
-        value.Name = request.Name.Trim();
-        value.Description = request.Description?.Trim();
-        await monsterRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(value.ToResponse());
-    }
-
-    public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        await monsterRepository.DeleteCustomMoveAsync(id, moveId, cancellationToken) > 0;
-
     private static MonsterDetailResponse ToDetailResponse(
         Monster monster,
         IReadOnlyList<CustomMoveResponse> customMoves) =>

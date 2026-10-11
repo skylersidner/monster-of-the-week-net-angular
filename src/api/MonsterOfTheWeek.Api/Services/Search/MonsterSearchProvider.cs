@@ -8,8 +8,10 @@ namespace MonsterOfTheWeek.Api.Services.Search;
 /// docs/search/architecture.md Section 2), and, as of Phase 4b, every Attack/Power/Armor/Weakness's
 /// Name (Secondary, all four tiers) and Description (Tertiary, tiers 2-4 only) via
 /// <see cref="SearchTokenizer.PickBestMatch"/>. Excerpt source is the Monster's own Description.
-/// <c>MonsterCustomMove</c> is deliberately excluded — docs/search/architecture.md Section 3
-/// ("Excluded from Phase 4 scope: CustomMove sub-resources").
+/// Custom moves are deliberately excluded — docs/search/architecture.md Section 3 ("Excluded from
+/// Phase 4 scope: CustomMove sub-resources"). They moved out of <c>MonsterCustomMove</c> and into
+/// the single <c>CustomMove</c> table in domain-custom-moves Phase 2 (architecture.md §3.1); the
+/// exclusion is unchanged, only the table it refers to is.
 /// </summary>
 public sealed class MonsterSearchProvider(MotwDbContext dbContext) : ISearchProvider
 {

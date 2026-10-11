@@ -101,25 +101,6 @@ public sealed class BystanderRepository(MotwDbContext dbContext) : IBystanderRep
     public Task<bool> BystanderExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Bystanders.AnyAsync(x => x.Id == id, cancellationToken);
 
-    public async Task<IReadOnlyList<BystanderCustomMove>> GetBystanderCustomMovesAsync(Guid id, CancellationToken cancellationToken) =>
-        await dbContext.BystanderCustomMoves
-            .AsNoTracking()
-            .Where(x => x.BystanderId == id)
-            .OrderBy(x => x.Name)
-            .ToListAsync(cancellationToken);
-
-    public Task AddBystanderCustomMoveAsync(BystanderCustomMove move, CancellationToken cancellationToken)
-    {
-        dbContext.BystanderCustomMoves.Add(move);
-        return Task.CompletedTask;
-    }
-
-    public Task<BystanderCustomMove?> GetBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.BystanderCustomMoves.FirstOrDefaultAsync(x => x.Id == moveId && x.BystanderId == id, cancellationToken);
-
-    public Task<int> DeleteBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.BystanderCustomMoves.Where(x => x.Id == moveId && x.BystanderId == id).ExecuteDeleteAsync(cancellationToken);
-
     public Task<int> DeleteBystanderAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Bystanders.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
 

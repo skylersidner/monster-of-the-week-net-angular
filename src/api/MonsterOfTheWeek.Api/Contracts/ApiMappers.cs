@@ -94,23 +94,11 @@ public static class ApiMappers
             value.Nightfall,
             value.Midnight);
 
-    // Domain custom moves — docs/domain-custom-moves/architecture.md §3.1, Phase 1. The one
-    // overload that survives Phase 3; the five per-domain ones below and above it go with their
-    // entities (§9). Identical body to all five, because CustomMoveResponse never changed —
-    // §2.1 budgets zero contract change for this whole rework.
+    // Domain custom moves — docs/domain-custom-moves/architecture.md §3.1. The only one of the
+    // six that survived Phase 3; the five per-domain overloads went with their entities (§9).
+    // Its body is character-identical to all five that it replaced, because CustomMoveResponse
+    // never changed — §2.1 budgeted zero contract change for the whole rework and spent none.
     public static CustomMoveResponse ToResponse(this CustomMove value) =>
-        new(value.Id, value.Name, value.Description);
-
-    public static CustomMoveResponse ToResponse(this MysteryCustomMove value) =>
-        new(value.Id, value.Name, value.Description);
-
-    public static CustomMoveResponse ToResponse(this MonsterCustomMove value) =>
-        new(value.Id, value.Name, value.Description);
-
-    public static CustomMoveResponse ToResponse(this LocationCustomMove value) =>
-        new(value.Id, value.Name, value.Description);
-
-    public static CustomMoveResponse ToResponse(this BystanderCustomMove value) =>
         new(value.Id, value.Name, value.Description);
 
     public static WeaponTagRefResponse ToResponse(this WeaponTag value) =>
@@ -152,8 +140,5 @@ public static class ApiMappers
         new(value.Id, value.Name, value.Description, value.HarmSoak, value.IsSpecial, value.SpecialDescription);
 
     public static MinionWeaknessResponse ToResponse(this MinionWeakness value) =>
-        new(value.Id, value.Name, value.Description);
-
-    public static CustomMoveResponse ToResponse(this MinionCustomMove value) =>
         new(value.Id, value.Name, value.Description);
 }

@@ -367,9 +367,15 @@ public sealed class SearchProvidersTests
         context.Monsters.Add(monster);
         await context.SaveChangesAsync();
 
-        context.MonsterCustomMoves.Add(new MonsterCustomMove
+        // Retargeted at the single custom_moves table in domain-custom-moves Phase 3, which
+        // deleted MonsterCustomMove (architecture.md §9). The assertion is unchanged and still
+        // the one that matters: custom moves are out of search scope
+        // (docs/search/architecture.md Section 3), and now they are out of it from a table the
+        // provider does not join rather than from a nav property it does not include.
+        context.CustomMoves.Add(new CustomMove
         {
-            MonsterId = monster.Id,
+            OwnerType = CustomMoveOwnerType.Monster,
+            OwnerId = monster.Id,
             Name = "Lava Surge",
             Description = "Erupts with molten lava dealing area harm.",
         });
@@ -508,9 +514,11 @@ public sealed class SearchProvidersTests
         context.Minions.Add(minion);
         await context.SaveChangesAsync();
 
-        context.MinionCustomMoves.Add(new MinionCustomMove
+        // Retargeted as above — see the Monster case for why the assertion survives the switch.
+        context.CustomMoves.Add(new CustomMove
         {
-            MinionId = minion.Id,
+            OwnerType = CustomMoveOwnerType.Minion,
+            OwnerId = minion.Id,
             Name = "Sludge Toss",
             Description = "Hurls corrosive sludge at a hunter.",
         });

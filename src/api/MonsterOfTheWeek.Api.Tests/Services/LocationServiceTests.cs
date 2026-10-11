@@ -420,17 +420,6 @@ public sealed class LocationServiceTests
 
         public Task<Location?> GetLocationForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult<Location?>(_locations.FirstOrDefault(x => x.Id == id) ?? new Location { Name = "Location" });
-
-        public Task<IReadOnlyList<LocationCustomMove>> GetLocationCustomMovesAsync(Guid id, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<LocationCustomMove>>([]);
-
-        public Task AddLocationCustomMoveAsync(LocationCustomMove move, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task<LocationCustomMove?> GetLocationCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-            Task.FromResult<LocationCustomMove?>(null);
-
-        public Task<int> DeleteLocationCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) => Task.FromResult(1);
-
         public Task<int> DeleteLocationAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(1);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)

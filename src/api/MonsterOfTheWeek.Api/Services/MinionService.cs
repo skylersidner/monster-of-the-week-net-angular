@@ -391,47 +391,6 @@ public sealed class MinionService(
     public async Task<bool> DeleteWeaknessAsync(Guid id, Guid weaknessId, CancellationToken cancellationToken) =>
         await minionRepository.DeleteWeaknessAsync(id, weaknessId, cancellationToken) > 0;
 
-    public async Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken)
-    {
-        if (!await minionRepository.MinionExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<IReadOnlyList<CustomMoveResponse>>.NotFound($"Minion {id} was not found.");
-        }
-
-        var values = await minionRepository.GetCustomMovesAsync(id, cancellationToken);
-        return ServiceResult<IReadOnlyList<CustomMoveResponse>>.Success(values.Select(x => x.ToResponse()).ToList());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(Guid id, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
-    {
-        if (!await minionRepository.MinionExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Minion {id} was not found.");
-        }
-
-        var value = new MinionCustomMove { MinionId = id, Name = request.Name.Trim(), Description = request.Description?.Trim() };
-        await minionRepository.AddCustomMoveAsync(value, cancellationToken);
-        await minionRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(value.ToResponse());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(Guid id, Guid moveId, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
-    {
-        var value = await minionRepository.GetCustomMoveAsync(id, moveId, cancellationToken);
-        if (value is null)
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Custom move {moveId} was not found.");
-        }
-
-        value.Name = request.Name.Trim();
-        value.Description = request.Description?.Trim();
-        await minionRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(value.ToResponse());
-    }
-
-    public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        await minionRepository.DeleteCustomMoveAsync(id, moveId, cancellationToken) > 0;
-
     private static MinionDetailResponse ToDetailResponse(
         Minion minion,
         IReadOnlyList<CustomMoveResponse> customMoves) =>

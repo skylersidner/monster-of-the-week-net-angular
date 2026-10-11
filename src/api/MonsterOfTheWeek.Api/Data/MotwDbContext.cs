@@ -19,23 +19,19 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<MonsterAttackWeaponTag> MonsterAttackWeaponTags => Set<MonsterAttackWeaponTag>();
     public DbSet<MonsterArmor> MonsterArmors => Set<MonsterArmor>();
     public DbSet<MonsterWeakness> MonsterWeaknesses => Set<MonsterWeakness>();
-    public DbSet<MonsterCustomMove> MonsterCustomMoves => Set<MonsterCustomMove>();
     public DbSet<WeaponTag> WeaponTags => Set<WeaponTag>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<LocationType> LocationTypes => Set<LocationType>();
-    public DbSet<LocationCustomMove> LocationCustomMoves => Set<LocationCustomMove>();
     public DbSet<Bystander> Bystanders => Set<Bystander>();
     public DbSet<BystanderType> BystanderTypes => Set<BystanderType>();
-    public DbSet<BystanderCustomMove> BystanderCustomMoves => Set<BystanderCustomMove>();
-    public DbSet<MysteryCustomMove> MysteryCustomMoves => Set<MysteryCustomMove>();
     public DbSet<MysteryMonster> MysteryMonsters => Set<MysteryMonster>();
     public DbSet<MysteryLocation> MysteryLocations => Set<MysteryLocation>();
     public DbSet<MysteryBystander> MysteryBystanders => Set<MysteryBystander>();
     public DbSet<ResourceImage> ResourceImages => Set<ResourceImage>();
 
-    // The one table behind all five owners' custom moves. The five per-domain
-    // *CustomMoves sets above it still serve the sixteen shipped endpoints and go in Phase 3
-    // (docs/domain-custom-moves/architecture.md §5).
+    // The one table behind all five owners' custom moves
+    // (docs/domain-custom-moves/architecture.md §3.1). The five per-domain *CustomMoves sets this
+    // replaced went with their tables in Phase 3.
     public DbSet<CustomMove> CustomMoves => Set<CustomMove>();
 
     public DbSet<Minion> Minions => Set<Minion>();
@@ -44,7 +40,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<MinionPower> MinionPowers => Set<MinionPower>();
     public DbSet<MinionArmor> MinionArmors => Set<MinionArmor>();
     public DbSet<MinionWeakness> MinionWeaknesses => Set<MinionWeakness>();
-    public DbSet<MinionCustomMove> MinionCustomMoves => Set<MinionCustomMove>();
 
     public DbSet<Playbook> Playbooks => Set<Playbook>();
     public DbSet<PlaybookStatArrayOption> PlaybookStatArrayOptions => Set<PlaybookStatArrayOption>();
@@ -259,17 +254,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasOne(e => e.Monster).WithMany(e => e.Weaknesses).HasForeignKey(e => e.MonsterId);
         });
 
-        modelBuilder.Entity<MonsterCustomMove>(entity =>
-        {
-            entity.ToTable("monster_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MonsterId).HasColumnName("monster_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Monster).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MonsterId);
-        });
-
         modelBuilder.Entity<LocationType>(entity =>
         {
             entity.ToTable("location_types");
@@ -299,17 +283,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasIndex(e => e.PrimaryImageId).HasDatabaseName("idx_locations_primary_image_id");
         });
 
-        modelBuilder.Entity<LocationCustomMove>(entity =>
-        {
-            entity.ToTable("location_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.LocationId).HasColumnName("location_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Location).WithMany(e => e.CustomMoves).HasForeignKey(e => e.LocationId);
-        });
-
         modelBuilder.Entity<BystanderType>(entity =>
         {
             entity.ToTable("bystander_types");
@@ -337,28 +310,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasOne<ResourceImage>().WithMany().HasForeignKey(e => e.PrimaryImageId)
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.PrimaryImageId).HasDatabaseName("idx_bystanders_primary_image_id");
-        });
-
-        modelBuilder.Entity<BystanderCustomMove>(entity =>
-        {
-            entity.ToTable("bystander_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.BystanderId).HasColumnName("bystander_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Bystander).WithMany(e => e.CustomMoves).HasForeignKey(e => e.BystanderId);
-        });
-
-        modelBuilder.Entity<MysteryCustomMove>(entity =>
-        {
-            entity.ToTable("mystery_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MysteryId).HasColumnName("mystery_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Mystery).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MysteryId);
         });
 
         modelBuilder.Entity<MysteryMonster>(entity =>
@@ -478,18 +429,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Description).HasColumnName("description");
             entity.HasOne(e => e.Minion).WithMany(e => e.Weaknesses).HasForeignKey(e => e.MinionId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<MinionCustomMove>(entity =>
-        {
-            entity.ToTable("minion_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MinionId).HasColumnName("minion_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Minion).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MinionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

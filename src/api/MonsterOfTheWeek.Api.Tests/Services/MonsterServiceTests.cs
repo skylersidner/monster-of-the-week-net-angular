@@ -341,6 +341,11 @@ public sealed class MonsterServiceTests
     // Name field plus all five sub-resource Name fields (Attack/Power/Armor/Weakness/CustomMove),
     // each of which live-verified the identical blank/whitespace-persists-as-"" and
     // oversized-name-500s gaps this fix closes.
+    //
+    // UpsertCustomMoveRequest stays in the table after domain-custom-moves Phase 3 even though
+    // monster_custom_moves is gone: the DTO is untouched by that rework (§2.1 budgets zero
+    // contract change) and this is now the only place asserting its annotations, since the one
+    // controller serving all five owners relies on exactly them for its model-state 400.
     public static IEnumerable<object[]> NameRequestTypes =>
     [
         [typeof(UpsertMonsterRequest)],
@@ -531,10 +536,6 @@ public sealed class MonsterServiceTests
         public Task<MonsterWeakness?> GetWeaknessAsync(Guid monsterId, Guid weaknessId, CancellationToken cancellationToken) => Task.FromResult<MonsterWeakness?>(null);
         public Task AddWeaknessAsync(MonsterWeakness value, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task<int> DeleteWeaknessAsync(Guid monsterId, Guid weaknessId, CancellationToken cancellationToken) => Task.FromResult(1);
-        public Task<IReadOnlyList<MonsterCustomMove>> GetCustomMovesAsync(Guid monsterId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<MonsterCustomMove>>([]);
-        public Task<MonsterCustomMove?> GetCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken) => Task.FromResult<MonsterCustomMove?>(null);
-        public Task AddCustomMoveAsync(MonsterCustomMove value, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task<int> DeleteCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken) => Task.FromResult(1);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {

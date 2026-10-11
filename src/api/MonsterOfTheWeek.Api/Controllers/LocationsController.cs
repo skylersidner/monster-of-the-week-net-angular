@@ -113,8 +113,8 @@ public sealed class LocationsController(ILocationService locationService, IResou
     // `IsSuccess ? Ok : NotFound`, which collapsed every error to 404; the new controller uses
     // the `ToErrorResult` policy the other three already used. That cannot change a single
     // response here, because every failure ICustomMoveService returns is NotFound (B9).
-    // ILocationService's four custom-move methods are now called by nothing; Phase 3 removes
-    // them with location_custom_moves.
+    // ILocationService's four custom-move methods went in Phase 3, with location_custom_moves
+    // and its entity.
 
     // --- Images (docs/resource-images/design.md §3, phases.md Phase 3) ---
 

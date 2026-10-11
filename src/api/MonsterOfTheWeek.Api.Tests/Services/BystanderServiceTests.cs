@@ -419,17 +419,6 @@ public sealed class BystanderServiceTests
 
         public Task<Bystander?> GetBystanderForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult<Bystander?>(_bystanders.FirstOrDefault(x => x.Id == id) ?? new Bystander { Name = "Bystander" });
-
-        public Task<IReadOnlyList<BystanderCustomMove>> GetBystanderCustomMovesAsync(Guid id, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<BystanderCustomMove>>([]);
-
-        public Task AddBystanderCustomMoveAsync(BystanderCustomMove move, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task<BystanderCustomMove?> GetBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-            Task.FromResult<BystanderCustomMove?>(null);
-
-        public Task<int> DeleteBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) => Task.FromResult(1);
-
         public Task<int> DeleteBystanderAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(1);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)

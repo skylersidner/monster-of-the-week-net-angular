@@ -188,21 +188,6 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
     public Task<int> DeleteWeaknessAsync(Guid minionId, Guid weaknessId, CancellationToken cancellationToken) =>
         dbContext.MinionWeaknesses.Where(x => x.Id == weaknessId && x.MinionId == minionId).ExecuteDeleteAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<MinionCustomMove>> GetCustomMovesAsync(Guid minionId, CancellationToken cancellationToken) =>
-        await dbContext.MinionCustomMoves.AsNoTracking().Where(x => x.MinionId == minionId).OrderBy(x => x.Name).ToListAsync(cancellationToken);
-
-    public Task<MinionCustomMove?> GetCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.MinionCustomMoves.FirstOrDefaultAsync(x => x.Id == moveId && x.MinionId == minionId, cancellationToken);
-
-    public Task AddCustomMoveAsync(MinionCustomMove move, CancellationToken cancellationToken)
-    {
-        dbContext.MinionCustomMoves.Add(move);
-        return Task.CompletedTask;
-    }
-
-    public Task<int> DeleteCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.MinionCustomMoves.Where(x => x.Id == moveId && x.MinionId == minionId).ExecuteDeleteAsync(cancellationToken);
-
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 

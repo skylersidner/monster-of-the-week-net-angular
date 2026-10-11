@@ -107,8 +107,7 @@ public sealed class BystandersController(IBystanderService bystanderService, IRe
     // (architecture.md §3.3). Same note as LocationsController: these four hand-rolled
     // `IsSuccess ? Ok : NotFound` and the new controller uses `ToErrorResult`, which changes no
     // response because every ICustomMoveService failure is NotFound (B9). IBystanderService's
-    // four custom-move methods are now called by nothing; Phase 3 removes them with
-    // bystander_custom_moves.
+    // four custom-move methods went in Phase 3, with bystander_custom_moves and its entity.
 
     // --- Images (docs/resource-images/design.md §3, phases.md Phase 3) ---
 

@@ -52,11 +52,6 @@ public interface IMonsterRepository
     Task AddWeaknessAsync(MonsterWeakness value, CancellationToken cancellationToken);
     Task<int> DeleteWeaknessAsync(Guid monsterId, Guid weaknessId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<MonsterCustomMove>> GetCustomMovesAsync(Guid monsterId, CancellationToken cancellationToken);
-    Task<MonsterCustomMove?> GetCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken);
-    Task AddCustomMoveAsync(MonsterCustomMove value, CancellationToken cancellationToken);
-    Task<int> DeleteCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken);
-
     Task SaveChangesAsync(CancellationToken cancellationToken);
 
     /// <summary>

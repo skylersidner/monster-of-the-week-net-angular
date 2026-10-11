@@ -243,21 +243,6 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
     public Task<int> DeleteWeaknessAsync(Guid monsterId, Guid weaknessId, CancellationToken cancellationToken) =>
         dbContext.MonsterWeaknesses.Where(x => x.Id == weaknessId && x.MonsterId == monsterId).ExecuteDeleteAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<MonsterCustomMove>> GetCustomMovesAsync(Guid monsterId, CancellationToken cancellationToken) =>
-        await dbContext.MonsterCustomMoves.AsNoTracking().Where(x => x.MonsterId == monsterId).OrderBy(x => x.Name).ToListAsync(cancellationToken);
-
-    public Task<MonsterCustomMove?> GetCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.MonsterCustomMoves.FirstOrDefaultAsync(x => x.Id == moveId && x.MonsterId == monsterId, cancellationToken);
-
-    public Task AddCustomMoveAsync(MonsterCustomMove value, CancellationToken cancellationToken)
-    {
-        dbContext.MonsterCustomMoves.Add(value);
-        return Task.CompletedTask;
-    }
-
-    public Task<int> DeleteCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.MonsterCustomMoves.Where(x => x.Id == moveId && x.MonsterId == monsterId).ExecuteDeleteAsync(cancellationToken);
-
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 

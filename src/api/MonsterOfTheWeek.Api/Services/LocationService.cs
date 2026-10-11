@@ -189,63 +189,6 @@ public sealed class LocationService(
         return deleted > 0;
     }
 
-    public async Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken)
-    {
-        if (!await locationRepository.LocationExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<IReadOnlyList<CustomMoveResponse>>.NotFound($"Location {id} was not found.");
-        }
-
-        var moves = await locationRepository.GetLocationCustomMovesAsync(id, cancellationToken);
-        return ServiceResult<IReadOnlyList<CustomMoveResponse>>.Success(moves.Select(x => x.ToResponse()).ToList());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(
-        Guid id,
-        UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (!await locationRepository.LocationExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Location {id} was not found.");
-        }
-
-        var move = new LocationCustomMove
-        {
-            LocationId = id,
-            Name = request.Name.Trim(),
-            Description = request.Description?.Trim()
-        };
-
-        await locationRepository.AddLocationCustomMoveAsync(move, cancellationToken);
-        await locationRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(move.ToResponse());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(
-        Guid id,
-        Guid moveId,
-        UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        var move = await locationRepository.GetLocationCustomMoveAsync(id, moveId, cancellationToken);
-        if (move is null)
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Location custom move {moveId} was not found.");
-        }
-
-        move.Name = request.Name.Trim();
-        move.Description = request.Description?.Trim();
-        await locationRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(move.ToResponse());
-    }
-
-    public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken)
-    {
-        var deleted = await locationRepository.DeleteLocationCustomMoveAsync(id, moveId, cancellationToken);
-        return deleted > 0;
-    }
-
     private static LocationDetailResponse ToDetailResponse(
         Location location,
         IReadOnlyList<CustomMoveResponse> customMoves) =>
