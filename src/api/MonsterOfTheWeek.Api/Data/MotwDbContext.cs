@@ -32,6 +32,12 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<MysteryLocation> MysteryLocations => Set<MysteryLocation>();
     public DbSet<MysteryBystander> MysteryBystanders => Set<MysteryBystander>();
     public DbSet<ResourceImage> ResourceImages => Set<ResourceImage>();
+
+    // The one table behind all five owners' custom moves. The five per-domain
+    // *CustomMoves sets above it still serve the sixteen shipped endpoints and go in Phase 3
+    // (docs/domain-custom-moves/architecture.md §5).
+    public DbSet<CustomMove> CustomMoves => Set<CustomMove>();
+
     public DbSet<Minion> Minions => Set<Minion>();
     public DbSet<MinionAttack> MinionAttacks => Set<MinionAttack>();
     public DbSet<MinionAttackWeaponTag> MinionAttackWeaponTags => Set<MinionAttackWeaponTag>();
@@ -500,9 +506,10 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.ToTable("resource_images");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
-            // String-backed, not a plain int: readable raw SQL, no magic numbers. This is a new
-            // pattern for this codebase — no other entity uses HasConversion today — so it is a
-            // deliberate first, not an inherited convention.
+            // String-backed, not a plain int: readable raw SQL, no magic numbers. This was a new
+            // pattern for this codebase when it landed — no other entity used HasConversion
+            // then — so it was a deliberate first, not an inherited convention. custom_moves
+            // below is the second such column (domain-custom-moves/architecture.md §22).
             entity.Property(e => e.OwnerType).HasColumnName("owner_type").HasConversion<string>().HasMaxLength(16).IsRequired();
             entity.Property(e => e.OwnerId).HasColumnName("owner_id").IsRequired();
             entity.Property(e => e.FileName).HasColumnName("file_name").HasMaxLength(255).IsRequired();
@@ -521,6 +528,42 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             // does not guarantee SortOrder is distinct within an owner.
             entity.HasIndex(e => new { e.OwnerType, e.OwnerId, e.SortOrder })
                 .HasDatabaseName("idx_resource_images_owner_sort");
+        });
+
+        // Domain custom moves — docs/domain-custom-moves/architecture.md §3.1/§20/§21.1.
+        //
+        // OwnerId has no FK, for the same reason resource_images above has none: a discriminator
+        // + id pair can't reference five different tables, so ownership (the owner exists, and
+        // is the type it claims to be) is validated in ICustomMoveService, not the schema.
+        // architecture.md §2.3's accepted tradeoff, not an oversight — and the reason owner
+        // deletion deletes these rows in application code (§2.4/§19) rather than by cascade.
+        // Resist "fixing" this by adding five nullable FK columns; that is the per-domain shape
+        // this table exists to replace.
+        //
+        // Why CustomMoveOwnerType is a second owner-type enum rather than a fifth
+        // ResourceOwnerType member: §2.8/§22, and the comment on the enum itself.
+        modelBuilder.Entity<CustomMove>(entity =>
+        {
+            entity.ToTable("custom_moves");
+            entity.HasKey(e => e.Id);
+            // Every column name is explicit because this model configures no naming convention —
+            // without these the migration bakes in PascalCase columns.
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.OwnerType).HasColumnName("owner_type").HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(e => e.OwnerId).HasColumnName("owner_id").IsRequired();
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+
+            // Name is in the index because every list read orders by it (§20), so the read is a
+            // seek that arrives already ordered. Not unique: none of the five per-domain tables
+            // this replaces constrained name, and nothing says two moves can't share one.
+            //
+            // One index, deliberately. Do NOT add a second on (owner_type, owner_id, id) for the
+            // update/delete paths — this index's two-column prefix already serves them, the
+            // residual filter is free at this table's size, and a second index is a write cost
+            // for nothing (§20).
+            entity.HasIndex(e => new { e.OwnerType, e.OwnerId, e.Name })
+                .HasDatabaseName("idx_custom_moves_owner_name");
         });
 
         modelBuilder.Entity<AppUser>(entity =>

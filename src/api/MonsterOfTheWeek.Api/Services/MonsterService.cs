@@ -1,15 +1,26 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
+// customMoveService is deliberately unread for the length of Phase 1
+// (domain-custom-moves/architecture.md §16.3 B1, §16.4 D1): the dependency and the three test
+// harnesses' DI registrations land as a provable no-op, so Phase 2's diff is the behaviour
+// change alone — the detail projection and the owner-delete cleanup. CS9113 is correct about
+// the code and wrong about the intent, so it is suppressed here rather than "fixed" by deleting
+// the parameter. Phase 2 deletes this suppression, not the parameter; if you are reading this
+// after Phase 2 landed, the suppression is the leftover.
+#pragma warning disable CS9113
 public sealed class MonsterService(
     IMonsterRepository monsterRepository,
     IMinionRepository minionRepository,
-    IResourceImageService resourceImageService) : IMonsterService
+    IResourceImageService resourceImageService,
+    ICustomMoveService customMoveService) : IMonsterService
 {
+#pragma warning restore CS9113
     public async Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         await monsterRepository.GetAllAsync(cancellationToken);
 

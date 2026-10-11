@@ -1,12 +1,20 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-public sealed class MinionService(IMinionRepository minionRepository, IResourceImageService resourceImageService) : IMinionService
+// customMoveService is deliberately unread for the length of Phase 1 — see MonsterService.cs's
+// comment on the same parameter for why, and for what Phase 2 removes.
+#pragma warning disable CS9113
+public sealed class MinionService(
+    IMinionRepository minionRepository,
+    IResourceImageService resourceImageService,
+    ICustomMoveService customMoveService) : IMinionService
 {
+#pragma warning restore CS9113
     public Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         minionRepository.GetAllAsync(cancellationToken);
 

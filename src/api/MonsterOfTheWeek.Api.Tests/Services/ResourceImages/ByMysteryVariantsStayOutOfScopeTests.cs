@@ -4,6 +4,7 @@ using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Tests.Services.ResourceImages;
@@ -35,14 +36,16 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
     /// </summary>
     private static LocationService CreateLocationService(
         ILocationRepository locationRepository,
-        IResourceImageService resourceImageService) =>
-        new(locationRepository, resourceImageService);
+        IResourceImageService resourceImageService,
+        ICustomMoveService customMoveService) =>
+        new(locationRepository, resourceImageService, customMoveService);
 
     /// <inheritdoc cref="CreateLocationService"/>
     private static BystanderService CreateBystanderService(
         IBystanderRepository bystanderRepository,
-        IResourceImageService resourceImageService) =>
-        new(bystanderRepository, resourceImageService);
+        IResourceImageService resourceImageService,
+        ICustomMoveService customMoveService) =>
+        new(bystanderRepository, resourceImageService, customMoveService);
 
     private static async Task<MotwDbContext> CreateContextAsync()
     {
@@ -109,7 +112,7 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
             CancellationToken.None);
 
         var repository = new LocationRepository(context);
-        var locationService = CreateLocationService(repository, imageService);
+        var locationService = CreateLocationService(repository, imageService, new CustomMoveService(context));
         var result = await locationService.GetByMysteryAsync(mystery.Id, CancellationToken.None);
 
         // LocationService.GetByMysteryAsync is untouched — it still maps in memory, with the
@@ -143,7 +146,7 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
             CancellationToken.None);
 
         var repository = new BystanderRepository(context);
-        var bystanderService = CreateBystanderService(repository, imageService);
+        var bystanderService = CreateBystanderService(repository, imageService, new CustomMoveService(context));
         var result = await bystanderService.GetByMysteryAsync(mystery.Id, CancellationToken.None);
 
         // Same point as the Location case above — BystanderService.GetByMysteryAsync is untouched.

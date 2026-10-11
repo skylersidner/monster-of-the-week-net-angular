@@ -15,7 +15,7 @@ public sealed class MysteryServiceTests
     /// (architecture.md §16.3 B1).
     /// </summary>
     private static MysteryService CreateService(FakeMysteryRepository repository) =>
-        new(repository);
+        new(repository, new FakeCustomMoveService());
 
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenAdventureTypeDoesNotExist()

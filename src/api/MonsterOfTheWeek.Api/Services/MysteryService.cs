@@ -1,11 +1,20 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-public sealed class MysteryService(IMysteryRepository mysteryRepository) : IMysteryService
+// customMoveService is deliberately unread for the length of Phase 1 — see MonsterService.cs's
+// comment on the same parameter for why, and for what Phase 2 removes. Mystery is the one
+// service that also needs a transaction before it can use this (architecture.md §3.5, B10);
+// that too is Phase 2.
+#pragma warning disable CS9113
+public sealed class MysteryService(
+    IMysteryRepository mysteryRepository,
+    ICustomMoveService customMoveService) : IMysteryService
 {
+#pragma warning restore CS9113
     public async Task<IReadOnlyList<MysteryListItemResponse>> GetAllAsync(CancellationToken cancellationToken)
     {
         var mysteries = await mysteryRepository.GetMysteriesForListAsync(cancellationToken);

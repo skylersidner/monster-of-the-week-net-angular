@@ -8,6 +8,7 @@ using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Tests.Controllers;
@@ -80,6 +81,11 @@ internal sealed class ResourceImageApiHarness : IAsyncDisposable
         builder.Services.AddScoped<IMonsterRepository, MonsterRepository>();
         builder.Services.AddScoped<IMinionRepository, MinionRepository>();
         builder.Services.AddScoped<IResourceImageService, ResourceImageService>();
+        // Phase 1 of domain custom moves: registered here, not only in Program.cs, because this
+        // harness builds its own WebApplication and never sees Program.cs's container. Missing
+        // this registration doesn't fail the build; it fails the first request to any of the
+        // controllers whose service takes it (architecture.md B1, B-R1).
+        builder.Services.AddScoped<ICustomMoveService, CustomMoveService>();
         builder.Services.AddScoped<IMonsterService, MonsterService>();
         builder.Services.AddScoped<IMinionService, MinionService>();
 

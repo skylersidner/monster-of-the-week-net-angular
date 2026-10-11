@@ -16,7 +16,7 @@ public sealed class BystanderServiceTests
     /// (architecture.md §16.3 B1).
     /// </summary>
     private static BystanderService CreateService(FakeBystanderRepository repository) =>
-        new(repository, new FakeResourceImageService());
+        new(repository, new FakeResourceImageService(), new FakeCustomMoveService());
 
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenBystanderTypeDoesNotExist()

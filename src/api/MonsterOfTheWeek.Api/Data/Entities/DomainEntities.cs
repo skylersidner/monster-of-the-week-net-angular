@@ -366,9 +366,11 @@ public sealed class MinionCustomMove
 // Resource images — docs/resource-images/design.md and phases.md Phase 1.
 //
 // The discriminator for ResourceImage.OwnerType. Stored as a string-backed column
-// (.HasConversion<string>() in MotwDbContext.cs), which is a new pattern for this codebase —
-// no other entity uses HasConversion today. Chosen over a plain int for readable raw SQL and
-// no magic numbers, not because it matches an existing precedent.
+// (.HasConversion<string>() in MotwDbContext.cs), which was a new pattern for this codebase
+// when it landed — no other entity used HasConversion then. Chosen over a plain int for
+// readable raw SQL and no magic numbers, not because it matched an existing precedent.
+// CustomMoveOwnerType below is the second such column (domain-custom-moves/architecture.md
+// §22), so this is now a convention with two members rather than a deliberate first.
 public enum ResourceOwnerType
 {
     Monster,
@@ -401,4 +403,52 @@ public sealed class ResourceImage
     public byte[]? ThumbnailBytes { get; set; }
     public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+// Domain custom moves — docs/domain-custom-moves/architecture.md §3.1, Phase 1.
+//
+// The discriminator for CustomMove.OwnerType, and deliberately a SECOND owner-type enum rather
+// than a fifth member on ResourceOwnerType above (architecture.md §2.8, §22). ResourceOwnerType
+// has exactly four members because nothing can own an image but a Monster, Minion, Bystander or
+// Location; a Mystery can own a custom move. Adding Mystery to ResourceOwnerType would make
+// three throwing `_ =>` arms in ResourceImageService reachable from a compiling route, so the
+// second enum is the cheaper mistake. The two are not interchangeable and neither converts to
+// the other — if you find yourself wanting a cast, you want the wrong one.
+//
+// Member order matches architecture.md §3.1. Values are persisted as strings
+// (.HasConversion<string>() in MotwDbContext.cs), so renaming a member is a data migration, not
+// a refactor; reordering is free.
+public enum CustomMoveOwnerType
+{
+    Mystery,
+    Monster,
+    Minion,
+    Location,
+    Bystander,
+}
+
+// One custom move, owned by exactly one Mystery, Monster, Minion, Location or Bystander via the
+// (OwnerType, OwnerId) discriminator pair rather than a real FK — the same single-table shape
+// ResourceImage above uses, and for the same reason: a discriminator + id pair can't reference
+// five different tables, so ownership (the owner exists, and is the type it claims to be) is
+// validated at the service layer, not the schema. architecture.md §2.3's accepted tradeoff, not
+// an oversight. It is also why owner deletion has to delete these rows in application code
+// (architecture.md §2.4/§19) instead of relying on a database cascade.
+//
+// No navigation property in either direction (architecture.md §2.6): the five detail
+// projections load their moves through ICustomMoveService.ListForProjectionAsync rather than an
+// .Include, so there is nothing for a nav to serve and five fewer collection joins on the
+// detail queries.
+//
+// No ITimestamped and no CreatedAt, matching all five of the per-domain tables this replaces —
+// so, unlike ResourceImage, there is nothing for a caller to remember to set. Stated explicitly
+// so nobody adds CreatedAt later by analogy with images; it would be a contract change
+// (architecture.md §18).
+public sealed class CustomMove
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+    public CustomMoveOwnerType OwnerType { get; set; }
+    public Guid OwnerId { get; set; }
+    public required string Name { get; set; }
+    public string? Description { get; set; }
 }

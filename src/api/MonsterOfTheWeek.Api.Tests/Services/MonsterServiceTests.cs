@@ -18,7 +18,7 @@ public sealed class MonsterServiceTests
     /// service, so sharing them would only create coupling between tests.
     /// </summary>
     private static MonsterService CreateService(FakeMonsterRepository repository) =>
-        new(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        new(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService(), new FakeCustomMoveService());
 
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenMonsterTypeDoesNotExist()

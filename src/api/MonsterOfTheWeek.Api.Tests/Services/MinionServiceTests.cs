@@ -16,7 +16,7 @@ public sealed class MinionServiceTests
     /// (architecture.md §16.3 B1).
     /// </summary>
     private static MinionService CreateService(FakeMinionRepository repository) =>
-        new(repository, new FakeResourceImageService());
+        new(repository, new FakeResourceImageService(), new FakeCustomMoveService());
 
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenMinionTypeDoesNotExist()

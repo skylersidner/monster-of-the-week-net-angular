@@ -7,6 +7,7 @@ using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Seed;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 using MonsterOfTheWeek.Api.Services.Search;
 
@@ -40,6 +41,11 @@ builder.Services.AddScoped<IMysteryService, MysteryService>();
 // endpoints and for the owner-delete image cleanup (phases.md Phase 3). Missing this
 // registration doesn't fail the build; it fails the first request to any of those controllers.
 builder.Services.AddScoped<IResourceImageService, ResourceImageService>();
+// Shared across all five owner types (domain-custom-moves/architecture.md §2.3) — the Mystery,
+// Monster, Minion, Location and Bystander services all take this as a constructor dependency,
+// for the detail projection and the owner-delete cleanup (Phase 2). Missing this registration
+// doesn't fail the build; it fails the first request to any of those controllers.
+builder.Services.AddScoped<ICustomMoveService, CustomMoveService>();
 builder.Services.AddScoped<IMonsterService, MonsterService>();
 builder.Services.AddScoped<IMinionRepository, MinionRepository>();
 builder.Services.AddScoped<IMinionService, MinionService>();

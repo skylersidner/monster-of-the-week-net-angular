@@ -441,6 +441,41 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.ToTable("countdowns", (string)null);
                 });
 
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.CustomMove", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("owner_type");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerType", "OwnerId", "Name")
+                        .HasDatabaseName("idx_custom_moves_owner_name");
+
+                    b.ToTable("custom_moves", (string)null);
+                });
+
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Hunter", b =>
                 {
                     b.Property<Guid>("Id")
