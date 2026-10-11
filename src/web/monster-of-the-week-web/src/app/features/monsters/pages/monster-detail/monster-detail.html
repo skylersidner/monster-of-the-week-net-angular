@@ -290,6 +290,27 @@
         </form>
       </article>
     </div>
+
+    <!--
+      Custom Moves closes the run of owned sub-resources: the four-panel grid above *is* that run,
+      and this joins the end of it (§13.2). Full width and outside the grid, deliberately — a fifth
+      cell is an orphan row at two of three breakpoints and `grid-cols-5` would put a rules
+      paragraph in a ~230px column (14-R2).
+
+      Last on this page and mid-page on `mystery-detail`, which is not drift: each page's existing
+      roster-versus-sub-resource order already differs, and this follows each page's own answer
+      rather than imposing one (14-R7).
+    -->
+    <div class="mt-6">
+      <app-custom-moves-card
+        ownerType="Monster"
+        [rows]="customMoveRows()"
+        [(editingKey)]="editingCustomMoveKey"
+        [busy]="isMutating()"
+        (committed)="commitCustomMove($event)"
+        (removeRequested)="requestDeleteCustomMove($event)"
+      />
+    </div>
   }
 
   <!--

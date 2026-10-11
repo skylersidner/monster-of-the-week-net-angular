@@ -29,9 +29,14 @@
     (save)="onCreate($event)"
   ></app-monster-form>
 
+  <!--
+    The only place the staged-write model is explained to the user, so it goes stale the moment a
+    fifth type appears below it (§13.4). Its minion twin needs the same edit in 5b; location and
+    bystander create need the sentence introduced in 5c/5d, since they have no draft panels today.
+  -->
   <p class="text-muted text-[0.9rem] mb-3">
-    Attacks, powers, armors and weaknesses added below are saved together with the monster when you
-    press Create Monster.
+    Attacks, powers, armors, weaknesses and custom moves added below are saved together with the
+    monster when you press Create Monster.
   </p>
 
   <div class="grid gap-4 grid-cols-4 max-xl:grid-cols-2 max-sm:grid-cols-1">
@@ -219,5 +224,26 @@
         <button type="submit" class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer font-[inherit] px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" [disabled]="isSaving()">Add Weakness</button>
       </form>
     </article>
+  </div>
+
+  <!--
+    **The same card in the same place as on `monster-detail`**, and that symmetry is the point
+    rather than a coincidence (§13.4): a user bounced here-to-there by a partial create failure
+    arrives at a surface they have already learned, which is what makes "Review them on the monster
+    page" an instruction rather than a riddle.
+
+    `[emptyText]` is the only input that differs from the detail page's — matching the four sibling
+    draft panels' "No attacks added yet." rather than the images card's "No images yet."
+  -->
+  <div class="mt-6">
+    <app-custom-moves-card
+      ownerType="Monster"
+      [rows]="customMoveRows()"
+      [(editingKey)]="editingCustomMoveKey"
+      [busy]="isSaving()"
+      emptyText="No custom moves added yet."
+      (committed)="commitCustomMoveDraft($event)"
+      (removeRequested)="removeCustomMoveDraft($event)"
+    />
   </div>
 </section>
