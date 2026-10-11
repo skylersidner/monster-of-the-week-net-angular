@@ -2147,13 +2147,14 @@ Three things the plan for this commit did not have right:
    return `NotFound` unless an opt-in `OwnerExists` is set (mirroring the real service's check on exactly
    those two methods), and `Update`/`Delete` run the real `(OwnerType, OwnerId, Id)` predicate. The ledger
    idea survives; "exactly" does not.
-3. **Three of the thirteen call sites take the real service, not the fake** —
-   `MonsterImageCleanupTests`' three, and `ByMysteryVariantsStayOutOfScopeTests`' two, build real
-   repositories over a real `MotwDbContext`. B10 says the custom-move service must hold the **same context
-   instance** or Phase 2's cleanup runs outside the transaction, silently and green on SQLite. So those
-   factories take `ICustomMoveService` as a **parameter** and the sites pass `new CustomMoveService(context)`,
-   making the construction Phase 2 copies already correct. Cost: 5 call-site edits rather than 2 factory
-   edits. Worth it at exactly the file B10 names.
+3. **Five of the 67 call sites take the real service, not the fake.** The 62 in the five fake-repository
+   files get `new FakeCustomMoveService()` inside their factory, so they stay one edit each.
+   `MonsterImageCleanupTests`' three and `ByMysteryVariantsStayOutOfScopeTests`' two build real
+   repositories over a real `MotwDbContext`, and B10 says the custom-move service must hold the **same
+   context instance** or Phase 2's cleanup runs outside the transaction — silently, and green on SQLite. So
+   those three factories take `ICustomMoveService` as a **parameter** and their five sites pass
+   `new CustomMoveService(context)`, making the construction Phase 2 copies already correct. Cost: five
+   call-site edits instead of three factory edits. Worth it at exactly the files B10 names.
 
 Phase 2 then touches the test tree only where behaviour actually changed.
 
