@@ -18,7 +18,7 @@ namespace MonsterOfTheWeek.Api.Tests.Data;
 /// database.
 /// </para>
 /// </summary>
-[Collection(ResourceImagePostgresCollection.Name)]
+[Collection(PostgresCollection.Name)]
 public sealed class ResourceImageMigrationPostgresTests
 {
     private static string ConnectionString =>

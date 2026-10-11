@@ -28,6 +28,22 @@ namespace MonsterOfTheWeek.Api.Tests.Services.ResourceImages;
 /// </summary>
 public sealed class ByMysteryVariantsStayOutOfScopeTests
 {
+    /// <summary>
+    /// Two factories rather than one, because this is the only file in the sweep that constructs
+    /// two different services (architecture.md §16.3 B1). Same purpose: a new constructor
+    /// dependency is one edit per service here, not one per call site.
+    /// </summary>
+    private static LocationService CreateLocationService(
+        ILocationRepository locationRepository,
+        IResourceImageService resourceImageService) =>
+        new(locationRepository, resourceImageService);
+
+    /// <inheritdoc cref="CreateLocationService"/>
+    private static BystanderService CreateBystanderService(
+        IBystanderRepository bystanderRepository,
+        IResourceImageService resourceImageService) =>
+        new(bystanderRepository, resourceImageService);
+
     private static async Task<MotwDbContext> CreateContextAsync()
     {
         var connection = new SqliteConnection("DataSource=:memory:");
@@ -93,7 +109,7 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
             CancellationToken.None);
 
         var repository = new LocationRepository(context);
-        var locationService = new LocationService(repository, imageService);
+        var locationService = CreateLocationService(repository, imageService);
         var result = await locationService.GetByMysteryAsync(mystery.Id, CancellationToken.None);
 
         // LocationService.GetByMysteryAsync is untouched — it still maps in memory, with the
@@ -127,7 +143,7 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
             CancellationToken.None);
 
         var repository = new BystanderRepository(context);
-        var bystanderService = new BystanderService(repository, imageService);
+        var bystanderService = CreateBystanderService(repository, imageService);
         var result = await bystanderService.GetByMysteryAsync(mystery.Id, CancellationToken.None);
 
         // Same point as the Location case above — BystanderService.GetByMysteryAsync is untouched.

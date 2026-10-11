@@ -10,6 +10,14 @@ namespace MonsterOfTheWeek.Api.Tests.Services;
 
 public sealed class LocationServiceTests
 {
+    /// <summary>
+    /// The one construction every test in this file uses, extracted so that a new constructor
+    /// dependency on <see cref="LocationService"/> is one edit here rather than sixteen below
+    /// (architecture.md §16.3 B1).
+    /// </summary>
+    private static LocationService CreateService(FakeLocationRepository repository) =>
+        new(repository, new FakeResourceImageService());
+
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenLocationTypeDoesNotExist()
     {
@@ -18,7 +26,7 @@ public sealed class LocationServiceTests
             MysteryExists = true,
             LocationTypeExists = false
         };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var missingLocationTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -36,7 +44,7 @@ public sealed class LocationServiceTests
     public async Task CreateAsync_NoMysteryId_CreatesStandaloneLocation_WithEmptyMysteryIds()
     {
         var repository = new FakeLocationRepository();
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var result = await service.CreateAsync(
             new UpsertLocationRequest("Standalone Hideout", "desc", Guid.NewGuid()),
@@ -55,7 +63,7 @@ public sealed class LocationServiceTests
         {
             LocationTypeExists = false
         };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var missingLocationTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -72,7 +80,7 @@ public sealed class LocationServiceTests
     public async Task CreateAsync_NoMysteryId_LocationIsRetrievableViaGetByIdAsync_AndAppearsInGetAllAsync()
     {
         var repository = new FakeLocationRepository();
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var createResult = await service.CreateAsync(
             new UpsertLocationRequest("Standalone Hideout", "desc", Guid.NewGuid()),
@@ -94,7 +102,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_AddsBridgeRow_WhenMysteryAndLocationExist()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -107,7 +115,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_IsIdempotent_WhenAlreadyLinked()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 
@@ -122,7 +130,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_ReturnsFalse_WhenMysteryDoesNotExist()
     {
         var repository = new FakeLocationRepository { MysteryExists = false, LocationExists = true };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -135,7 +143,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_ReturnsFalse_WhenLocationDoesNotExist()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = false };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -148,7 +156,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_ThenUnlink_RoundTrips()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 
@@ -162,7 +170,7 @@ public sealed class LocationServiceTests
     public async Task UnlinkFromMysteryAsync_ReturnsFalse_WhenNotLinked()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var unlinked = await service.UnlinkFromMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -175,7 +183,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_WritesAgain_AfterUnlink()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 
@@ -199,7 +207,7 @@ public sealed class LocationServiceTests
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
         repository.SeedLink(mysteryId, locationId);
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None);
 
@@ -215,7 +223,7 @@ public sealed class LocationServiceTests
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
         repository.SeedLink(mysteryId, locationId);
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(mysteryId, locationId, CancellationToken.None);
 
@@ -230,7 +238,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_LinksOneLocationToTwoMysteries()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var firstMysteryId = Guid.NewGuid();
         var secondMysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
@@ -252,7 +260,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_LinksTwoLocationsToOneMystery()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var firstLocationId = Guid.NewGuid();
         var secondLocationId = Guid.NewGuid();
@@ -270,7 +278,7 @@ public sealed class LocationServiceTests
     public async Task LinkToMysteryAsync_WritesTheGivenIdsIntoTheBridgeRow()
     {
         var repository = new FakeLocationRepository { MysteryExists = true, LocationExists = true };
-        var service = new LocationService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var locationId = Guid.NewGuid();
 

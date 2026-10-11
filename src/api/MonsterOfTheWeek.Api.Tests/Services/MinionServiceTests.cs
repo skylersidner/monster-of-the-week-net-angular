@@ -10,6 +10,14 @@ namespace MonsterOfTheWeek.Api.Tests.Services;
 
 public sealed class MinionServiceTests
 {
+    /// <summary>
+    /// The one construction every test in this file uses, extracted so that a new constructor
+    /// dependency on <see cref="MinionService"/> is one edit here rather than seven below
+    /// (architecture.md §16.3 B1).
+    /// </summary>
+    private static MinionService CreateService(FakeMinionRepository repository) =>
+        new(repository, new FakeResourceImageService());
+
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenMinionTypeDoesNotExist()
     {
@@ -18,7 +26,7 @@ public sealed class MinionServiceTests
             MonsterExists = true,
             MinionTypeExists = false
         };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var missingMinionTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -36,7 +44,7 @@ public sealed class MinionServiceTests
     public async Task DeleteAsync_ReturnsTrue_WhenRepositoryDeletesRow()
     {
         var repository = new FakeMinionRepository { DeleteMinionResult = 1 };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var result = await service.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -47,7 +55,7 @@ public sealed class MinionServiceTests
     public async Task DeleteAsync_ReturnsFalse_WhenMinionDoesNotExist()
     {
         var repository = new FakeMinionRepository { DeleteMinionResult = 0 };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var result = await service.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -58,7 +66,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_MovesTheMinion_AndWritesOnce()
     {
         var repository = new FakeMinionRepository { MonsterExists = true };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var oldMonsterId = Guid.NewGuid();
         var newMonsterId = Guid.NewGuid();
         var minion = await repository.SeedMinionAsync(oldMonsterId);
@@ -77,7 +85,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_IsIdempotent_AndWritesNothing_WhenAlreadyOnThatMonster()
     {
         var repository = new FakeMinionRepository { MonsterExists = true };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var monsterId = Guid.NewGuid();
         var minion = await repository.SeedMinionAsync(monsterId);
 
@@ -92,7 +100,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_ReturnsFalse_WhenMonsterDoesNotExist()
     {
         var repository = new FakeMinionRepository { MonsterExists = false };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var oldMonsterId = Guid.NewGuid();
         var minion = await repository.SeedMinionAsync(oldMonsterId);
 
@@ -107,7 +115,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_ReturnsFalse_WhenMinionDoesNotExist()
     {
         var repository = new FakeMinionRepository { MonsterExists = true, MinionExists = false };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var moved = await service.MoveToMonsterAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 

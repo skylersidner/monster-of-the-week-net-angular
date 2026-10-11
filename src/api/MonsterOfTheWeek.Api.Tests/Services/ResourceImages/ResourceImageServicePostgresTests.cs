@@ -21,7 +21,7 @@ namespace MonsterOfTheWeek.Api.Tests.Services.ResourceImages;
 /// the database the connection string names — never point it at the dev <c>motw</c> database.
 /// </para>
 /// </summary>
-[Collection(ResourceImagePostgresCollection.Name)]
+[Collection(PostgresCollection.Name)]
 public sealed class ResourceImageServicePostgresTests
 {
     private static string ConnectionString =>

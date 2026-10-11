@@ -19,6 +19,20 @@ namespace MonsterOfTheWeek.Api.Tests.Services;
 /// </summary>
 public sealed class MonsterImageCleanupTests
 {
+    /// <summary>
+    /// The one construction all three tests in this file use, extracted so that a new constructor
+    /// dependency on <see cref="MonsterService"/> is one edit here rather than three below
+    /// (architecture.md §16.3 B1). The collaborators stay parameters rather than being built here:
+    /// the whole point of this file is that they are the <i>real</i> implementations over the
+    /// <i>same</i> <see cref="MotwDbContext"/> instance, so each test keeps constructing them
+    /// where its context is in scope.
+    /// </summary>
+    private static MonsterService CreateService(
+        IMonsterRepository monsterRepository,
+        IMinionRepository minionRepository,
+        IResourceImageService resourceImageService) =>
+        new(monsterRepository, minionRepository, resourceImageService);
+
     [Fact]
     public async Task DeletingAMonster_AlsoDeletesItsOwnImages_AndItsImagedMinionsImages()
     {
@@ -54,7 +68,7 @@ public sealed class MonsterImageCleanupTests
 
         var monsterRepository = new MonsterRepository(context);
         var minionRepository = new MinionRepository(context);
-        var monsterService = new MonsterService(monsterRepository, minionRepository, imageService);
+        var monsterService = CreateService(monsterRepository, minionRepository, imageService);
 
         var deleted = await monsterService.DeleteAsync(monster.Id, CancellationToken.None);
 
@@ -87,7 +101,7 @@ public sealed class MonsterImageCleanupTests
         var monsterRepository = new MonsterRepository(context);
         var minionRepository = new MinionRepository(context);
         var imageService = new ResourceImageService(context);
-        var monsterService = new MonsterService(monsterRepository, minionRepository, imageService);
+        var monsterService = CreateService(monsterRepository, minionRepository, imageService);
 
         var deleted = await monsterService.DeleteAsync(monster.Id, CancellationToken.None);
 
@@ -108,7 +122,7 @@ public sealed class MonsterImageCleanupTests
         var monsterRepository = new MonsterRepository(context);
         var minionRepository = new MinionRepository(context);
         var imageService = new ResourceImageService(context);
-        var monsterService = new MonsterService(monsterRepository, minionRepository, imageService);
+        var monsterService = CreateService(monsterRepository, minionRepository, imageService);
 
         var deleted = await monsterService.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 

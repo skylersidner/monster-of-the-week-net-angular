@@ -1,7 +1,7 @@
 namespace MonsterOfTheWeek.Api.Tests.Data;
 
 /// <summary>
-/// Every <see cref="PostgresFactAttribute"/>-gated test for this feature points at the same
+/// Every <see cref="PostgresFactAttribute"/>-gated test in the suite points at the same
 /// externally-supplied database name (<see cref="PostgresFactAttribute.ConnectionStringEnvironmentVariable"/>
 /// is one env var for the whole gate, not one per test class), and each test drops and recreates
 /// that database. xunit runs different test classes in parallel by default, so without this
@@ -12,7 +12,7 @@ namespace MonsterOfTheWeek.Api.Tests.Data;
 /// collection shares one xunit collection, which xunit runs sequentially relative to each other.
 /// </summary>
 [CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class ResourceImagePostgresCollection
+public sealed class PostgresCollection
 {
-    public const string Name = "Resource Image Postgres tests";
+    public const string Name = "Postgres tests";
 }
