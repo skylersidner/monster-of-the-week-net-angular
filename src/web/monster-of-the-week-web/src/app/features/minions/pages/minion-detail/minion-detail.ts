@@ -163,6 +163,22 @@ export class MinionDetailComponent implements OnInit {
       });
   }
 
+  /**
+   * **A failed save does not touch `errorMessage`.** It used to, and that was the same bug as the
+   * one `runAndRefresh` carried but one step worse: the template puts `@else if (errorMessage())`
+   * ahead of the content branch, so a failed `PUT` unmounted the form *while it still held the
+   * user's unsaved edits*. The `notificationService.error` below was already firing the identical
+   * string, so removing the inline write cost nothing.
+   *
+   * **The invariant this completes, and the reason the template's branch order is safe:**
+   * `errorMessage` is now written by the **load path only** (`ngOnInit`), on this page and on
+   * `monster-detail`. So `minion-detail.html:6`'s `@else if (errorMessage())` means exactly "this
+   * minion could not be loaded", which is the only claim that branch position is correct for.
+   * **Anything that happens after a successful load reports through a toast or its own inline
+   * element, never here** — the images section (`data-images-error`) is the shape to copy.
+   *
+   * architecture.md (domain-custom-moves) §34 — Phase A.
+   */
   saveMinion(payload: UpsertMinionRequest): void {
     if (!this.minion()) {
       return;
@@ -181,11 +197,9 @@ export class MinionDetailComponent implements OnInit {
           this.imagesStore.setOwnerName(minion.name);
           this.activeMutation.set(null);
           this.notificationService.success('Minion details saved.');
-          this.errorMessage.set(null);
         },
         error: () => {
           this.activeMutation.set(null);
-          this.errorMessage.set('Unable to save minion details.');
           this.notificationService.error('Unable to save minion details.');
         },
       });
@@ -227,11 +241,12 @@ export class MinionDetailComponent implements OnInit {
           this.minion.set(minion);
           this.attackForm.reset({ name: '', description: '', harm: 0, weaponTagIds: [] });
           this.notificationService.success('Attack added.');
-          this.errorMessage.set(null);
           this.activeMutation.set(null);
         },
+        // The toast is the whole failure surface — `errorMessage` is deliberately untouched. See
+        // `runAndRefresh`. This method has its own subscribe only because an attack chains its
+        // weapon-tag assignments, so it needs the same treatment rather than inheriting it.
         error: () => {
-          this.errorMessage.set('Unable to add attack.');
           this.notificationService.error('Unable to add attack.');
           this.activeMutation.set(null);
         },
@@ -342,6 +357,32 @@ export class MinionDetailComponent implements OnInit {
     });
   }
 
+  /**
+   * Every attack/power/armor/weakness create and delete on this page.
+   *
+   * **A failure here is a toast and nothing else — `errorMessage` is never set.** The template puts
+   * `@else if (errorMessage())` ahead of its content branch, so setting it unmounts the minion, the
+   * form and all four collections, leaving the user with one red line and no way back except a
+   * reload. That is the same hazard the images section avoids by keeping its own inline error
+   * (`data-images-error`) — this method, `createAttack` and `saveMinion` were the three places on
+   * this page that still had it. (Unlike `monster-detail`, this page has no membership batch to
+   * compare with: a minion belongs to a monster, not to mysteries, so `saveMinion` is a plain
+   * update.)
+   *
+   * Nothing was lost in removing it: the `notificationService.error(errorMessage)` below was always
+   * fired with the *same string*, so the inline write was duplication with a destructive side
+   * effect. `errorMessage` stays the surface for **load** failures and for the **entity save**.
+   *
+   * The success branches' `errorMessage.set(null)` calls went too, and the honest reason is that
+   * they were **unreachable**, not that they were wrong: `errorMessage` is only ever non-null after
+   * a failed load, and in that state the template renders the error branch — no form, no panels, no
+   * controls — so no write can be triggered to reach the clear. Verified by control: restoring one
+   * fails no test, and there is no assertion that could catch it. They are removed so that the load
+   * path is the *single* writer (see `saveMinion`), which is a property worth having rather than a
+   * behaviour change.
+   *
+   * architecture.md (domain-custom-moves) §34 — Phase A. Identical to `monster-detail.ts`'s.
+   */
   private runAndRefresh(
     operation: (minionId: string) => Observable<unknown>,
     errorMessage: string,
@@ -363,12 +404,10 @@ export class MinionDetailComponent implements OnInit {
         next: (minion) => {
           this.minion.set(minion);
           onSuccess?.();
-          this.errorMessage.set(null);
           this.activeMutation.set(null);
           this.notificationService.success(successMessage ?? 'Changes saved.');
         },
         error: () => {
-          this.errorMessage.set(errorMessage);
           this.activeMutation.set(null);
           this.notificationService.error(errorMessage);
         },

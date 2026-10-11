@@ -4429,21 +4429,30 @@ Phase 1 (the table and the service), and its position in the sequence is the who
 
 ## 34.1 What it changes
 
-**The defect, restated in one sentence:** the sub-resource write pipelines on `monster-detail` and
-`minion-detail` set `errorMessage` on failure, and those templates put `@else if (errorMessage())` (`:6`)
-ahead of the content branch — so a failed attack, power, armor or weakness write replaces the whole entity
-with a single red line, and the only recovery is a page reload. §26.2 L1 has the full evidence, including
-the three places these two pages already state the correct rule.
+**The defect, restated in one sentence:** the write pipelines on `monster-detail` and `minion-detail` set
+`errorMessage` on failure, and those templates put `@else if (errorMessage())` (`:6`) ahead of the content
+branch — so a failed write replaces the whole entity with a single red line, and the only recovery is a
+page reload. §26.2 L1 has the full evidence, including the three places these two pages already state the
+correct rule.
 
-**The exact diff, enumerated rather than described, because "the sub-resource write paths" is two methods
-and not one.** Each page has **eight** `errorMessage.set` sites; **four stay and four go**:
+**It is two defect classes, and Skyler scoped both into this phase.** I originally scoped only the
+sub-resource half and flagged the entity save as a finding (*"same mechanism, arguably worse
+consequence"*); he took it: *"go ahead and fix the entity-save bug now."* The entity-save half is worse
+rather than equivalent, and the reason is what the user loses — a failed `PUT` unmounts
+`<app-monster-form>` **while it still holds their unsaved edits**, so the work is gone and not merely the
+view. The sub-resource panels had already cleared their own add-form inputs on the way in. **Measured, not
+argued:** the browser control (§34.2 item 2) showed the typed value `"All-Father Stillness EDITED"`
+reduced to `null` with the form removed from the DOM.
+
+**The exact diff, enumerated rather than described, because "the write paths" is three methods and not
+one.** Each page has **eight** `errorMessage.set` sites; **two stay and six go**:
 
 | Site | Monster | Minion | |
 |---|---|---|---|
 | load success — clear | `:147` | `:140` | **keep** |
 | load failure — set | `:173` | `:160` | **keep** |
-| entity save success — clear | `:229` | `:184` | **keep** |
-| entity save failure — set | `:242` | `:188` | **keep** |
+| `saveMonster`/`saveMinion` success — clear | `:229` | `:184` | **remove** |
+| `saveMonster`/`saveMinion` failure — set | `:242` | `:188` | **remove** |
 | `createAttack` success — clear | `:284` | `:230` | **remove** |
 | `createAttack` failure — set | `:288` | `:234` | **remove** |
 | `runAndRefresh` success — clear | `:420` | `:366` | **remove** |
@@ -4453,9 +4462,35 @@ and not one.** Each page has **eight** `errorMessage.set` sites; **four stay and
 through `runAndRefresh`, because an attack chains its weapon-tag assignments — so a fix that only touched
 `runAndRefresh` would leave the one collection with the most moving parts still unmounting the page. That
 is the single most likely way to get this phase wrong, which is why the table is here and why the gate is
-per collection.
+per collection. The negative controls were designed against it and caught it: restoring `createAttack`'s
+line alone fails **exactly one** test.
 
-**Four lines per page, eight in total, across two methods per page.** Nothing else outside tests.
+**Six lines per page, twelve in total, across three methods per page.** Nothing else outside tests, and
+**zero added code lines** — every insertion in the diff is a comment.
+
+**Why no new error surface had to be designed for either half, which is the only reason the entity save
+was in scope at all.** All three methods already called `notificationService.error(...)` on the line
+*after* the inline write, with the **identical string** — `runAndRefresh` passes its `errorMessage`
+parameter to both, `createAttack` passes the literal to both, and the saves pass
+*"Unable to save {entity} details."* to both. The inline write was duplication with a destructive side
+effect, so removing it changes what the user *loses*, not what they are *told*.
+
+**The invariant this ends on, which is the part worth keeping.** `errorMessage` is now written by the
+**load path only** — verified, not assumed: exactly two `errorMessage.set` sites remain per page and both
+are inside `ngOnInit` (`monster-detail.ts:124-176`, `minion-detail.ts:115-163`). So the branch that sits
+ahead of the content branch and replaces the entire page now means **exactly** "this page could not
+load", which is the only claim that branch position is correct for. Anything after a successful load
+reports through a toast or its own inline element — the images section's `data-images-error` is the shape
+to copy. That sentence is in all three method comments on both pages, because it is the rule a future
+`errorMessage.set` on a write path would be breaking.
+
+**One correction to my own reasoning, found by control.** I had justified removing the *success*-arm
+clears as "deliberate rather than symmetry — they would otherwise clear a failed load." That is wrong:
+they were **unreachable**. `errorMessage` is non-null only after a failed load, and in that state the
+template renders the error branch, so there is no form and no panel from which to trigger a write that
+would reach the clear. Restoring one fails **no** test, and no assertion could catch it — confirmed by
+running exactly that control. They are removed so the load path is the *single* writer, which is a
+property, not a bug fix. The component comments say so.
 
 Two details that make this smaller than it sounds, both verified:
 
@@ -4484,30 +4519,67 @@ the rule already in force (§4.1 item 4).
 Small, because the change is small — but it exists, because *"the behavior change is not a big deal"* is a
 scope ruling and not a waiver.
 
-1. **Per page, per collection: a failed sub-resource write leaves the page rendered.** Force each of the
-   four writes to fail and assert the entity heading is still in the DOM, `errorMessage()` is `null`, and
-   exactly one error toast fired. `monster-detail.spec.ts:236-247` is the literal shape to copy — it
-   already asserts precisely this for the *membership* path, which is what makes the new assertions read
-   as the existing rule being extended rather than a new rule being invented.
-2. **One negative control**: restore one `errorMessage.set` and confirm the matching assertion fails. The
-   whole phase is a deletion, and a deletion's test can pass for the wrong reason if it was asserting
-   something already true.
-3. **The full suite green, 1467 → 1467 + the new assertions**, with no existing test's expectations
-   edited. If an existing spec asserts `errorMessage()` is non-null after a sub-resource failure, that is
-   a finding worth reporting rather than a line to change — it would mean the behaviour was pinned on
-   purpose somewhere, which nothing I read suggests.
-4. **One dev-server check per page**, because the symptom is visual and a unit test asserting "the heading
-   is still there" is not the same as seeing the page survive: fail one delete with devtools offline or a
-   routed 500, confirm the monster is still on screen and a toast appeared.
+1. **Per page, per write path: a failed write leaves the page rendered.** Force each of the **nine** paths
+   per page to fail — four creates, four deletes, and the entity save — and assert the entity heading is
+   still in the DOM, `errorMessage()` is `null`, exactly one error toast fired, no success toast, and
+   `isMutating()` cleared. `monster-detail.spec.ts:236-247` is the literal shape to copy: it already
+   asserts precisely this for the *membership* path, which makes the new assertions read as the existing
+   rule being extended rather than a new rule being invented. The entity-save cases additionally assert
+   the **form element itself** survived, because that is what the bug destroyed.
+   *Result: 18 table cases + 6 entity-save cases + 2 catch-all invariant tests, all green.*
+2. **A negative control per page, with its failure set predicted in advance.** The whole phase is a
+   deletion, and a deletion's test can pass for the wrong reason. "Some tests failed" proves much less
+   than a predicted set, so each control names the set first. Five were run:
+   - restore `createAttack`'s line (monster only) → **exactly 1** failure, the `own subscribe` row. The
+     decisive one: it proves a fix applied only to `runAndRefresh` gets caught.
+   - restore `runAndRefresh`'s line (minion only) → **exactly 8**, its 7 rows plus the modal test, monster
+     file untouched — so the two spec files are independent.
+   - restore the entity-save set (monster, then minion) → **exactly 3** each, the two save tests plus the
+     catch-all, with the eight sub-resource rows unaffected.
+   - restore a *success*-arm clear → **exactly 0**, as predicted. That is the §34.1 correction, and
+     running the control is what turned a wrong justification into the right one.
+   - *plus* two **browser** controls (not required by this item, added because §26.2 L1's claim was
+     derived from template reading and never measured): the page really is replaced — `h2` → `null`,
+     `p.text-danger` → the one message, form gone, and for the entity save the typed edit → `null`.
+3. **The full suite green, 1467 → 1497**, with **no existing test's expectations edited**. Checked before
+   touching anything, for both defect classes: no existing spec pins `errorMessage` non-null after a write
+   failure on either page — all four pre-existing `errorMessage` assertions there are already
+   `toBeNull()`, and **no existing spec drives `update()` to fail at all**. So nothing to report under
+   this item and nothing to change. (`minions-list.spec.ts:213` asserts non-null, but that is the *list*
+   page's entity delete and out of scope.)
+4. **A dev-server check per page and per defect class**, because the symptom is visual and a unit test
+   asserting "the heading is still there" is not the same as watching the page survive. Route a 500 at the
+   write, confirm the entity is still on screen, the toast appeared, and no page-level red line replaced
+   the content; for the entity save, **type an edit into the form first and confirm it is still there
+   afterwards**. *Result: 34/34 checks across both pages, both pipelines and both defect classes.
+   Intercepted requests never reach the API, so the check mutates no data.*
 
-## 34.3 Two things deliberately not in it
+## 34.3 What is deliberately not in it
+
+The entity save **was** on this list and is not any more — Skyler scoped it in (§34.1). What remains out:
 
 - **`whitespace-pre-wrap` on the eight sibling description lines** (Rosalina's F-R3) touches the same
   eight panels on the same two pages and would ride along cheaply. It is **out of scope**: it is her
   follow-up, it is a rendering change rather than a correctness one, and bundling a visual change into a
-  four-line behavioural fix is what makes a small gate stop being a gate. Noted because the overlap is
+  twelve-line behavioural fix is what makes a small gate stop being a gate. Noted because the overlap is
   obvious and someone will spot it.
-- **Any change to the four panels' *inline* error affordance.** They have none to remove — the inline
-  surface they were using *was* `errorMessage`, which is the page's. So this phase removes a bug, not a
-  feature, and there is no "where does the inline message go now" question to answer. Stated because the
-  question gets asked about every change of this shape, and here it has no content.
+- **Any change to the panels' or the form's *inline* error affordance.** They have none to remove — the
+  inline surface they were using *was* `errorMessage`, which is the page's. So this phase removes a bug,
+  not a feature, and there is no "where does the inline message go now" question to answer. Stated because
+  the question gets asked about every change of this shape, and here it has no content: the toast was
+  already firing the same string.
+- **The double toast (14-R3 / F-R2), which this phase *confirmed* rather than fixed.** The browser checks
+  showed every failed write producing **two** toasts — `httpErrorInterceptor`'s
+  `"Request failed (500) for PUT /api/monsters/{guid}"` alongside the page's own
+  `"Unable to save monster details."` Rosalina logged this as a present-day defect on the four existing
+  sub-resource types and deliberately did not sweep it; it is now **observed, not inferred**, which
+  strengthens §27's requirement that `core/custom-moves.ts` set `SUPPRESS_ERROR_TOAST` on all four
+  methods. Still out of scope here: changing it is a decision about four shipped types (F-R2, with F2).
+  Worth knowing that a *component* spec structurally cannot see this — stubbing the service bypasses the
+  interceptor — so the unit assertions' "exactly one toast" is a claim about what the **component**
+  reports, which is the right thing for them to assert and not the whole of what a user sees.
+- **The other three detail pages.** `location-detail` and `bystander-detail` already route their only
+  batched write's caveat to a toast and keep `errorMessage` `null` (`location-detail.ts:135-137` documents
+  why), and `mystery-detail` has no write path until 5e, which builds it with the rule already in force.
+  Phase A needed to touch neither, and the §26.2 L1 recommendation for all five pages is satisfied for
+  three of them by their existing code.

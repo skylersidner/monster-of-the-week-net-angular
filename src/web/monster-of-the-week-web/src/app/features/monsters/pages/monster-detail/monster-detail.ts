@@ -185,8 +185,22 @@ export class MonsterDetailComponent implements OnInit {
    * baseline to server truth. `DELETE` on a membership URI 404s on repeat, so without the refetch a
    * retry after a partial failure would fail permanently.
    *
-   * **The membership caveat is a toast only; `errorMessage` stays `null`** — setting it unmounts the
-   * form, leaving nothing to retry into.
+   * **No failure here touches `errorMessage` — not the membership caveat and not a total failure.**
+   * The caveat never did (setting it unmounts the form, leaving nothing to retry into); the total
+   * failure used to, and that was the same bug one step worse, because a failed `PUT` unmounts the
+   * form *while it still holds the user's unsaved edits*. The `notificationService.error` below was
+   * already firing the identical string, so removing the inline write cost nothing.
+   *
+   * **The invariant this completes, and the reason the template's branch order is safe:**
+   * `errorMessage` is now written by the **load path only** (`ngOnInit`), on this page and on
+   * `minion-detail`. So `monster-detail.html:6`'s `@else if (errorMessage())` — which sits *ahead*
+   * of the content branch and therefore replaces the entire page — means exactly "this monster
+   * could not be loaded", which is the only claim that branch position is correct for. **Anything
+   * that happens after a successful load reports through a toast or its own inline element, never
+   * here.** If you are about to add an `errorMessage.set` to a write path, that is the rule you are
+   * breaking; the images section (its own `data-images-error`) is the shape to copy instead.
+   *
+   * architecture.md (domain-custom-moves) §34 — Phase A.
    */
   saveMonster(submit: MonsterFormSubmit): void {
     const current = this.monster();
@@ -226,7 +240,6 @@ export class MonsterDetailComponent implements OnInit {
           // quotes that name ("{name} will have no images afterward").
           this.imagesStore.setOwnerName(monster.name);
           this.activeMutation.set(null);
-          this.errorMessage.set(null);
 
           if (membershipFailed) {
             // `forkJoin` reports that one call failed, never that all of them did, so the copy hedges.
@@ -239,7 +252,6 @@ export class MonsterDetailComponent implements OnInit {
         },
         error: () => {
           this.activeMutation.set(null);
-          this.errorMessage.set('Unable to save monster details.');
           this.notificationService.error('Unable to save monster details.');
         },
       });
@@ -281,11 +293,12 @@ export class MonsterDetailComponent implements OnInit {
           this.monster.set(monster);
           this.attackForm.reset({ name: '', description: '', harm: 0, weaponTagIds: [] });
           this.notificationService.success('Attack added.');
-          this.errorMessage.set(null);
           this.activeMutation.set(null);
         },
+        // The toast is the whole failure surface — `errorMessage` is deliberately untouched. See
+        // `runAndRefresh`. This method has its own subscribe only because an attack chains its
+        // weapon-tag assignments, so it needs the same treatment rather than inheriting it.
         error: () => {
-          this.errorMessage.set('Unable to add attack.');
           this.notificationService.error('Unable to add attack.');
           this.activeMutation.set(null);
         },
@@ -396,6 +409,31 @@ export class MonsterDetailComponent implements OnInit {
     });
   }
 
+  /**
+   * Every attack/power/armor/weakness create and delete on this page.
+   *
+   * **A failure here is a toast and nothing else — `errorMessage` is never set.** The template puts
+   * `@else if (errorMessage())` ahead of its content branch, so setting it unmounts the monster,
+   * the form and all five collections, leaving the user with one red line and no way back except a
+   * reload. That is the same hazard `saveMonster`'s membership caveat always avoided above
+   * (*"setting it unmounts the form, leaving nothing to retry into"*) and that the images section
+   * avoids by keeping its own inline error — this method, `createAttack` and `saveMonster`'s total
+   * failure were the three places on this page that still had it.
+   *
+   * Nothing was lost in removing it: the `notificationService.error(errorMessage)` below was always
+   * fired with the *same string*, so the inline write was duplication with a destructive side
+   * effect. `errorMessage` stays the surface for **load** failures and for the **entity save**.
+   *
+   * The success branches' `errorMessage.set(null)` calls went too, and the honest reason is that
+   * they were **unreachable**, not that they were wrong: `errorMessage` is only ever non-null after
+   * a failed load, and in that state the template renders the error branch — no form, no panels, no
+   * controls — so no write can be triggered to reach the clear. Verified by control: restoring one
+   * fails no test, and there is no assertion that could catch it. They are removed so that the load
+   * path is the *single* writer (see `saveMonster`), which is a property worth having rather than a
+   * behaviour change.
+   *
+   * architecture.md (domain-custom-moves) §34 — Phase A.
+   */
   private runAndRefresh(
     operation: (monsterId: string) => Observable<unknown>,
     errorMessage: string,
@@ -417,12 +455,10 @@ export class MonsterDetailComponent implements OnInit {
         next: (monster) => {
           this.monster.set(monster);
           onSuccess?.();
-          this.errorMessage.set(null);
           this.activeMutation.set(null);
           this.notificationService.success(successMessage ?? 'Changes saved.');
         },
         error: () => {
-          this.errorMessage.set(errorMessage);
           this.activeMutation.set(null);
           this.notificationService.error(errorMessage);
         },
