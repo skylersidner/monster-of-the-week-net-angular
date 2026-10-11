@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
@@ -199,5 +200,8 @@ public sealed class MysteryServiceTests
             SaveChangesCalls += 1;
             return Task.CompletedTask;
         }
+
+        public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IDbContextTransaction>(new NoOpDbContextTransaction());
     }
 }

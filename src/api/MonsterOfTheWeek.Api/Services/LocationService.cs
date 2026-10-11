@@ -6,15 +6,11 @@ using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-// customMoveService is deliberately unread for the length of Phase 1 — see MonsterService.cs's
-// comment on the same parameter for why, and for what Phase 2 removes.
-#pragma warning disable CS9113
 public sealed class LocationService(
     ILocationRepository locationRepository,
     IResourceImageService resourceImageService,
     ICustomMoveService customMoveService) : ILocationService
 {
-#pragma warning restore CS9113
     public Task<IReadOnlyList<LocationListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         locationRepository.GetAllAsync(cancellationToken);
 
@@ -128,7 +124,8 @@ public sealed class LocationService(
     }
 
     /// <summary>
-    /// Deletes the Location and, in the same transaction, every image it owns. Same reasoning as
+    /// Deletes the Location and, in the same transaction, every image and custom move it owns. Same
+    /// reasoning as
     /// <see cref="MonsterService.DeleteAsync"/>.
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -136,6 +133,7 @@ public sealed class LocationService(
         await using var transaction = await locationRepository.BeginTransactionAsync(cancellationToken);
 
         await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Location, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Location, id, cancellationToken);
         var deleted = await locationRepository.DeleteLocationAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);

@@ -2,9 +2,17 @@
 
 **By:** Bowser (Backend Developer / DevOps)
 **Date:** 2026-10-11
-**Status:** Decided and landed in `64e9826` (Phase 1, commit 2 of 2) on branch `custom-moves`. Amends
+**Status:** **Settled by Skyler, 2026-10-11** — *"Keep the supression. Go ahead with Phase 2."* — and
+recorded as **§16.4 D4** of `docs/domain-custom-moves/architecture.md`. Landed in `64e9826` (Phase 1,
+commit 2 of 2) on branch `custom-moves`. Amends
 `bowser-domain-custom-moves-route-constraint-and-sweep.md`'s D1 split with the one thing that split did not
 survive contact with the compiler. **Carries a removal obligation on Phase 2.**
+
+> **This was my judgement call when I filed it and is now his ruling.** I reported the suppression as a
+> divergence from my own plan, named its cost (the codebase's first hand-written `#pragma warning`), and
+> offered to reverse it by moving the five parameters to Phase 2. He kept it. Nothing below changes — the
+> reasoning is the reasoning the answer was given on — but the *status* of the trade does: it is no longer
+> mine to re-litigate, and the only thing still open is the Phase 2 removal.
 
 ## What
 

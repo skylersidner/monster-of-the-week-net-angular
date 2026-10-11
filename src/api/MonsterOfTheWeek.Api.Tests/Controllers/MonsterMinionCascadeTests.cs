@@ -71,6 +71,85 @@ public sealed class MonsterMinionCascadeTests
         return (minionId, attackId);
     }
 
+    /// <summary>
+    /// One custom move on the monster and one on its minion
+    /// (<c>docs/domain-custom-moves/architecture.md</c> §2.4, B11).
+    ///
+    /// <para>
+    /// <b>Both halves, not just the monster's.</b> <c>custom_moves</c> has no FK to its owner
+    /// (§2.3), so unlike <see cref="MinionAttack"/> above these rows are invisible to the database
+    /// cascade and have to be deleted by application code. A monster-only seed would pass under
+    /// the naive fix — clean up the owner, forget the minions — which is precisely the bug §2.4
+    /// names.
+    /// </para>
+    /// </summary>
+    private static async Task<(Guid MonsterMoveId, Guid MinionMoveId)> SeedCustomMovesAsync(
+        MysteryLinkApiHarness harness,
+        Guid minionId)
+    {
+        await using var context = harness.NewContext();
+
+        var monsterMove = new CustomMove
+        {
+            OwnerType = CustomMoveOwnerType.Monster,
+            OwnerId = harness.MonsterId,
+            Name = "Rise Again",
+        };
+        var minionMove = new CustomMove
+        {
+            OwnerType = CustomMoveOwnerType.Minion,
+            OwnerId = minionId,
+            Name = "Swarm",
+        };
+
+        context.CustomMoves.AddRange(monsterMove, minionMove);
+        await context.SaveChangesAsync();
+
+        return (monsterMove.Id, minionMove.Id);
+    }
+
+    /// <summary>
+    /// A second monster with a custom move of its own, which must survive everything this class
+    /// does (B-R11).
+    ///
+    /// <para>
+    /// <b>Why a local seed rather than a harness field:</b> <see cref="MysteryLinkApiHarness"/>
+    /// seeds exactly one monster, and a count-to-zero on a one-owner fixture cannot distinguish
+    /// "cleaned up this owner" from "cleaned up everything" — which is the other direction
+    /// <c>DeleteAllForOwnerAsync</c> can be wired wrong in.
+    /// </para>
+    /// </summary>
+    private static async Task<Guid> SeedUninvolvedMonsterWithAMoveAsync(MysteryLinkApiHarness harness)
+    {
+        await using var context = harness.NewContext();
+
+        var monsterTypeId = Guid.NewGuid();
+        var archetypeId = Guid.NewGuid();
+        context.MonsterTypes.Add(new MonsterType { Id = monsterTypeId, Name = "Beast", Motivation = "To hunt." });
+        context.MonsterArchetypes.Add(new MonsterArchetype { Id = archetypeId, Name = "Brute", Description = "It charges." });
+        await context.SaveChangesAsync();
+
+        var monster = new Monster
+        {
+            Name = "Unrelated Horror",
+            HarmCapacity = 3,
+            MonsterTypeId = monsterTypeId,
+            MonsterArchetypeId = archetypeId,
+        };
+        context.Monsters.Add(monster);
+        await context.SaveChangesAsync();
+
+        context.CustomMoves.Add(new CustomMove
+        {
+            OwnerType = CustomMoveOwnerType.Monster,
+            OwnerId = monster.Id,
+            Name = "Must Survive",
+        });
+        await context.SaveChangesAsync();
+
+        return monster.Id;
+    }
+
     private static async Task<HttpStatusCode> StatusOfAsync(Task<HttpResponseMessage> call)
     {
         using var response = await call;
@@ -88,6 +167,8 @@ public sealed class MonsterMinionCascadeTests
     {
         await using var harness = await MysteryLinkApiHarness.StartAsync();
         var (minionId, attackId) = await SeedMinionAsync(harness);
+        var (monsterMoveId, minionMoveId) = await SeedCustomMovesAsync(harness, minionId);
+        var uninvolvedMonsterId = await SeedUninvolvedMonsterWithAMoveAsync(harness);
 
         // **The premise, asserted.** Three `Assert.False`es on an empty table pass whether the
         // cascade worked or the seed silently never landed, and the seed goes through a context that
@@ -96,6 +177,10 @@ public sealed class MonsterMinionCascadeTests
         {
             Assert.True(await before.Minions.AnyAsync(minion => minion.Id == minionId));
             Assert.True(await before.MinionAttacks.AnyAsync(attack => attack.Id == attackId));
+            // Both custom moves, for the same reason: the two `Assert.False`es below pass on an
+            // empty table, and these rows have no FK to hold them to their owners.
+            Assert.True(await before.CustomMoves.AnyAsync(move => move.Id == monsterMoveId));
+            Assert.True(await before.CustomMoves.AnyAsync(move => move.Id == minionMoveId));
         }
 
         Assert.Equal(
@@ -106,6 +191,17 @@ public sealed class MonsterMinionCascadeTests
         Assert.False(await context.Monsters.AnyAsync(monster => monster.Id == harness.MonsterId));
         Assert.False(await context.Minions.AnyAsync(minion => minion.Id == minionId));
         Assert.False(await context.MinionAttacks.AnyAsync(attack => attack.Id == attackId));
+
+        // The monster's own move and its cascaded minion's move are both gone — and the
+        // uninvolved monster's is not. A bare count-to-zero would pass for a predicate that
+        // deleted every row in the table, which is the other way DeleteAllForOwnerAsync can be
+        // wired wrong (B-R11).
+        Assert.Equal(
+            ["Must Survive"],
+            await context.CustomMoves.OrderBy(move => move.Name).Select(move => move.Name).ToListAsync());
+        Assert.Equal(
+            uninvolvedMonsterId,
+            (await context.CustomMoves.SingleAsync()).OwnerId);
     }
 
     /// <summary>
@@ -117,12 +213,23 @@ public sealed class MonsterMinionCascadeTests
     /// Verified from the <i>other</i> mystery as well, because that is where the difference between
     /// the two buttons is visible and it is the half the wizard cannot reach.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Custom moves are asserted on this side too</b>
+    /// (<c>docs/domain-custom-moves/architecture.md</c> B11 item 4). Link and unlink sit four lines
+    /// apart in <c>MonsterService</c>, so <c>DeleteAllForOwnerAsync</c> wired into the
+    /// <i>unlink</i> path by mistake is a one-line error that would delete a monster's moves on
+    /// every detach — and the delete test above would still pass. This class exists for one
+    /// database fact and its complement; a new sub-resource has to appear on both sides or it is
+    /// only half-guarded.
+    /// </para>
     /// </summary>
     [Fact]
-    public async Task DetachingAMonsterFromOneMystery_LeavesItsMinionsAloneEverywhere()
+    public async Task DetachingAMonsterFromOneMystery_LeavesItsMinionsAndCustomMovesAloneEverywhere()
     {
         await using var harness = await MysteryLinkApiHarness.StartAsync();
         var (minionId, attackId) = await SeedMinionAsync(harness);
+        var (monsterMoveId, minionMoveId) = await SeedCustomMovesAsync(harness, minionId);
 
         Assert.Equal(
             HttpStatusCode.NoContent,
@@ -142,6 +249,12 @@ public sealed class MonsterMinionCascadeTests
         Assert.Equal(harness.MonsterId, minion.MonsterId);
         Assert.True(await context.MinionAttacks.AnyAsync(attack => attack.Id == attackId));
         Assert.True(await context.Monsters.AnyAsync(monster => monster.Id == harness.MonsterId));
+
+        // Both custom moves survive a detach — the monster's and its minion's. This is the
+        // complement of the delete test's cleanup assertion, and the only thing that can see a
+        // cleanup call wired into the unlink path.
+        Assert.True(await context.CustomMoves.AnyAsync(move => move.Id == monsterMoveId));
+        Assert.True(await context.CustomMoves.AnyAsync(move => move.Id == minionMoveId));
 
         // The membership the user removed is the only thing that went.
         Assert.Equal(

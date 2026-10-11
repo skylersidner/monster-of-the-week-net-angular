@@ -2139,6 +2139,9 @@ Three things the plan for this commit did not have right:
    — every other one is in generated migration code — so it is a new pattern and should not outlive Phase
    2. A bare warning would have been worse than a new pattern here: the obvious way to silence CS9113 is to
    delete the parameter, which is exactly the regression B-R1 is about.
+   **Settled by Skyler, 2026-10-11, as §16.4 D4** — *"Keep the supression."* — so this is a ruling rather
+   than my judgement call, and the removal obligation stands with it: **Phase 2 deletes the five
+   suppressions, not the parameters.**
 2. **`FakeCustomMoveService` should not mirror `FakeResourceImageService` "exactly".** That fake returns
    hardcoded success and empties because nothing exercises image behaviour through it. The same hardcoding
    here would make every Phase 2 round trip vacuous, which the standing rule
@@ -2494,9 +2497,11 @@ Skyler's; §25 keeps the reasoning each one was asked on, so the answer stays ch
 | D1 | Two commits inside Phase 1 — the 67-site constructor sweep separate from the entity/config/migration/service? | **Yes.** *"Two commits is fine."* B1 has the split and the one ordering constraint that decides which half goes first. The only deviation from §5's *"one commit per phase"*, and only in Phase 1. |
 | D2 | Rename `ResourceImagePostgresCollection` → `PostgresCollection`? | **Yes.** *"Yes, renaming is fine."* The class, the `const Name` value (*"Resource Image Postgres tests"* → *"Postgres tests"*), the `[CollectionDefinition]`, and both `[Collection]` attributes. Lands in Phase 1's **first** commit — test-only, behaviour-free, and it means the new migration test is never written against the old name. |
 | D3 | Will the manual real-Postgres run actually happen at Phase 1 and Phase 3? | **Yes.** *"We can run the migration during each phase it's needed in."* So §5's two gates stand as written, and the `dotnet ef migrations script` snapshot fallback is **withdrawn** (B5). The literal `MOTW_TEST_POSTGRES` command still goes in both gates — the default outcome is *Skipped* for anyone who does not set it, which is B5's point and is unchanged by the commitment to run it. **Phase 1's run happened, 2026-10-11: 6 passed / 0 failed / 0 skipped, recorded in B5. Phase 3's is still owed.** |
+| D4 | Keep the five `#pragma warning disable CS9113` suppressions Phase 1 landed, or move the five constructor parameters to Phase 2 and carry no suppression? | **Keep the suppression.** *"Keep the supression. Go ahead with Phase 2."* (Skyler, 2026-10-11, after Phase 1 landed and reported it.) So the five parameters stay pre-landed and the Phase 1 → Phase 2 boundary is behaviour only, as D1 intended — **and the removal obligation is unchanged: Phase 2 deletes the five suppressions, not the parameters, because the parameters become read.** Asked because the suppression is the codebase's first hand-written `#pragma warning` and so is a new pattern rather than a free move; this answer makes it his call rather than mine. |
 
 **Where these land, so nothing is recorded only here:** D1 in **B1** (the two-commit split) and **§23
-item 1**; D2 in **B1**, **B5** and **B-R6**; D3 in **B5** and **B-R5**.
+item 1**; D2 in **B1**, **B5** and **B-R6**; D3 in **B5** and **B-R5**; D4 in **B1** (divergence 1) and
+`.squad/decisions/inbox/bowser-phase1-unread-dependency-suppression.md`.
 
 **What they did not shift.** Nothing in §§17–22 moves: the route constraint, the ownership-validation
 distribution, the delete-flow and transaction work, the index, both migrations' contents and the enum are

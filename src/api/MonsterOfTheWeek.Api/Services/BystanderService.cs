@@ -6,15 +6,11 @@ using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-// customMoveService is deliberately unread for the length of Phase 1 — see MonsterService.cs's
-// comment on the same parameter for why, and for what Phase 2 removes.
-#pragma warning disable CS9113
 public sealed class BystanderService(
     IBystanderRepository bystanderRepository,
     IResourceImageService resourceImageService,
     ICustomMoveService customMoveService) : IBystanderService
 {
-#pragma warning restore CS9113
     public Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         bystanderRepository.GetAllAsync(cancellationToken);
 
@@ -135,7 +131,8 @@ public sealed class BystanderService(
     }
 
     /// <summary>
-    /// Deletes the Bystander and, in the same transaction, every image it owns. Same reasoning as
+    /// Deletes the Bystander and, in the same transaction, every image and custom move it owns. Same
+    /// reasoning as
     /// <see cref="MonsterService.DeleteAsync"/>.
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
@@ -143,6 +140,7 @@ public sealed class BystanderService(
         await using var transaction = await bystanderRepository.BeginTransactionAsync(cancellationToken);
 
         await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Bystander, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Bystander, id, cancellationToken);
         var deleted = await bystanderRepository.DeleteBystanderAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);

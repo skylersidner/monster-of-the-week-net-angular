@@ -5,16 +5,10 @@ using MonsterOfTheWeek.Api.Services.CustomMoves;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-// customMoveService is deliberately unread for the length of Phase 1 — see MonsterService.cs's
-// comment on the same parameter for why, and for what Phase 2 removes. Mystery is the one
-// service that also needs a transaction before it can use this (architecture.md §3.5, B10);
-// that too is Phase 2.
-#pragma warning disable CS9113
 public sealed class MysteryService(
     IMysteryRepository mysteryRepository,
     ICustomMoveService customMoveService) : IMysteryService
 {
-#pragma warning restore CS9113
     public async Task<IReadOnlyList<MysteryListItemResponse>> GetAllAsync(CancellationToken cancellationToken)
     {
         var mysteries = await mysteryRepository.GetMysteriesForListAsync(cancellationToken);
@@ -90,10 +84,37 @@ public sealed class MysteryService(
         return ServiceResult<MysteryDetailResponse>.Success(ToDetailResponse(updated!));
     }
 
+    /// <summary>
+    /// Deletes the Mystery and, in the same transaction, every custom move it owns.
+    ///
+    /// <para>
+    /// <b>The transaction is new here and it is not decoration</b>
+    /// (domain-custom-moves/architecture.md §3.5, B10). <c>custom_moves</c> has no FK to its owner
+    /// (§2.3's accepted tradeoff), so the plain <c>DeleteMysteryAsync</c> below does nothing to
+    /// this Mystery's rows — they have to go in application code. Cleaning up <i>before</i> the
+    /// owner delete is the shape all five flows share, for the reason
+    /// <see cref="MonsterService.DeleteAsync"/> gives at length; without a transaction, a failure
+    /// between the two steps leaves the moves deleted and the Mystery alive, which destroys user
+    /// data rather than leaking a row.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>No nested-owner trap here, confirmed rather than assumed.</b> Deleting a Mystery
+    /// cascades only its three bridge tables and its <c>Countdown</c>
+    /// (<c>MysteryLinkRepositoryTests.DeletingAMystery_CascadesItsBridgeRows</c> pins that), and
+    /// its monsters, locations and bystanders are M:N and survive — so they clean up their own
+    /// moves on their own deletes. Unlike Monster, there is nothing to read before the delete.
+    /// </para>
+    /// </summary>
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await mysteryRepository.DeleteMysteryAsync(id, cancellationToken);
-        return deleted > 0;
+        await using var transaction = await mysteryRepository.BeginTransactionAsync(cancellationToken);
+
+        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Mystery, id, cancellationToken);
+        var deleted = await mysteryRepository.DeleteMysteryAsync(id, cancellationToken) > 0;
+
+        await transaction.CommitAsync(cancellationToken);
+        return deleted;
     }
 
     public async Task<CountdownResponse?> GetCountdownAsync(Guid id, CancellationToken cancellationToken)

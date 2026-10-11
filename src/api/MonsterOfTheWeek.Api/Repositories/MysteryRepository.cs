@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
 
@@ -71,4 +72,7 @@ public sealed class MysteryRepository(MotwDbContext dbContext) : IMysteryReposit
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
+        dbContext.Database.BeginTransactionAsync(cancellationToken);
 }

@@ -6,15 +6,11 @@ using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-// customMoveService is deliberately unread for the length of Phase 1 — see MonsterService.cs's
-// comment on the same parameter for why, and for what Phase 2 removes.
-#pragma warning disable CS9113
 public sealed class MinionService(
     IMinionRepository minionRepository,
     IResourceImageService resourceImageService,
     ICustomMoveService customMoveService) : IMinionService
 {
-#pragma warning restore CS9113
     public Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         minionRepository.GetAllAsync(cancellationToken);
 
@@ -142,7 +138,8 @@ public sealed class MinionService(
     }
 
     /// <summary>
-    /// Deletes the Minion and, in the same transaction, every image it owns. Same reasoning as
+    /// Deletes the Minion and, in the same transaction, every image and custom move it owns. Same
+    /// reasoning as
     /// <see cref="MonsterService.DeleteAsync"/> — see there for why this needs a transaction at
     /// all; a Minion has no owned children of its own to cascade-orphan, so this is the simpler
     /// half of that fix.
@@ -152,6 +149,7 @@ public sealed class MinionService(
         await using var transaction = await minionRepository.BeginTransactionAsync(cancellationToken);
 
         await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Minion, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Minion, id, cancellationToken);
         var deleted = await minionRepository.DeleteMinionAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);

@@ -6,21 +6,12 @@ using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-// customMoveService is deliberately unread for the length of Phase 1
-// (domain-custom-moves/architecture.md §16.3 B1, §16.4 D1): the dependency and the three test
-// harnesses' DI registrations land as a provable no-op, so Phase 2's diff is the behaviour
-// change alone — the detail projection and the owner-delete cleanup. CS9113 is correct about
-// the code and wrong about the intent, so it is suppressed here rather than "fixed" by deleting
-// the parameter. Phase 2 deletes this suppression, not the parameter; if you are reading this
-// after Phase 2 landed, the suppression is the leftover.
-#pragma warning disable CS9113
 public sealed class MonsterService(
     IMonsterRepository monsterRepository,
     IMinionRepository minionRepository,
     IResourceImageService resourceImageService,
     ICustomMoveService customMoveService) : IMonsterService
 {
-#pragma warning restore CS9113
     public async Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         await monsterRepository.GetAllAsync(cancellationToken);
 
@@ -177,7 +168,8 @@ public sealed class MonsterService(
         await monsterRepository.UnlinkMonsterFromMysteryAsync(mysteryId, id, cancellationToken) > 0;
 
     /// <summary>
-    /// Deletes the Monster and, in the same transaction, every image it or its Minions own.
+    /// Deletes the Monster and, in the same transaction, every image and custom move it or its
+    /// Minions own.
     ///
     /// <para>
     /// <b>The first explicit transaction in this codebase</b> (phases.md Phase 3, resource-images;
@@ -200,9 +192,16 @@ public sealed class MonsterService(
         var minionIds = await minionRepository.GetIdsByMonsterIdAsync(id, cancellationToken);
 
         await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Monster, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Monster, id, cancellationToken);
         foreach (var minionId in minionIds)
         {
+            // Both owned sub-resource families, in one loop over the ids rather than two loops
+            // over the same ids — so this reads as "clean up everything this minion owns"
+            // (domain-custom-moves/architecture.md §19). The custom-move half is the one the
+            // database cannot do for us either: `custom_moves` has no FK, so the minion cascade
+            // below would orphan these rows exactly as it would the images.
             await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Minion, minionId, cancellationToken);
+            await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Minion, minionId, cancellationToken);
         }
 
         var deleted = await monsterRepository.DeleteMonsterAsync(id, cancellationToken) > 0;
