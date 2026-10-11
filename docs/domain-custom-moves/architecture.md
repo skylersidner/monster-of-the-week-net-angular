@@ -1937,15 +1937,26 @@ and four specs change either way.
 unchanged.** Where I think something above is wrong I say so here (§16.3) rather than editing it. Work is
 on branch **`custom-moves`**.
 
-> **Phase 1 is landed**, as the two commits §16.4 D1 settled: **`619be92`** (the 67-site factory
-> extraction and the `PostgresCollection` rename — zero production files) and **`64e9826`** (the entity,
-> the enum, the context config, `20261011180029_AddCustomMoves`, `ICustomMoveService`/`CustomMoveService`,
-> the DI and three harness registrations, `FakeCustomMoveService` and the tests — called by nothing).
-> Backend **634 passed / 0 failed / 6 skipped / 640 total**, from a 615/0/4/619 baseline; frontend
-> untouched at 1,497 / 108 files. **The real-Postgres gate was run, not skipped** (B5). Phases 2 and 3 are
-> not started, and no drop migration exists in the tree. Everything below that the work corrected is
-> corrected in place; the three places it diverged from the plan are B1 (two factories in one file, and the
-> CS9113 suppression the plan had not anticipated), B4 (measured instead of estimated) and §21.1.
+> **Phases 1 and 2 are landed.** Four commits, in order:
+>
+> | | Commit | What |
+> |---|---|---|
+> | **1·1** | `619be92` | The 67-site factory extraction and the `PostgresCollection` rename — zero production files, the no-op half of §16.4 D1. |
+> | **1·2** | `64e9826` | The entity, the enum, the context config, `20261011180029_AddCustomMoves`, `ICustomMoveService`/`CustomMoveService`, the DI and three harness registrations, `FakeCustomMoveService`, the tests — called by nothing. |
+> | **2·1** | `d87974b` | The five owner-delete cleanups and Mystery's new transaction, with the per-domain cleanup tests and B11's four changes to `MonsterMinionCascadeTests`. Behaviour-neutral while `custom_moves` is empty. |
+> | **2·2** | `52cc63b` | `CustomMovesController`, the seven projections re-pointed, the five `.Include`s and the sixteen old controller actions deleted. The atomic switchover. |
+>
+> Backend **677 passed / 0 failed / 6 skipped / 683 total**, from a 615/0/4/619 baseline; frontend
+> untouched at 1,497 / 108 files throughout. **The real-Postgres gate was run at both phases, not
+> skipped** (B5), and Phase 2 was additionally exercised against the real `Program.cs` host, which is
+> where the two corrections below came from. **Phase 3 is not started and no drop migration exists in the
+> tree** — B6 is why.
+>
+> **Where the work diverged from this plan**, all corrected in place rather than listed as a changelog:
+> B1 (two factories in one file; the CS9113 suppression nothing here had anticipated, now §16.4 D4; the
+> fake's return semantics, where B1 and §23 item 5 contradicted each other), B4 (measured, not
+> estimated), §16.1 and §21.1 (measured), and **§16.2, whose 404-body row was simply wrong** — see the
+> correction there, which is the one thing in this document that a running server disagreed with.
 
 **Grounding — read this session, not inherited from §§0–15.** Globbed the whole `src/` tree first
 (173 `.cs` files, every directory) rather than trusting the inventory above. Read in full:
@@ -2030,7 +2041,7 @@ This is the evidence base for §17 and for the 404-versus-400 question.
 | `GET /api/monsters/{realId}/custom-moves` | `200` | `[]` |
 | `GET /api/MONSTERS/{realId}/custom-moves` | `200` | `[]` |
 | `GET /api/Monsters/{realId}/CUSTOM-MOVES` | `200` | `[]` |
-| `GET /api/monsters/{unknownGuid}/custom-moves` | `404` | **empty** |
+| `GET /api/monsters/{unknownGuid}/custom-moves` | `404` | ~~empty~~ — **162-byte ProblemDetails; item 2 below has the correction and the controls** |
 | `GET /api/monsters/not-a-guid/custom-moves` | `404` | empty |
 | `GET /api/nonsense/{realId}/custom-moves` | `404` | **empty** |
 | `GET /api/hunters/{realId}/custom-moves` | `404` | empty |
@@ -2040,10 +2051,30 @@ Three things fall out of this table, all load-bearing below.
 
 1. **Route matching is case-insensitive, including the literal `custom-moves` segment.** That is shipped
    behaviour, reachable today, and §2.9's unified controller must preserve it. See B2.
-2. **A bad owner segment and a missing owner are already byte-identical.** `NotFound()` returns no body,
-   and the `/api/{**rest}` catch-all (`Program.cs:219`) returns `Results.NotFound()` with none either. So
-   the 404-versus-400 question answers itself: **404 is correct, and it is also the only answer available
-   without inventing a response shape nothing else in this API uses.** Returning 400 for an unknown segment
+2. **A bad owner segment and a missing owner are both `404`** — and the table's claim that they are
+   *byte-identical* is **wrong, corrected by measurement at Phase 2**. Re-probed against the real
+   `Program.cs` host, with two untouched routes as controls:
+
+   | Request | Status | Body | Content-Type |
+   |---|---|---|---|
+   | `GET /api/monsters/{unknownGuid}/custom-moves` | `404` | **162 bytes** | `application/problem+json` |
+   | `GET /api/monsters/{unknownGuid}` — *control, untouched* | `404` | 162 bytes | `application/problem+json` |
+   | `GET /api/mysteries/{unknownGuid}` — *control, untouched* | `404` | 162 bytes | `application/problem+json` |
+   | `GET /api/xmonstersx/{realId}/custom-moves` | `404` | **0 bytes** | *none* |
+   | `GET /api/totally-made-up-path` — *control, catch-all* | `404` | 0 bytes | *none* |
+
+   A controller's `NotFound()` produces a ProblemDetails body, because `Program.cs:23` registers
+   `AddProblemDetails()`; the catch-all's `Results.NotFound()` produces nothing. The controls prove this
+   is pre-existing and shared with every other 404 in the API, so **the original row was a measurement
+   error in the planning pass, not a regression this work introduced** — and the correct statement is
+   that the two are *indistinguishable by status code* and distinguishable by body.
+
+   **Every conclusion below survives intact**, which is why this is a correction and not a reversal:
+   **404 is still correct, and still the only answer available without inventing a response shape nothing
+   else in this API uses.** If anything the real behaviour is better than the recorded one — a client
+   reading only the status cannot tell a typo from a stale id, and a developer reading the body can.
+   Recorded at this length because "byte-identical" is the kind of specific claim a later reader would
+   build on. Returning 400 for an unknown segment
    would require letting the request reach application code, which costs exactly the route-table isolation
    the constraint exists to buy, and it would make a client typo louder than a client sending a stale id —
    the wrong way round, since the stale id is the case a user can actually cause.
@@ -2254,6 +2285,12 @@ Two separate facts, both verified:
   including `owner_type character varying(16)` and no foreign keys. **This is the paragraph's whole point:
   the same command without the env var reports those two as *Skipped*, so "the gate passed" means nothing
   unless the run is recorded. It is recorded here.**
+
+  **Phase 2's run happened too, 2026-10-11**, against a throwaway `motw_custom_moves_phase2`:
+  **6 passed / 0 failed / 0 skipped**, dropped afterwards, dev `motw` verified still present. Phase 2
+  adds no migration, so this is a regression check rather than a new gate — it proves the Phase 2 model
+  changes (five `.Include`s removed, no entity touched) did not move the schema out from under the
+  committed migration history. Worth running anyway for that reason, and cheap.
 
   **Skyler has confirmed the runs will happen (§16.4 D3), so both gates stand exactly as §5 writes them**
   and the cheaper `dotnet ef migrations script` snapshot fallback I offered is **withdrawn** — it would
@@ -2720,6 +2757,25 @@ latter. One extra seeded owner turns the cheapest assertion into a correct one.
 
 **Mystery's transaction:** B10 has the reasoning and the four mechanical steps.
 
+**Landed in `d87974b`, and the shape held exactly** — one line per flow, two for Monster (its own plus one
+inside the existing `foreach (var minionId in minionIds)`, not a second loop), and Mystery's new
+`BeginTransactionAsync`. Three things worth recording from doing it:
+
+1. **The cleanup tests went to one new file, not into the four domains' existing test files.**
+   `CustomMoves/OwnerDeleteCleanupTests` holds all five domains' three cases. The alternative — a case per
+   domain in `Monster/Minion/Location/BystanderServiceTests` — would have split one fact across four
+   files whose fakes cannot express it, since these tests need real repositories over one real context
+   (B10). `MonsterImageCleanupTests` is the precedent for a cleanup living in its own file; this follows
+   it rather than the per-domain convention.
+2. **The surviving-owner assertion is a shared helper, deliberately.** `AssertOnlyTheSurvivorsMoveRemains`
+   is called by every case, so B-R11's requirement cannot be satisfied in four cases and forgotten in the
+   fifth. It asserts the survivor's name, owner type *and* owner id, not just a count of one.
+3. **The Bystander case needed a second Bystander rather than the shared survivor.** Every other case's
+   survivor is a Bystander, which cannot distinguish "filtered on `OwnerType` and forgot `OwnerId`" for
+   the Bystander flow itself — that predicate would delete the survivor and pass nothing else. One case
+   in the file therefore seeds two Bystanders of the same type. The general lesson: **a shared survivor
+   of type X cannot guard the flow that deletes an X.**
+
 ---
 
 # 20. Index and query shape
@@ -2843,6 +2899,20 @@ is right.
 therefore accurate, with one correction: Swagger is Development-only (`Program.cs:179-183`), so this is a
 developer-ergonomics loss, not an API-contract loss.
 
+**Re-measured off the running app after Phase 2 landed, and the prediction holds exactly:**
+
+```
+/api/{owner}/{ownerId}/custom-moves            GET  POST     tags=CustomMoves  owner:string  ownerId:string/uuid
+/api/{owner}/{ownerId}/custom-moves/{moveId}   PUT  DELETE   tags=CustomMoves  owner:string  ownerId:string/uuid  moveId:string/uuid
+```
+
+2 templates, 4 operations, tag `CustomMoves`, `owner` a plain `string` with **no `enum`** — so the
+discoverability loss is real and is exactly the size stated. The whole document also went **84 → 78 path
+templates**, which is `84 − 8 + 2` and is an independent check on §16.2's count of 8 being right.
+**Recommendation unchanged: accept the loss, do not build the filter.** Measured rather than left as a
+prediction because §16.2 had one row that a running server disagreed with, and a document that corrects a
+measurement in one place should not leave an unverified number in another.
+
 **If it ever bites, the cure is small and additive.** `AddSwaggerGen()` is registered bare at
 `Program.cs:26` with **no filters of any kind** today, so a ~15-line `IOperationFilter` setting the `owner`
 parameter's `Schema.Enum` from the same five strings would be the project's first filter.
@@ -2870,12 +2940,22 @@ being rediscovered.
    this plan are in B1.
 2. **`MonsterMinionCascadeTests` needs four changes, including the detach complement.** B11. §10 asks for
    the seed; the detach half, the before-assertion and the surviving-third-owner count are the parts that
-   make it a guard rather than a decoration.
+   make it a guard rather than a decoration. **All four landed in `d87974b`**, and the detach test was
+   renamed to `DetachingAMonsterFromOneMystery_LeavesItsMinionsAndCustomMovesAloneEverywhere` so the name
+   carries the second fact rather than hiding it.
 3. **The drift guard should be three assertions, not one.** B12 — route↔dictionary, dictionary↔template,
    and enum↔service `switch`. The third is the half R7 cannot see.
+   **Landed as `CustomMoveOwnerDriftTests` in `52cc63b`, with one mechanical detail worth recording:** it
+   reads the segment dictionary **by reflection** rather than by widening the field. There is **no
+   `InternalsVisibleTo` anywhere in this solution** — grepped — so adding one would be a project-wide
+   pattern for the benefit of one test, and a `public` dictionary on a controller is production surface
+   existing only for a test. Same reasoning as D4's: prefer the test-local cost to the new project-wide
+   pattern. Assertion 2's own regex reads the `^...$` back, so it fails on an unanchored template too —
+   which it did, when I checked (item 7).
 4. **The endpoint test must include a mixed-case segment.** B2. `/api/MONSTERS/{id}/custom-moves` → `200`
    is shipped behaviour and the unified controller is one dictionary comparer away from breaking it. Add it
    to the five-segment matrix rather than as a separate test — the matrix is where someone will look.
+   **Landed in the matrix, three casings, and confirmed still `200` against the real host.**
 5. **`CustomMoveServiceTests`, SQLite-backed, mirroring `ResourceImageServiceTests`**, and specifically
    covering the four cases that are *behaviour* rather than plumbing: owner missing → `NotFound` on `List`
    and `Create`; a mismatched pair (a Bystander's id with `OwnerType.Monster`) → `NotFound` on `Create`
@@ -2904,6 +2984,32 @@ being rediscovered.
    implementations, assert each detail response carries **its own** move and not another's. Five seeds, one
    context, one test. **This belongs in Phase 2, not Phase 6** — it guards backend code, and Phase 2 is
    where that code lands.
+   **Landed as `DetailProjectionOwnerAgreementTests` in `52cc63b`**, with two refinements worth keeping.
+   (a) Each move is **named for its owner** (*"Monster Move"*, *"Minion Move"*, …) rather than seeded
+   anonymously, so a wrong literal reports *which* arm is wrong instead of only that a count is off.
+   (b) It carries a second test for Mystery's `CreateAsync` returning `[]` and its `UpdateAsync` reading
+   them back — because the `[]` shortcut (B3) is correct only as long as `CreateAsync` stays the last
+   step, and nothing else in the suite would notice if it stopped being.
+   **And one thing worth stating plainly: this guard protects against a bug the nav property made
+   impossible.** Before Phase 2 a projection could not return another owner's rows; after it, one wrong
+   enum literal does, and compiles. So this is not a guard the rework inherits — it is one the rework
+   creates the need for, which is a real (small) cost of the single-table shape and should be counted as
+   one rather than presented as free diligence.
+
+7. **A seventh item, added at Phase 2 because it is the only reason items 3 and 4 are known to work:
+   mutate the two load-bearing one-token details and watch the tests fail.** Both were applied to the
+   real tree, measured, and reverted:
+
+   | Mutation | What failed |
+   |---|---|
+   | `OrdinalIgnoreCase` → default comparer | **2 failures** — `MixedCaseSegments_StillResolve_AndStillWrite` at `MONSTERS/CUSTOM-MOVES` and at `Monsters/Custom-Moves` |
+   | `^(…)$` → `(…)` (anchors removed) | **2 failures** — `UnknownOwnerSegment_Is404_AtRouting(segment: "xmonstersx")` *and* `TheDictionarysKeysAreExactlyTheSegmentsInTheRouteTemplate` |
+
+   This is the item that turns B2, B-R2, B-R3 and B12 from assertions about the code into assertions about
+   the tests. Both mutations **compile**, both are one token, and both are invisible in review — which is
+   the entire argument of those four entries, and an argument that is worth nothing if the tests that
+   discharge it have not been seen to fail. Thirty seconds each. **Phase 3 should do the same for the drop
+   migration's five table names**, where the equivalent typo is also compiling and also silent.
 
 **One thing §10 gets exactly right and is worth not losing:** `MonsterServiceTests.cs:331-341`'s reflection
 table over `UpsertCustomMoveRequest` keeps asserting the annotations through the unification, and
@@ -2919,19 +3025,19 @@ Numbered B-R to sit beside §7's R1–R14 and §14's 14-R1–14-R10 without coll
 
 | # | Risk | Mitigation |
 |---|---|---|
-| B-R1 | **A harness missing `ICustomMoveService` is a request-time 500, not a build error** — and the first test it breaks is §2.4's cascade test, which will read as a cascade bug. | B1. Land the registrations and the constructor sweep in **Phase 1**, suite green with no assertion changes, so Phase 2's diff is behaviour only. `Program.cs:38-41` already says why this failure mode is special; repeat the sentence. |
-| B-R2 | **An ordinal segment dictionary turns `/api/MONSTERS/{id}/custom-moves` from `200` into a 500.** Shipped, reachable, invisible in review. | B2. `StringComparer.OrdinalIgnoreCase`, a comment naming what it preserves, and a mixed-case case in the endpoint matrix. |
-| B-R3 | **An unanchored inline regex silently accepts `xmonstersx`** — proven, and identical-looking in review. | §17.1 probe B. The `^(...)$` anchors, plus the drift test, which parses the template back and therefore reads the anchors. |
+| B-R1 | *(Discharged. Phase 1 landed the three registrations, and Phase 2's extended cascade test passed first time — the outcome this entry asked for.)* **A harness missing `ICustomMoveService` is a request-time 500, not a build error** — and the first test it breaks is §2.4's cascade test, which will read as a cascade bug. | B1. Land the registrations and the constructor sweep in **Phase 1**, suite green with no assertion changes, so Phase 2's diff is behaviour only. `Program.cs:38-41` already says why this failure mode is special; repeat the sentence. |
+| B-R2 | *(Discharged, and the test seen to fail — §23 item 7.)* **An ordinal segment dictionary turns `/api/MONSTERS/{id}/custom-moves` from `200` into a 500.** Shipped, reachable, invisible in review. | B2. `StringComparer.OrdinalIgnoreCase`, a comment naming what it preserves, and a mixed-case case in the endpoint matrix. |
+| B-R3 | *(Discharged, and the test seen to fail — §23 item 7, where the unanchored mutant broke the endpoint matrix **and** the drift guard.)* **An unanchored inline regex silently accepts `xmonstersx`** — proven, and identical-looking in review. | §17.1 probe B. The `^(...)$` anchors, plus the drift test, which parses the template back and therefore reads the anchors. |
 | B-R4 | **Phase 3's diff gate is unmeetable as written**, so it will be waived in practice and stop gating anything. | B4. Restate as net-negative **excluding** `Data/Migrations/*.Designer.cs` and `MotwDbContextModelSnapshot.cs`. |
 | B-R5 | **The real-Postgres gate reports *Skipped*, not *Failed*** — so a broken migration passes `dotnet test` and is found at deploy, which is the exact gap `PostgresFactAttribute` exists to avoid being silent about. **Confirming the intent to run it does not change the default outcome.** | B5, §16.4 D3. The runs are confirmed and §5's gates stand, so the fallback is withdrawn — but put the literal command in both gates (`docker compose up -d postgres`; `MOTW_TEST_POSTGRES` at a throwaway database; `dotnet test --filter "Category=Postgres"`) and have each phase's checklist **record** the run, not merely require it. |
 | B-R6 | **A second Postgres-gated class outside the shared collection drops the other's database mid-run** — already caught once, per that file's own comment. | B5, §16.4 D2. `[Collection(PostgresCollection.Name)]` on the new class, after Phase 1's first commit renames it. |
 | B-R7 | **Phase 3's drop is applied by deploying**, because `MigrateAsync()` runs at startup. Someone will read "isolated commit" as "not yet applied". | B6. Say it in the gate. Do not author the drop migration before Phase 3 — in the tree during Phase 2 it drops the tables on the next `dotnet run`. |
-| B-R8 | **The extra projection query lands on sixteen create/update responses, not five detail loads**, so §2.6's budget is understated and the first person to profile will think something is wrong. | B3. Record the real surface. `MysteryService.CreateAsync` passes `[]`; the other four share `GetByIdAsync` and should not be split to save an empty index seek. |
-| B-R9 | **A domain service passes the wrong `CustomMoveOwnerType` literal.** Compiles; passes every test that does not seed a custom move; returns another owner's rows. | §23 item 6 — a five-domain backend parity test in Phase 2, modelled on `ListProjectionPrimaryImageAgreementTests`. |
-| B-R10 | **Without a transaction, Mystery's cleanup-then-delete destroys user data on a partial failure** rather than leaking a row — the opposite direction from the bug the cleanup exists to fix. | B10. Add `BeginTransactionAsync` to `IMysteryRepository`, matching the four. |
-| B-R11 | **`DeleteAllForOwnerAsync` with a mis-wired predicate deletes every owner's moves**, and a count-to-zero assertion on a single-owner fixture cannot see it. | §19 — seed a second owner whose moves must survive, in every per-domain cleanup test. |
+| B-R8 | *(Recorded as asked — the real surface is in the XML doc on `MonsterService.GetByIdAsync`, not only here, and `MysteryService.CreateAsync` passes `[]` with its reason at the site.)* **The extra projection query lands on sixteen create/update responses, not five detail loads**, so §2.6's budget is understated and the first person to profile will think something is wrong. | B3. Record the real surface. `MysteryService.CreateAsync` passes `[]`; the other four share `GetByIdAsync` and should not be split to save an empty index seek. |
+| B-R9 | *(Discharged by `DetailProjectionOwnerAgreementTests`, `52cc63b`.)* **A domain service passes the wrong `CustomMoveOwnerType` literal.** Compiles; passes every test that does not seed a custom move; returns another owner's rows. | §23 item 6 — a five-domain backend parity test in Phase 2, modelled on `ListProjectionPrimaryImageAgreementTests`. |
+| B-R10 | *(Discharged. `IMysteryRepository.BeginTransactionAsync` and the transaction landed in `d87974b`.)* **Without a transaction, Mystery's cleanup-then-delete destroys user data on a partial failure** rather than leaking a row — the opposite direction from the bug the cleanup exists to fix. | B10. Add `BeginTransactionAsync` to `IMysteryRepository`, matching the four. |
+| B-R11 | *(Discharged. Every case in `OwnerDeleteCleanupTests` seeds a survivor through one shared helper, so it cannot be honoured in four cases and forgotten in the fifth — §19.)* **`DeleteAllForOwnerAsync` with a mis-wired predicate deletes every owner's moves**, and a count-to-zero assertion on a single-owner fixture cannot see it. | §19 — seed a second owner whose moves must survive, in every per-domain cleanup test. |
 | B-R12 | **A later reader adds an `(owner_type, owner_id, id)` index** because "the update path has no index". | §20 says explicitly not to, with the reason. Put that sentence in the config comment, not only in this doc. |
-| B-R13 | **`MotwDbContext.cs:504-505`'s comment becomes false** the moment `custom_moves` lands — it says no other entity uses `HasConversion`. A stale comment at the one site that exists to explain a deliberate first. | §22. Amend both comments in Phase 1, in the same commit that adds the second conversion. |
+| B-R13 | *(Discharged in `64e9826`, both comments.)* **`MotwDbContext.cs:504-505`'s comment becomes false** the moment `custom_moves` lands — it says no other entity uses `HasConversion`. A stale comment at the one site that exists to explain a deliberate first. | §22. Amend both comments in Phase 1, in the same commit that adds the second conversion. |
 | B-R14 | **The build cannot run while the dev server holds `bin/`**, and the documented workaround is the forbidden one. Third occurrence in this project, including the planning session. | `README.md:58-75`. Stop the dev server; never `--artifacts-path`. Reconfirmed at planning time: 184 failures out of 619, mechanism exactly as the README describes. **Not present at Phase 1** — nothing was listening and no `MonsterOfTheWeek.Api.exe` existed, so every build and run in Phase 1 was in-tree and clean. The 184 is an artifact of the workaround, not a property of the suite (§16.1). |
 
 ---
