@@ -1937,7 +1937,7 @@ and four specs change either way.
 unchanged.** Where I think something above is wrong I say so here (§16.3) rather than editing it. Work is
 on branch **`custom-moves`**.
 
-> **Phases 1 and 2 are landed.** Four commits, in order:
+> **Phases 1, 2 and 3 are all landed. The backend rework is complete.** Six commits, in order:
 >
 > | | Commit | What |
 > |---|---|---|
@@ -1945,18 +1945,24 @@ on branch **`custom-moves`**.
 > | **1·2** | `64e9826` | The entity, the enum, the context config, `20261011180029_AddCustomMoves`, `ICustomMoveService`/`CustomMoveService`, the DI and three harness registrations, `FakeCustomMoveService`, the tests — called by nothing. |
 > | **2·1** | `d87974b` | The five owner-delete cleanups and Mystery's new transaction, with the per-domain cleanup tests and B11's four changes to `MonsterMinionCascadeTests`. Behaviour-neutral while `custom_moves` is empty. |
 > | **2·2** | `52cc63b` | `CustomMovesController`, the seven projections re-pointed, the five `.Include`s and the sixteen old controller actions deleted. The atomic switchover. |
+> | **3·1** | `84facbc` | The teardown: 5 entities, 5 nav collections, 5 `DbSet`s, 5 config blocks, 16+16 repository members, 16+16 service members, 5 of 6 mapper overloads, the four fake-repository member sets. Pure deletion. |
+> | **3·2** | `81f5960` | `20261011214028_DropPerDomainCustomMoves`, **alone in its own commit** because R4 asks for the irreversible step to review on its own. |
 >
-> Backend **677 passed / 0 failed / 6 skipped / 683 total**, from a 615/0/4/619 baseline; frontend
-> untouched at 1,497 / 108 files throughout. **The real-Postgres gate was run at both phases, not
-> skipped** (B5), and Phase 2 was additionally exercised against the real `Program.cs` host, which is
-> where the two corrections below came from. **Phase 3 is not started and no drop migration exists in the
-> tree** — B6 is why.
+> Backend **677 passed / 0 failed / 7 skipped / 684 total**, from a 615/0/4/619 baseline; frontend
+> untouched at 1,497 / 108 files throughout all three phases. **The real-Postgres gate was run at every
+> phase, not skipped** (B5), and Phase 2 was additionally exercised against the real `Program.cs` host.
+>
+> **The one thing to know before merging Phase 3:** `MigrateAsync()` runs at startup, so **merging
+> `81f5960` and letting the host restart *is* the migration** (B6, B-R7). Skyler ruled the rows expendable
+> twice, so that is intended — but see B6 for what it costs in the dev database specifically, which is one
+> real authored row rather than nothing.
 >
 > **Where the work diverged from this plan**, all corrected in place rather than listed as a changelog:
 > B1 (two factories in one file; the CS9113 suppression nothing here had anticipated, now §16.4 D4; the
 > fake's return semantics, where B1 and §23 item 5 contradicted each other), B4 (measured, not
-> estimated), §16.1 and §21.1 (measured), and **§16.2, whose 404-body row was simply wrong** — see the
-> correction there, which is the one thing in this document that a running server disagreed with.
+> estimated), §16.1 and §21.1 (measured), §16.3 B7 (its own six omissions were the complete set — §9's
+> counts were all correct), and **§16.2, whose 404-body row was simply wrong** — see the correction there,
+> which is the one thing in this document that a running server disagreed with.
 
 **Grounding — read this session, not inherited from §§0–15.** Globbed the whole `src/` tree first
 (173 `.cs` files, every directory) rather than trusting the inventory above. Read in full:
@@ -2286,6 +2292,14 @@ Two separate facts, both verified:
   the same command without the env var reports those two as *Skipped*, so "the gate passed" means nothing
   unless the run is recorded. It is recorded here.**
 
+  **Phase 3's run happened, 2026-10-11, and this is the one the whole gate existed for** — the only thing
+  anywhere that executes the drop against a real server. Throwaway `motw_custom_moves_phase3`:
+  **7 passed / 0 failed / 0 skipped**. Afterwards, read off the server rather than inferred: exactly one
+  custom-move table remains (`custom_moves`), and `__EFMigrationsHistory` holds 24 rows ending at
+  `20261011214028_DropPerDomainCustomMoves`. The sibling class gained its third test as this item
+  proposed; see §23 item 7 for the mutation test that shows the new test is the only thing that can see an
+  *omitted* `DropTable`. Throwaway dropped; dev `motw` verified untouched and still un-migrated.
+
   **Phase 2's run happened too, 2026-10-11**, against a throwaway `motw_custom_moves_phase2`:
   **6 passed / 0 failed / 0 skipped**, dropped afterwards, dev `motw` verified still present. Phase 2
   adds no migration, so this is a regression check rather than a new gate — it proves the Phase 2 model
@@ -2339,6 +2353,23 @@ drops five tables. Three consequences:
   directory is the only place the tool resolves. `MotwDbContextFactory.cs` already exists for design time,
   so no connection string is needed to scaffold.
 
+**Done exactly that way, and the two-commit split this forced is worth recording.** Because the migration
+must be scaffolded *after* the model deletions, and because R4 wants the irreversible step isolated,
+Phase 3 is **two** commits rather than §5's one: `84facbc` (pure deletion, fully revertible) then
+`81f5960` (the migration, alone). The ordering is not a preference — the deletion has to precede the
+scaffold or EF emits an empty migration, and that happens to produce exactly the isolation R4 asked for.
+Second time in this plan that a commit split was forced by a mechanism rather than chosen for
+reviewability: §16.4 D1's was forced by "a fake cannot precede its interface", and Phase 2's by route
+precedence.
+
+**One operational consequence, and it is the one to say out loud rather than file under "expendable".**
+The decision that the rows are expendable was taken when the question was abstract. Measured at Phase 3,
+dev `motw` held **one real `mystery_custom_moves` row** — *"Bring the Noise"* on *"The Quiet"*, a full move
+with worked 10+/7–9/6- mechanics — and four empty tables. It is destroyed on the next host restart. That
+does **not** change the decision (no data migration, no backfill: a standing ruling, confirmed twice), and
+the row is cheap to re-enter through `POST /api/mysteries/{id}/custom-moves`. But "expendable" and "empty"
+are different claims, and a teardown gate should report which one it is actually relying on.
+
 ### B7 — §9's teardown inventory, the checklist Phase 3 executes against, has six omissions.
 
 I grepped the whole tree for `CustomMove|custom_move|custom-move` across `.cs`, `.ts`, `.html`, `.json` and
@@ -2367,6 +2398,22 @@ deliberately excluded here: it's the shared cross-domain DTO"* — the reason ch
 right), and the two search-provider comments (`MonsterSearchProvider.cs:11-12`,
 `MinionSearchProvider.cs:11-12`) which name `MonsterCustomMove` / `MinionCustomMove` as excluded types;
 §11 names those two files, §9 does not.
+
+**All six were the complete set, confirmed at Phase 3.** I re-ran the same tree-wide grep
+(`CustomMove|custom_move|custom-move` across `.cs`, `.ts`, `.html`, `.json`, `.sql`, `.csproj`) before
+deleting anything and again after, and nothing turned up beyond the six above and §9's own lists. §9's
+counts were all correct the first time. **Two things worth adding for whoever does the next teardown of
+this shape:**
+
+- **Location and Bystander name their repository methods differently** —
+  `GetLocationCustomMovesAsync` / `GetBystanderCustomMovesAsync`, against Monster's and Minion's
+  `GetCustomMovesAsync`. A grep for one name finds only half of the sixteen. §9's *count* was right
+  because it was derived from the interfaces; a grep-driven teardown would have stranded eight methods.
+- **The post-deletion grep is the one that matters, and it should expect hits.** Everything it found was
+  prose: comments that name a now-deleted type historically (the two search providers, the retargeted
+  seeds, the harness seed note) and four controller pointers that said *"Phase 3 removes them"* in the
+  future tense. Those four are the real find — a forward-looking comment is correct exactly until the
+  phase it points at happens, and nothing fails when it goes stale.
 
 **Clean, verified, nothing to do:** `MotwDbInitializer.cs`, `Data/Seed/*`, `MonsterRepositoryTests.cs`,
 `MysteryLinkRepositoryTests.cs`, `HunterApiHarness.cs`, every `Hunter*`/`Playbook*`/`Bespoke*` file, and
@@ -3008,8 +3055,22 @@ being rediscovered.
    This is the item that turns B2, B-R2, B-R3 and B12 from assertions about the code into assertions about
    the tests. Both mutations **compile**, both are one token, and both are invisible in review — which is
    the entire argument of those four entries, and an argument that is worth nothing if the tests that
-   discharge it have not been seen to fail. Thirty seconds each. **Phase 3 should do the same for the drop
-   migration's five table names**, where the equivalent typo is also compiling and also silent.
+   discharge it have not been seen to fail. Thirty seconds each.
+
+   **Done for Phase 3's five drop-table names too, and it found something the recommendation had not
+   anticipated: the two ways to get a `DropTable` wrong have completely different blast radii.**
+
+   | Mutation to `DropPerDomainCustomMoves.Up` | Failures |
+   |---|---|
+   | **Typo** one name (`monster_custom_moves` → `monster_custom_movez`) | **All 7** Postgres tests — every one replays the history on a fresh database, so `MigrateAsync()` throws at the server and takes the whole gate with it |
+   | **Omit** one `DropTable` call entirely | **1 of 7.** The migration *succeeds*. The table quietly survives. Only `The_five_per_domain_custom_move_tables_are_gone` fails, with `Collection: ["monster_custom_moves"]` |
+
+   **The second row is why B5's third test had to exist, and a typo check alone would have missed it.** A
+   typo is loud because the server rejects it; an omission is silent because nothing rejects it — the
+   migration is valid, it just does less than it claims. Before that test, nothing in the suite would ever
+   have looked at whether the tables were actually gone, which is the one fact the whole commit is for.
+   **Generalisable: for a destructive migration, test the post-state by name, not only that the migration
+   applied.** "It ran" and "it did what it said" are different assertions, and only the first is free.
 
 **One thing §10 gets exactly right and is worth not losing:** `MonsterServiceTests.cs:331-341`'s reflection
 table over `UpsertCustomMoveRequest` keeps asserting the annotations through the unification, and
@@ -3023,20 +3084,27 @@ follow because `OwnerId` is unchanged, where today they follow because the FK is
 
 Numbered B-R to sit beside §7's R1–R14 and §14's 14-R1–14-R10 without colliding.
 
+**Closed out at the end of Phase 3.** Each row now carries what discharged it, in italics, ahead of the
+risk itself — so the table reads as a record rather than as a standing warning list, and so a row that is
+*not* discharged is visible by its absence of a note. Of the fourteen: **eleven discharged**, one
+(B-R8) was a "record the real surface" item and the surface is recorded, one (**B-R12**) is deliberately
+still open because it is a prediction about a future reader rather than a task, and one (**B-R14**) is an
+environment hazard that is never discharged, only avoided — it did not bite in any of the three phases.
+
 | # | Risk | Mitigation |
 |---|---|---|
 | B-R1 | *(Discharged. Phase 1 landed the three registrations, and Phase 2's extended cascade test passed first time — the outcome this entry asked for.)* **A harness missing `ICustomMoveService` is a request-time 500, not a build error** — and the first test it breaks is §2.4's cascade test, which will read as a cascade bug. | B1. Land the registrations and the constructor sweep in **Phase 1**, suite green with no assertion changes, so Phase 2's diff is behaviour only. `Program.cs:38-41` already says why this failure mode is special; repeat the sentence. |
 | B-R2 | *(Discharged, and the test seen to fail — §23 item 7.)* **An ordinal segment dictionary turns `/api/MONSTERS/{id}/custom-moves` from `200` into a 500.** Shipped, reachable, invisible in review. | B2. `StringComparer.OrdinalIgnoreCase`, a comment naming what it preserves, and a mixed-case case in the endpoint matrix. |
 | B-R3 | *(Discharged, and the test seen to fail — §23 item 7, where the unanchored mutant broke the endpoint matrix **and** the drift guard.)* **An unanchored inline regex silently accepts `xmonstersx`** — proven, and identical-looking in review. | §17.1 probe B. The `^(...)$` anchors, plus the drift test, which parses the template back and therefore reads the anchors. |
-| B-R4 | **Phase 3's diff gate is unmeetable as written**, so it will be waived in practice and stop gating anything. | B4. Restate as net-negative **excluding** `Data/Migrations/*.Designer.cs` and `MotwDbContextModelSnapshot.cs`. |
-| B-R5 | **The real-Postgres gate reports *Skipped*, not *Failed*** — so a broken migration passes `dotnet test` and is found at deploy, which is the exact gap `PostgresFactAttribute` exists to avoid being silent about. **Confirming the intent to run it does not change the default outcome.** | B5, §16.4 D3. The runs are confirmed and §5's gates stand, so the fallback is withdrawn — but put the literal command in both gates (`docker compose up -d postgres`; `MOTW_TEST_POSTGRES` at a throwaway database; `dotnet test --filter "Category=Postgres"`) and have each phase's checklist **record** the run, not merely require it. |
-| B-R6 | **A second Postgres-gated class outside the shared collection drops the other's database mid-run** — already caught once, per that file's own comment. | B5, §16.4 D2. `[Collection(PostgresCollection.Name)]` on the new class, after Phase 1's first commit renames it. |
-| B-R7 | **Phase 3's drop is applied by deploying**, because `MigrateAsync()` runs at startup. Someone will read "isolated commit" as "not yet applied". | B6. Say it in the gate. Do not author the drop migration before Phase 3 — in the tree during Phase 2 it drops the tables on the next `dotnet run`. |
+| B-R4 | *(Discharged, and the arithmetic measured: excluding the two generated files, Phase 3 is +271/−500, net −229; including them, +3,093/−705, net +2,388 — unmeetable exactly as predicted. See B4.)* **Phase 3's diff gate is unmeetable as written**, so it will be waived in practice and stop gating anything. | B4. Restate as net-negative **excluding** `Data/Migrations/*.Designer.cs` and `MotwDbContextModelSnapshot.cs`. |
+| B-R5 | *(Discharged. Run and recorded at all three phases — see B5. The default outcome is still *Skipped*, which is the point.)* **The real-Postgres gate reports *Skipped*, not *Failed*** — so a broken migration passes `dotnet test` and is found at deploy, which is the exact gap `PostgresFactAttribute` exists to avoid being silent about. **Confirming the intent to run it does not change the default outcome.** | B5, §16.4 D3. The runs are confirmed and §5's gates stand, so the fallback is withdrawn — but put the literal command in both gates (`docker compose up -d postgres`; `MOTW_TEST_POSTGRES` at a throwaway database; `dotnet test --filter "Category=Postgres"`) and have each phase's checklist **record** the run, not merely require it. |
+| B-R6 | *(Discharged. `CustomMoveMigrationPostgresTests` carries `[Collection(PostgresCollection.Name)]` and now holds three tests, all inheriting it by living in the class.)* **A second Postgres-gated class outside the shared collection drops the other's database mid-run** — already caught once, per that file's own comment. | B5, §16.4 D2. `[Collection(PostgresCollection.Name)]` on the new class, after Phase 1's first commit renames it. |
+| B-R7 | *(Discharged as far as a document can: it is in the Phase 3 gate, in `81f5960`'s commit message, and in this section's banner. The merge still is the migration.)* **Phase 3's drop is applied by deploying**, because `MigrateAsync()` runs at startup. Someone will read "isolated commit" as "not yet applied". | B6. Say it in the gate. Do not author the drop migration before Phase 3 — in the tree during Phase 2 it drops the tables on the next `dotnet run`. |
 | B-R8 | *(Recorded as asked — the real surface is in the XML doc on `MonsterService.GetByIdAsync`, not only here, and `MysteryService.CreateAsync` passes `[]` with its reason at the site.)* **The extra projection query lands on sixteen create/update responses, not five detail loads**, so §2.6's budget is understated and the first person to profile will think something is wrong. | B3. Record the real surface. `MysteryService.CreateAsync` passes `[]`; the other four share `GetByIdAsync` and should not be split to save an empty index seek. |
 | B-R9 | *(Discharged by `DetailProjectionOwnerAgreementTests`, `52cc63b`.)* **A domain service passes the wrong `CustomMoveOwnerType` literal.** Compiles; passes every test that does not seed a custom move; returns another owner's rows. | §23 item 6 — a five-domain backend parity test in Phase 2, modelled on `ListProjectionPrimaryImageAgreementTests`. |
 | B-R10 | *(Discharged. `IMysteryRepository.BeginTransactionAsync` and the transaction landed in `d87974b`.)* **Without a transaction, Mystery's cleanup-then-delete destroys user data on a partial failure** rather than leaking a row — the opposite direction from the bug the cleanup exists to fix. | B10. Add `BeginTransactionAsync` to `IMysteryRepository`, matching the four. |
 | B-R11 | *(Discharged. Every case in `OwnerDeleteCleanupTests` seeds a survivor through one shared helper, so it cannot be honoured in four cases and forgotten in the fifth — §19.)* **`DeleteAllForOwnerAsync` with a mis-wired predicate deletes every owner's moves**, and a count-to-zero assertion on a single-owner fixture cannot see it. | §19 — seed a second owner whose moves must survive, in every per-domain cleanup test. |
-| B-R12 | **A later reader adds an `(owner_type, owner_id, id)` index** because "the update path has no index". | §20 says explicitly not to, with the reason. Put that sentence in the config comment, not only in this doc. |
+| B-R12 | *(Still open by design — it is a prediction about a future reader, not a task. The sentence is at the config site as asked.)* **A later reader adds an `(owner_type, owner_id, id)` index** because "the update path has no index". | §20 says explicitly not to, with the reason. Put that sentence in the config comment, not only in this doc. |
 | B-R13 | *(Discharged in `64e9826`, both comments.)* **`MotwDbContext.cs:504-505`'s comment becomes false** the moment `custom_moves` lands — it says no other entity uses `HasConversion`. A stale comment at the one site that exists to explain a deliberate first. | §22. Amend both comments in Phase 1, in the same commit that adds the second conversion. |
 | B-R14 | **The build cannot run while the dev server holds `bin/`**, and the documented workaround is the forbidden one. Third occurrence in this project, including the planning session. | `README.md:58-75`. Stop the dev server; never `--artifacts-path`. Reconfirmed at planning time: 184 failures out of 619, mechanism exactly as the README describes. **Not present at Phase 1** — nothing was listening and no `MonsterOfTheWeek.Api.exe` existed, so every build and run in Phase 1 was in-tree and clean. The 184 is an artifact of the workaround, not a property of the suite (§16.1). |
 
