@@ -4133,6 +4133,58 @@ export class CustomMovesCardComponent {
 }
 ```
 
+### What 5a actually built, and the three places it differs from the above
+
+Recorded in detail because four sub-phases are read against this one.
+
+**1. One public method was needed that §28.1 did not foresee: `commitSucceeded()`.** The contract as
+written has no way for the card to learn that a commit *landed*, and it cannot infer it — on a detail page
+the rows come back from a refetch, and an unchanged `rows` is also exactly what a **failed** write leaves
+behind. So the host calls `commitSucceeded()` on its success branch, which resets the form to the add state
+and restores focus to the edited row's pencil; on failure it calls nothing, which is what keeps the user's
+typing for a retry. The host holds the card as
+`@ViewChild(CustomMovesCardComponent) private readonly customMovesCard?` — optional, because on a detail
+page the card lives inside the template's `@if (monster())`.
+
+Still five inputs and three outputs; this is a method, not a fourth output. The alternative considered and
+rejected was having the card watch `rows` for a change and reset itself: it cannot distinguish "the write
+landed" from "the refetch returned the same thing", so it would clear the form on a failed write — the one
+behaviour this whole phase exists to avoid.
+
+**2. The empty-state probe attribute is `data-custom-moves-empty`, not `data-empty-state`.**
+`app-resource-images-card` already renders the bare name, and on all five detail pages the two cards are on
+the same page — so an unscoped `[data-empty-state]` query matches **the images card first**. Found in the
+browser; the card's own unit spec queries inside its own fixture, where no images card exists, so the
+collision was *structurally invisible* to it. **The general rule, which matters beyond this attribute:
+every probe hook on a shared card wants the component's name in it**, because shared cards co-habit. A
+spec on `monster-detail` now pins it, so 5b–5e cannot reintroduce it.
+
+**3. `editingKey`'s setter syncs the form**, which is what makes the two-way binding carry its weight: the
+host sets its signal and the card's fields populate with no second input and no handler. `requestEdit`
+sets the signal *and* emits, so the card is correct before the host echoes back — otherwise the form would
+populate one change-detection cycle late.
+
+### One correction to 14-R4, found by a negative control
+
+Swapping `track row.key` for `track $index` failed **no test** in my first version of the card's spec — 56
+assertions that did not protect the keying decision they were written beside. Chasing that produced two
+things:
+
+- **14-R4's stated mechanism does not apply to this implementation.** It warns that under index tracking
+  the restore target is `isConnected` while belonging to a *different* row. True of a captured
+  `ElementRef` or a positional lookup; `restoreFocusTo` resolves by `[data-move-key]`, which is a
+  **binding**, so it cannot find the wrong move whatever the tracking strategy. That robustness is worth
+  keeping and is the reason to prefer an attribute lookup over a held reference generally.
+- **The real difference is node preservation, and it is observable.** Under index tracking a *shrinking*
+  list recycles nodes and destroys the one holding focus; under key tracking the surviving row's node
+  survives with its focus intact. A detail page hits exactly that on every post-delete refetch. There is
+  now a test for it — focus a row's pencil, shrink `rows`, assert focus survived — and it is the only test
+  that fails under `$index`.
+
+**So `track row.key` stays required, for a different and narrower reason than 14-R4 gives.** Worth
+correcting rather than leaving, because "the restore lands on the wrong row" would send the next person
+looking for a bug that this implementation cannot have.
+
 **Why a card-local `CustomMoveRow` rather than taking `CustomMoveResponse[]` directly.** A detail page
 has `CustomMoveResponse[]`; a create page has drafts with no id. Making the card take the response type
 would force the create pages to fabricate ids inside an object named `…Response` — which is precisely the
@@ -4346,6 +4398,62 @@ detail page.
 moves must fire **no** request, which is the positive half of R5's ledger assertion. Do **not** copy the
 create pages' `track $index` or their `×` glyph: §13.3 settles both, and the card is one component, so
 there is nowhere for a per-mode glyph to live.
+
+---
+
+## 29.3 5a shipped, 2026-10-11 — what 5b copies verbatim and what it decides
+
+**Results.** Suite 1524 → **1582** (112 files), typecheck clean, three negative controls with their
+failure sets predicted in advance, and **39/39** browser checks on the first custom-move UI that has ever
+existed. Zero data footprint after cleanup (`custom_moves` back to 0 rows, no `PHASE5A-` residue, 4
+mysteries and 4 monsters intact).
+
+**Phase A paid off exactly as predicted (§33.1's closing note).** Because the whole page family already
+routes write failures to the toast, the custom-move pipeline is `runAndRefresh` **unchanged** — no
+`runCustomMoveWrite` sibling, no two-line divergence, no comment explaining why it differs. The detail
+host's three members are the entire immediate-write story.
+
+### Copy verbatim
+
+1. **The three detail-host members**, with the owner type and noun changed: `customMoveRows` (a
+   `computed` over `entity()?.customMoves`), `editingCustomMoveKey`, `commitCustomMove`,
+   `requestDeleteCustomMove`. The commit handler branches on `commit.key === null` for POST-vs-PUT and
+   nothing else.
+2. **`runAndRefresh` as the pipeline**, with `onSuccess` carrying `commitSucceeded()`. Do not invent a
+   second write path.
+3. **`requestDeleteCustomMove` extending the page's existing `pendingDelete`** — `{ label, perform }`, no
+   `footnote`, no new modal element, no template change at the modal. 5b (minion) has the identical
+   shape; 5c/5d do not, which is R13's migration and the reason they are the expensive pair.
+4. **Both templates' card blocks**, including `[busy]="isMutating()"` on detail and `[busy]="isSaving()"`
+   on create, and `emptyText` present on create and absent on detail.
+5. **The three spec files' structure.** The detail spec's ledger records `getById` alongside the
+   custom-move calls, which is what proves the refetch happens — without it a successful write could
+   leave the list showing the pre-write state and nothing would notice.
+6. **The `never calls list()` assertion.** It is the guard on decision 2: if it ever fails, someone has
+   added a redundant fetch and "embedded in the detail response" has quietly stopped holding.
+
+### Decide for itself
+
+1. **Where the card goes on the page.** Monster puts it after the four-panel grid because that grid *is*
+   the owned-sub-resource run. Minion is the same; Location/Bystander replace a bare block at a different
+   position; Mystery is mid-page (§13.2's table). 14-R7 is the standing note that this looks like drift
+   and is not.
+2. **The `busy` expression.** Monster and Minion have `isMutating()`; Location and Bystander have only
+   `isSaving()` and need §26.2 L4's migration first.
+3. **Whether the create page's blurb is edited or introduced.** Minion edits an existing sentence like
+   Monster did; Location and Bystander have no draft panels, so the sentence is new (§13.4).
+4. **The copy convergence.** Monster needed none — it already said *"some details"*. 5c/5d must converge
+   the two *"some of its mysteries"* strings **and** their two specs in the same commit (§13.6.1).
+
+### Two things 5b should expect to be different from what it assumes
+
+- **The empty-state attribute collision** (§28.1 item 2) exists on every detail page, because every one
+  of them also mounts the images card. Nothing to do now that the attribute is namespaced — but any *new*
+  probe hook added to the card in 5b–5e needs the same treatment, and a unit spec cannot see the problem.
+- **Adding `CustomMoveService` to a host breaks no existing spec.** Confirmed again here: all 1524
+  pre-existing tests passed untouched after wiring both monster pages, because Angular 22 root-provides
+  the whole `HttpClient` chain (§26.1). Only specs that *exercise* the card need the stub, which is what
+  keeps 5b–5e off the 23 fixture files.
 
 ---
 
