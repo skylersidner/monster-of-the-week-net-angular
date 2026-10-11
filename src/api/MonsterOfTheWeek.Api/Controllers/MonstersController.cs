@@ -146,21 +146,10 @@ public sealed class MonstersController(IMonsterService monsterService, IResource
     public async Task<IActionResult> DeleteWeakness(Guid id, Guid weaknessId, CancellationToken cancellationToken) =>
         await monsterService.DeleteWeaknessAsync(id, weaknessId, cancellationToken) ? NoContent() : NotFound();
 
-    [HttpGet("api/monsters/{id:guid}/custom-moves")]
-    public async Task<ActionResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMoves(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(await monsterService.GetCustomMovesAsync(id, cancellationToken));
-
-    [HttpPost("api/monsters/{id:guid}/custom-moves")]
-    public async Task<ActionResult<CustomMoveResponse>> CreateCustomMove(Guid id, [FromBody] UpsertCustomMoveRequest request, CancellationToken cancellationToken) =>
-        ToActionResult(await monsterService.CreateCustomMoveAsync(id, request, cancellationToken));
-
-    [HttpPut("api/monsters/{id:guid}/custom-moves/{moveId:guid}")]
-    public async Task<ActionResult<CustomMoveResponse>> UpdateCustomMove(Guid id, Guid moveId, [FromBody] UpsertCustomMoveRequest request, CancellationToken cancellationToken) =>
-        ToActionResult(await monsterService.UpdateCustomMoveAsync(id, moveId, request, cancellationToken));
-
-    [HttpDelete("api/monsters/{id:guid}/custom-moves/{moveId:guid}")]
-    public async Task<IActionResult> DeleteCustomMove(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        await monsterService.DeleteCustomMoveAsync(id, moveId, cancellationToken) ? NoContent() : NotFound();
+    // Custom moves moved to CustomMovesController in Phase 2 of domain-custom-moves
+    // (architecture.md §3.3). The four actions that were here answered the same URLs it answers
+    // now; IMonsterService's four custom-move methods are still present and are now called by
+    // nothing, which Phase 3 removes along with monster_custom_moves.
 
     // --- Images (docs/resource-images/design.md §3, phases.md Phase 3) ---
 

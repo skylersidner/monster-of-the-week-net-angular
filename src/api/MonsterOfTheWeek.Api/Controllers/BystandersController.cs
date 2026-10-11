@@ -103,37 +103,12 @@ public sealed class BystandersController(IBystanderService bystanderService, IRe
     public async Task<IActionResult> UnlinkFromMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
         await bystanderService.UnlinkFromMysteryAsync(mysteryId, id, cancellationToken) ? NoContent() : NotFound();
 
-    [HttpGet("api/bystanders/{id:guid}/custom-moves")]
-    public async Task<ActionResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMoves(Guid id, CancellationToken cancellationToken)
-    {
-        var result = await bystanderService.GetCustomMovesAsync(id, cancellationToken);
-        return result.IsSuccess ? Ok(result.Value) : NotFound();
-    }
-
-    [HttpPost("api/bystanders/{id:guid}/custom-moves")]
-    public async Task<ActionResult<CustomMoveResponse>> CreateCustomMove(
-        Guid id,
-        [FromBody] UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await bystanderService.CreateCustomMoveAsync(id, request, cancellationToken);
-        return result.IsSuccess ? Ok(result.Value) : NotFound();
-    }
-
-    [HttpPut("api/bystanders/{id:guid}/custom-moves/{moveId:guid}")]
-    public async Task<ActionResult<CustomMoveResponse>> UpdateCustomMove(
-        Guid id,
-        Guid moveId,
-        [FromBody] UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await bystanderService.UpdateCustomMoveAsync(id, moveId, request, cancellationToken);
-        return result.IsSuccess ? Ok(result.Value) : NotFound();
-    }
-
-    [HttpDelete("api/bystanders/{id:guid}/custom-moves/{moveId:guid}")]
-    public async Task<IActionResult> DeleteCustomMove(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        await bystanderService.DeleteCustomMoveAsync(id, moveId, cancellationToken) ? NoContent() : NotFound();
+    // Custom moves moved to CustomMovesController in Phase 2 of domain-custom-moves
+    // (architecture.md §3.3). Same note as LocationsController: these four hand-rolled
+    // `IsSuccess ? Ok : NotFound` and the new controller uses `ToErrorResult`, which changes no
+    // response because every ICustomMoveService failure is NotFound (B9). IBystanderService's
+    // four custom-move methods are now called by nothing; Phase 3 removes them with
+    // bystander_custom_moves.
 
     // --- Images (docs/resource-images/design.md §3, phases.md Phase 3) ---
 

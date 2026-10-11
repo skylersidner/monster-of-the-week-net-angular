@@ -150,21 +150,9 @@ public sealed class MinionsController(IMinionService minionService, IResourceIma
 
     // --- Custom Moves ---
 
-    [HttpGet("api/minions/{id:guid}/custom-moves")]
-    public async Task<ActionResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMoves(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(await minionService.GetCustomMovesAsync(id, cancellationToken));
-
-    [HttpPost("api/minions/{id:guid}/custom-moves")]
-    public async Task<ActionResult<CustomMoveResponse>> CreateCustomMove(Guid id, [FromBody] UpsertCustomMoveRequest request, CancellationToken cancellationToken) =>
-        ToActionResult(await minionService.CreateCustomMoveAsync(id, request, cancellationToken));
-
-    [HttpPut("api/minions/{id:guid}/custom-moves/{moveId:guid}")]
-    public async Task<ActionResult<CustomMoveResponse>> UpdateCustomMove(Guid id, Guid moveId, [FromBody] UpsertCustomMoveRequest request, CancellationToken cancellationToken) =>
-        ToActionResult(await minionService.UpdateCustomMoveAsync(id, moveId, request, cancellationToken));
-
-    [HttpDelete("api/minions/{id:guid}/custom-moves/{moveId:guid}")]
-    public async Task<IActionResult> DeleteCustomMove(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        await minionService.DeleteCustomMoveAsync(id, moveId, cancellationToken) ? NoContent() : NotFound();
+    // Custom moves moved to CustomMovesController in Phase 2 of domain-custom-moves
+    // (architecture.md §3.3). IMinionService's four custom-move methods are now called by
+    // nothing; Phase 3 removes them with minion_custom_moves.
 
     // --- Images (docs/resource-images/design.md §3, phases.md Phase 3) ---
 

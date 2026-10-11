@@ -87,7 +87,6 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
             .Include(x => x.Powers)
             .Include(x => x.Armors)
             .Include(x => x.Weaknesses)
-            .Include(x => x.CustomMoves)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public Task<Monster?> GetMonsterForUpdateAsync(Guid id, CancellationToken cancellationToken) =>

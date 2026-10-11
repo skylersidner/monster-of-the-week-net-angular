@@ -108,37 +108,13 @@ public sealed class LocationsController(ILocationService locationService, IResou
     public async Task<IActionResult> UnlinkFromMystery(Guid mysteryId, Guid id, CancellationToken cancellationToken) =>
         await locationService.UnlinkFromMysteryAsync(mysteryId, id, cancellationToken) ? NoContent() : NotFound();
 
-    [HttpGet("api/locations/{id:guid}/custom-moves")]
-    public async Task<ActionResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMoves(Guid id, CancellationToken cancellationToken)
-    {
-        var result = await locationService.GetCustomMovesAsync(id, cancellationToken);
-        return result.IsSuccess ? Ok(result.Value) : NotFound();
-    }
-
-    [HttpPost("api/locations/{id:guid}/custom-moves")]
-    public async Task<ActionResult<CustomMoveResponse>> CreateCustomMove(
-        Guid id,
-        [FromBody] UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await locationService.CreateCustomMoveAsync(id, request, cancellationToken);
-        return result.IsSuccess ? Ok(result.Value) : NotFound();
-    }
-
-    [HttpPut("api/locations/{id:guid}/custom-moves/{moveId:guid}")]
-    public async Task<ActionResult<CustomMoveResponse>> UpdateCustomMove(
-        Guid id,
-        Guid moveId,
-        [FromBody] UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        var result = await locationService.UpdateCustomMoveAsync(id, moveId, request, cancellationToken);
-        return result.IsSuccess ? Ok(result.Value) : NotFound();
-    }
-
-    [HttpDelete("api/locations/{id:guid}/custom-moves/{moveId:guid}")]
-    public async Task<IActionResult> DeleteCustomMove(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        await locationService.DeleteCustomMoveAsync(id, moveId, cancellationToken) ? NoContent() : NotFound();
+    // Custom moves moved to CustomMovesController in Phase 2 of domain-custom-moves
+    // (architecture.md §3.3). The four actions that were here hand-rolled
+    // `IsSuccess ? Ok : NotFound`, which collapsed every error to 404; the new controller uses
+    // the `ToErrorResult` policy the other three already used. That cannot change a single
+    // response here, because every failure ICustomMoveService returns is NotFound (B9).
+    // ILocationService's four custom-move methods are now called by nothing; Phase 3 removes
+    // them with location_custom_moves.
 
     // --- Images (docs/resource-images/design.md §3, phases.md Phase 3) ---
 

@@ -95,10 +95,30 @@ public sealed class MonsterService(
         return ServiceResult<MonsterDetailResponse>.Success(detail!);
     }
 
+    /// <summary>
+    /// <b>The custom moves come from a second query now</b>
+    /// (domain-custom-moves/architecture.md §3.4, B3). Create and Update both funnel their
+    /// response through here, so this extra round trip lands on sixteen responses across the four
+    /// domains, not five detail loads — and on a create the answer is provably empty. Not split
+    /// into a detail-only variant: the duplication would cost more than one index seek returning
+    /// nothing, and §2.6's budget is honest about this rather than quiet about it.
+    /// <para>
+    /// Partly offset, which §2.6 does not claim: <c>GetMonsterDetailAsync</c> was a single query
+    /// with <b>six</b> collection <c>Include</c>s and no <c>AsSplitQuery</c>, so dropping one
+    /// strictly reduces the cartesian row count. +1 round trip, −1 collection join.
+    /// </para>
+    /// </summary>
     public async Task<MonsterDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var monster = await monsterRepository.GetMonsterDetailAsync(id, cancellationToken);
-        return monster is null ? null : ToDetailResponse(monster);
+        if (monster is null)
+        {
+            return null;
+        }
+
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            CustomMoveOwnerType.Monster, id, cancellationToken);
+        return ToDetailResponse(monster, customMoves);
     }
 
     public async Task<ServiceResult<MonsterDetailResponse>> UpdateAsync(
@@ -516,7 +536,9 @@ public sealed class MonsterService(
     public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
         await monsterRepository.DeleteCustomMoveAsync(id, moveId, cancellationToken) > 0;
 
-    private static MonsterDetailResponse ToDetailResponse(Monster monster) =>
+    private static MonsterDetailResponse ToDetailResponse(
+        Monster monster,
+        IReadOnlyList<CustomMoveResponse> customMoves) =>
         new(
             monster.Id,
             monster.Mysteries.Select(mm => mm.MysteryId).ToList(),
@@ -530,5 +552,5 @@ public sealed class MonsterService(
             monster.Powers.Select(x => x.ToResponse()).ToList(),
             monster.Armors.Select(x => x.ToResponse()).ToList(),
             monster.Weaknesses.Select(x => x.ToResponse()).ToList(),
-            monster.CustomMoves.Select(x => x.ToResponse()).ToList());
+            customMoves);
 }

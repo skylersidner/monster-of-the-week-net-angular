@@ -89,20 +89,36 @@ public sealed class BystanderService(
         return ServiceResult<BystanderDetailResponse>.Success(response!);
     }
 
+    /// <summary>
+    /// Custom moves come from a second query as of Phase 2 of domain-custom-moves (§3.4) — see
+    /// <see cref="MonsterService.GetByIdAsync"/> for the cost accounting, which applies here too
+    /// because Create and Update funnel their responses through this method.
+    /// <para>
+    /// This is the one of the five that maps inline rather than through a private
+    /// <c>ToDetailResponse</c>. Left that way: extracting one would be a second change in the
+    /// same diff, and §9's teardown inventory counts five mapping sites, not four.
+    /// </para>
+    /// </summary>
     public async Task<BystanderDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var bystander = await bystanderRepository.GetBystanderDetailAsync(id, asNoTracking: true, cancellationToken);
-        return bystander is null
-            ? null
-            : new BystanderDetailResponse(
-                bystander.Id,
-                bystander.Mysteries.Select(mb => mb.MysteryId).ToList(),
-                bystander.Name,
-                bystander.Description,
-                bystander.BystanderTypeId,
-                bystander.BystanderType.Name,
-                bystander.BystanderType.Motivation,
-                bystander.CustomMoves.Select(x => x.ToResponse()).ToList());
+        if (bystander is null)
+        {
+            return null;
+        }
+
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            CustomMoveOwnerType.Bystander, id, cancellationToken);
+
+        return new BystanderDetailResponse(
+            bystander.Id,
+            bystander.Mysteries.Select(mb => mb.MysteryId).ToList(),
+            bystander.Name,
+            bystander.Description,
+            bystander.BystanderTypeId,
+            bystander.BystanderType.Name,
+            bystander.BystanderType.Motivation,
+            customMoves);
     }
 
     public async Task<ServiceResult<BystanderDetailResponse>> UpdateAsync(

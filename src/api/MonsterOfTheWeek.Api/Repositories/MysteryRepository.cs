@@ -22,7 +22,6 @@ public sealed class MysteryRepository(MotwDbContext dbContext) : IMysteryReposit
         var query = dbContext.Mysteries
             .Include(x => x.AdventureType)
             .Include(x => x.Countdown)
-            .Include(x => x.CustomMoves)
             .Include(x => x.MysteryMonsters)
             .Include(x => x.MysteryLocations)
             .Include(x => x.MysteryBystanders)

@@ -26,10 +26,24 @@ public sealed class MysteryService(
             .ToList();
     }
 
+    /// <summary>
+    /// <b>Mystery is the one service whose Create and Update do not funnel through here</b>
+    /// (domain-custom-moves/architecture.md B3), so it has three projection sites where the other
+    /// four have one. That is why the custom-move read is written out at each of the three rather
+    /// than hidden in a shared helper — and why <see cref="CreateAsync"/> is the one place in the
+    /// codebase that can honestly skip it.
+    /// </summary>
     public async Task<MysteryDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var mystery = await mysteryRepository.GetMysteryDetailAsync(id, asNoTracking: true, cancellationToken);
-        return mystery is null ? null : ToDetailResponse(mystery);
+        if (mystery is null)
+        {
+            return null;
+        }
+
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            CustomMoveOwnerType.Mystery, id, cancellationToken);
+        return ToDetailResponse(mystery, customMoves);
     }
 
     public async Task<ServiceResult<MysteryDetailResponse>> CreateAsync(UpsertMysteryRequest request, CancellationToken cancellationToken)
@@ -55,7 +69,13 @@ public sealed class MysteryService(
         await mysteryRepository.SaveChangesAsync(cancellationToken);
 
         var saved = await mysteryRepository.GetMysteryDetailAsync(mystery.Id, asNoTracking: true, cancellationToken);
-        return ServiceResult<MysteryDetailResponse>.Success(ToDetailResponse(saved!));
+
+        // [] rather than a query, and this is the only site in the codebase where that is honest
+        // (architecture.md B3): the Mystery was created a few lines above and there is no route
+        // by which it can already own a custom move. The other four domains' creates funnel
+        // through their GetByIdAsync and cannot skip it without splitting that method, which
+        // would cost more than the empty index seek it saves.
+        return ServiceResult<MysteryDetailResponse>.Success(ToDetailResponse(saved!, []));
     }
 
     public async Task<ServiceResult<MysteryDetailResponse>> UpdateAsync(Guid id, UpsertMysteryRequest request, CancellationToken cancellationToken)
@@ -81,7 +101,14 @@ public sealed class MysteryService(
         await mysteryRepository.SaveChangesAsync(cancellationToken);
 
         var updated = await mysteryRepository.GetMysteryDetailAsync(id, asNoTracking: true, cancellationToken);
-        return ServiceResult<MysteryDetailResponse>.Success(ToDetailResponse(updated!));
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            CustomMoveOwnerType.Mystery, id, cancellationToken);
+
+        // Note what did *not* need handling: the tracked read at the top of this method
+        // (asNoTracking: false) is the only caller that ever passes false, it mutates six scalar
+        // fields, and it re-reads untracked here for the response — so it never projected custom
+        // moves and needs nothing (architecture.md B3 item 3, correcting §3.4).
+        return ServiceResult<MysteryDetailResponse>.Success(ToDetailResponse(updated!, customMoves));
     }
 
     /// <summary>
@@ -152,7 +179,9 @@ public sealed class MysteryService(
         return ServiceResult<CountdownResponse>.Success(countdown.ToResponse());
     }
 
-    private static MysteryDetailResponse ToDetailResponse(Mystery mystery) =>
+    private static MysteryDetailResponse ToDetailResponse(
+        Mystery mystery,
+        IReadOnlyList<CustomMoveResponse> customMoves) =>
         new(
             mystery.Id,
             mystery.Name,
@@ -165,7 +194,7 @@ public sealed class MysteryService(
             mystery.MysteryMonsters.Count,
             mystery.MysteryLocations.Count,
             mystery.MysteryBystanders.Count,
-            mystery.CustomMoves.Select(x => x.ToResponse()).ToList(),
+            customMoves,
             mystery.CreatedAt,
             mystery.UpdatedAt);
 }

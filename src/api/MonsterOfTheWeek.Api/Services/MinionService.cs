@@ -53,10 +53,22 @@ public sealed class MinionService(
         return ServiceResult<MinionDetailResponse>.Success(detail!);
     }
 
+    /// <summary>
+    /// Custom moves come from a second query as of Phase 2 of domain-custom-moves (§3.4) — see
+    /// <see cref="MonsterService.GetByIdAsync"/> for the cost accounting, which applies here too
+    /// because Create and Update funnel their responses through this method.
+    /// </summary>
     public async Task<MinionDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var minion = await minionRepository.GetDetailAsync(id, cancellationToken);
-        return minion is null ? null : ToDetailResponse(minion);
+        if (minion is null)
+        {
+            return null;
+        }
+
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            CustomMoveOwnerType.Minion, id, cancellationToken);
+        return ToDetailResponse(minion, customMoves);
     }
 
     public async Task<ServiceResult<MinionDetailResponse>> UpdateAsync(Guid id, UpsertMinionRequest request, CancellationToken cancellationToken)
@@ -420,7 +432,9 @@ public sealed class MinionService(
     public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
         await minionRepository.DeleteCustomMoveAsync(id, moveId, cancellationToken) > 0;
 
-    private static MinionDetailResponse ToDetailResponse(Minion minion) =>
+    private static MinionDetailResponse ToDetailResponse(
+        Minion minion,
+        IReadOnlyList<CustomMoveResponse> customMoves) =>
         new(
             minion.Id,
             minion.MonsterId,
@@ -433,5 +447,5 @@ public sealed class MinionService(
             minion.Powers.Select(x => x.ToResponse()).ToList(),
             minion.Armors.Select(x => x.ToResponse()).ToList(),
             minion.Weaknesses.Select(x => x.ToResponse()).ToList(),
-            minion.CustomMoves.Select(x => x.ToResponse()).ToList());
+            customMoves);
 }

@@ -88,7 +88,19 @@ internal sealed class MinionReparentApiHarness : IAsyncDisposable
             setup.MinionPowers.Add(new MinionPower { Id = harness.PowerId, MinionId = harness.MinionId, Name = "Burrow" });
             setup.MinionArmors.Add(new MinionArmor { Id = harness.ArmorId, MinionId = harness.MinionId, Name = "Grave Dirt", HarmSoak = 1 });
             setup.MinionWeaknesses.Add(new MinionWeakness { Id = harness.WeaknessId, MinionId = harness.MinionId, Name = "Salt" });
-            setup.MinionCustomMoves.Add(new MinionCustomMove { Id = harness.CustomMoveId, MinionId = harness.MinionId, Name = "Drag Under" });
+
+            // A custom_moves row, not a MinionCustomMove, as of Phase 2 of domain-custom-moves
+            // (architecture.md §5 Phase 2, B7 item 5). The assertion it serves gets *stronger*
+            // for the switch: the move used to follow a reparented minion because the FK did not
+            // change, and now follows because OwnerId does not change. Same test, a different and
+            // more fragile-looking mechanism, which is exactly why it is worth keeping.
+            setup.CustomMoves.Add(new CustomMove
+            {
+                Id = harness.CustomMoveId,
+                OwnerType = CustomMoveOwnerType.Minion,
+                OwnerId = harness.MinionId,
+                Name = "Drag Under",
+            });
 
             await setup.SaveChangesAsync();
         }

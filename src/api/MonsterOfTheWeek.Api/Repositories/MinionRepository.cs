@@ -86,7 +86,6 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
             .Include(x => x.Powers)
             .Include(x => x.Armors)
             .Include(x => x.Weaknesses)
-            .Include(x => x.CustomMoves)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken) =>

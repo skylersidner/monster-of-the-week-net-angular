@@ -92,10 +92,22 @@ public sealed class LocationService(
         return ServiceResult<LocationDetailResponse>.Success(response!);
     }
 
+    /// <summary>
+    /// Custom moves come from a second query as of Phase 2 of domain-custom-moves (§3.4) — see
+    /// <see cref="MonsterService.GetByIdAsync"/> for the cost accounting, which applies here too
+    /// because Create and Update funnel their responses through this method.
+    /// </summary>
     public async Task<LocationDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var location = await locationRepository.GetLocationDetailAsync(id, asNoTracking: true, cancellationToken);
-        return location is null ? null : ToDetailResponse(location);
+        if (location is null)
+        {
+            return null;
+        }
+
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            CustomMoveOwnerType.Location, id, cancellationToken);
+        return ToDetailResponse(location, customMoves);
     }
 
     public async Task<ServiceResult<LocationDetailResponse>> UpdateAsync(
@@ -234,7 +246,9 @@ public sealed class LocationService(
         return deleted > 0;
     }
 
-    private static LocationDetailResponse ToDetailResponse(Location location) =>
+    private static LocationDetailResponse ToDetailResponse(
+        Location location,
+        IReadOnlyList<CustomMoveResponse> customMoves) =>
         new(
             location.Id,
             location.Mysteries.Select(ml => ml.MysteryId).ToList(),
@@ -243,5 +257,5 @@ public sealed class LocationService(
             location.LocationTypeId,
             location.LocationType.Name,
             location.LocationType.Motivation,
-            location.CustomMoves.Select(x => x.ToResponse()).ToList());
+            customMoves);
 }

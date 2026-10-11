@@ -86,7 +86,6 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
         var query = dbContext.Locations
             .Include(x => x.LocationType)
             .Include(x => x.Mysteries)
-            .Include(x => x.CustomMoves)
             .Where(x => x.Id == id);
 
         if (asNoTracking)
