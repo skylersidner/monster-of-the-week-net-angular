@@ -1931,11 +1931,21 @@ and four specs change either way.
 # 16. The backend implementation pass
 
 **Prepared by:** Bowser (Backend / DevOps)
-**Date:** 2026-10-10, amended in place 2026-10-11 with Skyler's three answers (§16.4)
+**Date:** 2026-10-10, amended in place 2026-10-11 with Skyler's three answers (§16.4), and again
+2026-10-11 with what Phase 1 actually did
 **Status:** Implementation specifics and gap-finding for Phases 1–3. **Appended to §§0–15, which are
-unchanged.** Where I think something above is wrong I say so here (§16.3) rather than editing it. **No
-production code written or modified, no migration authored, nothing committed.** The only file I touched in
-this repo is this one. Work is on branch **`custom-moves`**.
+unchanged.** Where I think something above is wrong I say so here (§16.3) rather than editing it. Work is
+on branch **`custom-moves`**.
+
+> **Phase 1 is landed**, as the two commits §16.4 D1 settled: **`619be92`** (the 67-site factory
+> extraction and the `PostgresCollection` rename — zero production files) and **`64e9826`** (the entity,
+> the enum, the context config, `20261011180029_AddCustomMoves`, `ICustomMoveService`/`CustomMoveService`,
+> the DI and three harness registrations, `FakeCustomMoveService` and the tests — called by nothing).
+> Backend **634 passed / 0 failed / 6 skipped / 640 total**, from a 615/0/4/619 baseline; frontend
+> untouched at 1,497 / 108 files. **The real-Postgres gate was run, not skipped** (B5). Phases 2 and 3 are
+> not started, and no drop migration exists in the tree. Everything below that the work corrected is
+> corrected in place; the three places it diverged from the plan are B1 (two factories in one file, and the
+> CS9113 suppression the plan had not anticipated), B4 (measured instead of estimated) and §21.1.
 
 **Grounding — read this session, not inherited from §§0–15.** Globbed the whole `src/` tree first
 (173 `.cs` files, every directory) rather than trusting the inventory above. Read in full:
@@ -1987,7 +1997,7 @@ Stated first because several of §§17–22's specifics depend on a version, and
 | Migrations | **Applied automatically at app startup** — `MotwDbInitializer.InitializeAsync` calls `Database.MigrateAsync()` | `MotwDbInitializer.cs:14`, called at `Program.cs:200` |
 | Migration count | 17 applied, latest `20261005034116_AddResourceImages` | `Data/Migrations/` |
 | `AsSplitQuery` | Used by `PlaybookRepository`/`HunterRepository` only, and `PlaybookRepository.cs:23` records the deliberate contrast: *"AsSplitQuery, unlike the Monster equivalents"* | grepped |
-| Suite size | 619 backend tests (README still says 568 — drifted; not this work's business) | run below |
+| Suite size | 619 backend tests before Phase 1, **640 after** (README still says 568 — drifted; not this work's business) | runs below |
 
 **Baseline, run this session.** `README.md:58-75` forbids `dotnet test --artifacts-path`, and I hit the
 trap it documents for the third time in this project: the dev server was holding
@@ -1996,6 +2006,13 @@ reports **184 failures out of 619** from `PickRuleTable.ApiProjectRoot()`'s upwa
 mechanism and roughly the count the README predicts. Filtered to the twelve classes this work touches, out
 of tree: **196 passed, 0 failed, 4 skipped.** The 4 skipped are the Postgres-gated ones (B5). So the
 relevant baseline is green, and the full-suite figure above is a count, not a baseline claim.
+
+**Re-measured at Phase 1, with nothing holding `bin/`: the full in-tree suite is green —
+615 passed / 0 failed / 4 skipped / 619 total.** So the 184-failure figure above is purely an artifact of
+building out of tree and says nothing about the suite; the only thing it is evidence for is B-R14, and
+B-R14 is about the dev server, not about the tests. Stated because "184 failures out of 619" reads like a
+standing fact in a document and is not one. Phase 1 ends at **634 / 0 / 6 / 640** — the 2 extra skips are
+`CustomMoveMigrationPostgresTests`, which is the gate working as designed.
 
 **A practical consequence for Phases 1–3, since every phase has a build gate:** you cannot build the API
 while a `dotnet run` of it holds the output. Stop the dev server first. Do **not** reach for
@@ -2085,7 +2102,7 @@ first commit, because it implements an interface the second commit introduces, a
 precede the type it registers. So the first commit must contain **only what needs no new type** — which is
 exactly the 67-site part, and it is a cleaner no-op for it:
 
-**Phase 1, commit 1 — extraction only. Zero new types.**
+**Phase 1, commit 1 — extraction only. Zero new types.** *(Landed: `619be92`.)*
 
 1. In each of the seven test files, replace the repeated construction with one private static factory.
    `MonsterServiceTests` already repeats an identical three-argument expression 18 times, so this is a
@@ -2095,13 +2112,48 @@ exactly the 67-site part, and it is a cleaner no-op for it:
 
 **Verification: suite green with zero test-name and zero assertion changes, and zero production files
 touched.** That is the whole gate for this commit, and it is checkable by `git diff --stat` showing nothing
-under `MonsterOfTheWeek.Api/`.
+under `MonsterOfTheWeek.Api/`. **Met:** ten files, all under `MonsterOfTheWeek.Api.Tests/`, +144/−72, and
+615/0/4/619 byte-identical to the baseline.
 
-**Phase 1, commit 2 — the feature.** `CustomMove` + `CustomMoveOwnerType` + context config + the migration
-+ `ICustomMoveService`/`CustomMoveService` + `FakeCustomMoveService` (mirroring
-`FakeResourceImageService.cs:17` exactly — same tuple shape, same comment about why only that one call is
-recorded) + the `Program.cs:42` registration + the three harness registrations + `CustomMoveServiceTests`.
-**Each of the seven factories gains one argument: 67 sites become 7 edits**, which is the point of commit 1.
+**Correction, found by writing it: seven files, eight factories.** The 67 counted correctly and every file
+but one repeats a single character-identical expression. `ByMysteryVariantsStayOutOfScopeTests` is the
+exception — its two sites construct **different services** (`LocationService` and `BystanderService`, one
+each), so one factory cannot cover them and it has `CreateLocationService`/`CreateBystanderService`. "67
+sites become 7 edits" is therefore **8**, which changes nothing about the argument and is worth fixing
+because the number is the thing a reader checks.
+
+**Phase 1, commit 2 — the feature.** *(Landed: `64e9826`.)* `CustomMove` + `CustomMoveOwnerType` + context
+config + the migration + `ICustomMoveService`/`CustomMoveService` + `FakeCustomMoveService` + the
+`Program.cs:42` registration + the three harness registrations + `CustomMoveServiceTests`.
+
+Three things the plan for this commit did not have right:
+
+1. **The unread dependency warns, and the plan had no answer for it.** `ICustomMoveService` becoming a
+   constructor parameter of five services that do not read it until Phase 2 is the entire point of the
+   split — and it is **CS9113, *"Parameter 'customMoveService' is unread"***, five times, on a primary
+   constructor. Not a hypothetical: measured, five warnings, build otherwise clean. The choices were to
+   tolerate five new warnings for a phase, to defer the parameter to Phase 2 (which would hand Phase 2 the
+   constructor churn this split exists to remove, and leave the harness registrations unexercised), or to
+   suppress. **Suppressed**, with a comment at each of the five naming the phase and saying that Phase 2
+   deletes the *suppression*, not the parameter. It is the codebase's first hand-written `#pragma warning`
+   — every other one is in generated migration code — so it is a new pattern and should not outlive Phase
+   2. A bare warning would have been worse than a new pattern here: the obvious way to silence CS9113 is to
+   delete the parameter, which is exactly the regression B-R1 is about.
+2. **`FakeCustomMoveService` should not mirror `FakeResourceImageService` "exactly".** That fake returns
+   hardcoded success and empties because nothing exercises image behaviour through it. The same hardcoding
+   here would make every Phase 2 round trip vacuous, which the standing rule
+   (`toad-fake-repositories-must-mirror-real-return-semantics.md`) and §23 item 5 both already forbid — and
+   §23 item 5 contradicted this bullet. §23 item 5 wins: the fake is **list-backed**, `List`/`Create`
+   return `NotFound` unless an opt-in `OwnerExists` is set (mirroring the real service's check on exactly
+   those two methods), and `Update`/`Delete` run the real `(OwnerType, OwnerId, Id)` predicate. The ledger
+   idea survives; "exactly" does not.
+3. **Three of the thirteen call sites take the real service, not the fake** —
+   `MonsterImageCleanupTests`' three, and `ByMysteryVariantsStayOutOfScopeTests`' two, build real
+   repositories over a real `MotwDbContext`. B10 says the custom-move service must hold the **same context
+   instance** or Phase 2's cleanup runs outside the transaction, silently and green on SQLite. So those
+   factories take `ICustomMoveService` as a **parameter** and the sites pass `new CustomMoveService(context)`,
+   making the construction Phase 2 copies already correct. Cost: 5 call-site edits rather than 2 factory
+   edits. Worth it at exactly the file B10 names.
 
 Phase 2 then touches the test tree only where behaviour actually changed.
 
@@ -2168,6 +2220,12 @@ Every EF migration carries a full model snapshot in its generated `*.Designer.cs
 **2,989**. So Phase 1 adds ~3,000 generated lines, and **Phase 3 adds another ~3,000** on top of its five
 `DropTable` calls.
 
+**Phase 1, measured rather than estimated:** `20261011180029_AddCustomMoves.Designer.cs` is **3,027
+lines**, `MotwDbContextModelSnapshot.cs` grew by **35**, and the hand-written half of the commit is 42
+lines of migration plus the entity, config, service and tests. So 3,027 of commit 2's 4,229 added lines —
+**72%** — are one generated file nobody should read. The estimate was right; recording the number is what
+makes the Phase 3 gate's restatement checkable instead of arguable.
+
 **Restate the gate:** *net-negative excluding `Data/Migrations/*.Designer.cs` and
 `MotwDbContextModelSnapshot.cs`, which are generated and must not be hand-edited.* Same for Phase 1's diff
 expectation. Nothing else about the gate changes — the *hand-written* half of Phase 3 really is pure
@@ -2182,6 +2240,16 @@ Two separate facts, both verified:
   as *Skipped*, never as failed. The gate is a **manual step**: `docker compose up -d postgres`, point
   `MOTW_TEST_POSTGRES` at a **throwaway** database (the tests `EnsureDeletedAsync` whatever the string
   names — never the dev `motw`), then `dotnet test --filter "Category=Postgres"`.
+
+  **Phase 1's run happened, 2026-10-11.** `motw-postgres` (Postgres 18) was already up;
+  `MOTW_TEST_POSTGRES` pointed at a throwaway `motw_custom_moves_phase1` — never the dev `motw`, which was
+  verified still present afterwards — and `dotnet test --filter "Category=Postgres"` reported
+  **6 passed / 0 failed / 0 skipped**: the four pre-existing plus
+  `CustomMoveMigrationPostgresTests`' two. The throwaway database was dropped afterwards. The created
+  table was then read back off the server with `\d custom_moves` and matches §21.1 column for column,
+  including `owner_type character varying(16)` and no foreign keys. **This is the paragraph's whole point:
+  the same command without the env var reports those two as *Skipped*, so "the gate passed" means nothing
+  unless the run is recorded. It is recorded here.**
 
   **Skyler has confirmed the runs will happen (§16.4 D3), so both gates stand exactly as §5 writes them**
   and the cheaper `dotnet ef migrations script` snapshot fallback I offered is **withdrawn** — it would
@@ -2424,7 +2492,7 @@ Skyler's; §25 keeps the reasoning each one was asked on, so the answer stays ch
 |---|---|---|
 | D1 | Two commits inside Phase 1 — the 67-site constructor sweep separate from the entity/config/migration/service? | **Yes.** *"Two commits is fine."* B1 has the split and the one ordering constraint that decides which half goes first. The only deviation from §5's *"one commit per phase"*, and only in Phase 1. |
 | D2 | Rename `ResourceImagePostgresCollection` → `PostgresCollection`? | **Yes.** *"Yes, renaming is fine."* The class, the `const Name` value (*"Resource Image Postgres tests"* → *"Postgres tests"*), the `[CollectionDefinition]`, and both `[Collection]` attributes. Lands in Phase 1's **first** commit — test-only, behaviour-free, and it means the new migration test is never written against the old name. |
-| D3 | Will the manual real-Postgres run actually happen at Phase 1 and Phase 3? | **Yes.** *"We can run the migration during each phase it's needed in."* So §5's two gates stand as written, and the `dotnet ef migrations script` snapshot fallback is **withdrawn** (B5). The literal `MOTW_TEST_POSTGRES` command still goes in both gates — the default outcome is *Skipped* for anyone who does not set it, which is B5's point and is unchanged by the commitment to run it. |
+| D3 | Will the manual real-Postgres run actually happen at Phase 1 and Phase 3? | **Yes.** *"We can run the migration during each phase it's needed in."* So §5's two gates stand as written, and the `dotnet ef migrations script` snapshot fallback is **withdrawn** (B5). The literal `MOTW_TEST_POSTGRES` command still goes in both gates — the default outcome is *Skipped* for anyone who does not set it, which is B5's point and is unchanged by the commitment to run it. **Phase 1's run happened, 2026-10-11: 6 passed / 0 failed / 0 skipped, recorded in B5. Phase 3's is still owed.** |
 
 **Where these land, so nothing is recorded only here:** D1 in **B1** (the two-commit split) and **§23
 item 1**; D2 in **B1**, **B5** and **B-R6**; D3 in **B5** and **B-R5**.
@@ -2705,6 +2773,14 @@ asks for the second; the first matters more, because it is the one a later reade
 touches nothing else"* is achievable exactly — no existing table gains a column, unlike `AddResourceImages`,
 which also added four `primary_image_id` columns.
 
+**Scaffolded as `20261011180029_AddCustomMoves`, and the generated `Up` is the table above and nothing
+else** — one `CreateTable` with those five columns and `PK_custom_moves`, one `CreateIndex` for
+`idx_custom_moves_owner_name`, no `AddForeignKey`, and a one-call `Down`. Nothing was hand-edited. The
+pinned shape earned its keep in the usual quiet way: it turned reviewing the scaffold into a comparison
+rather than a judgement, and the thing it was really guarding — the five explicit `.HasColumnName` calls,
+without which EF emits PascalCase columns and the migration bakes them in — is invisible in a generated
+file that already looks right. Confirmed on the real server, not only in the file; see B5.
+
 ## 21.2 Phase 3 — `DropPerDomainCustomMoves`
 
 Five `migrationBuilder.DropTable` calls take the primary keys, foreign keys and indexes with them, so the
@@ -2776,13 +2852,16 @@ being rediscovered.
 §10's plan is sound. Six additions, in the order I would write them.
 
 1. **The constructor sweep is Phase 1's first commit, on its own, and it is the bulk of the test-tree
-   diff.** B1, §16.4 D1. **Commit 1:** one private factory per test file (67 sites → 7 factories) plus the
-   `PostgresCollection` rename (§16.4 D2) — **zero new types, zero production files**, so the gate is
-   "suite green with no test-name and no assertion changes, and `git diff --stat` shows nothing under
-   `MonsterOfTheWeek.Api/`". A provable no-op, the same discipline §5 applies to 5f-0. **Commit 2:**
-   `FakeCustomMoveService` mirroring `FakeResourceImageService.cs:17`'s ledger shape, the `Program.cs`
-   registration, the three harness registrations, and one new argument through each of the seven
-   factories. The order is forced, not stylistic: the fake implements an interface commit 2 introduces.
+   diff.** B1, §16.4 D1. **Commit 1:** one private factory per test file (67 sites → **8** factories across
+   seven files; see B1's correction) plus the `PostgresCollection` rename (§16.4 D2) — **zero new types,
+   zero production files**, so the gate is "suite green with no test-name and no assertion changes, and
+   `git diff --stat` shows nothing under `MonsterOfTheWeek.Api/`". A provable no-op, the same discipline §5
+   applies to 5f-0. **Commit 2:** `FakeCustomMoveService` with the ledger of
+   `FakeResourceImageService.cs:17` but **not** its hardcoded returns (see item 5 and B1), the `Program.cs`
+   registration, the three harness registrations, and one new argument through each factory. The order is
+   forced, not stylistic: the fake implements an interface commit 2 introduces.
+   **Both landed, `619be92` and `64e9826`, with both gates met;** the three places commit 2 diverged from
+   this plan are in B1.
 2. **`MonsterMinionCascadeTests` needs four changes, including the detach complement.** B11. §10 asks for
    the seed; the detach half, the before-assertion and the surviving-third-owner count are the parts that
    make it a guard rather than a decoration.
@@ -2800,6 +2879,14 @@ being rediscovered.
    that the four existing orderings survive. `FakeCustomMoveService` must mirror those return semantics and
    **not** return hardcoded success where the real service returns `NotFound` —
    `toad-fake-repositories-must-mirror-real-return-semantics.md`, which §10 already cites.
+   **Landed in `64e9826` with four cases this list did not ask for and should have:** one per enum member,
+   because `OwnerExistsAsync` is a five-arm `switch` whose wrong arm compiles and whose `_ =>` arm throws;
+   the owner-present-with-no-moves case, which is the *other* half of "owner missing → `NotFound`" and the
+   only thing that makes that check worth its round trip; `DeleteAllForOwnerAsync` with three owners
+   seeded and one cleaned, per B-R11; and the no-op cleanup for an owner with no moves, which is the case
+   that catches a cleanup throwing on a missing owner and turning an ordinary Phase 2 delete into a 500.
+   The drift guard (item 3) and the five-domain parity test (item 6) stayed out, as Phase 2 items guarding
+   Phase 2 code.
 6. **A five-domain *backend* parity test, with `ListProjectionPrimaryImageAgreementTests` as the model.**
    §10 and Phase 6 put the parity guard on the frontend only. There is an equivalent backend drift surface:
    five services, each independently calling `ListForProjectionAsync` with its own `CustomMoveOwnerType`
@@ -2839,7 +2926,7 @@ Numbered B-R to sit beside §7's R1–R14 and §14's 14-R1–14-R10 without coll
 | B-R11 | **`DeleteAllForOwnerAsync` with a mis-wired predicate deletes every owner's moves**, and a count-to-zero assertion on a single-owner fixture cannot see it. | §19 — seed a second owner whose moves must survive, in every per-domain cleanup test. |
 | B-R12 | **A later reader adds an `(owner_type, owner_id, id)` index** because "the update path has no index". | §20 says explicitly not to, with the reason. Put that sentence in the config comment, not only in this doc. |
 | B-R13 | **`MotwDbContext.cs:504-505`'s comment becomes false** the moment `custom_moves` lands — it says no other entity uses `HasConversion`. A stale comment at the one site that exists to explain a deliberate first. | §22. Amend both comments in Phase 1, in the same commit that adds the second conversion. |
-| B-R14 | **The build cannot run while the dev server holds `bin/`**, and the documented workaround is the forbidden one. Third occurrence in this project, including this session. | `README.md:58-75`. Stop the dev server; never `--artifacts-path`. Reconfirmed today: 184 failures out of 619, mechanism exactly as the README describes. |
+| B-R14 | **The build cannot run while the dev server holds `bin/`**, and the documented workaround is the forbidden one. Third occurrence in this project, including the planning session. | `README.md:58-75`. Stop the dev server; never `--artifacts-path`. Reconfirmed at planning time: 184 failures out of 619, mechanism exactly as the README describes. **Not present at Phase 1** — nothing was listening and no `MonsterOfTheWeek.Api.exe` existed, so every build and run in Phase 1 was in-tree and clean. The 184 is an artifact of the workaround, not a property of the suite (§16.1). |
 
 ---
 
