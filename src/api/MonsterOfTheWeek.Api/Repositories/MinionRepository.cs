@@ -75,7 +75,7 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
             .Select(ToListItem)
             .ToListAsync(cancellationToken);
 
-    public Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken) =>
+    public Task<Minion?> GetMinionDetailAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Minions
             .AsNoTracking()
             .Include(x => x.Monster)
@@ -88,7 +88,7 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
             .Include(x => x.Weaknesses)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-    public Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+    public Task<Minion?> GetMinionForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Minions.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public Task AddAsync(Minion minion, CancellationToken cancellationToken)

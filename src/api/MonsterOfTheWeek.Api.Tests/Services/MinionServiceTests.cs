@@ -228,7 +228,7 @@ public sealed class MinionServiceTests
         public Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<MinionListItemResponse>>([]);
 
-        public Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken) =>
+        public Task<Minion?> GetMinionDetailAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult<Minion?>(_minions.FirstOrDefault(x => x.Id == id)
                 ?? new Minion
                 {
@@ -239,7 +239,7 @@ public sealed class MinionServiceTests
 
         // Honours `MinionExists` so the not-found branch is reachable; it defaults to true, so the
         // canned fallback every pre-existing test relies on is unchanged.
-        public Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+        public Task<Minion?> GetMinionForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult<Minion?>(
                 MinionExists
                     ? _minions.FirstOrDefault(x => x.Id == id) ?? new Minion { Name = "Minion" }

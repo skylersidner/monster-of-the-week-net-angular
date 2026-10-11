@@ -60,7 +60,7 @@ public sealed class MinionService(
     /// </summary>
     public async Task<MinionDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
-        var minion = await minionRepository.GetDetailAsync(id, cancellationToken);
+        var minion = await minionRepository.GetMinionDetailAsync(id, cancellationToken);
         if (minion is null)
         {
             return null;
@@ -73,7 +73,7 @@ public sealed class MinionService(
 
     public async Task<ServiceResult<MinionDetailResponse>> UpdateAsync(Guid id, UpsertMinionRequest request, CancellationToken cancellationToken)
     {
-        var minion = await minionRepository.GetForUpdateAsync(id, cancellationToken);
+        var minion = await minionRepository.GetMinionForUpdateAsync(id, cancellationToken);
         if (minion is null)
         {
             return ServiceResult<MinionDetailResponse>.NotFound($"Minion {id} was not found.");
@@ -133,7 +133,7 @@ public sealed class MinionService(
         // Doubles as the existence check the membership verb spends a separate `…ExistsAsync` on:
         // this verb has to mutate the row, so it needs the entity either way and a null is the
         // same answer.
-        var minion = await minionRepository.GetForUpdateAsync(id, cancellationToken);
+        var minion = await minionRepository.GetMinionForUpdateAsync(id, cancellationToken);
         if (minion is null)
         {
             return false;

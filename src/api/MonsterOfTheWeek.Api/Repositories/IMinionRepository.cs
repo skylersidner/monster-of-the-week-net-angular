@@ -18,8 +18,8 @@ public interface IMinionRepository
     /// at the DB level (phases.md Phase 3, resource-images).</summary>
     Task<IReadOnlyList<Guid>> GetIdsByMonsterIdAsync(Guid monsterId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken);
-    Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken);
-    Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
+    Task<Minion?> GetMinionDetailAsync(Guid id, CancellationToken cancellationToken);
+    Task<Minion?> GetMinionForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task AddAsync(Minion minion, CancellationToken cancellationToken);
     Task<int> DeleteMinionAsync(Guid id, CancellationToken cancellationToken);
 
