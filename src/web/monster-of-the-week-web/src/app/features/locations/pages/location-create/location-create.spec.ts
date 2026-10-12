@@ -320,11 +320,16 @@ describe('LocationCreateComponent', () => {
 
     component.onCreate(submitWith(['mystery-1', 'mystery-2']));
 
+    // **Converged on the shipped monster/minion string in Phase 5c of domain-custom-moves**
+    // (§13.6.1 Ruling 1, decision 13), and a correctness fix rather than a wording preference:
+    // the old "some of its mysteries" became false by omission once a custom-move POST could fail
+    // under the same combined flag, which would have sent a user whose *move* failed off to check
+    // their mysteries. The wording itself is unchanged from the string monster and minion already
+    // shipped — "details" is a category word, so it does not go stale with the next type.
     expect(notifications).toEqual([
       {
         kind: 'error',
-        message:
-          'Location created, but some of its mysteries may not have saved. Review them on the location page.',
+        message: 'Location created, but some details may not have saved. Review them on the location page.',
       },
     ]);
   });

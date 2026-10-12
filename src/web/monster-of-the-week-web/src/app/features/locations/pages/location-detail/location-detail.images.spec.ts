@@ -196,17 +196,34 @@ describe('LocationDetailComponent — Images section (Phase 6d)', () => {
   });
 
   /**
-   * The store owns the pending state on this page. These assert that choice directly: the page
-   * carries no `pendingDelete` of its own, and the modal reads straight off the store.
+   * **The page owns the pending state, as of Phase 5c of domain-custom-moves.** It used to be the
+   * store's, and these assertions used to say so — they were inverted rather than deleted, because
+   * which object owns it is still the thing worth asserting; only the answer changed.
+   *
+   * **Why it changed, in the general form rather than this page's narrow one** (Skyler, 2026-10-11):
+   * *a page that gains a second kind of object to manage is better served moving state to the locus
+   * of control than hooking into multiple stores — otherwise you end up hooked into several, when
+   * moving the state would have been more straightforward.* Custom moves are that second object
+   * here. Decision 14 ("one confirm modal per page") and the standing note this page used to carry
+   * on its `imagesStore` field were each the same principle stated narrowly; this is the version
+   * that generalises to a page that one day has three.
+   *
+   * The store still computes the footnote (`deleteFootnoteFor`) and performs the delete
+   * (`deleteImage`) — only the *pending* state moved. That split exists so a host can choose who
+   * owns it, which is what made this migration a rebinding rather than a rewrite.
    */
-  describe('delete, with the store owning the modal state (§6)', () => {
+  describe('delete, with the page owning the modal state (§6)', () => {
     function requestDeleteOfActive(): void {
       (query('[data-delete]') as HTMLButtonElement).click();
       fixture.detectChanges();
     }
 
-    it('the page keeps no pending-delete state of its own', () => {
-      expect((component as unknown as Record<string, unknown>)['pendingDelete']).toBeUndefined();
+    it('the page owns the pending-delete record, and the store no longer holds it', () => {
+      expect(typeof (component as unknown as Record<string, unknown>)['pendingDelete']).toBe('function');
+      expect(component.pendingDelete()).toBeNull();
+      // The store's own wrapper is still there and still tested in `resource-images.store.spec.ts`;
+      // it simply has no caller on this page any more.
+      expect(component.imagesStore.pendingDelete()).toBeNull();
     });
 
     it('opens exactly one modal, named by fileName, without calling the API', () => {
@@ -214,7 +231,7 @@ describe('LocationDetailComponent — Images section (Phase 6d)', () => {
 
       expect(all('[role="dialog"]').length).toBe(1);
       expect(text('[role="dialog"] h3')).toBe('Delete "b.webp"?');
-      expect(component.imagesStore.pendingDelete()!.image.id).toBe('b');
+      expect(component.pendingDelete()!.label).toBe('b.webp');
       expect(deleteCalls).toEqual([]);
     });
 
@@ -231,7 +248,7 @@ describe('LocationDetailComponent — Images section (Phase 6d)', () => {
       fixture.detectChanges();
       requestDeleteOfActive();
 
-      expect(component.imagesStore.pendingDelete()!.footnote).toBe('');
+      expect(component.pendingDelete()!.footnote).toBe('');
       expect(dialog()!.textContent).not.toContain('primary');
     });
 

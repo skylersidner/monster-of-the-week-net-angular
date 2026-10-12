@@ -151,7 +151,10 @@ const DOMAINS: readonly Domain[] = [
   { ownerType: 'Monster', component: MonsterDetailComponent, modalOwner: 'page' },
   { ownerType: 'Minion', component: MinionDetailComponent, modalOwner: 'page' },
   { ownerType: 'Bystander', component: BystanderDetailComponent, modalOwner: 'store' },
-  { ownerType: 'Location', component: LocationDetailComponent, modalOwner: 'store' },
+  // Location moved to the page-owned record in Phase 5c of domain-custom-moves, when custom moves
+  // became its second delete flow. Bystander follows in 5d, after which this column is uniform and
+  // the asymmetry below is history rather than a live split.
+  { ownerType: 'Location', component: LocationDetailComponent, modalOwner: 'page' },
 ];
 
 /**
@@ -396,17 +399,27 @@ describe('resource images — four-domain parity', () => {
   });
 
   /**
-   * The one intended asymmetry, asserted positively rather than excused as an exception.
+   * **Delete-modal ownership, which is converging rather than split.** Asserted positively from the
+   * `DOMAINS` table rather than excused as an exception, so the current state is always readable.
    *
-   * Monster and Minion each already owned a `pendingDelete` serving four other delete flows before
-   * images existed, so routing image deletes through the store's own pending signals would have left
-   * two competing pending-delete concepts on one page. Bystander and Location had no modal at all,
-   * so the store holds it and those pages stay free of the signal and its two handlers.
+   * **The history, because it is the thing that explains the rule.** Monster and Minion each
+   * already owned a `pendingDelete` serving four other delete flows before images existed, so
+   * routing image deletes through the store's own pending signals would have left two competing
+   * pending-delete concepts on one page. Bystander and Location had no modal at all, so the store
+   * held it and those pages stayed free of the signal and its two handlers.
    *
-   * The deciding question, for a fifth domain or a future refactor: *is there an existing
-   * pending-delete concept for a second one to be ambiguous with?* Not which API reads nicer.
+   * **What changed.** `domain-custom-moves` gives every detail page a *second* delete flow, which
+   * is precisely the condition the rule turns on — so Location migrated to the page-owned record in
+   * its Phase 5c and Bystander follows in 5d. After 5d this column is uniformly `'page'` and the
+   * `'store'` branch below is dead; it is kept until then rather than deleted early, because while
+   * one page is still store-owned it is the only thing asserting that.
+   *
+   * **The deciding question is unchanged, and is what a sixth domain would be judged against:**
+   * *is there an existing pending-delete concept for a second one to be ambiguous with?* Not which
+   * API reads nicer. The store-owned wrapper is still the right answer for a page with exactly one
+   * delete flow — there just are not any left.
    */
-  it('splits delete-modal ownership exactly as intended, and no page mixes the two', async () => {
+  it('owns delete-modal state exactly as the table says, and no page mixes the two', async () => {
     for (const domain of DOMAINS) {
       const { instance } = await renderStates(domain);
       const ownsPendingDelete = typeof instance['pendingDelete'] === 'function';

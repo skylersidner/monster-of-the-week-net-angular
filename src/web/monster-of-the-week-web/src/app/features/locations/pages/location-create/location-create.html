@@ -19,4 +19,23 @@
     submitLabel="Create Location"
     (save)="onCreate($event)"
   ></app-location-form>
+
+  <!--
+    **Introduced, not edited** (§13.4). Monster and minion create already carried a sentence
+    naming their four staged types and 5a/5b widened it; this page had no draft panels at all, so
+    the staged-write model has never been explained here. Same voice as the other two.
+  -->
+  <p class="text-muted text-[0.9rem] mb-3 mt-6">
+    Custom moves added below are saved together with the location when you press Create Location.
+  </p>
+
+  <app-custom-moves-card
+    ownerType="Location"
+    [rows]="customMoveRows()"
+    [(editingKey)]="editingCustomMoveKey"
+    [busy]="isSaving()"
+    emptyText="No custom moves added yet."
+    (committed)="commitCustomMoveDraft($event)"
+    (removeRequested)="removeCustomMoveDraft($event)"
+  />
 </section>
