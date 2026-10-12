@@ -4953,6 +4953,113 @@ nothing behind and the next run starts clean regardless. 5d's incident — a tim
 bystander while every check stayed green — is the reason. Both sweeps reported "nothing", which is
 what a working version looks like.
 
+## 29.8 5f-0 shipped, 2026-10-12 — the restructure, proved by an oracle that predates it
+
+**Results.** Suite **1700 → 1700** (119 files), typecheck clean, **both ledger specs byte-unchanged**
+(`git diff --stat -- '*ledger.spec.ts'` empty at the commit), two files touched, nothing backend, no
+custom-move code of any kind. Three negative controls, all three predicted in both directions and all
+three matching. One real behaviour difference found by the oracle mid-build and removed.
+
+### The gate held, and it bit once before it held
+
+The first working version failed **35 tests across four files, one of them the oracle itself.** Single
+cause, and worth recording because it is the kind of difference that is invisible to reading:
+
+`saveMonsterDraft` returns the **response's** id (`monster.id`), so copying its shape made the per-row
+save return `location.id` from the `PUT` response. `backfillDraftIds` never did that — it left a
+persisted draft's id alone and only filled in ids for the id-less ones. The ledger fakes answer
+`update` with the sentinel `{ id: 'loc-updated' }`, so every persisted draft was re-keyed to
+`loc-updated`/`bys-updated` the moment it was submitted, and every later assertion about *that row* —
+dispositions, baselines, attach-picker contents — went with it.
+
+In production the two ids agree, which is exactly why this one needed a measurement rather than a
+reading. The shipped code keeps the id it PUT at:
+
+```ts
+const persistedId = draft.id;
+const saved$ = persistedId !== null ? forkJoin({ … }).pipe(map(() => persistedId)) : create(…);
+```
+
+**This is the first time in 5a–5f that a fake's deliberately-distinct return value caught a real
+difference**, and it is the standing `toad-fake-repositories-must-mirror-real-return-semantics` rule
+pointing the other way: the fake does *not* mirror the real response here, on purpose, and that
+non-mirroring is what made the difference observable. Both halves of that rule are about the fake
+being *informative*, not about it being identical.
+
+**`saveMonsterDraft` has the same property and nobody has checked it** — recorded as **F-L7**, not
+fixed here. Phase 1 is out of 5f-0's scope and its own ledger is green, so changing it would be a
+behaviour change smuggled into a no-op commit.
+
+### The three conditions, two of them now measured rather than reasoned
+
+§35.2 named three. All three held; two stopped being arguments.
+
+**Condition 1 — the order changes and the oracle is blind to it.** §26.2 L10 and §35.2 both reason
+this from `forkJoin`'s source-order subscription. I measured it instead, with a throwaway probe spec
+run against both the old store and the new one on the same scenario (three persisted locations, second
+submit):
+
+| | wire order |
+|---|---|
+| before | `update:a, update:b, update:c, link:a, link:b, link:c` |
+| after | `update:a, link:a, update:b, link:b, update:c, link:c` |
+
+Same multiset, different sequence — Yoshi's framing exactly, now with the two sequences written down.
+A second control swapped the two keys inside the per-row `forkJoin` (link before update): **predicted 0
+failures, got 0**, which is the same claim from the other side.
+
+**Condition 2 — the oracle does catch an entity-level dirty check.** Control: save only the drafts with
+no id, the archetypal "don't write what hasn't changed, one level up" mistake. **Predicted 9 failures in
+`mystery-create-phase4-ledger.spec.ts`, and named all nine in advance; got exactly those nine** — A5/A6,
+A5-two, D9, D11, the mixed roster, S2, **S4**, the bystander-drain row, and D10·S3. (Plus 6 in
+`mystery-create-phase4.store.spec.ts` and 1 in `mystery-create.store.spec.ts`, which I did not predict.)
+§35.2 names S4 and A6 as the two that catch it; they do, and seven others do too.
+
+**Condition 3 — the short-circuit is load-bearing, and it does *not* fail the way the doc says.** §35.2
+says a bare `forkJoin([])` would turn an empty collection into "a hang… reported as a timeout rather
+than as a diff." Control: replace the two new `runBatch` call sites with bare `forkJoin`. **Predicted at
+least the G1 tracker-jump test, on its `pendingRemovals` assertion; got 10 failures including it** —
+and **not one of them was a timeout.** The reason is worth having written down, because it makes the
+hazard worse than advertised:
+
+> `forkJoin` subscribes all of its sources before any of them answers, so **every request still goes
+> out**. The ledger is complete and correct. What silently stops happening is everything in the
+> subscriber: `clearDrainedRemovals`, the writeback, `advancePhase`. A request-level oracle sees
+> nothing wrong, and the failures land on *state* assertions in other files — G1 bookkeeping, the
+> attach picker, the minion baseline leaks — none of which name the actual fault.
+
+`sub-resource-diff.ts`'s `batch` now carries that, measured, rather than the timeout prediction.
+
+### Two deviations from §30.2, both forced
+
+1. **`saveLocationRow`, not `saveLocationDraft`.** §30.2 names the per-row method `saveLocationDraft`
+   and that name is already a **public** method — the composer commit at `:1472`, called from the
+   locations phase component and from four specs including the oracle. The monsters path resolved the
+   same collision by renaming the public one `saveMonsterDraftToList`; doing that here would edit
+   `mystery-create-phase4-ledger.spec.ts:292`, which is the one thing 5f-0 may not do. **The gate chose
+   the name.** Convergence is **F-L6**, for after the gate is discharged.
+2. **The outer `forkJoin` stays flat** — `{ drained, unlinked, saved }`, not phase 1's nested
+   `switchMap`. Phase 1 nests because minions cannot be saved until every monster has an id; locations
+   and bystanders have no dependent second collection, so the nesting would move the writeback into an
+   async step for nothing. The two-stage shape 5f-0 exists to create is *inside* the per-row save, which
+   is where 5f-3a needs it; it was never the outer pipeline's shape.
+
+### What is left behind for 5f-3a
+
+One line in each per-row save:
+
+```ts
+// 5f-3a's seam: `switchMap` into the row's custom-move diff here, with the id in hand.
+return saved$.pipe(map((id) => ({ index, id })));
+```
+
+…and `SavedFlatRow { index; id }`, one type for both rosters, which grows the custom-move baseline
+field in 5f-3a. `backfillDraftIds` left with its last caller; `applySavedIds` replaces it, shared by
+both writebacks, carrying the index phase 1 already carries.
+
+**Nothing in the census moved**, because no template changed — the suite's green run includes it. §35.6
+is right that the census's wizard rows are the live half for 5f; 5f-1 is where that bites, not here.
+
 ---
 
 # 30. The wizard, 5f-0 … 5f-3
@@ -5056,6 +5163,9 @@ an assertion, and two of them already have a model in the suite:
   `resetMonsterComposer` omitting the clear leaks the previous monster's moves into the next one, which
   then get *written* to it on the next submit — the only one of the five with a data consequence rather
   than a display one.
+- **preview:** a composer holding **only** a custom move appears in `monsterComposerPreview()`. Added in
+  answer to Yoshi's §35.7 flag 1 — see §30.7, which says why this one is the least visible of the five
+  and why the fixture has to hold *nothing else*.
 
 ## 30.5 5f-3 — the attach strips
 
@@ -5099,7 +5209,10 @@ Concretely, three things, and the first is the only one that is really a gate ra
 3. **The 80 call sites' `CustomMoveService` stub returns something non-empty in at least one test**, or
    the whole fetch path is covered only by `of([])` and the baseline-vs-drafts distinction never renders.
    My own 2026-10-06 lesson, one surface over: a parity or ledger assertion whose fixture is empty is a
-   vacuous pass.
+   vacuous pass — and, as Yoshi points out (§35.7 flag 2), the standing decision
+   `toad-fake-repositories-must-mirror-real-return-semantics`, which is the frame to cite rather than a
+   local precaution. §30.7 adds the half 5f-0 measured: "non-empty" is the floor, and "distinguishable
+   from what was sent" is the bar.
 
 ## 30.6 One thing I would ask 5f's re-evaluation to re-check
 
@@ -5110,6 +5223,60 @@ radius (80 call sites) and the only new in-flight state in the wizard. If anythi
 5f-3 is the piece to defer *as a unit* — 5f-0/5f-1/5f-2 stand alone and leave the wizard strictly better
 than today. Worth saying now, because the natural thing to cut under pressure is the second half of 5f-3
 (the attach strips' busy treatment), which is the half that makes it correct.
+
+## 30.7 Yoshi's three flags (§35.7), answered
+
+All three accepted. Two change a later sub-phase's work list; one is a line this section owed a reader
+and did not have. Answered here, 5f-wide, rather than in the sub-phase that carries each, so that the
+three are in one place and none of them depends on somebody re-reading §35.7 at the right moment.
+
+### Flag 1 — `monsterComposerPreview()` gets an assertion. Accepted, into 5f-2's list.
+
+§30.4 supplies assertions for composer-dirty, writeback and reset, and leaves site 4 — the dossier's
+source — bare. Yoshi is right that this is the one whose omission is least visible, and the reason is
+14-R10's own: *a collection missing from the dossier reads to the user as a collection that did not
+save.* The other four fail as a wrong request or a lost draft; this one fails as a correct save the
+user is told nothing about, on the surface whose entire job is to report what was authored.
+
+**5f-2's list gains:** a composer holding **only** a custom move — no attacks, powers, weaknesses or
+armors — appears in `monsterComposerPreview()`. "Only" matters: a preview that drops the custom-move
+arm still renders a monster that has anything else, so a fixture with four other collections would
+pass either way. That is twelve rows in §26.2 L6, not eleven, and the commit carries the table.
+
+### Flag 2 — §30.5's gate item 3 is a standing decision and should say so. Accepted.
+
+`.squad/decisions/records/toad-fake-repositories-must-mirror-real-return-semantics.md`. §30.5 item 3
+("the 80 call sites' stub returns something non-empty in at least one test") was written as a local
+precaution; it is an instance of the standing rule, and citing it puts it in the same frame as the
+three other standing test decisions this plan already leans on.
+
+**One qualification, from 5f-0.** The rule is about a fake being *informative*, and the two ways to
+fail it are opposite. A hardcoded empty return makes every round-trip assertion vacuous — that is
+item 3's case. A hardcoded return that is *indistinguishable from the input* does the same thing
+quietly: the phase-4 ledger's `update` fake answers `{ id: 'loc-updated' }` precisely so that "the
+row kept its own id" and "the row took the server's id" are different observations, and that
+deliberate non-mirroring is what caught 5f-0's one real behaviour difference (§29.8). So when 5f-3b
+writes its `list()` stub, "non-empty" is the floor and "distinguishable from what was sent" is the
+bar.
+
+### Flag 3 — three surfaces disagree about row edit, not two. Accepted, and it is stated here.
+
+After 5a–5e, custom-move rows can be edited in place on **all five detail pages** and **all four
+create pages**. §13.5.3 declines row edit in the wizard panels, on the grounds that the four
+neighbouring composer panels have none, there is no room at `w-[42%]`, and 5f should not grow. That
+call stands — I would not change it, and the density argument is reinforced rather than weakened by
+§35.5's finding that the card cannot travel into the composers at all.
+
+**But the shape of the inconsistency changed under it.** When §13.5.3 was written the comparison was
+wizard-versus-detail. It is now wizard-versus-everything: nine shipped surfaces have row edit, five
+wizard collections will not, and a user who authors a custom move in the wizard and wants to fix a
+typo must leave the wizard to do it. That is the first bug report this feature will get, and it
+should meet a documented decision rather than a silence.
+
+**F-R1 is the right shape for the fix** — all five wizard collections in one pass, not one panel at a
+time — and the right trigger is the first time someone asks, not a scheduled slot. Nothing in 5f
+should be built in anticipation of it; the hand-written panels are the same amount of work either
+way.
 
 ---
 
@@ -5253,6 +5420,8 @@ Numbered L-R to sit beside §7's R1–R14, §14's 14-R1–14-R10 and §24's B-R1
 | F-L3 | **`createDraftKey` as one shared primitive.** Two generators will exist after 5f (the wizard's and `core/custom-moves.ts`'s). Deliberate today for the reasons in §30.1; worth revisiting with F2, which revisits the create-page batch as a unit. | With §12 F2. |
 | F-L4 | **Centralise the detail-page half of the confirm-modal census.** Its two count assertions compare a literal against itself and are blind to a template gaining or losing a call site — measured by control in 5e, where adding *and* removing a modal both left the file green (§29.7). The wizard rows are derived; the eleven non-wizard rows are not. Fix: render the five detail pages and count their modals, as `resource-images-four-domain-parity.spec.ts` already does for four of them. Needs a five-page provider set, which is that spec's shape rather than the census file's. | Any work on the census or the parity guard — and before a sixth detail page is ever added, since that is the case nothing currently catches. |
 | F-L5 | **Collapse the `isSaving` aliases on `location-detail` and `bystander-detail`** into `isMutating`, in one pass across both pages. Five assertions plus one test name in two shipped specs per page, no behaviour change (§29.5, §29.6). | Any pass over those two pages. |
+| F-L6 | **Converge the flat rosters' save-method names on the monsters path's.** The public composer commits are `saveLocationDraft`/`saveBystanderDraft`; the monsters twin is `saveMonsterDraftToList`, which is why phase 1's private per-row save could be `saveMonsterDraft` and 5f-0's had to be `saveLocationRow`/`saveBystanderRow`. Renaming the two public ones `…DraftToList` reaches 7 call sites across 4 spec files **including `mystery-create-phase4-ledger.spec.ts:292`**, which is why it could not happen inside 5f-0 (§29.8). Pure rename, no behaviour. | After 5f-0's gate is discharged — any pass over the wizard store. |
+| F-L7 | **Decide whether `saveMonsterDraft` should keep the id it PUT at.** It returns the `PUT` response's `monster.id` and writes that onto the draft. In production the two agree; if they ever did not, a persisted monster draft would silently re-key mid-session and its baselines would stop matching — the §2.12-item-2 hazard class. 5f-0 took the other answer for locations and bystanders because `backfillDraftIds` had, and because the phase-4 ledger's fakes measure it (§29.8). Phase 1's ledger does not, so nothing says which answer it is on. One line plus one assertion. | Any pass over `submitPhase1`, and before 5f-2 extends the phase-5a oracle. |
 
 ---
 
