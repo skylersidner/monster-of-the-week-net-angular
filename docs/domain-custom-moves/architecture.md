@@ -7,6 +7,20 @@
 producing this document.** Rosalina's UI pass follows, then Luigi and Bowser for implementation specifics.
 §6 deliberately stops short of design.
 
+**Authoring convention for this document, since four authors have now needed it.** Each author owns a
+contiguous block of sections (§§0–12 Yoshi, §§13–15 Rosalina, §§16–25 Bowser, §§26–34 Luigi, §35 Yoshi) and
+amends only their own; where you disagree with another author, say so in your own section rather than
+editing theirs. **To prove you have not touched someone else's block, extract by section boundary and
+`diff` — do not `cmp` a byte or line range.** A byte-range comparison is useless the moment you amend
+anything in your own block, because every line number after it shifts and the comparison reports a
+difference that is only your own legitimate edit. The working form:
+
+```
+awk '/^## 13\.1 /,/^# 35\. /' architecture.md | sed '$d' > now.md    # their block, from the current file
+awk '/^## 13\.1 /,0'          previous.md                  > pre.md  # the same block, before your edits
+diff pre.md now.md
+```
+
 **Grounding — read, not inferred from docs:** `Data/Entities/DomainEntities.cs`, `Data/MotwDbContext.cs`,
 `Contracts/ApiContracts.cs`, `Contracts/ApiMappers.cs`, all ten `*Controller.cs` (plus a full inventory of
 every route template and every entity-create endpoint in the API), all five `*Repository.cs` + interfaces,
@@ -708,14 +722,20 @@ custom move:
   helper the wizard uses to decide which of those same generic calls to make. The detail page calls them
   directly, per row, exactly as the other four detail pages will.
 
-**So the lift is UI-only. Precisely, in `mystery-detail.ts`/`.html`:**
+**So the lift is UI-only. Precisely, in `mystery-detail.ts`/`.html` — five additions and one deliberate
+non-addition, as built:**
 
 | | What | Size |
 |---|---|---|
-| 1 | An `isMutating` signal — the page has `isLoading` and no mutation state | Trivial; `location-detail.ts:39`'s `isSaving` is the shape |
-| 2 | `NotificationService` injected — not currently on this page | Trivial, and per item 4 it is the *correct* failure surface, not a fallback |
+| 1 | An `activeMutation`/`isMutating` pair — the page has `isLoading` and no mutation state | Trivial; `location-detail.ts`'s is the shape |
+| 2 | `NotificationService` injected — not currently on this page | Trivial, and per item 6 it is the *correct* failure surface, not a fallback |
 | 3 | `ConfirmDeleteModalComponent` plus the closure-carrying page-owned `pendingDelete` record — the page's first modal, and the only new census entry in the whole plan (R12) | Real but bounded; `monster-detail.ts:75` is a literal copy source (§4.2) |
-| 4 | **No new inline error surface — and `errorMessage` must not be reused for write failures** | A deliberate *non*-addition, and the one that prevents a bug |
+| 4 | **A `mysteryId` signal.** `ngOnInit` reads `params.get('id')` *inside* its pipe and discards it, so the page has no stored route id for a write to address | Trivial once seen, invisible until you try to write |
+| 5 | **A targeted refetch.** The other four pages route custom-move writes through an existing `runAndRefresh`; this page has none, and re-running its four-arm `forkJoin` plus minion fan-out would be both wasteful and *wrong* — a failure in any unrelated arm would surface as a custom-move failure | The one addition that earns its own method |
+| 6 | **No new inline error surface — and `errorMessage` must not be reused for write failures** | A deliberate *non*-addition, and the one that prevents a bug (R14) |
+
+Items 4 and 5 are the two a reading of the component misses and building it finds: both are consequences of
+the page never having had a write path at all, rather than of custom moves.
 
 **Item 4 is the correction worth making to §14-R9's list.** `mystery-detail.html:6` places
 `@else if (errorMessage())` **ahead of** the content branch, so setting it after a failed custom-move write
@@ -850,8 +870,16 @@ service dependency, so it is testable before any page uses it and belongs here r
 (`features/mysteries/pages/mystery-create/sub-resource-diff.ts`) and stays there. It is the right engine for
 the wizard and the wrong one everywhere else: the detail pages write immediately per row, and the create
 pages write a batch once against an owner that has no prior state — neither has a hydrated baseline, which
-is the only thing `applySubResourceDiff` exists to compare against. Nothing in Phases 4–5e should reach for
-it, and it does not need promoting to `shared/`.
+is the only thing `applySubResourceDiff` exists to compare against.
+
+**And there is a mechanical reason that is sturdier than that one, because it does not depend on anyone
+agreeing about baselines:** the file imports `SubResourceIdentity` **from `mystery-create.store.ts`** — a
+3,187-line store. Promoting the diff to `shared/` either drags that import with it or forces
+`SubResourceIdentity` to move first. Nothing in Phases 4–5e should reach for it. The same applies to
+`createDraftKey`, which lives behind a module-level counter in that store: the create pages need their own
+key generator in `core/custom-moves.ts`, not a promotion of the wizard's, because a shared mutable counter
+across two features that never co-mount couples their key sequences and those keys appear in wizard
+failure output.
 **Gate:** service unit tests covering all five owner segments and asserting the context token is set on each
 method; card spec green.
 
@@ -887,26 +915,41 @@ blocked on nothing 5f needs.
 `errorMessage` still `null` (§4.1 item 4); and the three overlay census specs updated for the page's first
 modal — **the one new call site in the plan**, taking the census to 19 in 17 (R12).
 
-### Phases 5f-0 – 5f-3 — The wizard *(Luigi, with a Yoshi re-evaluation in front of it)*
-Rosalina's four-way split, adopted as proposed and renumbered only so the wizard is not carrying a detail
-page. §2.12 item 2 is where the cost actually sits: 5f-0 and 5f-3, not sequencing.
+### Phases 5f-0 – 5f-3b — The wizard *(Luigi)*
+Rosalina's split, re-decided against the shipped code in **§35**. Four units became five: 5f-3 divides at
+the seam between additive work and work that changes an interaction users already have. §2.12 item 2 is
+where the cost actually sits: 5f-0 and 5f-3b, not sequencing.
+
+**The order is load-bearing and is not a dependency chain** (§35.3). Only 5f-3 depends on 5f-0; 5f-1 is
+phase 0 and 5f-2 is phase 1, which is already two-stage. 5f-0 must still go first because its entire gate
+is *"both ledger specs pass unchanged"*, and 5f-1 amends six `currentStep.set(3)` call sites while 5f-2
+extends the phase-5a id-survival oracle. Run either first and 5f-0 is checked against an oracle the
+previous sub-phase edited. Same principle as Phase 1 being additive-only.
 
 - **5f-0 — phases 2 and 3 get phase 1's shape.** Second stage, per-row baseline, id-and-baseline written
-  back together. **A provable no-op**: with no custom moves wired, the new diff runs over empty collections
-  and no request changes, so `mystery-create-phase5a-ledger.spec.ts` and `mystery-create-phase4-ledger.spec.ts`
-  pass **unchanged or the restructure is wrong.** This is the same discipline as Phase 2/3's split on the
-  backend — separate the behaviour-preserving restructure from the behaviour it enables, so each reviews
-  against a different question. The strongest single idea in §13.
-- **5f-1 — the mystery's own moves.** Step `0-4` in `submitPhase0`'s existing post-id stage beside
-  `upsertCountdown`, plus the dossier block.
-- **5f-2 — monster and minion composer panels.** Additive; `toNamedDraft` already fits.
-- **5f-3 — location and bystander composer panels, plus the two attach strips.** Last, because the attach
-  strips are the only part of this whole plan that changes an interaction users already have:
-  `attachLocation` (`mystery-create.store.ts:1547-1566`) builds a complete draft from the catalogue list
-  item with zero HTTP calls today, and becomes a `getById` once the draft needs `existingCustomMoves`.
-
-**Gated on a re-evaluation, not just a design** — Skyler has already called for one. Do not start 5f on the
-strength of this document.
+  back together, carrying phase 1's `index`-through-to-writeback rather than a positional match.
+  **A provable no-op, under three conditions** (§35.2): both ledgers sort, so the gate proves *multiset*
+  equality and gives up only sequence; no entity-level dirty check is adopted; and the diff emits on an
+  empty collection, which it does because `batch` short-circuits to `of([])` — the one condition whose
+  failure would be a **hang** rather than a diff. Same discipline as Phase 2/3's backend split.
+- **5f-1 — the mystery's own moves.** Step `0-4` in `submitPhase0`'s existing post-id stage, as a `forkJoin`
+  sibling of `upsertCountdown` rather than chained after it, plus the dossier block. The
+  `set(3)` → `set(4)` sweep lands first as its own commit.
+- **5f-2 — monster and minion composer panels.** Additive, with no new stage, sequencing or baseline
+  discipline — but **~12 sites per owner, of which only two are protected by the compiler.** The commit
+  carries that checklist literally rather than relying on memory.
+- **5f-3a — location and bystander composer panels.** Additive, and the half that delivers the capability
+  parity the scope cut was declined to protect. Leaves a stated interim: an *attached* existing location
+  shows an empty panel while its real moves sit untouched on the server — display-incomplete and
+  **provably non-destructive**, which its gate must pin rather than assume (§35.1).
+- **5f-3b — the attach fetch and the two attach strips.** Last, and the only part of this whole plan that
+  changes an interaction users already have. `attachLocation` (`mystery-create.store.ts:1547-1566`) builds
+  a complete draft from the catalogue list item with zero HTTP calls today; once the draft needs
+  `existingCustomMoves` it becomes a fetch, which reaches **80 call sites in four spec files** that fail
+  with a `TypeError` inside the store rather than as a diff. Brings the spinner/disabled/local-error
+  treatment and the `Next`-during-attach `[disabled]` term, which is a correctness fix and not polish.
+  **If anything runs long, this is the unit to defer** — and splitting 5f-3 is what makes deferring it
+  cost only the attached-location case instead of the whole capability (§35.1).
 
 ### Phase 6 — Cross-domain drift guard and polish *(Luigi, Toad)*
 A five-domain parity spec modelled on `resource-images-four-domain-parity.spec.ts` — which exists precisely
@@ -1074,6 +1117,13 @@ Everything in §6.4. The only UI question that would have reached the API is a c
 rows**, and that is ruled out — so no list projection, list contract or TypeScript list interface changes
 anywhere in this plan. The create endpoints and entity request records are untouched either way (§1.3).
 
+**This sentence is the one §12 F5 would reverse**, and it is flagged here rather than only there because
+this is where someone checks whether a list projection is in scope. The ruling stands for Phases 1–6;
+Skyler has reserved a reconsideration for afterwards, on the grounds that putting `customMoves` on the
+location and bystander list items would make the wizard's attach simpler. F5 records that it would in fact
+**delete a sub-phase** rather than simplify one, along with the cost of doing so. **Nothing in 5f may be
+designed in anticipation of it.**
+
 ---
 
 ## 7. Risks and sharp edges
@@ -1090,10 +1140,10 @@ anywhere in this plan. The create endpoints and entity request records are untou
 | R8 | SQLite builds test schema from the model; only one test runs real migrations. | Extend `ResourceImageMigrationPostgresTests`, or add its sibling, as the Phase 1 and Phase 3 gates. A migration bug is otherwise invisible until deploy. |
 | R9 | Search quietly gains custom moves because one table makes it a five-line change. | §2.12 item 5. The two `SearchProvidersTests` exclusion tests are the guard; keep them, retargeted. |
 | R10 | The extra detail-page query (§2.6) is five new round trips nobody budgeted. | Named here rather than discovered. Trivial at this scale, and orthogonal to the controller shape. |
-| R11 | **The wizard's cost is in its two never-had-a-sub-resource phases, not in sequencing.** `submitPhase2`/`submitPhase3` are flat single-stage `forkJoin`s with no per-row baseline, so a wizard-authored location's moves cannot be written inside them; and refreshing ids without their baselines is the documented H2 hazard that makes every later submit delete and recreate the lot. | **Phase 5f-0** restructures both phases to phase 1's shape as a **provable no-op**, gated on the existing ledger specs passing unchanged. Not a §2.10 cost — it exists under either write shape (§2.12 item 2). |
-| R12 | **`shared/confirm-delete-modal.call-sites.spec.ts` is an exact census that can fail on a change that looks unrelated to it.** It pins every call site's input set as transcribed data (`:192-241`) and asserts *"18 of them, in 16 templates"* (`:320-323`). Under decision 14 the arithmetic is small — every detail page already mounts **exactly one** confirm modal, so the four existing pages add **zero** elements and only `mystery-detail` adds one: **19 in 17.** And because the spec compares *rendered DOM* rather than source expressions, R13's two migrations change which signal feeds the bindings but not the inputs that render, so those two call sites' transcribed data is unaffected. One new entry, for mystery. | Update the census in the same commit as 5e, never after. Named in the 5e gate. The broader rule still stands and is the reason this was checked: this repo census-tests cross-cutting overlay behaviour in three specs — `confirm-delete-modal.call-sites.spec.ts`, `escape-nesting.spec.ts`, `custom-select-escape-surfaces.spec.ts` — and `escape-nesting.spec.ts:112` pins that every detail page mounts the upload modal and one confirm modal as siblings, which 5e makes true of a fifth page. Check all three before estimating overlay work. |
+| R11 | **The wizard's cost is in its two never-had-a-sub-resource phases and in the attach, not in sequencing — and it is now measured.** `submitPhase2`/`submitPhase3` are flat single-stage `forkJoin`s with no per-row baseline; refreshing ids without their baselines is the documented H2 hazard that makes every later submit delete and recreate the lot. The attach change reaches **80 call sites in four spec files**, failing with a `TypeError` inside the store rather than as a diff. And 5f-2's additive work is **~24 sites across the monster/minion pair, 10 of them unprotected by the compiler** — one of which (`monsterComposerDirty`) silently discards a composer holding only a custom move. | **5f-0** restructures both phases as a **provable no-op** under §35.2's three conditions; **5f-3b** isolates the attach so it is the deferrable unit without costing the capability (§35.1); **5f-2** carries its unprotected-site checklist in the commit. None of this is a §2.10 cost — it exists under either write shape (§2.12 item 2). |
+| R12 | **`shared/confirm-delete-modal.call-sites.spec.ts` has two halves, and only one of them is a gate. The non-wizard half fails *silently* — which is the opposite of a spec that bites.** Its eleven non-wizard rows are transcribed data compared against themselves (`Object.keys(perTemplate)` and a `reduce` over the literal three lines above), so adding a call site leaves the suite **green** until someone edits the literal by hand. Measured in 5e: the new `mystery-detail` modal broke nothing. Its **wizard** rows *are* genuinely derived, from the rendering harness in `mystery-create-phase5b-monster-phase.spec.ts` — so the real failure risk is in **5f**, not 5a–5e. Arithmetic, for the record: every detail page already mounts exactly one confirm modal, so the four existing pages added zero elements and only `mystery-detail` added one — 19 in 17. | Treat it as **a literal to update, not a gate**, for anything touching the detail pages: the commit must edit the census by hand because nothing will remind it. Treat it as **a live gate for 5f**, where the wizard rows are derived and a composer or roster change can fail it for real. The three-spec overlay rule still stands and is why this got checked: `confirm-delete-modal.call-sites.spec.ts`, `escape-nesting.spec.ts` (`:112` pins that every detail page mounts the upload modal and one confirm modal as siblings), `custom-select-escape-surfaces.spec.ts`. |
 | R13 | **`location-detail.ts:55-56` carries a standing instruction naming this feature by name** — *"If this page ever grows a second delete flow (Custom Moves is read-only here today), it should move to the page-owned pattern."* Those two pages hold **no** page-level `pendingDelete`; they bind the modal straight from `imagesStore.pendingDelete()`, which cannot also carry a custom-move row. | 5c/5d migrate both to the closure-carrying page-owned record `monster-detail.ts:75` and `minion-detail.ts:63` already ship (§4.2 item 3). **Decision 14 makes this load-bearing rather than incidental** — that record *is* the page-owned pattern the comment asks for. Monster and minion need no migration. Budgeted in 5c/5d, the expensive pair. |
-| R14 | **Setting `errorMessage` on a failed write unmounts the page.** `mystery-detail.html:6` orders `@else if (errorMessage())` ahead of the content branch — as `location-detail` does, which is why `location-detail.ts:134-135` routes its sub-resource caveat to a toast and keeps `errorMessage` `null`. A custom-move failure wired to an inline error would replace the mystery with a red line. | §4.1 item 4: no new inline error surface on `mystery-detail`; the toast is the surface. Gate asserts the page stays rendered and `errorMessage` stays `null` on a failed write. |
+| R14 | **Setting `errorMessage` on a failed write unmounts the page.** `mystery-detail.html:6` orders `@else if (errorMessage())` ahead of the content branch, as all five detail templates do. A custom-move failure wired to an inline error would replace the entity with a red line. | **Discharged.** Phase A made `errorMessage` **load-only** across the whole detail-page family — it was already live on two pages before this feature — and 5e built the fifth page's first write path with the rule in force. Both halves are pinned: a negative control setting `errorMessage` on a failed write fails exactly the two survival assertions, and a *load* failure still renders inline, so the branch now means exactly "this page could not be loaded". Nothing in 5f re-opens it; kept here because the hazard is a property of the template ordering, which has not changed. |
 
 ---
 
@@ -1266,6 +1316,77 @@ explicitly **out of scope** for Phases 1–6.
 | F2 | **Revisit the create-page batch pattern as a unit.** `saveSubResourceDrafts` + `runBatch` + `draftsFailed` + the hedged copy is hand-rolled per create page, and after this work it carries five sub-resource types plus memberships across five domains. Worth asking whether it should be extracted into one primitive — the same question §2.9 asked about controllers, one layer up, and the natural companion to F1. | After Phase 6; F1 and F2 are one "cross-domain duplication" pass. |
 | F3 | **Retire the two stale deferral notes** in `docs/phases/phase-8-minions-ui-flow.md:217` and `docs/phases/phase-9-bystanders-locations-ui-flow.md:496` (§1.7) — they defer this UI on a premise that was already false. | With Phase 6's record-keeping commit. |
 | F4 | **Consider renaming `confirm-delete-modal` to match its actual role.** Decision 14 establishes it as the app's one confirm/inform dialog, and five call sites already pass a non-delete verb (`Switch to`, `Discard`, `Remove` ×4) — so the name is the only thing suggesting a second component might be needed for a non-delete case (§4.2). A rename touches 18 call sites, one component, three census specs and a decision record, all for zero behaviour change, so it wants its own small pass. **Explicitly not part of Phases 1–6**: custom-move delete is a delete. | On request, or the first time someone needs an inform-only dialog. |
+| F5 | **Reconsider the no-widening ruling for `LocationListItemResponse` and `BystanderListItemResponse`.** Skyler, on being shown that the wizard's attach would have to fetch: *"I think the split for deferrable work is fine for now, but I want to circle back to this when the primary work phases are complete. I may have changed my mind about widening the list projection if it simplifies the means to display an attached location or bystander."* **Deferred, not open** — see the analysis below. 5f proceeds exactly as approved and **nothing in it should be designed in anticipation of this reversing.** | When Phases 1–6 are complete. Pairs with F1/F2 as the third item in a cross-domain cleanup pass. |
+
+
+### F5 in full — because it is a bigger decision than "a convenience", and the cost side is real
+
+Recorded here rather than in the table because the framing matters to the eventual call, and because this
+is the entry a later reader will grep.
+
+**It would not *simplify* the attach display. It would delete a sub-phase.** Verified against the code:
+`attachLocation` (`mystery-create.store.ts:1547-1565`) builds a complete `LocationDraft` from the catalogue
+list item with **zero HTTP calls**, synchronously, inside one signal update. The *only* reason 5f-3b exists
+is that `CustomMoves` lives on `LocationDetailResponse` and not on `LocationListItemResponse`. Put it on the
+list item and the attach stays exactly as it is today — which removes, in one change:
+
+- the `list()` call on attach, for both locations and bystanders;
+- `locationAttachInFlight` / `attachingLocationName` / `locationAttachError` and their bystander twins;
+- the spinner / disabled / local-error treatment ported into two attach strips;
+- the `Next`-disabled-during-attach term — which §30.5 correctly identifies as a **correctness** fix, not
+  polish, because `next()` reads the roster synchronously;
+- the new stub across **80 attach call sites in four spec files**, and the ~10 ledger entries that change;
+- **and the interim state that made the 5f-3 split need a falsifier at all** (§35.1): with the moves on the
+  list item, an attached location's panel is correct on arrival, so 5f-3a *is* the whole of 5f-3.
+
+So the thing being weighed is not "a bit less UI work." It is **one of five wizard sub-phases ceasing to
+exist, along with the only new in-flight state in the wizard and the only interaction-changing work left in
+the plan.** That is the frame the decision should be made in.
+
+**One consequence nobody has named, and it needs an answer in the same breath.** If 5f-3b disappears,
+`CustomMoveService.list()` has **no caller anywhere**. It shipped in Phase 4 deliberately uncovered under
+decision L-D3, on the explicit promise that 5f-3 would be its first real caller and its validation gate
+(§27.2, §30.5). Widening the list projection retires that promise rather than keeping it — so the same pass
+must either find `list()` a real caller or delete it. Shipping a method on a promise and then removing the
+promise's only redeemer is how dead code becomes permanent.
+
+**The cost side, stated honestly so the decision is real rather than foregone:**
+
+1. **It is an uncapped collection of free text on a list route.** This is the strongest objection and the
+   one that distinguishes it from the `PrimaryImageId` precedent. Images are capped at 10 per owner and the
+   list carries a **single `Guid`**, never bytes. Custom moves have **no cap** (§2.7 deliberately declined
+   a unique index, and nothing limits the count), and `description` is the field §14-R8 identifies as *"the
+   type most likely to carry multi-line rules text."* So every location in the catalogue would ship its
+   full moves, descriptions included, with no bound on either count or length.
+2. **It is one endpoint with two consumers, and the wizard is the lesser of them.** The catalogue preload
+   calls `locationService.getAll()` → `GET /api/locations` (`:1036-1045`) — **the same route the
+   locations-list page uses** (`core/location.ts:15`). There is no wizard-only variant to widen. So the
+   payload grows on a page a user visits to browse, in order to serve one wizard interaction. The honest
+   version of the trade is *"make the browse route heavier so the wizard gets simpler."*
+3. **It would reopen decision 4.** *"No custom-move count on list rows"* was ruled on the basis that a
+   count requires a backend change. If the full array ships, `customMoves.length` is derivable client-side
+   and the count becomes a pure display choice. That is not an argument either way, but it means decision 4
+   stops being settled and §6.5's *"no list projection, list contract or TypeScript list interface changes
+   anywhere in this plan"* is the sentence being reversed.
+4. **Scope: two domains, not five — and the by-mystery variants stay out either way.** It is worth being
+   exact, because "widen the list projection" sounds broader than it is. **Monster is not a candidate**:
+   `hydrateMonsterDraft` (`:1120-1130`) fetches `getById` *plus* every minion's detail regardless, because
+   a monster draft needs attacks, powers, armors and weaknesses — none of which are on any list item. So
+   monster attach is irreducibly a fetch and widening its list would eliminate nothing. Minion and mystery
+   are not attached from a catalogue at all. **The elimination applies to exactly location and bystander,
+   which is exactly 5f-3b's scope.** And the four *by-mystery* list endpoints (`GET /api/mysteries/{id}/locations`
+   and siblings) would **not** need widening — the wizard catalogue does not use them — which matters
+   because resource-images already drew and tested that boundary
+   (`ByMysteryVariantsStayOutOfScopeTests.cs`), and reopening it by accident would be a regression against
+   a deliberate call.
+
+**My read, for whenever this is picked up:** the deciding question is item 1 against the sub-phase
+elimination. If a cap on custom moves per owner is acceptable (images took 10), the payload objection
+mostly dissolves and widening becomes clearly right. Without a cap, the trade is a permanently unbounded
+list payload against a one-time sub-phase, and permanent beats one-time. **So the real question to put to
+Skyler at that point is not "widen the list?" but "cap custom moves per owner?"** — the first answer falls
+out of the second. That reframing is the useful output of this entry, and it is why it is recorded now
+rather than rediscovered later.
 
 **One boundary worth recording for whoever picks up F1 or F2**, because it was derived here and will be
 needed there: the standing rule *"never put a collection in an `Upsert*Request` body"* is mechanically
@@ -5392,3 +5513,335 @@ The entity save **was** on this list and is not any more — Skyler scoped it in
   why), and `mystery-detail` has no write path until 5e, which builds it with the rule already in force.
   Phase A needed to touch neither, and the §26.2 L1 recommendation for all five pages is satisfied for
   three of them by their existing code.
+
+---
+
+# 35. The 5f re-evaluation *(Yoshi)*
+
+The pass Skyler reserved when he answered Q3 — *"After her pass, I will likely have Yoshi re-evaluate the
+solution based on how she wants to tackle this."* §13.5 is Rosalina's design, §26.2 L6–L10 and §30 are
+Luigi's measured plan, and all of Phases A, 1–3, 4 and 5a–5e have shipped since §§0–12 were written. This
+section re-decides 5f against what the code now is, amends my own §§0–12 where they are wrong, and says
+where I disagree with the other three without editing their sections.
+
+**What I verified first-hand rather than inheriting**, because three of the findings below turn on it:
+`sub-resource-diff.ts:50-118` in full (including `batch`), `custom-moves-card.component.ts:20-140`
+(`CustomMoveRow`, `CustomMoveCommit`, the input/output surface, `commitSucceeded`),
+`mystery-create.store.ts:69` (`SubResourceIdentity`), `attachLocation` at `:1547-1566`, and the five
+detail templates' modal counts anchored on `<`.
+
+**Headline: the plan is sound and I am changing one thing.** 5f-0, 5f-1 and 5f-2 stand as written. **5f-3
+should split in two**, because it currently bundles the only additive work left with the only
+interaction-changing work left, and Luigi's own deferral analysis (§30.6) identifies the right unit to
+defer at the wrong boundary. Everything else in §30 I would have Luigi build as he has written it.
+
+---
+
+## 35.1 Verdict on the decomposition: keep three, split the fourth
+
+### What holds
+
+**5f-0, 5f-1 and 5f-2 are the right three units** and I would not touch them. Each is independently
+revertible, each has a different failure class, and each has a gate that discriminates. 5f-0 in particular
+is the strongest idea in the whole plan and §35.2 strengthens rather than questions it.
+
+### Why 5f-3 should become 5f-3a and 5f-3b
+
+5f-3 as written contains two things with **different risk classes, different blast radii, and different
+answers to "may this be deferred"**:
+
+| | 5f-3a — composer panels for locations/bystanders | 5f-3b — the attach fetch and the strips |
+|---|---|---|
+| Nature | **Additive.** A new panel in two composers | **Changes an interaction users already have** |
+| Spec blast radius | Its own new assertions | **80 call sites in 4 spec files**, failing with a `TypeError` inside the store, plus ~10 ledger entries |
+| New state | None | `locationAttachInFlight` / `attachingLocationName` / `locationAttachError` ×2, and a new `[disabled]` term |
+| Correctness exposure | Normal | The `Next`-during-attach race (§30.5), which is a correctness fix, not polish |
+| Is it what §13.5.4 refuses to cut? | **Yes** — capability parity for wizard-authored locations | No — it is about *attached* locations |
+
+**The argument is Luigi's own, one boundary over.** §30.6 says: *"If anything in Phases 4–6 runs long, 5f-3
+is the piece to defer as a unit… the natural thing to cut under pressure is the second half of 5f-3 (the
+attach strips' busy treatment), which is the half that makes it correct."* Both halves of that are right.
+But deferring 5f-3 *as a unit* sacrifices the composer panels — and the composer panels are precisely what
+§13.5.4 argues must not be sacrificed, because *"a Keeper who builds a location inside the mystery silently
+loses an affordance they have outside it."* Deferring the unit throws away the thing the scope-cut argument
+protects, in order to defer the thing that is actually expensive.
+
+Split at the real seam and the deferrable unit becomes exactly the expensive, interaction-changing half,
+while capability parity ships. That is the same move 5f-0 makes against 5f-3's own restructure, and the same
+move Phase 1 made on the backend: **separate the thing that is additive from the thing that changes
+behaviour, so each is reviewed against its own question.**
+
+### The interim state 5f-3a leaves, which must be stated or the split is not safe
+
+If 5f-3a ships without 5f-3b, `attachLocation` still builds its draft from the catalogue list item, so an
+**attached existing** location arrives with `customMoves: []` *and* `existingCustomMoves: []`. Traced
+through `applySubResourceDiff` (`:65-104`): `claimed` is empty, `baseline` is empty, so `deletes` is empty
+and `saves` is empty. **No requests, and no data loss** — the location's real moves survive untouched on
+the server. The user sees an empty panel on a location that has moves, and adding one creates a sixth
+rather than editing one of five.
+
+So the interim is **display-incomplete and non-destructive**, which is an acceptable state to ship through
+and an unacceptable one to leave undocumented. Two requirements if the split is taken:
+
+1. **5f-3a's gate must pin the non-destructive property**, not assume it: attach an existing location that
+   has custom moves, press `Next`, assert the ledger contains **no** `DELETE` for them. That is one
+   assertion and it converts "I reasoned it is safe" into "it is measured safe." It is also the same
+   assertion 5f-3b needs inverted (§30.5 gate item 1 asserts no create *or* delete once the fetch lands),
+   so it is written once and tightened once.
+2. **5f-3a must not render the panel as authoritative.** Whatever Rosalina and Luigi choose here is theirs,
+   but the architectural requirement is that an attached location's panel must not imply "this location has
+   no moves" while the fetch is absent. If that cannot be expressed without the fetch, then 5f-3a and
+   5f-3b are not separable and the split should be declined — **that is the test, and it is Luigi's to
+   apply, not mine to assume.**
+
+If either requirement is awkward in practice, keep 5f-3 whole. The split is a recommendation with a stated
+falsifier, not a ruling.
+
+### Approved, with a reconsideration reserved for afterwards
+
+**Skyler took the split**, and the falsifier above remains Luigi's to apply when he builds it. He also
+reserved a return to the decision that *creates* 5f-3b in the first place: *"I may have changed my mind
+about widening the list projection if it simplifies the means to display an attached location or
+bystander."*
+
+**§12 F5 carries that in full, and the headline is that it would not simplify 5f-3b — it would delete
+it.** `attachLocation` needs a fetch for exactly one reason: `CustomMoves` is on the detail response and
+not the list item. Put it on the list item and the attach stays the synchronous zero-HTTP signal update it
+is today, which removes the fetch, all three in-flight signals per domain, both strips' busy treatment, the
+`Next`-disabled correctness term, the 80-call-site stub — **and the interim state that made this split need
+a falsifier at all.** F5 also prices the other side, which is not small: an uncapped collection of free
+text on a list route that the locations-list page shares with the wizard catalogue.
+
+**It is deferred, not open.** 5f-3a and 5f-3b proceed as approved, and **nothing in 5f should be designed
+in anticipation of this reversing** — a sub-phase built half-way toward a change that may not happen is
+worse than either outcome.
+
+---
+
+## 35.2 5f-0's no-op is provable — under **three** conditions, and the third one I had to check
+
+§26.2 L10 states two conditions and both are correct. There is a third, it is load-bearing, and it is
+already satisfied — which is why it belongs in the gate as a *verified premise* rather than a risk.
+
+**Condition 1 (Luigi's) — it holds only because both ledgers sort.** Verified: `expectLedger` is
+`expect([...sent].sort()).toEqual([...expected].sort())` in both files. One thing worth adding to his
+framing, because it makes the gate stronger than he claims rather than weaker: sorting two arrays and
+comparing with `toEqual` is **multiset** equality, not set equality. Duplicates survive the sort. So the
+gate does prove *request count* as well as request identity, and the only thing it gives up is
+**sequence** — which is the right thing to give up here, because `PUT /api/locations/{id}` and
+`PUT /api/mysteries/{m}/locations/{id}` are independent resources whose interleaving is unobservable.
+State the equivalence the gate proves (same multiset, any order), not just "the ledgers sort."
+
+**Condition 2 (Luigi's) — 5f-0 must not adopt entity-level dirty checking.** Correct, and the two specs he
+names (`phase4-ledger.spec.ts:404` S4 and `:206` A6) are the right ones. Worth noting *why* this temptation
+is strong and structural rather than careless: the restructure's whole purpose is to introduce
+`applySubResourceDiff`, and a developer who has just internalised "don't write what hasn't changed" one
+level down will reach for it one level up. The guard is that the dirty check lives **only** inside
+`applySubResourceDiff`, over the custom-move collection, per decision 9.
+
+**Condition 3 (mine, verified) — the diff must emit on an empty collection, and it does.** This is the one
+that would have made 5f-0 *not* a no-op, because 5f-0's defining state is "the new diff runs over empty
+collections." `forkJoin([])` completes **without emitting**, so a `switchMap` downstream of an empty diff
+would never run and phase 2's submit would hang — a hang, not a failed assertion, and the ledger specs
+would report it as a timeout rather than a diff. It does not happen: `applySubResourceDiff` returns
+`forkJoin({ deleted: batch(deletes), saved: batch(saves) })`, a **dictionary** forkJoin with two
+always-present keys, and `batch` (`sub-resource-diff.ts:116-118`) is
+`requests.length > 0 ? forkJoin(requests) : of<T[]>([])`. Empty in, `of([])` out, emits synchronously.
+
+So the trap is already closed, by the same `runBatch` pattern `monster-create.ts:375-377` uses on the create
+pages. **Name it in 5f-0's gate as a premise anyway**, for the reason §16.2-style verification exists in
+this doc at all: a later change to `batch` that "simplifies" the empty case to a bare `forkJoin` would turn
+every empty sub-resource collection in the wizard into a hang, and nothing currently says that
+short-circuit is load-bearing. One sentence in `batch`'s own comment is the cheaper half of the fix.
+
+**With all three stated, the no-op claim is sound.** 5f-0 should ship exactly as §30.2 describes, including
+carrying phase 1's `index`-through-to-writeback approach rather than `backfillDraftIds`' positional match.
+
+---
+
+## 35.3 The order is load-bearing, and the reason is the oracle — not a dependency
+
+Worth stating because it looks like it could be relaxed. Only **5f-3** actually depends on 5f-0: phases 2
+and 3 need the two-stage shape before a location can write a sub-resource. 5f-1 is phase 0 and 5f-2 is
+phase 1, which is already two-stage. So on dependency alone the cheap sub-phases could go first.
+
+**They should not, and 5f-0 must stay first.** 5f-0's entire gate is *"both ledger specs pass unchanged."*
+That claim is only meaningful while the ledgers are the ones the current code produces. 5f-1 amends six
+`currentStep.set(3)` call sites across three spec files (§26.2 L8) and 5f-2 adds a fifth collection to the
+phase-5a id-survival oracle (§30.4). Run either first and 5f-0's gate degrades to "the ledgers pass
+unchanged *as amended by the sub-phase that just changed them*" — an oracle that has been edited by the
+person it is meant to check.
+
+This is the same principle as Phase 1 being additive-only on the backend and as 5f-0's own existence: **do
+the behaviour-preserving restructure while an unmodified oracle still exists to prove it preserved
+behaviour.** Keep `5f-0 → 5f-1 → 5f-2 → 5f-3a → 5f-3b`.
+
+---
+
+## 35.4 Finding 1 needs a structural answer in the wizard, and it is not a test
+
+§29.4's discovery — **the card's `ownerType` and the host's service owner type are two independent
+literals, neither guarding the other** — is the most important thing the implementation learned, and in the
+wizard it changes form rather than going away.
+
+The card does not travel into the composers (§35.5), so the *presentational* literal is absent there. What
+is present is worse: §30.1's factory is called **with an owner-type literal at each use site**, and those
+use sites are spread across `submitPhase0`, `saveThreatCollections`, `saveMinionCollections`,
+`saveLocationDraft` and `saveBystanderDraft` — five methods in a **3,187-line store**. A wrong literal
+(`customMoveSubResource('Monster')` inside `saveMinionCollections`) is one token, compiles, and writes a
+minion's moves into the monster owner space. Nothing reads them back on that page, so it is invisible until
+someone opens the monster.
+
+**On the detail and create pages this error class is bounded by construction** — there is one host, one
+owner, one literal, and the exact-call ledger asserts the URL. In the wizard there are five owners in one
+file, which is the condition under which "assert it per site" stops being sufficient on its own.
+
+### Recommendation: five adjacent adapter fields, created once — never a factory call at a save site
+
+```
+private readonly mysteryMoves   = this.customMoveSubResource('Mystery');
+private readonly monsterMoves   = this.customMoveSubResource('Monster');
+private readonly minionMoves    = this.customMoveSubResource('Minion');
+private readonly locationMoves  = this.customMoveSubResource('Location');
+private readonly bystanderMoves = this.customMoveSubResource('Bystander');
+```
+
+…and every save site passes `this.minionMoves`, never `this.customMoveSubResource(...)`.
+
+This does not remove the five literals — nothing can, the owner type genuinely is data. It does something
+narrower and sufficient: **it collapses them from one-per-call-site scattered across five methods into five
+adjacent declarations that read as a table.** A reviewer can check a five-line block against the five
+collection names in one glance; they cannot check five literals a thousand lines apart. That is exactly the
+move §2.9 made for routes (one constraint, not five `[HttpGet]` attributes), that `OWNER_SEGMENT` made for
+route segments, and that §30.1's factory already half-makes by existing at all — this is the other half.
+
+Two supporting requirements:
+
+1. **A derived per-owner write assertion**, in the §27.3/L11 spirit rather than a transcribed one: for each
+   of the five collections, drive the wizard path that saves it and assert the request URL's owner segment.
+   Five assertions, one loop, and it fails on the exact mistake above. The `data-owner-type` analogue does
+   not exist in the wizard, so this is the *only* guard on the write half — §29.4's closing warning
+   (*"asserting `data-owner-type` per page proves the card is labelled right, not that the page writes to
+   the right owner"*) applies here with no second line of defence.
+2. **Phase 6's drift guard should not be assumed to cover the wizard.** §29.4 is right that the attribute
+   does not cover the write path; in the wizard there is no attribute at all. Phase 6's five-domain parity
+   spec covers the nine card call sites. The wizard's five owner literals need their own assertion, and
+   §31.3's scope should be read as "nine call sites", not "five domains".
+
+---
+
+## 35.5 The card should **not** travel into the composers — and finding 3 is answering a different question
+
+§13.5.3 declined to put the shared card in the wizard composers, on density: the `w-[42%]` column is a
+different density, *"share across pages of the same density; copy across densities."* §29.5 then found that
+**the draft surface is free** — the card owns its own form, so a host needs no `ReactiveFormsModule` and no
+`FormBuilder` — which makes it fair to ask whether the density argument was the whole cost.
+
+**It was not the whole cost, and the real one is decisive. Keep her call.** The reason is a type-level
+mismatch the implementation created and nobody has yet named:
+
+| | Identity model | Why |
+|---|---|---|
+| `CustomMoveRow` (`custom-moves-card.component.ts:27-33`) | **one** field — `key: string` | *"the server id on a detail page, a client draft key on a create page"* |
+| `SubResourceIdentity` (`mystery-create.store.ts:69`) | **two** fields — `id: string \| null` and `localKey: string` | the diff needs both: `id` decides create-vs-update, `localKey` keeps the row stable across the transition where the id arrives |
+
+`CustomMoveRow.key` **collapses** a distinction that *is* the wizard's algorithm. `applySubResourceDiff`'s
+first branch is `draft.id === null → create`; its carried-forward branch exists so a clean row's key
+survives a phase transition. A single opaque `key` cannot express "I am this row and I have no server id
+yet," and from the type you cannot tell which kind of key you are holding.
+
+So hosting the card in a composer requires one of two things, and both are worse than a hand-written panel:
+
+- **Widen `CustomMoveRow` to carry both fields** — degrading the type for all **nine shipped call sites**
+  that correctly need only one, to serve five that are not using the card.
+- **Keep a parallel key→id map in the composer** — a second source of identity truth, in the one subsystem
+  that has been bitten twice by baseline-and-draft divergence (`mystery-entity-linking.md` rev 12, BUG 1
+  and BUG 2). That is the §2.12-item-2 hazard class exactly.
+
+**So finding 3 is true and does not reach this decision.** It measures the cost of *hosting a form*; the
+blocker is the cost of *reconciling two identity models*. The card's single-`key` model is the right
+simplification for a surface that writes immediately or stages once, and the wrong one for a surface whose
+rows are diffed against a baseline across phase transitions. Rosalina's conclusion stands on a sturdier
+footing than density — and the general rule worth keeping is **share a component across surfaces that agree
+about identity; copy across surfaces that do not.**
+
+One consequence for §30.1's `CustomMoveDraft`: it must extend `SubResourceIdentity`, so it is *not*
+`CustomMoveRow` with extra fields and no one should try to derive one from the other. They are two view
+models of one wire type, which is the normal and correct outcome.
+
+---
+
+## 35.6 What is now wrong in my own §§0–12, and what I amended
+
+Corrected in place, no changelog. Listed so the other authors can see what moved under them.
+
+| Where | Was | Now |
+|---|---|---|
+| **R12** | The confirm-modal census *"will fail on a change that looks unrelated to it"*; named as 5e's gate. | **Inverted — this was wrong, and 5e measured it.** The eleven non-wizard rows are self-referential (`Object.keys(perTemplate)` compared against the literal three lines above), so a new call site **silently passes**. The gate is the opposite of what I wrote: not "expect a surprise failure" but "expect no failure, and update the literal by hand." The spec's derived half covers only the **wizard** rows, from `mystery-create-phase5b-monster-phase.spec.ts` — so for **5f** the warning is live and genuine. R12 now says both halves and points the live half at 5f. |
+| **R14** | A live hazard for 5e: don't add an inline error surface to `mystery-detail`. | **Discharged.** Phase A made `errorMessage` load-only across all five detail pages and 5e built the fifth with the rule already in force, with both halves pinned by negative controls. Marked as closed by Phase A + 5e rather than left reading as pending work. |
+| **§4.1** | Three component additions for `mystery-detail`, one deliberate non-addition. | **Five**, measured by 5e: `activeMutation`/`isMutating`, `NotificationService`, the modal plus page-owned `pendingDelete`, **a `mysteryId` signal** (`ngOnInit` read `params.get('id')` inside its pipe and discarded it), and **a targeted refetch** that reloads only the mystery. The non-addition held exactly. |
+| **§5 Phase 4** | *"Do not promote `sub-resource-diff.ts` to `shared/`"* on the conceptual ground that the other surfaces have no baseline. | Kept, with Luigi's mechanical reason folded in because it is sturdier: the file imports `SubResourceIdentity` **from `mystery-create.store.ts`**, so promoting it drags a 3,187-line store into `shared/` or forces that type to move first. A reason that does not depend on anyone agreeing about baselines. |
+| **§5 Phase 5f** | Four sub-phases. | Five, per §35.1, with the interim state and its falsifier stated. |
+| **R11** | The wizard's cost is phases 2/3 and the attach, unquantified. | Same conclusion, now with the measured numbers (80 call sites in 4 spec files; 24 per-owner sites of which 10 are unprotected by the compiler) and a pointer to 5f-0's three conditions. |
+| **§2.12 item 2** | Correct as amended last round. | Unchanged in substance; the reference to 5f-3 now reads 5f-3b, which is where the cost actually sits. |
+
+**One thing in §§0–12 that I checked and left alone:** §2.9's `SUPPRESS_ERROR_TOAST` requirement. L11
+re-measured the two 404s as distinguishable (162 B `problem+json` vs. 0 B bodiless), which weakens the
+*diagnostic* argument I gave for it. The requirement stands on the other leg — two toasts per failure, one
+of them naming a URL and a GUID beside a hedged caveat — and that leg is untouched. Noted rather than
+amended, because the sentence I wrote is still true; it is just no longer the strongest reason.
+
+---
+
+## 35.7 Three things I would flag in §§13–34, without editing them
+
+Boundary respected; these are for their authors.
+
+1. **§30.4's five unprotected sites deserve one more than it gives.** It supplies assertions for
+   composer-dirty, writeback and reset. `monsterComposerPreview()` (site 4, the dossier's source) has
+   none — and 14-R10's own argument is that *"a collection missing from the dossier reads to the user as a
+   collection that did not save."* A preview omission is silent in exactly the way the other four are, and
+   the dossier is the surface whose whole job is to report what was authored. One assertion that a composer
+   holding only a custom move appears in the preview would close it.
+
+2. **§30.5's gate item 3 is right and understates its own precedent.** *"The 80 call sites' stub returns
+   something non-empty in at least one test, or the whole fetch path is covered only by `of([])`"* is the
+   standing rule *"a fake repository must mirror the real one's return semantics"*
+   (`toad-fake-repositories-must-mirror-real-return-semantics.md`) — a hardcoded empty return makes every
+   round-trip assertion vacuous. Citing the record would put it in the same frame as the three other
+   standing test decisions this plan already leans on.
+
+3. **§13.5.3's "no row edit in the wizard panels" is now a three-way inconsistency, not a two-way one.**
+   Her reasoning (the four neighbours have none, no room at that density, don't grow 5f) is sound and I
+   would not change the call. But after 5a–5e the detail *and* create surfaces both have row edit, so the
+   wizard is the only place a custom move cannot be edited in place — and F-R1 covers it as "all five
+   wizard collections at once," which is the right shape. Worth one line in §30 acknowledging it is three
+   surfaces disagreeing rather than two, so the first bug report about it meets a documented decision.
+
+---
+
+## 35.8 Questions for Skyler
+
+**One, and it is the only thing I would want answered before Luigi starts.**
+
+**Q — Take the 5f-3 split, or keep 5f-3 whole?** (§35.1.) Splitting makes the deferrable-under-pressure
+unit exactly the expensive half (the attach fetch, 80 spec call sites, the new in-flight state, the
+`Next`-during-attach correctness fix) while shipping the capability parity §13.5.4 argues must not be cut.
+The cost is one more sub-phase boundary and one interim state — an attached existing location shows an
+empty moves panel while its real moves sit untouched on the server, which is display-incomplete and
+provably non-destructive.
+
+**My recommendation: split**, with 5f-3a's gate pinning the non-destructive property rather than reasoning
+it. **Decline the split** if Luigi judges that an attached location's panel cannot be rendered honestly
+without the fetch — that is §35.1's stated falsifier and it is his call, not mine.
+
+> **Answered: the split is approved**, falsifier intact. Skyler also reserved a post-Phase-6 return to the
+> list-projection ruling that makes 5f-3b necessary — recorded as **§12 F5**, cross-referenced at §6.5 and
+> §35.1, and **deferred, not open**. The finding worth carrying out of it: widening the two list items
+> would **delete** 5f-3b rather than simplify it, and would orphan `CustomMoveService.list()`, which
+> shipped in Phase 4 under decision L-D3 on the promise that 5f-3 would be its first caller and gate. The
+> question to put at that point is not *"widen the list?"* but **"cap custom moves per owner?"** — the
+> first answer falls out of the second, because the only serious objection to widening is an uncapped
+> collection of free text on a shared list route.
+
+Everything else in §30 I would build as written. Nothing in Phases 1–3, 4 or 5a–5e needs revisiting.
