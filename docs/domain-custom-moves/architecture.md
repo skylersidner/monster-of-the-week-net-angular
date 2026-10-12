@@ -4455,6 +4455,49 @@ host's three members are the entire immediate-write story.
   the whole `HttpClient` chain (§26.1). Only specs that *exercise* the card need the stub, which is what
   keeps 5b–5e off the 23 fixture files.
 
+## 29.4 5b shipped, 2026-10-11 — the handoff held, with one structural surprise
+
+**Results.** Suite 1582 → **1612** (114 files), typecheck clean, three negative controls, **35/35**
+browser checks **on the first run** — 5a's three Playwright rules transferred without a retry. Zero data
+footprint (`custom_moves` 0 rows, no `PHASE5` residue, 4 mysteries / 4 monsters / 6 minions intact).
+
+**Everything on §29.3's copy-verbatim list transferred unchanged**, which is the main thing worth
+recording: the three detail-host members, `runAndRefresh` with `onSuccess`, the `pendingDelete`
+extension, both template card blocks, and the three spec structures including the `getById` ledger entry
+and the `never calls list()` guard. Nothing needed to diverge, and nothing on the decide-for-itself list
+turned out to be a real decision — Minion matches Monster on placement, has `isMutating()` already, and
+*edits* its create blurb rather than introducing it. **The pilot's shape was right.**
+
+The only differences were this domain's own shape, not the feature's: a minion belongs to a **monster**
+rather than to mysteries (so there is no `mysteryIds`, no `MysteryService` and no membership flow), its
+type is a nested `minionType` object, and it is created under its parent at
+`POST /api/monsters/{id}/minions` from a route-locked create page.
+
+### The structural surprise, found by a control that under-fired
+
+I predicted **3** failures from wiring the minion card as `ownerType="Monster"` and got **1** — the
+rendered-attribute assertion, and nothing else. The reason is worth carrying into 5c–5e and Phase 6:
+
+**The card's `ownerType` and the host's service owner type are two independent literals.** The card's is
+presentational — it renders `data-owner-type` and nothing more; the *writes* take their owner from the
+host's own `create('Minion', …)` in TypeScript. So a page can render one domain and write to another, and
+neither literal guards the other. Confirmed by the converse control: changing the host's literal to
+`'Monster'` failed **exactly 2** tests, both ledger assertions, and left the attribute test green.
+
+So each half needs its own assertion, and 5a/5b have both: `data-owner-type` for the rendered half and
+the exact-call ledger for the write half. **Phase 6's guard should not assume the attribute covers the
+write path** — asserting `data-owner-type` per page proves the card is labelled right, not that the page
+writes to the right owner.
+
+### One process note for 5c/5d
+
+I started 5b by `sed`-deriving the minion detail spec from the monster one, and threw it away. The rename
+produced a duplicate `MinionService` import, a fixture with `minionArchetype`/`minionTypeId` fields
+`MinionDetailResponse` does not have, a stub for a non-existent `getByMinion`, and a `MysteryService`
+provider the page never injects. **The 2026-10-06 lesson generalises: a derived spec needs its *provider
+list* and its *fixture shape* re-checked, not only its identifiers** — and 5c/5d diverge more from the
+pilot than 5b did, so the temptation will be stronger and the payoff smaller. Write them.
+
 ---
 
 # 30. The wizard, 5f-0 … 5f-3
