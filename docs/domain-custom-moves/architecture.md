@@ -5232,6 +5232,173 @@ rather than introducing one — and promoting the drain to a sibling would be a 
 failure path that 5f-1 did not ask for and **no spec pins** (nothing makes `upsertCountdown` fail
 anywhere in the suite). Stated in the code and recorded as **F-L8** rather than made quietly.
 
+## 29.10 5f-2 shipped, 2026-10-12 — the checklist was short by two, and wrong about two more
+
+**Results.** Suite 1718 → **1738** (123 files, two new), typecheck clean, **48/48** browser checks,
+zero data footprint, nothing backend. Six negative controls, each predicted in both directions, each
+attributed to a single site.
+
+### The sites, derived rather than read off the table
+
+§26.2 L6's twelve rows were assembled by grepping for the feature. 5f-2 found them a different way,
+and the difference is the finding: **the four existing sub-resource collections always travel
+together, so any expression naming all four is a place a fifth belongs.** A script walks every
+non-spec file in the wizard directory and reports every line naming an `armors` collection — the
+last of the four in every one of these runs — together with whether a custom-move mention sits
+within a short neighbourhood.
+
+| | lines naming an armor collection, without a custom-move mention nearby |
+|---|---|
+| before | **95** |
+| after | **13** |
+
+The thirteen survivors are explicable and were checked one by one: six are the two Armor *panel
+bodies* (armor-specific fields — Soak, Special — with the new panel immediately after each), one is
+`toArmorDraft`, and six are the two armor *adapters*' service methods. None is a per-owner site.
+
+**It found two sites the table does not list, and neither is a volume row:**
+
+1. **The roster cards' count summaries — four places**, two templates (`mystery-create-monster-phase.html`
+   and the dossier's matching roster entries). §17.2's comment is already explicit that every count
+   there comes from the draft's own collections; what it does not say is that a *missing* collection
+   reads as a zero. A monster whose only content is two custom moves rendered
+   *"Attacks: 0 · Powers: 0 · Armors: 0 · Weaknesses: 0 · Minions: 0"* — an empty monster that is not
+   empty. Now `· Moves: N`, before the Minions term on the monster card because Minions is the
+   cross-step link and reads last.
+2. **The minion removal modal's `[items]`** (`mystery-create-monster-phase.ts`). That list is a
+   *promise about what the deletion will take* (§7.7i(3), UX §18.4), not a summary — so a minion
+   holding only custom moves promised nothing and took them anyway. The monster modal needs **no**
+   twin: its `[items]` is the minion cascade, not a sub-resource list. A decision, not an omission.
+
+### And it is wrong about two of the five it calls silent
+
+**The two previews are compiler-protected, not silent.** Control: strip `customMoves` from
+`monsterComposerPreview` and `minionPreview` and nothing else. Predicted a compile failure; got **9
+Angular-compiler errors, four of them naming `mystery-create-dossier.html` by line.**
+
+L6's reasoning is that "adding a field to the interface does not force an entry into an inferred
+`computed` return." True of the *interface*; false of the *consumer*. A `computed`'s return type is
+inferred and that inference flows outward, so the moment the dossier reads `.customMoves` off it, the
+omission is a type error. **The protection is conditional and worth stating as such**: it exists only
+because the consumer was added in the same change. Add the preview key with no consumer and nothing
+catches it — but then there is nothing to catch, which is the honest version of the claim.
+
+So the genuinely silent set is **three per owner**, not five: `editMonsterDraft`,
+`resetMonsterComposer`, `writeBackMonsterDrafts`, and their minion twins.
+
+**§26.2 L7's prefix parameter is one line plus four arrows.** L7 says "no behaviour change to the four
+existing callers". Adding the parameter made all four stop compiling, because `.map(toNamedDraft)`
+hands the array index to the second parameter — `number` is not assignable to `string`, so TypeScript
+refused. Had the parameter been untyped or widened it would have compiled and minted every hydrated
+row's key as `0-1`, `1-2`… The compiler asked for the arrows, which is the good kind of friction, and
+the lesson generalises: **never pass a function with an optional second parameter bare to `.map()`.**
+
+### Proving the silent sites covered — per site, because a combined control lies
+
+The gate was "the silent sites need proving, not listing." One combined strip was not enough, and the
+reason is worth more than the result.
+
+**The combined control under-reported.** Stripping every unprotected line at once failed 14 tests —
+but `5f2-E2` (the minion pencil loads its moves) **passed**, because the reset omission masked the
+edit omission: with `resetComposer` no longer clearing, the composer still held the move the pencil
+was supposed to load, and the assertion read a stale value as a correct one. **Two omissions can
+cancel, so a combined control measures their interaction rather than their coverage.**
+
+Re-run per site:
+
+| site | stripped alone → failing tests |
+|---|---|
+| `monsterComposerPreview` + `minionPreview` | **build failure**, 9 errors, 4 naming the dossier template |
+| `monsterComposerDirty` / `minionComposerDirty` | `5f2-D1`, `D2`, `D3`, `D4` |
+| `editMonsterDraft` + `editMinionDraft` | `5f2-E1`, **`E2`**, `R1`, `R3`, and `5a-U8` |
+| `resetMonsterComposer` + `resetComposer` | `5f2-R1`, `R2`, `R3`, `E1` |
+| `writeBackMonsterDrafts` | `5f2-W1`, `W2` |
+| `writeBackMinionDrafts` | `5f2-W1` |
+| the four count summaries | `5f2-C4` |
+| `pendingRemoveItems` | `5f2-C5` ×2 |
+
+Every site is covered by at least one test that fails by name when it is removed.
+
+**`5a-U8` failing is the most interesting entry.** Stripping the edit loaders makes
+`saveMonsterDraftToList` commit an empty `customMoves` onto a *hydrated* monster whose baseline still
+holds the row — so the submit issues a `DELETE` for it. `mystery-create-phase5a-ledger.spec.ts` does
+not stub `CustomMoveService`, which is root-provided, so that delete reaches a real `fetch`, fails,
+and takes the whole submit with it; the attack id the test reads is then `null`. **That file is now
+an implicit guard that the clean path issues no custom-move traffic at all** — effective, and
+fragile in a way worth recording: the failure it produces is an opaque network error rather than a
+diff. Stubbing it belongs with 5f-3's 80-call-site work, not here.
+
+### `monsterComposerDirty`, the one that destroys work
+
+Measured twice, with the fixture §30.4 asks for — a composer holding **only** a custom move, so it
+cannot pass by accident:
+
+- **Unit** (`5f2-D3`): add one move to an empty composer, attach an existing monster, and the
+  composer stays open with its move. Omit the clause and `collapseComposerIfUntouched` fires,
+  `next()`'s commit rule skips a closed composer, and the move is gone with no message and nothing
+  on the wire.
+- **Browser** (checks 43–47): the same flow against the dev server, in its own wizard so the roster
+  count stays unambiguous. The composer survived the attach, the row survived, and the attached
+  monster's own moves stayed separate.
+
+### What the fake does, and why the hydrated fixtures grew a row
+
+The bar from 5f-0, applied in both new specs: the created id is a sentinel (`srv-move-N`), never the
+draft key, and the name and description are **echoed**, because `applySubResourceDiff` makes the
+response the next baseline — a fake answering `{ name: '' }` would make every row read dirty on the
+next submit and fail `5f2-W2` for a reason unrelated to the code.
+
+The same reasoning drove the phase-5a change. §30.4 says extend the `5a-U1` oracle with a fifth
+collection rather than write a parallel one, and that costs exactly **two** literal edits: the other
+eight comparisons are snapshots, so they start asserting custom-move id survival for free. Its two
+hydrated fixtures gained **one move apiece** — an empty collection still fails if the writeback drops
+the field (`idsOf(undefined)` throws) but cannot catch the ids being *rotated*, which is the failure
+5a exists to prevent.
+
+### The shipped-spec edits, and the one that looks out of place
+
+Five, and four of them are the two compiler-protected sites seen from the spec side:
+`MonsterDraft`/`MinionDraft` are interfaces with required fields, so every hand-built fixture stopped
+compiling and **the compiler named each file**. That includes
+`shared/custom-select-escape-surfaces.spec.ts`, which 5e recorded as needing nothing for this work.
+Both are true, and the distinction is worth keeping: *"needs nothing" was a claim about the Escape
+behaviour it guards — no new `app-custom-select` surface, no new case, no new assertion. A shared
+draft interface gaining required fields reaches every file that builds one by hand, wherever it
+lives.* The diff there is two lines inside a `rosterMonster()` builder.
+
+The fifth is the prescribed phase-5a oracle extension.
+
+Two more detail fakes (`mystery-create.store.spec.ts`) gained `customMoves: []` for the same reason
+5f-1's five did — untyped `useValue` literals the compiler cannot check against the response
+interface. **No defensive `?? []` in `toHydratedMonster`**: the field is non-optional on the response
+and the API serialises `[]`, so tolerating its absence would mask a backend regression.
+
+### The browser run, 48/48 — after two probe bugs, both mine
+
+Authored a monster and a minion inside the wizard, each with one custom move, read both back off
+their detail pages, re-entered edit mode and finished the whole wizard again to confirm no
+duplicates. Then a second wizard for the attach case.
+
+The two bugs are worth recording because both produced *passing* checks:
+
+1. **`app-custom-select` addressed by index.** The attach strip and the two type pickers are the same
+   component, so `app-custom-select` first() was the *strip* — the probe attached a catalogue monster
+   while meaning to pick a monster type, left the composer invalid, and four later checks read the
+   wrong roster card. Every select is now addressed by its id (`#attach-monster`, `#monsterType`,
+   `#monsterArchetype`, `#minionType`). **A control and the thing it controls can share a component.**
+2. **An absence assertion against a collapsed panel.** "The composer was reset — no rows left behind"
+   passed because saving a monster *collapses* the composer, so the panel was not rendered at all and
+   the count was trivially zero. It now reopens a fresh composer first. **`count(x) === 0` is
+   vacuous wherever the container can be absent** — the same shape as 5e's census blindness, one
+   surface over.
+
+**Cleanup ran before anything that could fail and again in a `finally`.** The sweep covers mysteries,
+monsters **and** minions, which mattered: deleting the mystery detaches a wizard-authored monster
+rather than deleting it, so the post-sweep removed the mystery *and* the monster separately. Audited
+after: 4 mysteries / 4 monsters / 6 minions / 20 locations / 15 bystanders / 4 images / **0
+custom_moves**, and `name like 'PHASE%'` empty across five tables — exactly the state the phase
+started from.
+
 ---
 
 # 30. The wizard, 5f-0 … 5f-3
@@ -5595,6 +5762,7 @@ Numbered L-R to sit beside §7's R1–R14, §14's 14-R1–14-R10 and §24's B-R1
 | F-L6 | **Converge the flat rosters' save-method names on the monsters path's.** The public composer commits are `saveLocationDraft`/`saveBystanderDraft`; the monsters twin is `saveMonsterDraftToList`, which is why phase 1's private per-row save could be `saveMonsterDraft` and 5f-0's had to be `saveLocationRow`/`saveBystanderRow`. Renaming the two public ones `…DraftToList` reaches 7 call sites across 4 spec files **including `mystery-create-phase4-ledger.spec.ts:292`**, which is why it could not happen inside 5f-0 (§29.8). Pure rename, no behaviour. | After 5f-0's gate is discharged — any pass over the wizard store. |
 | F-L7 | **Decide whether `saveMonsterDraft` should keep the id it PUT at.** It returns the `PUT` response's `monster.id` and writes that onto the draft. In production the two agree; if they ever did not, a persisted monster draft would silently re-key mid-session and its baselines would stop matching — the §2.12-item-2 hazard class. 5f-0 took the other answer for locations and bystanders because `backfillDraftIds` had, and because the phase-4 ledger's fakes measure it (§29.8). Phase 1's ledger does not, so nothing says which answer it is on. One line plus one assertion. | Any pass over `submitPhase1`, and before 5f-2 extends the phase-5a oracle. |
 | F-L8 | **Make phase 0's drain a `forkJoin` sibling, as phases 1–3 already do.** `submitPhase0` chains `applyPendingRemovals` *after* the countdown, so a failed countdown strands a confirmed deletion — H6 (§7.7h) says it should not, and the other three phases agree. Pre-existing; 5f-1 widened it by one sibling (the custom-move diff) rather than introducing it, and declined to fix it because it is a behaviour change on the failure path that nothing in the suite pins (no spec makes `upsertCountdown` fail). One line in `submitPhase0`, plus the failure-path test that does not currently exist. | Any pass over `submitPhase0`, or the first time a phase-0 failure is reported as a lost removal. |
+| F-L9 | **Stub `CustomMoveService` in `mystery-create-phase5a-ledger.spec.ts`.** It is root-provided and that file does not override it, so any custom-move request on what should be a clean path reaches a real `fetch`, fails, and takes the whole submit with it — measured in 5f-2, where a stripped `editMonsterDraft` surfaced as a *null attack id* in `5a-U8` rather than as a diff. Effective as an implicit guard, opaque as a failure. A recording fake keeps the guard and makes it legible. | With 5f-3b's stub work across the four spec files, which has to touch that file anyway. |
 
 ---
 
