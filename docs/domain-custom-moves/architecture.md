@@ -1388,6 +1388,22 @@ Skyler at that point is not "widen the list?" but "cap custom moves per owner?"*
 out of the second. That reframing is the useful output of this entry, and it is why it is recorded now
 rather than rediscovered later.
 
+**Answered by Skyler, 2026-10-12 — item 1 does not hold, on a domain fact the code cannot show.** In his
+words: *"custom moves are an exceptional object, not a typical one. Most entities will not have one, and it
+will be incredibly unlikely to have two or more. This doesn't need a cap and will not increase the browser
+load."* So the uncapped-collection objection is answered without a cap: the count is not merely bounded in
+practice, it is **near zero for almost every row**, which is why no schema cap is wanted and why the
+payload growth on `GET /api/locations` is nominal rather than unbounded-in-expectation. The reframing above
+asked whether to cap custom moves per owner; the answer is **no cap, and none needed**, which collapses the
+deciding question rather than answering it — item 1 was the only objection weighing against the sub-phase
+elimination, and items 2–4 are scope and consequence rather than cost.
+
+**This does not make F5 actionable yet.** It remains deferred by Skyler's own ruling until Phases 1–6 are
+complete, and nothing in 5f may be designed in anticipation of it. What has changed is that the eventual
+decision now looks likely to go in favour of widening, so whoever picks this up should expect to be
+*implementing* it rather than re-arguing it — and should still answer the `list()`-has-no-caller
+consequence above in the same pass, since that question is unaffected by the cardinality fact.
+
 **One boundary worth recording for whoever picks up F1 or F2**, because it was derived here and will be
 needed there: the standing rule *"never put a collection in an `Upsert*Request` body"* is mechanically
 grounded in the fact that create and update **share** those records (§1.3). The sharper statement of the
