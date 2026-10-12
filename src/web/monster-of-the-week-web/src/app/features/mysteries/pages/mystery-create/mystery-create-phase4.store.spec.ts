@@ -531,7 +531,7 @@ describe('MysteryCreateStore · Phase 4 — attach, re-edit, removal', () => {
 
     store.removeLocationDraft(locationKeys()[0], 'detach');
     store.jumpToPhase(0);
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     expect(calls).toContain('location.unlink(mystery-1,loc-existing)');

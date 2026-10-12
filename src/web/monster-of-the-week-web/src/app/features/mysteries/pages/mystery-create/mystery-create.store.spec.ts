@@ -254,7 +254,7 @@ describe('MysteryCreateStore', () => {
   /** Walks the wizard to phase 1 / step 1 (the minion step) with a saved mystery and a valid monster. */
   function advanceToMinionStep(): void {
     store.conceptForm.setValue({ name: 'The Hollow Choir', concept: '', adventureTypeId: 'adventure-type-1' });
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     store.monsterForm.setValue({
@@ -421,7 +421,7 @@ describe('MysteryCreateStore', () => {
 
   it('updates instead of duplicating when completed phases are revisited', () => {
     store.conceptForm.setValue({ name: 'The Hollow Choir', concept: '', adventureTypeId: 'adventure-type-1' });
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     store.monsterForm.setValue({
@@ -451,7 +451,7 @@ describe('MysteryCreateStore', () => {
 
     // Walk backward through the tracker and submit each completed phase a second time.
     store.jumpToPhase(0);
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     store.jumpToPhase(1);
@@ -485,7 +485,7 @@ describe('MysteryCreateStore', () => {
 
   it('unlinks a location that was removed after it had been saved', () => {
     store.conceptForm.setValue({ name: 'The Hollow Choir', concept: '', adventureTypeId: 'adventure-type-1' });
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     store.currentPhase.set(2);

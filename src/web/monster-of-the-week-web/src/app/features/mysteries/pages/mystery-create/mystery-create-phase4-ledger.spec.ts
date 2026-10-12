@@ -324,7 +324,7 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
 
     store.removeLocationDraft(keyOf('Ferris Mill'), 'detach');
     store.jumpToPhase(0);
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     // The mystery phase's own submit is one countdown upsert; the unlink rides along with it.
