@@ -231,6 +231,7 @@ describe('Phase 5b — the monster roster', () => {
                 overview: null,
                 countdown: null,
                 adventureType: { id: 'adventure-type-1', name: 'Haunting', description: '' },
+                customMoves: [],
               }),
             ),
             getMysteries: vi.fn(() =>

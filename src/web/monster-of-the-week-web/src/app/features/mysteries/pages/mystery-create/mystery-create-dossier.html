@@ -26,6 +26,25 @@
     @if (store.mysteryPreview().overview) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Overview</span> {{ store.mysteryPreview().overview }}</p>
     }
+    <!--
+      The Powers block's label-plus-`<ul>` idiom (`:117-129`), copied including its description
+      sub-line. The dossier is the wizard's running account of what has been authored, so a
+      collection missing from it reads to the user as a collection that did not save (14-R10) —
+      which is why this is not optional polish.
+    -->
+    @if (store.mysteryPreview().customMoves.length > 0) {
+      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Custom Moves</span></p>
+      <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5" data-dossier-mystery-custom-moves>
+        @for (move of store.mysteryPreview().customMoves; track move.localKey) {
+          <li>
+            <span>{{ move.name }}</span>
+            @if (move.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+            }
+          </li>
+        }
+      </ul>
+    }
   </section>
 }
 

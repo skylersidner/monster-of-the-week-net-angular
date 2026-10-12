@@ -246,6 +246,7 @@ describe('Phase 5b — baselines that outlive their drafts', () => {
                 overview: null,
                 countdown: null,
                 adventureType: { id: 'adventure-type-1', name: 'Haunting', description: '' },
+                customMoves: [],
               }),
             ),
             getMysteries: vi.fn(() =>
@@ -448,6 +449,10 @@ describe('Phase 5b — baselines that outlive their drafts', () => {
 
       store.removeMinionDraft(store.minionDrafts()[0].localKey);
       store.jumpToPhase(0);
+      // Five `next()`, one per step in the Mystery phase — the fifth is the custom-move step added
+      // in 5f-1. Walking the phase rather than jumping to its last step is the form the renumber
+      // commit could not cover: an extra `next()` is not a no-op under the old step count.
+      store.next();
       store.next();
       store.next();
       store.next();

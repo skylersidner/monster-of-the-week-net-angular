@@ -329,6 +329,12 @@ describe('MysteryCreateStore', () => {
     });
     store.next();
 
+    // Step `0-4`, the mystery's own custom moves — left empty here on purpose. An empty collection
+    // must still advance, and the diff must still emit (a bare `forkJoin([])` would not), so this
+    // walk is where "the new step does not break the old flow" is asserted. The non-empty path has
+    // its own spec, because a staged move means real `CustomMoveService` traffic to fake.
+    store.next();
+
     store.monsterForm.setValue({
       name: 'Maestro Vey',
       description: 'A spectral conductor',
@@ -783,6 +789,7 @@ describe('MysteryCreateStore', () => {
                 overview: null,
                 adventureType: { id: 'adventure-type-1', name: 'Haunting', description: '' },
                 countdown: null,
+                customMoves: [],
               }),
           },
         },

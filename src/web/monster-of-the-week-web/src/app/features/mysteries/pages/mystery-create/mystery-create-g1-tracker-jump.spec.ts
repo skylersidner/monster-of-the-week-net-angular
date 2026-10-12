@@ -126,6 +126,7 @@ describe('G1 — a confirmed Delete survives an edit-mode tracker jump', () => {
                 overview: '',
                 adventureType: { id: 'adventure-type-1', name: 'Haunting' },
                 countdown: null,
+                customMoves: [],
               }),
             getMysteries: () => of([{ id: 'mystery-1', name: 'The Hollow Choir' }]),
             update: () => of({ id: 'mystery-1' }),

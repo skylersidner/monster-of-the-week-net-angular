@@ -189,6 +189,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
                 overview: null,
                 countdown: null,
                 adventureType: { id: 'adventure-type-1', name: 'Haunting', description: '' },
+                customMoves: [],
               }),
             ),
             getMysteries: vi.fn(() => of([{ id: 'mystery-1', name: 'The Hollow Choir' }])),
