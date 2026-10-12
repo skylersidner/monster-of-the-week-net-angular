@@ -80,6 +80,35 @@
       <p>No countdown found for this mystery.</p>
     }
 
+    <!--
+      **After Countdown, above the four linked-entity articles** — Rosalina's §13.2 placement, and I
+      am following her stated rule rather than inventing one, because the rule is what generalises.
+      The other four pages put the card *below the form*; this page has no form at all, only the
+      *Continue in wizard* link, so "below the form" has no referent here.
+      Her fallback is the principle `monster-detail.html:19-25` states for Images: **this card is
+      about the same record the title names, while every row in the grid below is an entity-link to
+      a different record.** So the mystery's own content — concept, hook, overview, countdown, and
+      now its moves — comes first, and the links to other records follow.
+
+      That makes the card last on monster/minion and mid-page here, which 14-R7 already logs as not
+      being drift: each page keeps its own existing answer to roster-versus-sub-resource order
+      rather than having one imposed.
+
+      The `<h3>` is plain, with no section icon, unlike every other heading on this page (L-D2,
+      Skyler): an icon would need new sprite art and would invert the shared-component dependency,
+      and a per-page heading variant is the first crack in "one treatment on five pages".
+    -->
+    <div class="mt-6">
+      <app-custom-moves-card
+        ownerType="Mystery"
+        [rows]="customMoveRows()"
+        [(editingKey)]="editingCustomMoveKey"
+        [busy]="isMutating()"
+        (committed)="commitCustomMove($event)"
+        (removeRequested)="requestDeleteCustomMove($event)"
+      />
+    </div>
+
     <div class="grid gap-4 grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] mt-4">
       <article class="bg-surface border border-default rounded-lg p-3">
         <h3>
@@ -163,4 +192,23 @@
       </article>
     </div>
   }
+
+  <!--
+    **This page's first confirm modal, and the only new call site in the whole custom-moves plan**
+    (R12) — the other four detail pages already mounted one, so the census moves 18-in-16 to
+    19-in-17 and no further.
+
+    Outside the `@if (mystery())` branch, like `monster-detail`'s, so a pending delete cannot be
+    orphaned by the content branch unmounting. Binds `visible` and `itemName` and nothing else: no
+    `message`, so the component's own *"This cannot be undone."* default applies — true on a detail
+    page, unlike in the wizard where `message=""` is deliberate — and no `footnote`, since only the
+    image flow ever sets one and this page has no images. That makes it the least demanding of all
+    nineteen call sites.
+  -->
+  <app-confirm-delete-modal
+    [visible]="pendingDelete() !== null"
+    [itemName]="pendingDelete()?.label ?? ''"
+    (confirmed)="onDeleteConfirmed()"
+    (cancelled)="onDeleteCancelled()"
+  ></app-confirm-delete-modal>
 </section>
