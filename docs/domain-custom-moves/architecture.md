@@ -5399,6 +5399,172 @@ after: 4 mysteries / 4 monsters / 6 minions / 20 locations / 15 bystanders / 4 i
 custom_moves**, and `name like 'PHASE%'` empty across five tables — exactly the state the phase
 started from.
 
+## 29.11 F-L9 shipped early, 2026-10-12 — the stub was one file; the hazard was twenty-three
+
+Pulled forward out of 5f-3b at Skyler's instruction, and his reason is sharper than the one I filed
+it under. I recorded it as "effective as an implicit guard, opaque as a failure". The real problem is
+that *effective* was conditional: **`CustomMoveService` is root-provided, so an unstubbed `TestBed`
+resolves the real one, and the only thing stopping those requests is that nothing is listening on
+:5225.** A dev server has been up during four of the last six sub-phases. `ng test` with one running
+writes to dev `motw`.
+
+**Commit `18f3753`.** Suite 1738 → **1741** (124 files), typecheck clean, **no production code
+touched** (`git diff -- '*.ts' ':!*spec*'` empty).
+
+### F-L9 named one file; deriving the set found twenty-three
+
+A grep for the symptom finds the file that showed the symptom. The derivation asks the question
+instead: *which specs can resolve the real service?* Both halves come from source, and both are now
+a test (`shared/custom-moves-stubbed-everywhere.spec.ts`):
+
+1. **The injector set, from the application.** Keyed on the **import**, because the wizard store
+   writes `inject(CustomMoveService)` and all nine page components use constructor injection. My
+   first rule matched only `inject(...)` — it found **one** class out of ten and passed its own
+   sanity check, because the check was `length > 0`. A guard's non-vacuity assertion has to name
+   something from each end of the range, not count.
+2. **A fixed point over `providers:`**, for the transitive case:
+   `mystery-create-g1-tracker-jump.spec.ts` mounts `MysteryCreateComponent`, which *provides*
+   `MysteryCreateStore`, and so is at risk without ever naming an injector. My first expansion rule
+   was "mentions a class already in the set" and went from 10 classes to **66** at-risk specs
+   including every hunter spec in the app — a shared `IconComponent` connects anything to anything.
+   Providing is the only edge worth walking.
+
+Result: 16 page specs, the 7 wizard specs, and the images parity spec. All 23 now stub it.
+
+### Two tiers, and the ledger tier is the one that answers the brief
+
+- **The two exact-call-ledger files record into their existing `sent` array.** Their oracle is
+  already "the complete multiset of calls this transition made", so routing custom-move calls there
+  turns roughly forty `expectLedger([…])` assertions into assertions that no custom-move request
+  went out — no new tests needed. Plus one named test, `F-L9: an untouched hydrated roster issues
+  no custom-move traffic at all`, so the property has a name rather than only a side effect.
+- **The other 21 refuse.** No complete ledger to hang the property on, and "this spec expects no
+  custom-move traffic" is all they need to say.
+
+### Proved wired, in both directions, because a missing stub looks exactly like a present one
+
+| | measured |
+|---|---|
+| with the stub | `TestBed.inject(CustomMoveService).create(…)` **throws** — 2/2 probes passed |
+| provider removed | it does not throw — **2 failures**, and the derived guard independently named both files |
+| recording tier | making every custom move dirty put the stray calls in the ledger **by name** — 12 tests, all legible |
+
+That last row is the implicit-to-explicit conversion, measured. The same class of stray traffic used
+to surface as *a null attack id in a weapon-tag test*; it now surfaces as `move.update(...)`.
+
+### The stub that refused the framework
+
+The first version was a `Proxy` answering every property with a throwing function. Angular calls
+`ngOnDestroy()` on every provider instance at teardown. **386 tests failed on one stub.** A stub that
+refuses everything refuses the framework too; only the service's own four methods should throw. The
+comment stays in the code because the next person reaching for a catch-all will reach for a `Proxy`.
+
+---
+
+## 29.12 5f-3a shipped, 2026-10-12 — the split's falsifier, applied and declined
+
+**Results.** Suite 1741 → **1761** (126 files, two new), typecheck clean, **35/35** browser checks,
+six per-site controls each predicted by name and each exact. Commit `e7ee48c`.
+
+### The falsifier: applied, and it does not fire
+
+§35.1 made the split conditional on one thing, and left it to me: *decline it if an attached
+record's panel cannot be rendered honestly without the fetch.* **It can, so the split stands.**
+
+The reason is that the draft already knows which case it is, and nothing had been reading it. A
+location authored in this session has every move the wizard made; one that arrived by **attach** or
+by **edit-mode hydration** came from a *list* route, which carries no `customMoves` at all. So
+`customMovesLoaded` is a fact about provenance, not a new piece of state to maintain — and the panel
+reads it:
+
+> This location may already have custom moves of its own. They aren't shown here — anything you add
+> is added to them.
+
+…with the "No custom moves added yet." empty state standing down, because *that* is the claim it
+cannot make. Asserted as a **contrast** (`5f3a-P2`): the caveat is present for an un-fetched row and
+absent for an authored one. A line that always shows says nothing.
+
+**It settles to `true` after a submit**, and that is the part worth stating: by then the diff's
+result *is* the server's view of the row, so the caveat disappears at the moment it stops being
+true. 5f-3b sets the flag at attach instead and deletes the line — one switch, not a rewrite.
+
+### The gate, measured twice
+
+§35.1's trace — empty drafts against an empty baseline, so `claimed` is empty, so `deletes` is
+empty — is a claim about today's code. `5f3a-G1` makes it a claim about tomorrow's:
+
+- **Unit**: attach, press `Next`, assert **no custom-move traffic at all**. Not merely "no delete":
+  a stray `list` or `create` would be 5f-3b leaking in early, which is the other thing worth
+  catching.
+- **Browser**: a `PHASE5F3A-` location seeded with two real custom moves **through the API**, then
+  attached, then `Next`. Both survived; the one added in the wizard joined them rather than
+  replacing them; and a full edit-mode revisit still deleted none.
+
+**The browser gate passed vacuously first, and the fix is the finding.** The probe attached the
+*first* option in the catalogue — one of the twenty pre-existing dev locations — so "the seeded
+location is untouched" was true for the uninteresting reason. The fixture has to be the thing under
+test: attach **by name**. This is the non-vacuous-fixture discipline I have been applying to unit
+fakes since 5f-0, failing in a browser probe.
+
+### The site derivation transferred, and found nothing — which is also an answer
+
+5f-2's method keyed on `armors`, the last of four collections that always travel together. Locations
+and bystanders are flat leaf entities: they had **no** sub-resource collections, so there is no
+sibling run to key on. The adaptation keys on the *composer's* own form and editing state, which is
+what appears at every site a composer-held collection touches. It went **82 → 45**, and the 45 that
+remain are roster-card highlight bindings and composer open/close plumbing — none holds a collection.
+
+It surfaced nothing I had missed, where 5f-2's found two sites. That is not a failure of the method;
+it is the method reporting the truth about a different shape of change. **For a domain gaining its
+first collection, the compiler is the derivation** — the draft interfaces are required-field
+interfaces, so every construction site stops compiling and names itself. The derivation earns its
+keep where a *sibling* already exists to be compared against.
+
+### Six controls, one group at a time, every prediction exact
+
+5f-2's best finding was that a combined strip measures interaction rather than coverage — two
+omissions cancelled and a stale value read as a correct one. So each group was stripped alone:
+
+| group stripped | predicted | actual |
+|---|---|---|
+| the two `composerDirty` clauses | D1, D2, D3 | D1, D2, D3 |
+| the two `editDraft` loaders | E1, R1, R2 | E1, R1, R2 |
+| the two composer resets | E1, R1, R2, P4 | E1, R1, R2, P4 |
+| the writeback's three fields | L1, W3 | L1, W3 |
+| the panel's caveat line | P2 | P2 |
+| the removal modal's item list | P5 | P5 |
+
+**One thing the harness taught me**: the first run reported "(none)" for all six and looked like a
+suite that noticed nothing. The reporter colours the word `FAIL`, so `^ FAIL ` never matched the raw
+output — ANSI has to be stripped before parsing. *A control harness that cannot see failures reports
+a perfectly safe codebase.*
+
+### Two sites beyond the panel, both from 5f-2's habit of deriving
+
+- **The removal modal's `[items]`**, the same promise gap 5f-2 found for minions — but **gated on
+  not-persisted**, which the minion version does not need. A minion is never attached, so every
+  removal there discards typed work. For an attached location the sentence would be false twice
+  over: Detach deletes nothing, and the panel's own caveat says the wizard has not even seen the
+  server's moves. Only an unsaved draft's moves are "what you typed".
+- **The dossier's two name lists** gain a move count, per 14-R10. Deliberately *not* a count line on
+  the roster cards: unlike the monster card, the location and bystander cards carry no counts at
+  all, so adding one would be inventing a surface rather than completing one.
+
+### A data incident the audit caught, and the sweep could not have
+
+The post-run audit found **one orphaned `custom_moves` row** — `Mind the Rafters`, owned by
+`Alton's Bend`, a pre-existing dev location. It came from the vacuous-attach run above: the probe
+attached a real dev location and the wizard correctly wrote a move onto it.
+
+**The sweep could not have found it, and the reason generalises.** Every sweep so far has keyed on a
+`PHASE…` name prefix. That works while the run creates everything it touches. It fails the moment a
+run writes a *sub-resource onto a pre-existing entity*, because the sub-resource's owner has no
+prefix to find it by. What caught it was the entity-count audit — `custom_moves` reading 1 against an
+expected 0 — which is the same shape as 5d's bystander count reading 16 against 15.
+
+The rule to carry: **a prefix sweep covers what a run creates; only the count audit covers what a
+run modifies.** Both, every time.
+
 ---
 
 # 30. The wizard, 5f-0 … 5f-3
@@ -5762,7 +5928,7 @@ Numbered L-R to sit beside §7's R1–R14, §14's 14-R1–14-R10 and §24's B-R1
 | F-L6 | **Converge the flat rosters' save-method names on the monsters path's.** The public composer commits are `saveLocationDraft`/`saveBystanderDraft`; the monsters twin is `saveMonsterDraftToList`, which is why phase 1's private per-row save could be `saveMonsterDraft` and 5f-0's had to be `saveLocationRow`/`saveBystanderRow`. Renaming the two public ones `…DraftToList` reaches 7 call sites across 4 spec files **including `mystery-create-phase4-ledger.spec.ts:292`**, which is why it could not happen inside 5f-0 (§29.8). Pure rename, no behaviour. | After 5f-0's gate is discharged — any pass over the wizard store. |
 | F-L7 | **Decide whether `saveMonsterDraft` should keep the id it PUT at.** It returns the `PUT` response's `monster.id` and writes that onto the draft. In production the two agree; if they ever did not, a persisted monster draft would silently re-key mid-session and its baselines would stop matching — the §2.12-item-2 hazard class. 5f-0 took the other answer for locations and bystanders because `backfillDraftIds` had, and because the phase-4 ledger's fakes measure it (§29.8). Phase 1's ledger does not, so nothing says which answer it is on. One line plus one assertion. | Any pass over `submitPhase1`, and before 5f-2 extends the phase-5a oracle. |
 | F-L8 | **Make phase 0's drain a `forkJoin` sibling, as phases 1–3 already do.** `submitPhase0` chains `applyPendingRemovals` *after* the countdown, so a failed countdown strands a confirmed deletion — H6 (§7.7h) says it should not, and the other three phases agree. Pre-existing; 5f-1 widened it by one sibling (the custom-move diff) rather than introducing it, and declined to fix it because it is a behaviour change on the failure path that nothing in the suite pins (no spec makes `upsertCountdown` fail). One line in `submitPhase0`, plus the failure-path test that does not currently exist. | Any pass over `submitPhase0`, or the first time a phase-0 failure is reported as a lost removal. |
-| F-L9 | **Stub `CustomMoveService` in `mystery-create-phase5a-ledger.spec.ts`.** It is root-provided and that file does not override it, so any custom-move request on what should be a clean path reaches a real `fetch`, fails, and takes the whole submit with it — measured in 5f-2, where a stripped `editMonsterDraft` surfaced as a *null attack id* in `5a-U8` rather than as a diff. Effective as an implicit guard, opaque as a failure. A recording fake keeps the guard and makes it legible. | With 5f-3b's stub work across the four spec files, which has to touch that file anyway. |
+| ~~F-L9~~ | **Done, early — commit `18f3753`.** Skyler pulled it forward out of 5f-3b: an unstubbed root-provided `CustomMoveService` plus a dev server on :5225 is a unit test writing to dev `motw`, and a dev server has been up during four of the last six sub-phases. It named one file; deriving the set found **23**, and the derivation is now a test (`shared/custom-moves-stubbed-everywhere.spec.ts`). §29.11. The row is struck rather than deleted so an external reference lands on where the work went. |
 
 ---
 
