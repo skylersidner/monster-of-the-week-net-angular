@@ -330,6 +330,19 @@ interface SavedMinionCollections {
   armors: MinionArmorResponse[];
 }
 
+/**
+ * A locations/bystanders roster row's save result, carried back to its writeback by draft index.
+ *
+ * The flat twin of `SavedMonster`: one id and no collections — *yet*. 5f-3a adds the row's
+ * custom-move baseline here, which is the whole reason phases 2 and 3 were given the per-row shape
+ * in 5f-0. One type for both rosters, because the operation is identical and the draft type it is
+ * written back onto is the only thing that differs.
+ */
+interface SavedFlatRow {
+  index: number;
+  id: string;
+}
+
 interface PhaseDefinition {
   index: number;
   name: string;
@@ -2421,6 +2434,42 @@ export class MysteryCreateStore {
     this.existingMonsterIds.set(this.savedDraftIds(this.monsterDrafts()));
   }
 
+  /**
+   * **Phase 2 in phase 1's per-row shape** (5f-0).
+   *
+   * Behaviour-preserving by construction. The same five request groups go out; they are only
+   * *reassociated*, from "all the updates, then all the links" into one `update`+`link` pair per
+   * draft. `forkJoin` subscribes in source order, so the **wire order** changes and nothing else
+   * does — which is observable only to an oracle that asserts sequence, and neither ledger spec
+   * does: `expectLedger` is `expect([...sent].sort()).toEqual([...expected].sort())`, which is
+   * **multiset** equality. Same calls, same multiplicity, any order. Sequence is the one thing
+   * given up, and `PUT /api/locations/{id}` and `PUT /api/mysteries/{m}/locations/{id}` are
+   * independent resources whose interleaving is unobservable.
+   *
+   * **There is no entity-level dirty check here and there must not be one.** Every draft with an id
+   * is written unconditionally, exactly as before. The temptation is structural rather than
+   * careless — this shape exists so that `applySubResourceDiff` can hang off stage two, and a
+   * reader who has just internalised "don't write what hasn't changed" one level down will reach
+   * for it one level up. `S4` ("three rows, six calls") and `A6` are the tests that say no; the
+   * dirty check lives only inside `applySubResourceDiff`, over a sub-resource collection, where
+   * decision 9 put it.
+   *
+   * **The shape is the point, not the saving.** `saveLocationRow` now has a stage that runs with the
+   * location's own id in hand, which is where its custom-move diff goes in 5f-3a. Deliberately
+   * empty here: 5f-0 ships no custom-move code at all, so that "the ledgers pass unchanged" is a
+   * claim about a restructure and nothing else.
+   *
+   * Two deviations from phase 1's literal shape, both deliberate:
+   *
+   * 1. **The outer `forkJoin` stays flat.** `submitPhase1` nests `{ unlinked, saved }` inside a
+   *    `switchMap` because minions cannot be saved until every monster has an id. Locations have no
+   *    dependent second collection, so the nesting would buy nothing and would move the writeback
+   *    into an async step for no reason.
+   * 2. **`saveLocationRow`, not `saveLocationDraft`.** That name is taken by the public composer
+   *    commit (`:1472`), and the symmetric fix — renaming it `saveLocationDraftToList`, as the
+   *    monsters path did — would edit `mystery-create-phase4-ledger.spec.ts`, which is 5f-0's
+   *    oracle. The rename is a follow-up for after this gate is discharged (F-L6).
+   */
   private submitPhase2(): void {
     const mysteryId = this.mysteryId();
     if (!mysteryId) {
@@ -2429,48 +2478,85 @@ export class MysteryCreateStore {
     }
 
     const drafts = this.locations();
-    const toRequest = (draft: LocationDraft): UpsertLocationRequest => ({
-      name: draft.name,
-      description: this.toNullable(draft.description),
-      locationTypeId: draft.locationTypeId,
-    });
+
+    // `pendingRemovals` is authoritative; this is the consistency check (§7.3). Anything with a
+    // recorded disposition is excluded, so a confirmed Delete does not also fire a blind unlink.
+    const unlinked$ = this.runBatch(
+      this.idsToRemove(this.existingLocationIds(), drafts, 'locations').map((locationId) =>
+        this.locationService.unlinkFromMystery(mysteryId, locationId),
+      ),
+    );
+
+    // `runBatch`'s empty short-circuit is load-bearing on this path, not a tidiness: an empty
+    // roster must still *emit* so the subscriber runs, and a bare `forkJoin([])` completes without
+    // emitting. See the same note on `batch` in `sub-resource-diff.ts`.
+    const saved$ = this.runBatch(drafts.map((draft, index) => this.saveLocationRow(mysteryId, draft, index)));
 
     forkJoin({
+      // The drain is a `forkJoin` sibling, not a link in the save chain (H6, §7.7h), so a failed
+      // location save cannot strand a confirmed deletion.
       drained: this.applyPendingRemovals(mysteryId),
-      unlinked: this.runBatch(
-        this.idsToRemove(this.existingLocationIds(), drafts, 'locations').map((locationId) =>
-          this.locationService.unlinkFromMystery(mysteryId, locationId)
-        )
-      ),
-      updated: this.runBatch(
-        drafts
-          .filter((draft): draft is LocationDraft & { id: string } => draft.id !== null)
-          .map((draft) => this.locationService.update(draft.id, toRequest(draft)))
-      ),
-      // §5.1 Concern A. `update` carries no mystery in its URL, so without this an attached
-      // location has its fields written and is never added to the mystery — a silent no-op that
-      // makes the whole feature look like it works. Fired for every draft with an id,
-      // unconditionally: the verb is idempotent in effect, so no branch is needed or wanted.
-      linked: this.runBatch(
-        drafts
-          .filter((draft): draft is LocationDraft & { id: string } => draft.id !== null)
-          .map((draft) => this.locationService.linkToMystery(mysteryId, draft.id))
-      ),
-      created: this.runBatch(
-        drafts.filter((draft) => draft.id === null).map((draft) => this.locationService.create(mysteryId, toRequest(draft)))
-      ),
+      unlinked: unlinked$,
+      saved: saved$,
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ created, drained }) => {
+        next: ({ saved, drained }) => {
           this.clearDrainedRemovals(drained);
-          const saved = this.backfillDraftIds(drafts, created);
-          this.locations.set(saved);
-          this.existingLocationIds.set(this.savedDraftIds(saved));
+          this.writeBackLocationDrafts(saved);
           this.advancePhase();
         },
         error: () => this.handleSubmitError('Could not save locations. Please try again.'),
       });
+  }
+
+  /**
+   * One locations roster row: the location itself and its membership.
+   *
+   * The `index` is carried through to the writeback rather than the result being matched by
+   * position at resolve time — phase 1's approach (`saveMonsterDraft:2360`), and the reason
+   * `backfillDraftIds` is gone. That helper paired create responses against the id-less drafts *in
+   * order*, which is correct only while nothing mutates the array between submit and resolve. The
+   * index costs nothing and does not depend on that holding.
+   */
+  private saveLocationRow(mysteryId: string, draft: LocationDraft, index: number): Observable<SavedFlatRow> {
+    const request: UpsertLocationRequest = {
+      name: draft.name,
+      description: this.toNullable(draft.description),
+      locationTypeId: draft.locationTypeId,
+    };
+
+    // §5.1 Concern A, the same one the monsters path states: `update` carries no mystery in its
+    // URL, so without the membership PUT an attached location has its fields written and is never
+    // added to the mystery — a silent no-op that makes the whole feature look like it works. Fired
+    // for every draft with an id, unconditionally: the verb is idempotent in effect, so no branch
+    // is needed or wanted. `create` needs no such call — its URL is mystery-scoped and the row is
+    // created attached.
+    //
+    // **The row keeps the id we PUT at — it is not re-read from the response.** The ledger fakes
+    // answer `update` with a sentinel ('loc-updated'), and adopting it re-keys a persisted draft
+    // off whatever the server echoed. In production the two agree, so this is invisible until
+    // they do not; it is still a behaviour change, and 5f-0 must not make one. (`saveMonsterDraft`
+    // does take the response id — the same observation, one phase over, recorded as F-L7.)
+    const persistedId = draft.id;
+    const saved$ =
+      persistedId !== null
+        ? forkJoin({
+            location: this.locationService.update(persistedId, request),
+            linked: this.locationService.linkToMystery(mysteryId, persistedId),
+          }).pipe(map(() => persistedId))
+        : this.locationService.create(mysteryId, request).pipe(map((location) => location.id));
+
+    // 5f-3a's seam: `switchMap` into the row's custom-move diff here, with the id in hand.
+    return saved$.pipe(map((id) => ({ index, id })));
+  }
+
+  /** Ids back onto the locations roster by draft index, and the membership baseline, in one step. */
+  private writeBackLocationDrafts(saved: SavedFlatRow[]): void {
+    this.locations.update((drafts) => this.applySavedIds(drafts, saved));
+    // Unconditional, including when nothing was saved: emptying the roster by removing its last
+    // location has to clear the baseline too, or the next submit's `idsToRemove` re-fires it.
+    this.existingLocationIds.set(this.savedDraftIds(this.locations()));
   }
 
   private submitPhase3(): void {
@@ -2481,43 +2567,25 @@ export class MysteryCreateStore {
     }
 
     const drafts = this.bystanders();
-    const toRequest = (draft: BystanderDraft): UpsertBystanderRequest => ({
-      name: draft.name,
-      description: this.toNullable(draft.description),
-      bystanderTypeId: draft.bystanderTypeId,
-    });
+
+    const unlinked$ = this.runBatch(
+      this.idsToRemove(this.existingBystanderIds(), drafts, 'bystanders').map((bystanderId) =>
+        this.bystanderService.unlinkFromMystery(mysteryId, bystanderId),
+      ),
+    );
+
+    const saved$ = this.runBatch(drafts.map((draft, index) => this.saveBystanderRow(mysteryId, draft, index)));
 
     forkJoin({
       drained: this.applyPendingRemovals(mysteryId),
-      unlinked: this.runBatch(
-        this.idsToRemove(this.existingBystanderIds(), drafts, 'bystanders').map((bystanderId) =>
-          this.bystanderService.unlinkFromMystery(mysteryId, bystanderId)
-        )
-      ),
-      updated: this.runBatch(
-        drafts
-          .filter((draft): draft is BystanderDraft & { id: string } => draft.id !== null)
-          .map((draft) => this.bystanderService.update(draft.id, toRequest(draft)))
-      ),
-      // §5.1 Concern A — see the locations twin.
-      linked: this.runBatch(
-        drafts
-          .filter((draft): draft is BystanderDraft & { id: string } => draft.id !== null)
-          .map((draft) => this.bystanderService.linkToMystery(mysteryId, draft.id))
-      ),
-      created: this.runBatch(
-        drafts
-          .filter((draft) => draft.id === null)
-          .map((draft) => this.bystanderService.create(mysteryId, toRequest(draft)))
-      ),
+      unlinked: unlinked$,
+      saved: saved$,
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ created, drained }) => {
+        next: ({ saved, drained }) => {
           this.clearDrainedRemovals(drained);
-          const saved = this.backfillDraftIds(drafts, created);
-          this.bystanders.set(saved);
-          this.existingBystanderIds.set(this.savedDraftIds(saved));
+          this.writeBackBystanderDrafts(saved);
 
           this.isSubmitting.set(false);
           this.notificationService.success(this.isEditMode() ? 'Mystery updated!' : 'Mystery created!');
@@ -2525,6 +2593,54 @@ export class MysteryCreateStore {
         },
         error: () => this.handleSubmitError('Could not save bystanders. Please try again.'),
       });
+  }
+
+  /** One bystanders roster row — see the locations twin for Concern A and for the carried `index`. */
+  private saveBystanderRow(mysteryId: string, draft: BystanderDraft, index: number): Observable<SavedFlatRow> {
+    const request: UpsertBystanderRequest = {
+      name: draft.name,
+      description: this.toNullable(draft.description),
+      bystanderTypeId: draft.bystanderTypeId,
+    };
+
+    const persistedId = draft.id;
+    const saved$ =
+      persistedId !== null
+        ? forkJoin({
+            bystander: this.bystanderService.update(persistedId, request),
+            linked: this.bystanderService.linkToMystery(mysteryId, persistedId),
+          }).pipe(map(() => persistedId))
+        : this.bystanderService.create(mysteryId, request).pipe(map((bystander) => bystander.id));
+
+    // 5f-3a's seam, and the id rule — see the locations twin.
+    return saved$.pipe(map((id) => ({ index, id })));
+  }
+
+  /** See `writeBackLocationDrafts`. */
+  private writeBackBystanderDrafts(saved: SavedFlatRow[]): void {
+    this.bystanders.update((drafts) => this.applySavedIds(drafts, saved));
+    this.existingBystanderIds.set(this.savedDraftIds(this.bystanders()));
+  }
+
+  /**
+   * The id half of a flat roster's writeback, shared by locations and bystanders because they are
+   * the same operation on two draft types. Rows the save did not cover are left alone — which is
+   * only reachable if the array shrank mid-flight, and is the case `backfillDraftIds`' positional
+   * match got wrong.
+   */
+  private applySavedIds<T extends { id: string | null }>(drafts: T[], saved: SavedFlatRow[]): T[] {
+    if (saved.length === 0) {
+      return drafts;
+    }
+
+    const next = [...drafts];
+    for (const { index, id } of saved) {
+      const draft = next[index];
+      if (draft) {
+        next[index] = { ...draft, id };
+      }
+    }
+    return next;
   }
 
   /**
@@ -2882,15 +2998,6 @@ export class MysteryCreateStore {
         ),
       );
     }
-  }
-
-  /**
-   * Pairs newly created records back onto the drafts they came from. The locations/bystanders steps are
-   * strictly append/remove — no reordering, no edit-in-place — so create responses line up by order.
-   */
-  private backfillDraftIds<T extends { id: string | null }>(drafts: T[], created: { id: string }[]): T[] {
-    let createdIndex = 0;
-    return drafts.map((draft) => (draft.id !== null ? draft : { ...draft, id: created[createdIndex++]?.id ?? null }));
   }
 
   private savedDraftIds(drafts: { id: string | null }[]): string[] {
