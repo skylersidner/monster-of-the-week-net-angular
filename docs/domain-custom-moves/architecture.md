@@ -4500,6 +4500,117 @@ pilot than 5b did, so the temptation will be stronger and the payoff smaller. Wr
 
 ---
 
+## 29.5 5c shipped, 2026-10-11 — the first real divergence, and a principle worth more than the phase
+
+**Results.** Suite 1612 → **1646** (116 files), typecheck clean, four negative controls, **33/33**
+browser checks. Zero data footprint (`custom_moves` 0 rows, no `PHASE5` residue, 4 mysteries / 4
+monsters / 6 minions / 20 locations intact).
+
+### The design principle, which is the durable output of this sub-phase
+
+R13's migration needed three assertions changed in a spec this phase was not scoped to touch, so it
+hit the hard stop. Skyler authorised it with a reason that is wider than the page:
+
+> *"It's always a difficult call on when to use a store versus component state management, but I
+> think the call is correct. We now have a different object that needs to be managed, and if you're
+> not careful, you will end up hooking into multiple stores, when it would just have been more
+> straightforward to move the state management to the locus of control."*
+
+**That is the general form of two rules this plan already had in narrower terms**: decision 14's
+*"one confirm/inform modal per page"*, and the standing note `location-detail.ts` carried on its
+`imagesStore` field (*"if this page ever grows a second delete flow… it should move to the
+page-owned pattern"*). Both said the same thing about one page and one modal. Stated generally —
+**a page that gains a second kind of object to manage is better served moving state to the locus of
+control than hooking into multiple stores** — it also answers the question those two cannot: what to
+do when there is a *third* object, or a store that is not the images store. Recorded at the
+migration site (`location-detail.images.spec.ts`'s describe block) as well as here, because that is
+where someone will be standing when they need it.
+
+### What the five divergences actually cost
+
+| | Cost vs. what I wrote |
+|---|---|
+| Replacing the read-only block | **As written.** And the claim I was told to re-verify held: `location-detail.images.spec.ts`'s placement assertion passes **untouched**, because the card keeps an `<h3>Custom Moves</h3>` at exactly the old block's position. Confirmed in the browser too. |
+| `isSaving` → `activeMutation` | **More.** See below — it reached a spec outside the named set, and I kept an alias rather than edit it. |
+| R13's `pendingDelete` migration | **More.** §26.2 L2 undercounted the specs it touches; see below. |
+| Copy convergence | **As written.** One string, one spec assertion, both in the same commit. |
+| Images parity table | **As written**, plus the rationale comment reframed from *split* to *converging*, with the `'store'` branch marked as kept-only-until-5d. |
+
+**And one thing that cost *less*: §13.1 item 3's four first-of-kind items on this page are three.**
+The draft list, the second `forkJoin` arm and the combined failure flag were all new — but **the
+draft *surface* was free**, because `app-custom-moves-card` owns its own form. `location-create`
+still needs no `ReactiveFormsModule` and no `FormBuilder`, which is the one thing its now-rewritten
+class comment said that remains true.
+
+### Correction to §26.2 L2: R13 touches three spec files per migrated page, not one
+
+L2 named `resource-images-four-domain-parity.spec.ts` as the spec that *"reflects over the component
+instance, which R13 changes on purpose"*, and was right that the confirm-modal census is unaffected
+because it compares rendered DOM. What it missed is that **`location-detail.images.spec.ts` reflects
+over the instance too** — in a `describe` block named for the ownership R13 inverts. Grepped in
+full, the complete set is:
+
+```
+location-detail.images.spec.ts      :209 :217 :234   ← 5c
+bystander-detail.images.spec.ts     :209 :217 :234   ← 5d inherits the identical three
+resource-images-four-domain-parity  :412             ← the one L2 enumerated
+```
+
+So **5d meets a known three rather than discovering them.** Worth noting which half of that block
+survives untouched: its other three tests (`:221`, `:238`, `:252`) read the *rendered dialog* rather
+than the store, so they pass unchanged — R12's "rendered DOM is unaffected" observation is correct
+for exactly half of it, which is why a grep for the *signal* and not for the feature was what found
+the rest.
+
+**There is no design that avoids this**, and the alternatives are worth recording so 5d does not
+re-litigate: a second pending record for custom moves only means two pending-delete concepts on one
+page (forbidden by decision 14, and it would add a census entry against R12); routing custom-move
+deletes through the store's wrapper means widening `PendingImageDelete` — an image-shaped type — to
+carry an unrelated row.
+
+### Follow-up: collapse `location-detail`'s `isSaving` alias
+
+`isSaving` is now `readonly isSaving = this.isMutating` — an alias, not state. It is kept because
+**five assertions in two shipped specs outside this phase's scope read it**, and editing specs the
+phase was not scoped to touch is what the hard stop exists to prevent.
+
+Collapsing it touches **six places in those two files**: those five assertions plus one test *name*
+(`it('image writes stay clear of the page's own isSaving')`). No behaviour change. The count came
+from removing the alias and reading the compiler's list — a grep over-counted by including the test
+name, which is the same "grep the number, not the assertion" trap one direction over. `bystander-detail`
+will need the identical treatment in 5d, so the follow-up should do both pages at once.
+
+### Negative controls, and what two of them taught
+
+Four, and the two that mis-predicted were the informative ones:
+
+| Control | Predicted | Actual |
+|---|---|---|
+| The new arm **replaces** the membership `runBatch` instead of joining it | 2 | **9** |
+| Rebind the modal back to `imagesStore.pendingDelete()` | — | 8 (mislabelled by me as expect-to-pass; it is a planted break) |
+| Does the store's `requestDelete`/`confirmDelete`/`cancelDelete` wrapper still have production callers? | still live | **3 callers, all `bystander-detail.html`** |
+| Remove the `isSaving` alias | 6 refs | **7** (5 shipped + 2 mine) |
+
+- **The first fired 4× wider than predicted, and that is reassuring rather than alarming.** Dropping
+  the membership arm breaks four *pre-existing* `location-create.spec.ts` assertions — so the "one
+  arm replaces the other" failure mode this page could uniquely have was **already** guarded before
+  5c added its two-arm ledger. The new assertion is belt-and-braces, not the sole guard.
+- **The third refines §26.2 L5's timing.** L5 says the store wrapper goes production-dead "after
+  5c/5d". After 5c alone it has exactly three callers left, all in `bystander-detail.html` — so it is
+  half-dead now and fully dead after 5d, which is when F-L2 becomes actionable.
+
+### One check the browser could not make
+
+**Both delete flows through the same page-owned modal** — no location in the dev database has an
+image, so the image half was unreachable without uploading one and cleaning it up. It is covered at
+the unit level by both specs: `location-detail.custom-moves.spec.ts` asserts the shared record and
+`location-detail.images.spec.ts`'s rewritten block drives the image flow through
+`component.pendingDelete()` against a seeded fixture. Recorded rather than silently skipped, because
+"the modal serves two flows" is the whole point of the migration and a reader should know where it
+is actually proven.
+
+---
+
 # 30. The wizard, 5f-0 … 5f-3
 
 §13.5 is right about the engine and I verified its central claim rather than taking it: the adapter really
