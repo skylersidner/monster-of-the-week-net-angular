@@ -51,6 +51,28 @@ export class MysteryCreateLocationsPhaseComponent {
   readonly pendingRemoveName = computed(() => this.pendingRemoveDraft()?.name ?? '');
 
   /**
+   * **What a removal discards, and only when there is something to discard.**
+   *
+   * `[items]` is a promise about what the deletion takes (§7.7i(3), UX §18.4), not a summary — so
+   * a location holding typed custom moves has to say so, the way the minion modal does. 5f-2 found
+   * that gap one domain over by deriving the sites rather than reading the table.
+   *
+   * **Gated on *not* persisted, which the minion version does not need.** A minion is never
+   * attached, so every removal there discards typed work. A location can be attached or hydrated,
+   * and for those two the sentence would be false twice over: Detach deletes nothing at all, and
+   * the panel's own caveat says the wizard has not even seen the server's moves. Only an unsaved
+   * draft's moves are "what you typed".
+   */
+  readonly pendingRemoveItems = computed<string[]>(() => {
+    if (this.pendingRemovePersisted()) {
+      return [];
+    }
+
+    const count = this.pendingRemoveDraft()?.customMoves.length ?? 0;
+    return count > 0 ? [`${count} custom move${count === 1 ? '' : 's'}`] : [];
+  });
+
+  /**
    * **The variant predicate (§7.1, decision 16), and it is the store's, not a second copy.**
    *
    * `id !== null` is the intuitive test and the dangerous one: an attached entity has an id the

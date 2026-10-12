@@ -313,7 +313,8 @@
     </h3>
     <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
       @for (location of store.locations(); track location.localKey) {
-        <li>{{ location.name }}</li>
+        <!-- 14-R10: a collection missing from the dossier reads as a collection that did not save. -->
+        <li>{{ location.name }}@if (location.customMoves.length > 0) { · {{ location.customMoves.length }} {{ location.customMoves.length === 1 ? 'move' : 'moves' }} }</li>
       }
     </ul>
   </section>
@@ -329,7 +330,7 @@
     </h3>
     <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
       @for (bystander of store.bystanders(); track bystander.localKey) {
-        <li>{{ bystander.name }}</li>
+        <li>{{ bystander.name }}@if (bystander.customMoves.length > 0) { · {{ bystander.customMoves.length }} {{ bystander.customMoves.length === 1 ? 'move' : 'moves' }} }</li>
       }
     </ul>
   </section>

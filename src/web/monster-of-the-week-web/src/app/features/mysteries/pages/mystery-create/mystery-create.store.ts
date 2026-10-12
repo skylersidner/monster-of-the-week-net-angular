@@ -125,6 +125,23 @@ export interface LocationDraft {
   name: string;
   description: string;
   locationTypeId: string;
+  customMoves: CustomMoveDraft[];
+  existingCustomMoves: CustomMoveResponse[];
+  /**
+   * **Whether `customMoves` is the whole truth for this location** — the interim marker 5f-3a
+   * needs and 5f-3b deletes.
+   *
+   * `true` for a location authored in this session: the wizard made every move it has, so the
+   * panel is authoritative. `false` for one that arrived by **attach** or by **edit-mode
+   * hydration**, because both build the draft from a *list* response and `CustomMoves` is only on
+   * the detail one. Such a location may have moves on the server that the wizard has never seen.
+   *
+   * It is not cosmetic. §35.1 makes it a condition of splitting 5f-3 at all: the interim state is
+   * acceptable *because* it is display-incomplete and non-destructive, and that is only true if
+   * the panel declines to claim completeness it does not have. The diff is unaffected either way —
+   * an empty baseline claims nothing, so nothing is deleted (pinned by `5f3a-G1`).
+   */
+  customMovesLoaded: boolean;
   /**
    * The mysteries this entity belonged to when it was hydrated or attached. Read only by the
    * removal modal, to name the *other* mysteries a Delete would take it out of (§7.2). A page-load
@@ -141,6 +158,23 @@ export interface BystanderDraft {
   name: string;
   description: string;
   bystanderTypeId: string;
+  customMoves: CustomMoveDraft[];
+  existingCustomMoves: CustomMoveResponse[];
+  /**
+   * **Whether `customMoves` is the whole truth for this bystander** — the interim marker 5f-3a
+   * needs and 5f-3b deletes.
+   *
+   * `true` for a bystander authored in this session: the wizard made every move it has, so the
+   * panel is authoritative. `false` for one that arrived by **attach** or by **edit-mode
+   * hydration**, because both build the draft from a *list* response and `CustomMoves` is only on
+   * the detail one. Such a bystander may have moves on the server that the wizard has never seen.
+   *
+   * It is not cosmetic. §35.1 makes it a condition of splitting 5f-3 at all: the interim state is
+   * acceptable *because* it is display-incomplete and non-destructive, and that is only true if
+   * the panel declines to claim completeness it does not have. The diff is unaffected either way —
+   * an empty baseline claims nothing, so nothing is deleted (pinned by `5f3a-G1`).
+   */
+  customMovesLoaded: boolean;
   /** See `LocationDraft.mysteryIds`. */
   mysteryIds: string[];
 }
@@ -362,14 +396,17 @@ interface SavedMinionCollections {
 /**
  * A locations/bystanders roster row's save result, carried back to its writeback by draft index.
  *
- * The flat twin of `SavedMonster`: one id and no collections — *yet*. 5f-3a adds the row's
- * custom-move baseline here, which is the whole reason phases 2 and 3 were given the per-row shape
- * in 5f-0. One type for both rosters, because the operation is identical and the draft type it is
- * written back onto is the only thing that differs.
+ * The flat twin of `SavedMonster`, and 5f-3a is where it stopped being "one id and no
+ * collections": the custom-move baseline the diff returned travels back with the id, from the same
+ * result, in the same step. That pairing is the whole reason phases 2 and 3 were given the per-row
+ * shape in 5f-0 — refresh the id without the baseline and every later submit deletes and recreates
+ * the lot (H2). One type for both rosters, because the operation is identical and the draft type it
+ * is written onto is the only thing that differs.
  */
 interface SavedFlatRow {
   index: number;
   id: string;
+  customMoves: CustomMoveResponse[];
 }
 
 interface PhaseDefinition {
@@ -491,6 +528,9 @@ export class MysteryCreateStore {
   readonly minionWeaknesses = signal<WeaknessDraft[]>([]);
   readonly minionArmors = signal<ArmorDraft[]>([]);
   readonly minionCustomMoves = signal<CustomMoveDraft[]>([]);
+  readonly locationCustomMoves = signal<CustomMoveDraft[]>([]);
+  readonly bystanderCustomMoves = signal<CustomMoveDraft[]>([]);
+
   readonly locations = signal<LocationDraft[]>([]);
   readonly bystanders = signal<BystanderDraft[]>([]);
 
@@ -737,6 +777,16 @@ export class MysteryCreateStore {
     specialDescription: this.fb.control(''),
   });
 
+  readonly locationCustomMoveForm: NamedDraftFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+  });
+
+  readonly bystanderCustomMoveForm: NamedDraftFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+  });
+
   readonly addLocationForm: LocationFormGroup = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
@@ -770,12 +820,35 @@ export class MysteryCreateStore {
    * reason `minionComposerDirty` is: a composer holding a name and no type must block `Next` rather than
    * be silently discarded. A type picked with no name counts too.
    */
+  /**
+   * **Does the open composer know the whole of this row's custom moves?**
+   *
+   * `true` while authoring a new draft — there is nothing on the server to be missing. `false`
+   * while editing a row that arrived by attach or by edit-mode hydration, because neither fetched
+   * them. The panel reads this and says so; §35.1 makes that a condition of shipping 5f-3a without
+   * 5f-3b, and it is what the falsifier asks: *can the panel be rendered honestly without the
+   * fetch?* It can, because the draft already records which of the two it is.
+   */
+  readonly locationComposerMovesLoaded = computed(() => {
+    const key = this.editingLocationKey();
+    return key === null || (this.locations().find((item) => item.localKey === key)?.customMovesLoaded ?? true);
+  });
+
+  readonly bystanderComposerMovesLoaded = computed(() => {
+    const key = this.editingBystanderKey();
+    return key === null || (this.bystanders().find((item) => item.localKey === key)?.customMovesLoaded ?? true);
+  });
+
   readonly locationComposerDirty = computed(() => {
     const value = this.locationValue();
     return (
       (value?.name ?? '').trim().length > 0 ||
       (value?.description ?? '').trim().length > 0 ||
-      (value?.locationTypeId ?? '').length > 0
+      (value?.locationTypeId ?? '').length > 0 ||
+      // **The correctness half** (§26.2 L6 site 5, one domain over). `attachLocation` collapses an
+      // *untouched* composer, and `next()`'s commit rule skips a closed one — so without this a
+      // composer holding only a custom move is silently discarded by an attach.
+      this.locationCustomMoves().length > 0
     );
   });
   readonly bystanderComposerDirty = computed(() => {
@@ -783,7 +856,8 @@ export class MysteryCreateStore {
     return (
       (value?.name ?? '').trim().length > 0 ||
       (value?.description ?? '').trim().length > 0 ||
-      (value?.bystanderTypeId ?? '').length > 0
+      (value?.bystanderTypeId ?? '').length > 0 ||
+      this.bystanderCustomMoves().length > 0
     );
   });
 
@@ -1291,6 +1365,11 @@ export class MysteryCreateStore {
               name: l.name,
               description: l.description ?? '',
               locationTypeId: l.locationTypeId,
+              // Hydration reads `getByMystery`, a **list** route, so it is in the same position
+              // as attach: no `customMoves` on the response and no claim to completeness.
+              customMoves: [],
+              existingCustomMoves: [],
+              customMovesLoaded: false,
               // Retained through hydration (§7.2) — the list response already carries it, and the
               // removal modal has no other source for "which other mysteries use this".
               mysteryIds: [...l.mysteryIds],
@@ -1305,6 +1384,9 @@ export class MysteryCreateStore {
               name: b.name,
               description: b.description ?? '',
               bystanderTypeId: b.bystanderTypeId,
+              customMoves: [],
+              existingCustomMoves: [],
+              customMovesLoaded: false,
               mysteryIds: [...b.mysteryIds],
             }))
           );
@@ -1465,6 +1547,22 @@ export class MysteryCreateStore {
 
   removeMonsterAttack(localKey: string): void {
     this.removeDraft(this.monsterAttacks, localKey);
+  }
+
+  addLocationCustomMove(): void {
+    this.addNamedDraft(this.locationCustomMoves, this.locationCustomMoveForm, 'move');
+  }
+
+  removeLocationCustomMove(localKey: string): void {
+    this.removeDraft(this.locationCustomMoves, localKey);
+  }
+
+  addBystanderCustomMove(): void {
+    this.addNamedDraft(this.bystanderCustomMoves, this.bystanderCustomMoveForm, 'move');
+  }
+
+  removeBystanderCustomMove(localKey: string): void {
+    this.removeDraft(this.bystanderCustomMoves, localKey);
   }
 
   addMysteryCustomMove(): void {
@@ -1666,6 +1764,11 @@ export class MysteryCreateStore {
       name: this.addLocationForm.controls.name.value.trim(),
       description: this.addLocationForm.controls.description.value ?? '',
       locationTypeId: this.addLocationForm.controls.locationTypeId.value,
+      customMoves: [...this.locationCustomMoves()],
+      existingCustomMoves: existing?.existingCustomMoves ?? [],
+      // A draft the wizard is authoring knows its own moves. One loaded from a roster card keeps
+      // whatever answer that card already had — editing an attached location does not fetch.
+      customMovesLoaded: existing?.customMovesLoaded ?? true,
       mysteryIds: existing?.mysteryIds ?? [],
     };
 
@@ -1695,6 +1798,7 @@ export class MysteryCreateStore {
       description: draft.description,
       locationTypeId: draft.locationTypeId,
     });
+    this.locationCustomMoves.set([...draft.customMoves]);
     this.editingLocationKey.set(key);
     this.locationComposerOpen.set(true);
     return true;
@@ -1741,6 +1845,15 @@ export class MysteryCreateStore {
         name: item.name,
         description: item.description ?? '',
         locationTypeId: item.locationTypeId,
+        // **The interim state §35.1 makes a condition of the split.** The catalogue list item has
+        // no `customMoves`, so an attached location arrives with empty drafts *and* an empty
+        // baseline — which `applySubResourceDiff` turns into no deletes and no saves, so the
+        // location's real moves survive untouched on the server (`5f3a-G1` asserts it rather than
+        // reasoning it). The panel says so instead of implying the location has none; 5f-3b's
+        // fetch is what makes `customMovesLoaded` true here.
+        customMoves: [],
+        existingCustomMoves: [],
+        customMovesLoaded: false,
         mysteryIds: [...item.mysteryIds],
       },
     ]);
@@ -1772,6 +1885,10 @@ export class MysteryCreateStore {
 
   private resetLocationComposer(): void {
     this.addLocationForm.reset({ name: '', description: '', locationTypeId: '' });
+    // The one with a data consequence rather than a display one: leak these into the next
+    // composer and they are *written* to the next location on the following submit.
+    this.locationCustomMoves.set([]);
+    this.locationCustomMoveForm.reset({ name: '', description: '' });
   }
 
   /** Bystanders: the same eight members, one noun over. */
@@ -1805,6 +1922,9 @@ export class MysteryCreateStore {
       name: this.addBystanderForm.controls.name.value.trim(),
       description: this.addBystanderForm.controls.description.value ?? '',
       bystanderTypeId: this.addBystanderForm.controls.bystanderTypeId.value,
+      customMoves: [...this.bystanderCustomMoves()],
+      existingCustomMoves: existing?.existingCustomMoves ?? [],
+      customMovesLoaded: existing?.customMovesLoaded ?? true,
       mysteryIds: existing?.mysteryIds ?? [],
     };
 
@@ -1833,6 +1953,7 @@ export class MysteryCreateStore {
       description: draft.description,
       bystanderTypeId: draft.bystanderTypeId,
     });
+    this.bystanderCustomMoves.set([...draft.customMoves]);
     this.editingBystanderKey.set(key);
     this.bystanderComposerOpen.set(true);
     return true;
@@ -1870,6 +1991,10 @@ export class MysteryCreateStore {
         name: item.name,
         description: item.description ?? '',
         bystanderTypeId: item.bystanderTypeId,
+        // See the locations twin — the same interim state, the same non-destructive trace.
+        customMoves: [],
+        existingCustomMoves: [],
+        customMovesLoaded: false,
         mysteryIds: [...item.mysteryIds],
       },
     ]);
@@ -1920,6 +2045,8 @@ export class MysteryCreateStore {
 
   private resetBystanderComposer(): void {
     this.addBystanderForm.reset({ name: '', description: '', bystanderTypeId: '' });
+    this.bystanderCustomMoves.set([]);
+    this.bystanderCustomMoveForm.reset({ name: '', description: '' });
   }
 
   private recordRemoval(removal: PendingRemoval): void {
@@ -2762,8 +2889,16 @@ export class MysteryCreateStore {
           }).pipe(map(() => persistedId))
         : this.locationService.create(mysteryId, request).pipe(map((location) => location.id));
 
-    // 5f-3a's seam: `switchMap` into the row's custom-move diff here, with the id in hand.
-    return saved$.pipe(map((id) => ({ index, id })));
+    // **5f-3a fills the seam 5f-0 left.** The entity write is stage one and the row's custom-move
+    // diff is stage two, which is the only reason this method exists in this shape: the diff needs
+    // the location's own id, and a `create` does not have one until its response arrives.
+    return saved$.pipe(
+      switchMap((id) =>
+        applySubResourceDiff(id, draft.customMoves, draft.existingCustomMoves, this.locationMoves).pipe(
+          map((customMoves) => ({ index, id, customMoves })),
+        ),
+      ),
+    );
   }
 
   /** Ids back onto the locations roster by draft index, and the membership baseline, in one step. */
@@ -2827,8 +2962,14 @@ export class MysteryCreateStore {
           }).pipe(map(() => persistedId))
         : this.bystanderService.create(mysteryId, request).pipe(map((bystander) => bystander.id));
 
-    // 5f-3a's seam, and the id rule — see the locations twin.
-    return saved$.pipe(map((id) => ({ index, id })));
+    // Stage two, and the id rule — see the locations twin.
+    return saved$.pipe(
+      switchMap((id) =>
+        applySubResourceDiff(id, draft.customMoves, draft.existingCustomMoves, this.bystanderMoves).pipe(
+          map((customMoves) => ({ index, id, customMoves })),
+        ),
+      ),
+    );
   }
 
   /** See `writeBackLocationDrafts`. */
@@ -2838,21 +2979,39 @@ export class MysteryCreateStore {
   }
 
   /**
-   * The id half of a flat roster's writeback, shared by locations and bystanders because they are
-   * the same operation on two draft types. Rows the save did not cover are left alone — which is
-   * only reachable if the array shrank mid-flight, and is the case `backfillDraftIds`' positional
-   * match got wrong.
+   * A flat roster's writeback, shared by locations and bystanders because they are the same
+   * operation on two draft types. Rows the save did not cover are left alone — only reachable if
+   * the array shrank mid-flight, and the case `backfillDraftIds`' positional match got wrong.
+   *
+   * **The id, the re-keyed drafts and the new baseline are written from one result, in one step**
+   * (H2). Refreshing the id without the baseline is the failure that makes every later submit
+   * delete and recreate the collection; they are in the same object literal so neither can be
+   * forgotten.
+   *
+   * `customMovesLoaded` settles to `true` here, and the reason is worth stating: whatever the
+   * draft knew before, after a submit the diff's result **is** the server's view of this row's
+   * moves. An attached location that arrived un-fetched is fully known once it has been written
+   * through — so the panel's caveat disappears at exactly the moment it stops being true.
    */
-  private applySavedIds<T extends { id: string | null }>(drafts: T[], saved: SavedFlatRow[]): T[] {
+  private applySavedIds<T extends { id: string | null; customMoves: CustomMoveDraft[] }>(
+    drafts: T[],
+    saved: SavedFlatRow[],
+  ): T[] {
     if (saved.length === 0) {
       return drafts;
     }
 
     const next = [...drafts];
-    for (const { index, id } of saved) {
+    for (const { index, id, customMoves } of saved) {
       const draft = next[index];
       if (draft) {
-        next[index] = { ...draft, id };
+        next[index] = {
+          ...draft,
+          id,
+          customMoves: rekeyDrafts(draft.customMoves, customMoves),
+          existingCustomMoves: customMoves,
+          customMovesLoaded: true,
+        };
       }
     }
     return next;
@@ -3264,6 +3423,8 @@ export class MysteryCreateStore {
   private readonly mysteryMoves = this.customMoveSubResource('Mystery');
   private readonly monsterMoves = this.customMoveSubResource('Monster');
   private readonly minionMoves = this.customMoveSubResource('Minion');
+  private readonly locationMoves = this.customMoveSubResource('Location');
+  private readonly bystanderMoves = this.customMoveSubResource('Bystander');
 
   /** Ids onto the drafts and the new baseline, from the same diff result (H2). */
   private writeBackMysteryCustomMoves(saved: CustomMoveResponse[]): void {

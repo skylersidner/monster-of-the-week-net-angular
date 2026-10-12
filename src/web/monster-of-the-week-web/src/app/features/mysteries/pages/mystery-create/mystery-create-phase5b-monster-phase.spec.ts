@@ -590,8 +590,8 @@ describe('The wizard’s Monsters phase — Phase 5b', () => {
   it('5b-X1: and the dossier’s own location list does the same', async () => {
     await create();
     store.locations.set([
-      { id: null, localKey: 'loc-a', name: 'Alpha', description: '', locationTypeId: 'location-type-1', mysteryIds: [] },
-      { id: null, localKey: 'loc-b', name: 'Beta', description: '', locationTypeId: 'location-type-1', mysteryIds: [] },
+      { id: null, localKey: 'loc-a', name: 'Alpha', description: '', locationTypeId: 'location-type-1', customMoves: [], existingCustomMoves: [], customMovesLoaded: true, mysteryIds: [] },
+      { id: null, localKey: 'loc-b', name: 'Beta', description: '', locationTypeId: 'location-type-1', customMoves: [], existingCustomMoves: [], customMovesLoaded: true, mysteryIds: [] },
     ]);
     store.currentPhase.set(2);
     await settle();
@@ -637,10 +637,10 @@ describe('The wizard’s Monsters phase — Phase 5b', () => {
     // three), so counting there would have recorded one fewer and passed.
     authorMonster('Maestro Vey');
     store.locations.set([
-      { id: null, localKey: 'loc-a', name: 'Ferris Mill', description: '', locationTypeId: 'location-type-1', mysteryIds: [] },
+      { id: null, localKey: 'loc-a', name: 'Ferris Mill', description: '', locationTypeId: 'location-type-1', customMoves: [], existingCustomMoves: [], customMovesLoaded: true, mysteryIds: [] },
     ]);
     store.bystanders.set([
-      { id: null, localKey: 'bys-a', name: 'Sheriff Dalton', description: '', bystanderTypeId: 'bystander-type-1', mysteryIds: [] },
+      { id: null, localKey: 'bys-a', name: 'Sheriff Dalton', description: '', bystanderTypeId: 'bystander-type-1', customMoves: [], existingCustomMoves: [], customMovesLoaded: true, mysteryIds: [] },
     ]);
 
     const hostsInPhase = async (phase: number, step: number): Promise<number> => {

@@ -96,6 +96,52 @@
         <app-custom-select formControlName="locationTypeId" [options]="store.locationTypes()" placeholder="Select a type..."></app-custom-select>
       </div>
 
+      <!--
+        The fifth thing in this composer, and the first sub-resource a location has ever had.
+
+        **Hand-written rather than `app-custom-moves-card`** (§13.5.3, §35.5): the card's row type
+        collapses identity into one opaque `key`, and the wizard's diff needs `id` (null means
+        create) and `localKey` (stable across the transition where the id arrives) as separate
+        things. Share across surfaces that agree about identity; copy across those that do not.
+
+        **The caveat line is what makes 5f-3a shippable without 5f-3b** (§35.1). An attached or
+        hydrated location arrives from a *list* response, which carries no `customMoves` — so the
+        panel must not imply the location has none. It says what is true instead: there may be
+        moves it cannot show, and anything added here is added *to* them. Non-destructive by
+        construction, because an empty baseline claims nothing and the diff deletes nothing.
+      -->
+      <div class="border border-default rounded-lg mb-4 p-3" data-location-custom-moves>
+        <h4 class="text-primary text-sm font-bold m-0 mb-3">Custom Moves</h4>
+        @if (!store.locationComposerMovesLoaded()) {
+          <p class="text-muted text-[0.8rem] leading-[1.4] m-0 mb-2" data-location-custom-moves-partial>
+            This location may already have custom moves of its own. They aren't shown here — anything you add is added to them.
+          </p>
+        }
+        @for (move of store.locationCustomMoves(); track move.localKey) {
+          <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm" data-location-custom-move>
+            <div class="flex flex-1 flex-col gap-[0.2rem]">
+              <span>{{ move.name }}</span>
+              @if (move.description) {
+                <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+              }
+            </div>
+            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1"
+              [attr.aria-label]="'Remove ' + move.name" (click)="store.removeLocationCustomMove(move.localKey)">×</button>
+          </div>
+        }
+        @if (store.locationCustomMoves().length === 0 && store.locationComposerMovesLoaded()) {
+          <p class="text-muted text-sm italic m-0" data-location-custom-moves-empty>No custom moves added yet.</p>
+        }
+        <form [formGroup]="store.locationCustomMoveForm" class="flex flex-wrap items-center gap-2 mt-2">
+          <input formControlName="name" placeholder="Move name" aria-label="Location custom move name"
+            class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+          <textarea formControlName="description" rows="2" placeholder="When does it apply, and what happens?" aria-label="Location custom move description"
+            class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+          <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors"
+            (click)="store.addLocationCustomMove()">+ Add</button>
+        </form>
+      </div>
+
       <div class="flex items-center justify-end gap-3">
         @if (store.editingLocationKey() !== null) {
           <button type="button" class="bg-transparent border border-strong rounded-lg text-muted cursor-pointer font-[inherit] text-[0.9rem] px-5 py-[0.55rem] transition-colors" (click)="cancelDraft()">Cancel</button>
@@ -125,7 +171,7 @@
   [usageMessage]="pendingRemoveUsageMessage()"
   [usage]="pendingRemoveUsage()"
   message=""
-  [items]="[]"
+  [items]="pendingRemoveItems()"
   [footnote]="pendingRemoveFootnote()"
   (confirmed)="onRemoveConfirmed()"
   (secondary)="onDetachConfirmed()"
