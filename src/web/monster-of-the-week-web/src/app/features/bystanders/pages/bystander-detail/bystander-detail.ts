@@ -1,13 +1,25 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { BystanderService } from '../../../../core/bystander';
-import { BystanderDetailResponse, MysteryListItemResponse, TypeRefResponse } from '../../../../core/models';
+import {
+  BystanderDetailResponse,
+  MysteryListItemResponse,
+  ResourceImageResponse,
+  TypeRefResponse,
+  UpsertCustomMoveRequest,
+} from '../../../../core/models';
 import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import {
+  CustomMoveCommit,
+  CustomMoveRow,
+  CustomMovesCardComponent,
+} from '../../../../shared/custom-moves-card.component';
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { ImageCarouselComponent } from '../../../../shared/image-carousel.component';
 import { ImageUploadModalComponent } from '../../../../shared/image-upload-modal.component';
 import { ResourceImagesCardComponent } from '../../../../shared/resource-images-card.component';
@@ -20,6 +32,7 @@ import { BystanderFormComponent, BystanderFormSubmit } from '../../shared/bystan
     RouterLink,
     BystanderFormComponent,
     ConfirmDeleteModalComponent,
+    CustomMovesCardComponent,
     ResourceImagesCardComponent,
     ImageCarouselComponent,
     ImageUploadModalComponent,
@@ -36,28 +49,64 @@ export class BystanderDetailComponent implements OnInit {
   /** Options for the form's membership picker — this page is also the edit form. */
   readonly mysteries = signal<MysteryListItemResponse[]>([]);
   readonly isLoading = signal(true);
-  readonly isSaving = signal(false);
   readonly errorMessage = signal<string | null>(null);
+
+  /**
+   * **The in-flight mutation, as a message rather than a boolean** — the shape monster, minion and
+   * location-detail all use (architecture.md §26.2 L4). Adopted here in Phase 5d for the reason the
+   * banner below makes concrete: it printed a hard-coded *"Saving bystander..."* whenever a plain
+   * `isSaving` flag was set, so a second kind of write on this page would have announced the wrong
+   * thing. Carrying the text in the state makes it correct for every write.
+   */
+  readonly activeMutation = signal<string | null>(null);
+
+  /** What the custom-moves card and the entity form bind. Matches the other four detail pages. */
+  readonly isMutating = computed(() => this.activeMutation() !== null);
+
+  /**
+   * **Retained as an alias, not as state** — identical to `location-detail`'s, and for the same
+   * reason: assertions in shipped specs outside this phase's scope read `isSaving()`, and editing
+   * specs a phase was not scoped to touch is what the 5c hard stop exists to prevent.
+   *
+   * Collapsing both pages' aliases into `isMutating` is one follow-up, deliberately not split
+   * across 5c and 5d: it is a rename with no behaviour change, and doing the two pages in one pass
+   * is how it stays reviewable. See §29.6.
+   */
+  readonly isSaving = this.isMutating;
 
   readonly mysteryId = signal<string | null>(null);
 
   /**
-   * The Images section's state (design.md §4.1). **This page lets the store own the delete-modal
-   * state too** — `requestDelete`/`pendingDelete`/`confirmDelete`/`cancelDelete` — rather than the
-   * `deleteFootnoteFor`/`deleteImage` pair that `monster-detail` and `minion-detail` use.
+   * The Images section's state (design.md §4.1).
    *
-   * The difference is deliberate and it is about what already exists on each page. Those two
-   * already own a `pendingDelete` serving four other delete flows, so a second pending-delete
-   * concept there would be redundant and ambiguous. This page has none, so there is nothing to
-   * coordinate with, and letting the store hold it keeps the page free of a signal, two handler
-   * methods and a shape to keep in sync — the template just binds. It also inherits the store's
-   * already-tested behaviour rather than re-deriving the glue.
+   * **This page owns its delete-modal state as of Phase 5d**, and with it the last of the four
+   * image-bearing pages moves across — after this, no page uses the store's
+   * `requestDelete`/`confirmDelete`/`cancelDelete` wrapper at all.
    *
-   * If this page ever grows a second delete flow (Custom Moves is read-only here today), it should
-   * move to the page-owned pattern the other two use, for exactly the reason they use it.
+   * The note that used to sit here said: *"If this page ever grows a second delete flow (Custom
+   * Moves is read-only here today), it should move to the page-owned pattern."* Custom moves are
+   * that second flow. The instruction is discharged, not overridden.
+   *
+   * **The general rule, which is what survives the migration** (Skyler, 2026-10-11): *a page that
+   * gains a second kind of object to manage is better served moving state to the locus of control
+   * than hooking into multiple stores — otherwise you end up hooked into several, when moving the
+   * state would have been more straightforward.* Decision 14 and the old note above were each that
+   * principle stated about one page and one modal; this is the form that still answers the question
+   * when there is a third object.
+   *
+   * The store still computes the footnote (`deleteFootnoteFor`) and performs the delete
+   * (`deleteImage`) — only the *pending* state moved, which is what made this a rebinding rather
+   * than a rewrite. That split exists precisely so a host can choose who owns it.
    */
   readonly imagesStore = inject(ResourceImagesStore);
   readonly isUploadingImages = signal(false);
+
+  /**
+   * **One modal for every delete on this page**, carrying the variant as a closure so the confirm
+   * handler never branches on which kind of delete is pending (decision 14). Literal copy of
+   * `monster-detail.ts`'s, via `location-detail`.
+   */
+  readonly pendingDelete = signal<{ label: string; footnote?: string; perform: () => void } | null>(null);
 
   readonly backLink = computed(() =>
     this.mysteryId() ? ['/mysteries', this.mysteryId()] : ['/bystanders']
@@ -71,8 +120,12 @@ export class BystanderDetailComponent implements OnInit {
     private readonly bystanderService: BystanderService,
     private readonly mysteryService: MysteryService,
     private readonly referenceDataService: ReferenceDataService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly customMoveService: CustomMoveService
   ) {}
+
+  /** The card, so a successful commit can reset it and restore focus. */
+  @ViewChild(CustomMovesCardComponent) private readonly customMovesCard?: CustomMovesCardComponent;
 
   ngOnInit(): void {
     this.route.paramMap
@@ -148,7 +201,7 @@ export class BystanderDetailComponent implements OnInit {
     const added = desired.filter((mysteryId) => !existing.includes(mysteryId));
     const removed = existing.filter((mysteryId) => !desired.includes(mysteryId));
 
-    this.isSaving.set(true);
+    this.activeMutation.set('Saving bystander...');
     this.bystanderService
       .update(bystanderId, submit.bystander)
       .pipe(
@@ -177,7 +230,7 @@ export class BystanderDetailComponent implements OnInit {
           // that name ("{name} will have no images afterward").
           this.imagesStore.setOwnerName(bystander.name);
           this.errorMessage.set(null);
-          this.isSaving.set(false);
+          this.activeMutation.set(null);
 
           if (membershipFailed) {
             // `forkJoin` reports that one call failed, never that all of them did, so the copy
@@ -192,7 +245,7 @@ export class BystanderDetailComponent implements OnInit {
         error: () => {
           this.errorMessage.set('Unable to save bystander.');
           this.notificationService.error('Unable to save bystander.');
-          this.isSaving.set(false);
+          this.activeMutation.set(null);
         },
       });
   }
@@ -205,6 +258,108 @@ export class BystanderDetailComponent implements OnInit {
    */
   openImageUpload(): void {
     this.isUploadingImages.set(true);
+  }
+
+  /**
+   * The carousel's `deleteRequested`, routed through **this page's** single modal rather than the
+   * store's own pending signals — the other half of R13's migration, and the last page to make it.
+   */
+  requestDeleteImage(image: ResourceImageResponse): void {
+    this.pendingDelete.set({
+      label: image.fileName,
+      footnote: this.imagesStore.deleteFootnoteFor(image),
+      perform: () => this.imagesStore.deleteImage(image),
+    });
+  }
+
+  onDeleteConfirmed(): void {
+    const pending = this.pendingDelete();
+    this.pendingDelete.set(null);
+    pending?.perform();
+  }
+
+  onDeleteCancelled(): void {
+    this.pendingDelete.set(null);
+  }
+
+  // --- Custom moves (architecture.md §29.1, §29.6; Phase 5d) ---
+
+  /** Mapped from the `customMoves` already on `BystanderDetailResponse` — no request on load. */
+  readonly customMoveRows = computed<CustomMoveRow[]>(() =>
+    (this.bystander()?.customMoves ?? []).map((move) => ({
+      key: move.id,
+      name: move.name,
+      description: move.description,
+    }))
+  );
+
+  /** Which row the card has open. Bound two-way; the page owns it, the card asks (L-D1). */
+  readonly editingCustomMoveKey = signal<string | null>(null);
+
+  /** Add or edit, decided by `commit.key` — `null` means add. */
+  commitCustomMove(commit: CustomMoveCommit): void {
+    const request: UpsertCustomMoveRequest = { name: commit.name, description: commit.description };
+    const { key } = commit;
+
+    this.runAndRefresh(
+      (bystanderId) =>
+        key === null
+          ? this.customMoveService.create('Bystander', bystanderId, request)
+          : this.customMoveService.update('Bystander', bystanderId, key, request),
+      key === null ? 'Unable to add custom move.' : 'Unable to save custom move.',
+      () => this.customMovesCard?.commitSucceeded(),
+      key === null ? 'Custom move added.' : 'Custom move saved.'
+    );
+  }
+
+  /** Through the page's single modal, which now serves both images and custom moves. */
+  requestDeleteCustomMove(row: CustomMoveRow): void {
+    this.pendingDelete.set({
+      label: row.name,
+      perform: () =>
+        this.runAndRefresh(
+          (bystanderId) => this.customMoveService.delete('Bystander', bystanderId, row.key),
+          'Unable to delete custom move.'
+        ),
+    });
+  }
+
+  /**
+   * **New on this page in 5d**, because its only write was the entity save. Identical to the other
+   * four pages', including the property that matters most: **a failure is a toast and
+   * `errorMessage` is never set**, because this template puts `@else if (errorMessage())` ahead of
+   * its content branch (§26.2 L1 / Phase A).
+   */
+  private runAndRefresh(
+    operation: (bystanderId: string) => Observable<unknown>,
+    errorMessage: string,
+    onSuccess?: () => void,
+    successMessage?: string
+  ): void {
+    const current = this.bystander();
+    if (!current) {
+      return;
+    }
+
+    const bystanderId = current.id;
+    this.activeMutation.set('Saving changes...');
+    operation(bystanderId)
+      .pipe(
+        switchMap(() => this.bystanderService.getById(bystanderId)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (bystander) => {
+          this.bystander.set(bystander);
+          onSuccess?.();
+          this.activeMutation.set(null);
+          this.notificationService.success(successMessage ?? 'Changes saved.');
+        },
+        error: () => {
+          this.activeMutation.set(null);
+          this.notificationService.error(errorMessage);
+        },
+      });
   }
 
   private runBatch<T>(requests: Observable<T>[]): Observable<T[]> {

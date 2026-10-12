@@ -19,4 +19,23 @@
     submitLabel="Create Bystander"
     (save)="onCreate($event)"
   ></app-bystander-form>
+
+  <!--
+    **Introduced, not edited** (§13.4) — the same call as location-create in 5c. Monster and minion
+    create already carried a sentence naming their four staged types and 5a/5b widened it; this page
+    had no draft panels at all, so the staged-write model has never been explained here.
+  -->
+  <p class="text-muted text-[0.9rem] mb-3 mt-6">
+    Custom moves added below are saved together with the bystander when you press Create Bystander.
+  </p>
+
+  <app-custom-moves-card
+    ownerType="Bystander"
+    [rows]="customMoveRows()"
+    [(editingKey)]="editingCustomMoveKey"
+    [busy]="isSaving()"
+    emptyText="No custom moves added yet."
+    (committed)="commitCustomMoveDraft($event)"
+    (removeRequested)="removeCustomMoveDraft($event)"
+  />
 </section>

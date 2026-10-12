@@ -217,9 +217,25 @@ describe('BystanderDetailComponent', () => {
     expect(successCalls).toBe(1);
   });
 
-  it('leaves the read-only custom moves list rendering', () => {
+  /**
+   * **Was `it('leaves the read-only custom moves list rendering')`**, asserting `'No custom moves.'`
+   * — the copy of the bare heading-and-list this page shipped with before Phase 5d of
+   * domain-custom-moves replaced it with `app-custom-moves-card`.
+   *
+   * Replaced rather than patched, for the reason its location twin was in 5c: **it encoded a current
+   * state as a requirement.** It passed happily through the whole period when custom moves were
+   * unauthorable here and would have kept passing forever — the third instance of that shape in
+   * this subsystem. The replacement asserts a property the page is actually required to have.
+   *
+   * The authoring behaviour itself is covered in `bystander-detail.custom-moves.spec.ts`.
+   */
+  it('mounts the custom-moves card, wired to this domain', () => {
+    const card = (fixture.nativeElement as HTMLElement).querySelector('[data-custom-moves-card]');
+
+    expect(card).not.toBeNull();
+    expect(card!.getAttribute('data-owner-type')).toBe('Bystander');
     expect(fixture.nativeElement.textContent).toContain('Custom Moves');
-    expect(fixture.nativeElement.textContent).toContain('No custom moves.');
+    expect(fixture.nativeElement.textContent).toContain('No custom moves yet.');
   });
 
   // --- membership (mystery-entity-linking.md §4.3) -------------------------------------

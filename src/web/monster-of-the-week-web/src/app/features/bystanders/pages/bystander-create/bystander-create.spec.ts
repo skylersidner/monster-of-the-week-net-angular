@@ -324,7 +324,11 @@ describe('BystanderCreateComponent', () => {
       {
         kind: 'error',
         message:
-          'Bystander created, but some of its mysteries may not have saved. Review them on the bystander page.',
+          // **Converged on the shipped monster/minion string in Phase 5d** (§13.6.1 Ruling 1,
+          // decision 13), completing the four-page convergence 5c began. A correctness fix rather
+          // than a wording preference: "some of its mysteries" became false by omission once a
+          // custom-move POST could fail under the same combined flag.
+          'Bystander created, but some details may not have saved. Review them on the bystander page.',
       },
     ]);
   });

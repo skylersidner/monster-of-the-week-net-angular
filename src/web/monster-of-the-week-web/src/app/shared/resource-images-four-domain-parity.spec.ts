@@ -143,18 +143,13 @@ const location = {
 interface Domain {
   readonly ownerType: ResourceOwnerType;
   readonly component: Type<unknown>;
-  /** Whether the page owns `pendingDelete` itself, or lets the store own it. See the asymmetry test. */
-  readonly modalOwner: 'page' | 'store';
 }
 
 const DOMAINS: readonly Domain[] = [
-  { ownerType: 'Monster', component: MonsterDetailComponent, modalOwner: 'page' },
-  { ownerType: 'Minion', component: MinionDetailComponent, modalOwner: 'page' },
-  { ownerType: 'Bystander', component: BystanderDetailComponent, modalOwner: 'store' },
-  // Location moved to the page-owned record in Phase 5c of domain-custom-moves, when custom moves
-  // became its second delete flow. Bystander follows in 5d, after which this column is uniform and
-  // the asymmetry below is history rather than a live split.
-  { ownerType: 'Location', component: LocationDetailComponent, modalOwner: 'page' },
+  { ownerType: 'Monster', component: MonsterDetailComponent },
+  { ownerType: 'Minion', component: MinionDetailComponent },
+  { ownerType: 'Bystander', component: BystanderDetailComponent },
+  { ownerType: 'Location', component: LocationDetailComponent },
 ];
 
 /**
@@ -399,39 +394,39 @@ describe('resource images — four-domain parity', () => {
   });
 
   /**
-   * **Delete-modal ownership, which is converging rather than split.** Asserted positively from the
-   * `DOMAINS` table rather than excused as an exception, so the current state is always readable.
+   * **Delete-modal ownership, now uniform — and that is the assertion.** All four pages own their
+   * own `pendingDelete` and route image deletes through it. There is no longer a per-domain column
+   * for this, because there is no longer a difference: `domain-custom-moves` Phase 5c moved
+   * Location and 5d moved Bystander, which were the last two.
    *
-   * **The history, because it is the thing that explains the rule.** Monster and Minion each
-   * already owned a `pendingDelete` serving four other delete flows before images existed, so
-   * routing image deletes through the store's own pending signals would have left two competing
-   * pending-delete concepts on one page. Bystander and Location had no modal at all, so the store
-   * held it and those pages stayed free of the signal and its two handlers.
+   * **The history, kept because it is what explains the rule rather than the outcome.** Monster and
+   * Minion each already owned a `pendingDelete` serving four other delete flows before images
+   * existed, so routing image deletes through the store's own pending signals would have left two
+   * competing pending-delete concepts on one page. Bystander and Location had no modal at all, so
+   * the store held it and those pages stayed free of the signal and its two handlers. That split
+   * was correct for as long as it lasted; custom moves gave every page a second delete flow, which
+   * is precisely the condition the rule turns on.
    *
-   * **What changed.** `domain-custom-moves` gives every detail page a *second* delete flow, which
-   * is precisely the condition the rule turns on — so Location migrated to the page-owned record in
-   * its Phase 5c and Bystander follows in 5d. After 5d this column is uniformly `'page'` and the
-   * `'store'` branch below is dead; it is kept until then rather than deleted early, because while
-   * one page is still store-owned it is the only thing asserting that.
+   * **The rule, in the form that still decides a case** (Skyler, 2026-10-11): *a page that gains a
+   * second kind of object to manage is better served moving state to the locus of control than
+   * hooking into multiple stores — otherwise you end up hooked into several, when moving the state
+   * would have been more straightforward.* The narrower test — *is there an existing pending-delete
+   * concept for a second one to be ambiguous with?* — is the same question for this one case.
    *
-   * **The deciding question is unchanged, and is what a sixth domain would be judged against:**
-   * *is there an existing pending-delete concept for a second one to be ambiguous with?* Not which
-   * API reads nicer. The store-owned wrapper is still the right answer for a page with exactly one
-   * delete flow — there just are not any left.
+   * So the store's `requestDelete`/`confirmDelete`/`cancelDelete` wrapper now has **no production
+   * caller on any page**. It is still correct, still covered by `resource-images.store.spec.ts`,
+   * and still the right shape for a hypothetical page with exactly one delete flow — there just
+   * are not any. Removing it is tracked as a follow-up rather than done here.
    */
-  it('owns delete-modal state exactly as the table says, and no page mixes the two', async () => {
+  it('owns delete-modal state on the page, uniformly across all four', async () => {
     for (const domain of DOMAINS) {
       const { instance } = await renderStates(domain);
-      const ownsPendingDelete = typeof instance['pendingDelete'] === 'function';
-      const hasPageDeleteHandler = typeof instance['requestDeleteImage'] === 'function';
 
-      if (domain.modalOwner === 'page') {
-        expect(ownsPendingDelete, `${domain.ownerType} should own pendingDelete`).toBe(true);
-        expect(hasPageDeleteHandler, `${domain.ownerType} should route deletes through the page`).toBe(true);
-      } else {
-        expect(ownsPendingDelete, `${domain.ownerType} should NOT own pendingDelete`).toBe(false);
-        expect(hasPageDeleteHandler, `${domain.ownerType} should NOT have a page delete handler`).toBe(false);
-      }
+      expect(typeof instance['pendingDelete'], `${domain.ownerType} should own pendingDelete`).toBe('function');
+      expect(
+        typeof instance['requestDeleteImage'],
+        `${domain.ownerType} should route image deletes through the page`
+      ).toBe('function');
     }
   });
 });
