@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { BystanderService } from '../../../../core/bystander';
 import { BystanderDetailResponse, ResourceImageResponse } from '../../../../core/models';
 import { MysteryService } from '../../../../core/mystery';
@@ -69,6 +70,23 @@ describe('BystanderDetailComponent — Images section (Phase 6c)', () => {
     await TestBed.configureTestingModule({
       imports: [BystanderDetailComponent],
       providers: [
+        /**
+         * **F-L9.** `CustomMoveService` is `providedIn: 'root'`, so without this the real one
+         * resolves and any stray call becomes a real HTTP request — refused today only because
+         * nothing is listening on :5225, and a write against dev the moment something is. This
+         * spec drives no custom-move traffic, so the stub says so by throwing.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: (() => {
+            // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+            // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+            const refuse = (method: string) => () => {
+              throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+            };
+            return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+          })(),
+        },
         provideRouter([]),
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ bystanderId: 'b1' })) } },
         {

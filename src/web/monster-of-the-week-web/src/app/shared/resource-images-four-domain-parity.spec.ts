@@ -4,6 +4,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { Subject, of } from 'rxjs';
 
 import { BystanderService } from '../core/bystander';
+import { CustomMoveService } from '../core/custom-moves';
 import { LocationService } from '../core/location';
 import { MinionService } from '../core/minion';
 import { MonsterService } from '../core/monster';
@@ -168,6 +169,22 @@ function providers() {
   };
 
   return [
+    /**
+     * **F-L9.** All four pages inject the root-provided `CustomMoveService`, so without this the
+     * real one resolves and a stray call becomes a real HTTP request. This file is about the
+     * images card and drives no custom-move traffic at all.
+     */
+    {
+      provide: CustomMoveService,
+      useValue: (() => {
+        // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+        // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+        const refuse = (method: string) => () => {
+          throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+        };
+        return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+      })(),
+    },
     provideRouter([]),
     {
       provide: ActivatedRoute,

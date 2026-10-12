@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { Observable, defer, of } from 'rxjs';
 
 import { BystanderService } from '../../../../core/bystander';
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { LocationService } from '../../../../core/location';
 import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
@@ -179,6 +180,24 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
     TestBed.configureTestingModule({
       providers: [
         MysteryCreateStore,
+        /**
+         * **F-L9 — recorded, not refused.** `CustomMoveService` is `providedIn: 'root'`, so
+         * without a stub the real one resolves and a stray call becomes a real HTTP request:
+         * refused today only because nothing is listening on :5225, and a write against dev the
+         * moment something is. Recording it into `sent` is strictly better than silencing it —
+         * every exact ledger in this file now also asserts that the clean path issues no
+         * custom-move traffic, which is the property 5f-2 found this file was enforcing by
+         * accident, through a failed `fetch` that surfaced as a null attack id.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: {
+            list: record('move.list', () => []),
+            create: record('move.create', () => ({ id: 'move-unexpected', name: '', description: null })),
+            update: record('move.update', () => ({ id: 'move-unexpected', name: '', description: null })),
+            delete: record('move.delete', () => undefined),
+          },
+        },
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: NotificationService, useValue: { success: vi.fn() } },
         {
@@ -716,6 +735,32 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
         MONSTER_LINK,
         'minion.update(minion-1,' + minionRequest() + ')',
       ]);
+    });
+
+    /**
+     * **F-L9, said out loud.** This file was already enforcing this property, by accident and
+     * illegibly: `CustomMoveService` is root-provided, nothing stubbed it, so a stray custom-move
+     * request reached a real `fetch`, failed, and took the whole submit with it. 5f-2 hit that
+     * while controlling the writeback and the symptom was a **null attack id in a weapon-tag
+     * test** — three layers from the cause.
+     *
+     * The stub now records into `sent` instead of refusing, which turns every `expectLedger([…])`
+     * above and below into an assertion that no custom-move request went out — `5a-H1` three lines
+     * up already is one. This test exists so the property has a name rather than only a side
+     * effect, and so it keeps holding on the path that matters most: a hydrated monster **and** a
+     * hydrated minion that each carry a custom move, submitted without anyone touching them.
+     *
+     * Decision 9's clean branch is what makes it true: an unchanged row is carried forward from
+     * the baseline with no request at all.
+     */
+    it('F-L9: an untouched hydrated roster issues no custom-move traffic at all', () => {
+      // Non-vacuous: there really are moves on both rows, from the hydration fixtures.
+      expect(store.monsterDrafts()[0].customMoves.map((move) => move.id)).toEqual(['m-move-9']);
+      expect(store.minionDrafts()[0].customMoves.map((move) => move.id)).toEqual(['n-move-9']);
+
+      submitPhaseOne();
+
+      expect(sent.filter((call) => call.startsWith('move.'))).toEqual([]);
     });
 
     /**

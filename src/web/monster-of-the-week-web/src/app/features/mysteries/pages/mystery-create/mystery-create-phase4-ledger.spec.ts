@@ -5,6 +5,7 @@ import { Observable, defer, of, throwError, timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 
 import { BystanderService } from '../../../../core/bystander';
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { LocationService } from '../../../../core/location';
 import { MinionService } from '../../../../core/minion';
 import { MonsterService } from '../../../../core/monster';
@@ -133,6 +134,24 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
 
     TestBed.configureTestingModule({
       providers: [
+        /**
+         * **F-L9 — recorded, not refused.** `CustomMoveService` is `providedIn: 'root'`, so
+         * without a stub the real one resolves and a stray call becomes a real HTTP request:
+         * refused today only because nothing is listening on :5225, and a write against dev the
+         * moment something is. Recording it into `sent` is strictly better than silencing it —
+         * every exact ledger in this file now also asserts that the clean path issues no
+         * custom-move traffic, which is the property 5f-2 found this file was enforcing by
+         * accident, through a failed `fetch` that surfaced as a null attack id.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: {
+            list: record('move.list', () => of([])),
+            create: record('move.create', () => of({ id: 'move-unexpected', name: '', description: null })),
+            update: record('move.update', () => of({ id: 'move-unexpected', name: '', description: null })),
+            delete: record('move.delete', () => of(undefined)),
+          },
+        },
         MysteryCreateStore,
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: NotificationService, useValue: { success: vi.fn() } },
@@ -583,6 +602,24 @@ describe('The wizard’s phase submit — S3, a fan-out failure is never "none o
 
     TestBed.configureTestingModule({
       providers: [
+        /**
+         * **F-L9 — recorded, not refused.** `CustomMoveService` is `providedIn: 'root'`, so
+         * without a stub the real one resolves and a stray call becomes a real HTTP request:
+         * refused today only because nothing is listening on :5225, and a write against dev the
+         * moment something is. Recording it into `sent` is strictly better than silencing it —
+         * every exact ledger in this file now also asserts that the clean path issues no
+         * custom-move traffic, which is the property 5f-2 found this file was enforcing by
+         * accident, through a failed `fetch` that surfaced as a null attack id.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: {
+            list: record('move.list', () => of([])),
+            create: record('move.create', () => of({ id: 'move-unexpected', name: '', description: null })),
+            update: record('move.update', () => of({ id: 'move-unexpected', name: '', description: null })),
+            delete: record('move.delete', () => of(undefined)),
+          },
+        },
         MysteryCreateStore,
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: NotificationService, useValue: { success: vi.fn() } },
