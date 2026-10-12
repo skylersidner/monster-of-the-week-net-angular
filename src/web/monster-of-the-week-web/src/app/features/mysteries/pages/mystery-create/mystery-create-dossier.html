@@ -95,8 +95,8 @@
           }
           <small class="text-muted block mt-1">
             Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
-            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Minions:
-            {{ minionCountFor(draft.localKey) }}
+            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Moves:
+            {{ draft.customMoves.length }} · Minions: {{ minionCountFor(draft.localKey) }}
           </small>
         </div>
       }
@@ -175,6 +175,19 @@
         }
       </ul>
     }
+    @if (store.monsterComposerPreview().customMoves.length > 0) {
+      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Custom Moves</span></p>
+      <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5" data-dossier-monster-custom-moves>
+        @for (move of store.monsterComposerPreview().customMoves; track move.localKey) {
+          <li>
+            <span>{{ move.name }}</span>
+            @if (move.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+            }
+          </li>
+        }
+      </ul>
+    }
   </div>
 </ng-template>
 
@@ -197,7 +210,8 @@
           }
           <small class="text-muted block mt-1">
             Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
-            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }}
+            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Moves:
+            {{ draft.customMoves.length }}
           </small>
         </div>
       }
@@ -268,6 +282,19 @@
             }
             @if (armor.isSpecial && armor.specialDescription) {
               <div class="text-muted text-[0.8rem] leading-[1.4]"><em class="italic">Special:</em> {{ armor.specialDescription }}</div>
+            }
+          </li>
+        }
+      </ul>
+    }
+    @if (store.minionPreview().customMoves.length > 0) {
+      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Custom Moves</span></p>
+      <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5" data-dossier-minion-custom-moves>
+        @for (move of store.minionPreview().customMoves; track move.localKey) {
+          <li>
+            <span>{{ move.name }}</span>
+            @if (move.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
             }
           </li>
         }

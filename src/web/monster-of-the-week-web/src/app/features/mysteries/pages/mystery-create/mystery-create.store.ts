@@ -231,11 +231,13 @@ export interface MonsterDraft {
   powers: PowerDraft[];
   weaknesses: WeaknessDraft[];
   armors: ArmorDraft[];
+  customMoves: CustomMoveDraft[];
   /** Per-draft sub-resource baseline. Responses, not ids — see `MinionDraft.existingAttacks`. */
   existingAttacks: MonsterAttackResponse[];
   existingPowers: MonsterPowerResponse[];
   existingWeaknesses: MonsterWeaknessResponse[];
   existingArmors: MonsterArmorResponse[];
+  existingCustomMoves: CustomMoveResponse[];
   /**
    * **The persisted minions of *this* monster** (J1, §7.7i) — replacing the store-level flat
    * `existingMinionIds` the wizard carried until 5b.
@@ -307,6 +309,7 @@ export interface MinionDraft {
   powers: PowerDraft[];
   weaknesses: WeaknessDraft[];
   armors: ArmorDraft[];
+  customMoves: CustomMoveDraft[];
   /**
    * **The baseline: the server responses themselves, not a list of ids** (§5.4).
    *
@@ -322,6 +325,7 @@ export interface MinionDraft {
   existingPowers: MinionPowerResponse[];
   existingWeaknesses: MinionWeaknessResponse[];
   existingArmors: MinionArmorResponse[];
+  existingCustomMoves: CustomMoveResponse[];
 }
 
 interface SavedThreatCollections {
@@ -329,6 +333,7 @@ interface SavedThreatCollections {
   powers: MonsterPowerResponse[];
   weaknesses: MonsterWeaknessResponse[];
   armors: MonsterArmorResponse[];
+  customMoves: CustomMoveResponse[];
 }
 
 /** One roster row's save result, carried back to `writeBackMonsterDrafts` by draft index. */
@@ -351,6 +356,7 @@ interface SavedMinionCollections {
   powers: MinionPowerResponse[];
   weaknesses: MinionWeaknessResponse[];
   armors: MinionArmorResponse[];
+  customMoves: CustomMoveResponse[];
 }
 
 /**
@@ -479,10 +485,12 @@ export class MysteryCreateStore {
   readonly monsterPowers = signal<PowerDraft[]>([]);
   readonly monsterWeaknesses = signal<WeaknessDraft[]>([]);
   readonly monsterArmors = signal<ArmorDraft[]>([]);
+  readonly monsterCustomMoves = signal<CustomMoveDraft[]>([]);
   readonly minionAttacks = signal<AttackDraft[]>([]);
   readonly minionPowers = signal<PowerDraft[]>([]);
   readonly minionWeaknesses = signal<WeaknessDraft[]>([]);
   readonly minionArmors = signal<ArmorDraft[]>([]);
+  readonly minionCustomMoves = signal<CustomMoveDraft[]>([]);
   readonly locations = signal<LocationDraft[]>([]);
   readonly bystanders = signal<BystanderDraft[]>([]);
 
@@ -703,6 +711,16 @@ export class MysteryCreateStore {
     description: this.fb.control(''),
   });
 
+  readonly monsterCustomMoveForm: NamedDraftFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+  });
+
+  readonly minionCustomMoveForm: NamedDraftFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+  });
+
   readonly monsterArmorForm: ArmorFormGroup = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
@@ -865,6 +883,12 @@ export class MysteryCreateStore {
       powers: this.monsterPowers(),
       weaknesses: this.monsterWeaknesses(),
       armors: this.monsterArmors(),
+      // **The least visible of the five silent sites** (§30.7 flag 1). The dossier is the surface
+      // whose whole job is to report what was authored, so an omission here reads to the user as a
+      // collection that did not save (14-R10) — with no error, no empty state and nothing on the
+      // wire to notice. Pinned by a fixture holding *only* a custom move; anything else in the
+      // composer makes the entry render either way.
+      customMoves: this.monsterCustomMoves(),
     };
   });
 
@@ -895,6 +919,7 @@ export class MysteryCreateStore {
       powers: this.minionPowers(),
       weaknesses: this.minionWeaknesses(),
       armors: this.minionArmors(),
+      customMoves: this.minionCustomMoves(),
     };
   });
 
@@ -924,7 +949,8 @@ export class MysteryCreateStore {
       this.minionAttacks().length > 0 ||
       this.minionPowers().length > 0 ||
       this.minionWeaknesses().length > 0 ||
-      this.minionArmors().length > 0
+      this.minionArmors().length > 0 ||
+      this.minionCustomMoves().length > 0
     );
   });
 
@@ -981,7 +1007,13 @@ export class MysteryCreateStore {
       this.monsterAttacks().length > 0 ||
       this.monsterPowers().length > 0 ||
       this.monsterWeaknesses().length > 0 ||
-      this.monsterArmors().length > 0
+      this.monsterArmors().length > 0 ||
+      // **A correctness item, not a checklist row** (§26.2 L6, site 5). This computed is read by
+      // `collapseComposerIfUntouched` via `attachMonster` and by `next()`'s commit rules, so
+      // omitting the moves makes a composer holding *only* a custom move count as untouched — and
+      // attaching an existing monster then **silently discards it**. Same property
+      // `mystery-create-phase4-ledger.spec.ts:479` already protects for locations.
+      this.monsterCustomMoves().length > 0
     );
   });
 
@@ -1520,6 +1552,22 @@ export class MysteryCreateStore {
     this.removeDraft(this.minionWeaknesses, localKey);
   }
 
+  addMonsterCustomMove(): void {
+    this.addNamedDraft(this.monsterCustomMoves, this.monsterCustomMoveForm, 'move');
+  }
+
+  removeMonsterCustomMove(localKey: string): void {
+    this.removeDraft(this.monsterCustomMoves, localKey);
+  }
+
+  addMinionCustomMove(): void {
+    this.addNamedDraft(this.minionCustomMoves, this.minionCustomMoveForm, 'move');
+  }
+
+  removeMinionCustomMove(localKey: string): void {
+    this.removeDraft(this.minionCustomMoves, localKey);
+  }
+
   addMonsterArmor(): void {
     this.addArmorDraft(this.monsterArmors, this.monsterArmorForm, 'armor');
   }
@@ -1943,10 +1991,12 @@ export class MysteryCreateStore {
       powers: [...this.monsterPowers()],
       weaknesses: [...this.monsterWeaknesses()],
       armors: [...this.monsterArmors()],
+      customMoves: [...this.monsterCustomMoves()],
       existingAttacks: existing?.existingAttacks ?? [],
       existingPowers: existing?.existingPowers ?? [],
       existingWeaknesses: existing?.existingWeaknesses ?? [],
       existingArmors: existing?.existingArmors ?? [],
+      existingCustomMoves: existing?.existingCustomMoves ?? [],
       existingMinionIds: existing?.existingMinionIds ?? [],
       mysteryIds: existing?.mysteryIds ?? [],
     };
@@ -1985,6 +2035,7 @@ export class MysteryCreateStore {
     this.monsterPowers.set([...draft.powers]);
     this.monsterWeaknesses.set([...draft.weaknesses]);
     this.monsterArmors.set([...draft.armors]);
+    this.monsterCustomMoves.set([...draft.customMoves]);
 
     this.editingMonsterKey.set(key);
     this.monsterComposerOpen.set(true);
@@ -2127,9 +2178,14 @@ export class MysteryCreateStore {
     this.monsterPowers.set([]);
     this.monsterWeaknesses.set([]);
     this.monsterArmors.set([]);
+    // **The one silent site with a data consequence rather than a display one** (§30.4). Omit this
+    // and the previous monster's moves leak into the next composer — and then get *written* to it
+    // on the next submit, against a monster the user never gave them to.
+    this.monsterCustomMoves.set([]);
     this.monsterAttackForm.reset({ name: '', harm: 0, description: '', weaponTagIds: [] });
     this.monsterPowerForm.reset({ name: '', description: '' });
     this.monsterWeaknessForm.reset({ name: '', description: '' });
+    this.monsterCustomMoveForm.reset({ name: '', description: '' });
     this.monsterArmorForm.reset({ name: '', description: '', harmSoak: 0, isSpecial: false, specialDescription: '' });
   }
 
@@ -2180,10 +2236,12 @@ export class MysteryCreateStore {
       powers: [...this.minionPowers()],
       weaknesses: [...this.minionWeaknesses()],
       armors: [...this.minionArmors()],
+      customMoves: [...this.minionCustomMoves()],
       existingAttacks: existing?.existingAttacks ?? [],
       existingPowers: existing?.existingPowers ?? [],
       existingWeaknesses: existing?.existingWeaknesses ?? [],
       existingArmors: existing?.existingArmors ?? [],
+      existingCustomMoves: existing?.existingCustomMoves ?? [],
     };
 
     this.minionDrafts.update((drafts) =>
@@ -2229,6 +2287,7 @@ export class MysteryCreateStore {
     this.minionPowers.set([...draft.powers]);
     this.minionWeaknesses.set([...draft.weaknesses]);
     this.minionArmors.set([...draft.armors]);
+    this.minionCustomMoves.set([...draft.customMoves]);
 
     this.editingMinionKey.set(key);
     this.minionComposerOpen.set(true);
@@ -2308,9 +2367,11 @@ export class MysteryCreateStore {
     this.minionPowers.set([]);
     this.minionWeaknesses.set([]);
     this.minionArmors.set([]);
+    this.minionCustomMoves.set([]);
     this.minionAttackForm.reset({ name: '', harm: 0, description: '', weaponTagIds: [] });
     this.minionPowerForm.reset({ name: '', description: '' });
     this.minionWeaknessForm.reset({ name: '', description: '' });
+    this.minionCustomMoveForm.reset({ name: '', description: '' });
     this.minionArmorForm.reset({ name: '', description: '', harmSoak: 0, isSpecial: false, specialDescription: '' });
   }
 
@@ -2570,10 +2631,15 @@ export class MysteryCreateStore {
           powers: rekeyDrafts(draft.powers, collections.powers),
           weaknesses: rekeyDrafts(draft.weaknesses, collections.weaknesses),
           armors: rekeyDrafts(draft.armors, collections.armors),
+          // **The H2 shape** (§26.2 L6, site 9). Omit the re-key and the ids never come back onto
+          // the drafts while `existingCustomMoves` below does — so every later submit deletes and
+          // recreates the lot. The two halves are written here together for exactly that reason.
+          customMoves: rekeyDrafts(draft.customMoves, collections.customMoves),
           existingAttacks: collections.attacks,
           existingPowers: collections.powers,
           existingWeaknesses: collections.weaknesses,
           existingArmors: collections.armors,
+          existingCustomMoves: collections.customMoves,
         };
       }
       return next;
@@ -2906,10 +2972,12 @@ export class MysteryCreateStore {
         powers: rekeyDrafts(draft.powers, collections.powers),
         weaknesses: rekeyDrafts(draft.weaknesses, collections.weaknesses),
         armors: rekeyDrafts(draft.armors, collections.armors),
+        customMoves: rekeyDrafts(draft.customMoves, collections.customMoves),
         existingAttacks: collections.attacks,
         existingPowers: collections.powers,
         existingWeaknesses: collections.weaknesses,
         existingArmors: collections.armors,
+        existingCustomMoves: collections.customMoves,
       };
     }
 
@@ -3194,6 +3262,8 @@ export class MysteryCreateStore {
    * adjacent, none inline", and that holds at one as it will at five.
    */
   private readonly mysteryMoves = this.customMoveSubResource('Mystery');
+  private readonly monsterMoves = this.customMoveSubResource('Monster');
+  private readonly minionMoves = this.customMoveSubResource('Minion');
 
   /** Ids onto the drafts and the new baseline, from the same diff result (H2). */
   private writeBackMysteryCustomMoves(saved: CustomMoveResponse[]): void {
@@ -3368,6 +3438,7 @@ export class MysteryCreateStore {
         this.minionWeaknessService,
       ),
       armors: applySubResourceDiff(minionId, draft.armors, draft.existingArmors, this.minionArmorService),
+      customMoves: applySubResourceDiff(minionId, draft.customMoves, draft.existingCustomMoves, this.minionMoves),
     });
   }
 
@@ -3390,6 +3461,7 @@ export class MysteryCreateStore {
         this.monsterWeaknessService,
       ),
       armors: applySubResourceDiff(monsterId, draft.armors, draft.existingArmors, this.monsterArmorService),
+      customMoves: applySubResourceDiff(monsterId, draft.customMoves, draft.existingCustomMoves, this.monsterMoves),
     });
   }
 

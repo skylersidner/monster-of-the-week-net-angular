@@ -28,8 +28,8 @@
           -->
           <small class="text-muted">
             Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
-            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Minions:
-            {{ minionCountFor(draft.localKey) }}
+            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Moves:
+            {{ draft.customMoves.length }} · Minions: {{ minionCountFor(draft.localKey) }}
           </small>
         </div>
         <div class="flex items-center shrink-0 gap-1">
@@ -253,6 +253,43 @@
       </form>
     </div>
 
+    <!--
+      The fifth panel, and a **hand-written** one rather than `app-custom-moves-card` (§13.5.3,
+      §35.5). Density is the reason Rosalina gave; identity is the sturdier one Yoshi found, and it
+      is the one that decides: `CustomMoveRow` has a single opaque `key`, while the wizard's diff
+      needs `id` (null means create) **and** `localKey` (stable across the transition where the id
+      arrives) as separate things. Share across surfaces that agree about identity; copy across
+      surfaces that do not.
+
+      `border border-default` to match the four neighbours **in this composer**, not the minion
+      composer's `bg-surface-sunken` — match the local neighbour. Add and remove only, no row edit
+      (§13.5.3); the diff answers an edit-by-remove-and-re-add with a DELETE and a POST. And no
+      commit-on-advance, which is the other half of 5f-1's rule: a panel inside a composer discards
+      on the composer's save, where a panel that *is* a step commits on Next.
+    -->
+    <div class="border border-default rounded-lg mb-4 p-3" data-monster-custom-moves>
+      <h4 class="text-primary text-sm font-bold m-0 mb-3">Custom Moves</h4>
+      @for (move of store.monsterCustomMoves(); track move.localKey) {
+        <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm" data-monster-custom-move>
+          <div class="flex flex-1 flex-col gap-[0.2rem]">
+            <span>{{ move.name }}</span>
+            @if (move.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+            }
+          </div>
+          <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1"
+            [attr.aria-label]="'Remove ' + move.name" (click)="store.removeMonsterCustomMove(move.localKey)">×</button>
+        </div>
+      }
+      <form [formGroup]="store.monsterCustomMoveForm" class="flex flex-wrap items-center gap-2 mt-2">
+        <input formControlName="name" placeholder="Move name" aria-label="Monster custom move name"
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+        <textarea formControlName="description" rows="2" placeholder="When does it apply, and what happens?" aria-label="Monster custom move description"
+          class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+        <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMonsterCustomMove()">+ Add</button>
+      </form>
+    </div>
+
       <div class="flex items-center justify-end gap-3">
         @if (store.editingMonsterKey() !== null) {
           <button type="button" class="bg-transparent border border-strong rounded-lg text-muted cursor-pointer font-[inherit] text-[0.9rem] px-5 py-[0.55rem] transition-colors" (click)="cancelMonster()">Cancel</button>
@@ -309,7 +346,8 @@
           </div>
           <small class="text-muted block">
             Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
-            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }}
+            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Moves:
+            {{ draft.customMoves.length }}
           </small>
           @if (store.monsterDrafts().length > 1) {
             <!--
@@ -518,6 +556,35 @@
               class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
           }
           <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMinionArmor()">+ Add</button>
+        </form>
+      </div>
+
+      <!--
+        The minion twin. **`bg-surface-sunken` and no border**, matching the four panels beside it
+        rather than the monster composer's bordered ones — §13.5.3's "match the local neighbour, not
+        the other composer." The two composers genuinely differ in panel shell today; normalising
+        them is a separate cleanup and not this work's business.
+      -->
+      <div class="bg-surface-sunken rounded-lg mb-4 p-3" data-minion-custom-moves>
+        <h4 class="text-primary text-sm font-bold m-0 mb-3">Custom Moves</h4>
+        @for (move of store.minionCustomMoves(); track move.localKey) {
+          <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm" data-minion-custom-move>
+            <div class="flex flex-1 flex-col gap-[0.2rem]">
+              <span>{{ move.name }}</span>
+              @if (move.description) {
+                <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+              }
+            </div>
+            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1"
+              [attr.aria-label]="'Remove ' + move.name" (click)="store.removeMinionCustomMove(move.localKey)">×</button>
+          </div>
+        }
+        <form [formGroup]="store.minionCustomMoveForm" class="flex flex-wrap items-center gap-2 mt-2">
+          <input formControlName="name" placeholder="Move name" aria-label="Minion custom move name"
+            class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+          <textarea formControlName="description" rows="2" placeholder="When does it apply, and what happens?" aria-label="Minion custom move description"
+            class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+          <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors" (click)="store.addMinionCustomMove()">+ Add</button>
         </form>
       </div>
 

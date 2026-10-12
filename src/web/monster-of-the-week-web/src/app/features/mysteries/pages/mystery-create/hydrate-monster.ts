@@ -1,4 +1,5 @@
 import {
+  CustomMoveResponse,
   MinionArmorResponse,
   MinionAttackResponse,
   MinionDetailResponse,
@@ -10,7 +11,15 @@ import {
   MonsterPowerResponse,
   MonsterWeaknessResponse,
 } from '../../../../core/models';
-import type { ArmorDraft, AttackDraft, MinionDraft, MonsterDraft, PowerDraft, WeaknessDraft } from './mystery-create.store';
+import type {
+  ArmorDraft,
+  AttackDraft,
+  CustomMoveDraft,
+  MinionDraft,
+  MonsterDraft,
+  PowerDraft,
+  WeaknessDraft,
+} from './mystery-create.store';
 import { createDraftKey } from './mystery-create.store';
 
 /**
@@ -52,13 +61,15 @@ export function toHydratedMonster(monster: MonsterDetailResponse, minions: Minio
       monsterTypeId: monster.monsterTypeId,
       monsterArchetypeId: monster.monsterArchetype.id,
       attacks: monster.attacks.map(toAttackDraft),
-      powers: monster.powers.map(toNamedDraft),
-      weaknesses: monster.weaknesses.map(toNamedDraft),
+      powers: monster.powers.map((row) => toNamedDraft(row)),
+      weaknesses: monster.weaknesses.map((row) => toNamedDraft(row)),
       armors: monster.armors.map(toArmorDraft),
+      customMoves: monster.customMoves.map((move) => toNamedDraft(move, 'move')),
       existingAttacks: monster.attacks,
       existingPowers: monster.powers,
       existingWeaknesses: monster.weaknesses,
       existingArmors: monster.armors,
+      existingCustomMoves: monster.customMoves,
       // J1: the minion baseline is built here, from the same responses the drafts are, and it lives
       // on the draft. Removing the monster therefore forgets it with no separate step.
       existingMinionIds: minions.map((minion) => minion.id),
@@ -84,13 +95,15 @@ export function toMinionDraft(minion: MinionDetailResponse, monsterKey: string):
     harmCapacity: minion.harmCapacity,
     minionTypeId: minion.minionType.id,
     attacks: minion.attacks.map(toAttackDraft),
-    powers: minion.powers.map(toNamedDraft),
-    weaknesses: minion.weaknesses.map(toNamedDraft),
+    powers: minion.powers.map((row) => toNamedDraft(row)),
+    weaknesses: minion.weaknesses.map((row) => toNamedDraft(row)),
     armors: minion.armors.map(toArmorDraft),
+    customMoves: minion.customMoves.map((move) => toNamedDraft(move, 'move')),
     existingAttacks: minion.attacks,
     existingPowers: minion.powers,
     existingWeaknesses: minion.weaknesses,
     existingArmors: minion.armors,
+    existingCustomMoves: minion.customMoves,
   };
 }
 
@@ -105,12 +118,35 @@ function toAttackDraft(attack: MonsterAttackResponse | MinionAttackResponse): At
   };
 }
 
+/**
+ * **Call this in an arrow, never bare in `.map()`.** The second parameter is why: `.map(toNamedDraft)`
+ * hands the array index to `prefix`, so every key would be minted `0-1`, `1-2`… §26.2 L7 called the
+ * prefix "one line, no behaviour change to the four existing callers" — it is one line *plus four
+ * arrows*, and TypeScript is what said so (`number` is not assignable to `string`). A widened or
+ * untyped parameter would have compiled and silently re-keyed every hydrated row.
+ *
+ * One `{ id, name, description }` response as a draft — powers, weaknesses and now custom moves.
+ *
+ * **`CustomMoveResponse` had to be added to the union** (§26.2 L7): it is structurally identical to
+ * the other four and still not a member, so passing one was a compile error until this line changed.
+ * The good kind of friction — the compiler is what asked.
+ *
+ * **The prefix is a parameter rather than the hardcoded `'trait'`.** No behaviour change for the
+ * four existing callers, which keep the default. It matters when a roster assertion fails and prints
+ * these keys: five collections sharing one prefix is what makes such a failure unreadable.
+ */
 function toNamedDraft(
-  row: MonsterPowerResponse | MinionPowerResponse | MonsterWeaknessResponse | MinionWeaknessResponse,
-): PowerDraft & WeaknessDraft {
+  row:
+    | MonsterPowerResponse
+    | MinionPowerResponse
+    | MonsterWeaknessResponse
+    | MinionWeaknessResponse
+    | CustomMoveResponse,
+  prefix = 'trait',
+): PowerDraft & WeaknessDraft & CustomMoveDraft {
   return {
     id: row.id,
-    localKey: createDraftKey('trait'),
+    localKey: createDraftKey(prefix),
     name: row.name,
     description: row.description ?? '',
   };

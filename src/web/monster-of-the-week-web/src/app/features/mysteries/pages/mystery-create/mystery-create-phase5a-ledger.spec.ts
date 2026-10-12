@@ -78,6 +78,12 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
       powers: idsOf(draft.powers),
       weaknesses: idsOf(draft.weaknesses),
       armors: idsOf(draft.armors),
+      // **The fifth collection, added in 5f-2** (§30.4). This is where the writeback's silent site
+      // is caught: omit `customMoves: rekeyDrafts(...)` from `writeBackMonsterDrafts` and the ids
+      // never come back onto the drafts while the baseline moves on without them, so every later
+      // submit deletes and recreates the lot. Extending the helper rather than adding a separate
+      // one is what makes the eight snapshot comparisons below assert it too, for free.
+      customMoves: idsOf(draft.customMoves),
     };
   };
 
@@ -89,6 +95,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
       powers: idsOf(draft.powers),
       weaknesses: idsOf(draft.weaknesses),
       armors: idsOf(draft.armors),
+      customMoves: idsOf(draft.customMoves),
     };
   };
 
@@ -642,7 +649,10 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
             },
           ],
           weaknesses: [{ id: 'm-weakness-9', name: 'Silence', description: null }],
-          customMoves: [],
+          // **Non-empty on purpose.** An empty collection still fails the oracle if the writeback
+          // drops the field (`idsOf(undefined)` throws), but it cannot catch the ids being
+          // *rotated* — which is the failure 5a exists to prevent. One row makes both observable.
+          customMoves: [{ id: 'm-move-9', name: 'Conduct the Dead', description: 'Roll +Weird.' }],
         }),
       );
       minionService['getByMonster'] = vi.fn(() => of([{ id: 'minion-1', monsterId: 'monster-1' }]));
@@ -659,7 +669,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
           powers: [{ id: 'n-power-9', name: 'Keening', description: null }],
           armors: [],
           weaknesses: [],
-          customMoves: [],
+          customMoves: [{ id: 'n-move-9', name: 'Join the Chorus', description: null }],
         }),
       );
 
@@ -674,6 +684,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
         powers: ['m-power-9'],
         weaknesses: ['m-weakness-9'],
         armors: ['m-armor-9'],
+        customMoves: ['m-move-9'],
       });
     });
 
@@ -684,6 +695,7 @@ describe('Phase 5a — the sub-resource diff, by exact request ledger', () => {
         powers: ['n-power-9'],
         weaknesses: [],
         armors: [],
+        customMoves: ['n-move-9'],
       });
     });
 

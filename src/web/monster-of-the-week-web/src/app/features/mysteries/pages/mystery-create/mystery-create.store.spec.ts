@@ -756,6 +756,7 @@ describe('MysteryCreateStore', () => {
       powers: [],
       weaknesses: [],
       armors: [],
+      customMoves: [],
     });
 
     TestBed.resetTestingModule();
@@ -812,6 +813,7 @@ describe('MysteryCreateStore', () => {
                 powers: [],
                 weaknesses: [],
                 armors: [],
+                customMoves: [],
               }),
           },
         },
