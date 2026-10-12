@@ -4607,7 +4607,103 @@ the unit level by both specs: `location-detail.custom-moves.spec.ts` asserts the
 `location-detail.images.spec.ts`'s rewritten block drives the image flow through
 `component.pendingDelete()` against a seeded fixture. Recorded rather than silently skipped, because
 "the modal serves two flows" is the whole point of the migration and a reader should know where it
-is actually proven.
+is actually proven. **5d closed this** — see §29.6.
+
+---
+
+## 29.6 5d shipped, 2026-10-11 — inherit-rather-than-discover, measured
+
+**Results.** Suite 1646 → **1680** (118 files), typecheck clean, **33/33** browser checks plus an
+**11/11** follow-up run, and the card is now on all five detail pages and all four create pages —
+**all nine call sites**. Zero data footprint after cleanup, with one incident worth recording below.
+
+### The inherit-rather-than-discover claim, tested
+
+§29.5 predicted 5d would meet known problems rather than find new ones. It did, exactly:
+
+- **The authorised spec-edit set was the actual set.** Six failures appeared after the production
+  change, and all six were pre-authorised: the parity spec, `bystander-create.spec.ts`'s copy, the
+  three in `bystander-detail.images.spec.ts`, and `bystander-detail.spec.ts`'s read-only assertion.
+  **No seventh shipped expectation needed changing**, so the hard stop never triggered.
+- **The three images-spec assertions were character-identical to location's**, as forecast, and
+  took the identical treatment.
+- **`bystander-create` was first-of-kind for three items, not four** — 5c's correction to §13.1
+  item 3 held on the second page, which is what makes it a correction rather than a one-off.
+
+So the divergence 5c paid for was genuinely a one-time cost, not a per-page one.
+
+### 5d retires the store-owned branch entirely
+
+With Bystander migrated, **all four image-bearing pages own their `pendingDelete`**, so the parity
+spec's `modalOwner` column is gone rather than converged — there is no longer a per-domain
+difference to record. The `Domain` interface loses the field, the table loses the column, and the
+test asserts a uniform property instead of a split.
+
+**Confirmed by control rather than asserted:** renaming `ResourceImagesStore`'s
+`requestDelete`/`confirmDelete`/`cancelDelete` produced compile errors in **exactly one file**,
+`resource-images.store.spec.ts` — no page spec, no template. So the wrapper is now **fully
+production-dead**, which is what §26.2 L5 forecast for "after 5c/5d" and what 5c's control measured
+as half-dead (3 callers, all bystander). **F-L2 is now actionable**, and its scope is precisely:
+three methods, the `pendingDelete` signal they drive, the exported `PendingImageDelete` interface,
+and the assertions in that one spec.
+
+### The `isSaving` alias, now on both pages
+
+`bystander-detail` takes the same `readonly isSaving = this.isMutating` alias as `location-detail`,
+for the same reason. **The follow-up should collapse both pages in one pass** — it is a rename with
+no behaviour change, and splitting it across two commits would leave the codebase briefly
+inconsistent for no gain. Deliberately not done here: 5d's authorised set did not include it, and
+the whole point of the hard stop is that "while I'm in here" is not a scope argument.
+
+### One process failure worth recording: a crashed probe leaves its footprint
+
+The first run of the 5d browser script **timed out mid-run** and never reached its cleanup step,
+orphaning one `PHASE5D-` bystander and its two staged custom moves. The second run passed and
+cleaned up after itself, so the suite and the browser checks were all green while the database still
+held residue.
+
+**The prefix convention is what made it findable** — the audit query caught it immediately, and
+bystanders reading 16 against the expected 15 was the tell. Cleaned up through `psql` in the order
+the service does it (owned rows, then bridge rows, then the entity), since the API was already down.
+
+**Two things to carry forward.** First, **the audit is not a formality** — it is the only thing that
+catches a probe that died before its own cleanup, and "the checks all passed" is not evidence that
+the database is clean. Second, a cleanup step at the *end* of a script only runs on the happy path;
+anything that can crash before it should either clean up first or register the cleanup up front.
+
+### What the derivation got wrong, again, and the sharper rule
+
+5b ruled "write the specs, don't derive them". 5d is the first case where deriving was right —
+`location-*` and `bystander-*` had become genuine structural twins — and the rename still left:
+
+- every fixture **value** (`'The Old Mill'`, `'Lair'`, `'to collapse'`, `'lt1'`, `'l1'`), which
+  typechecks perfectly against the bystander field names and is nonsense as data;
+- **`'APP-LOCATION-FORM'`** — an all-caps literal matching neither a `Location`→`Bystander` nor a
+  `location`→`bystander` substitution. **A case variant the identifier rename cannot see**, and the
+  only one that actually failed a test rather than merely reading wrong. The same literal bit the
+  browser script, in the same way, ten minutes later.
+- the file header, which still said "Phase 5c" and claimed the file had been hand-written.
+
+**So the rule sharpens rather than reverses: derive only between pages that are already twins, and
+then re-check the literals, the case variants and the prose — the identifiers are the easy part.**
+
+### The check 5c could not make, now made
+
+**Both delete flows through the same page-owned modal, in a real browser.** 5c had to leave this at
+unit level because no location in dev data has an image; exactly one bystander does, so 5d ran it:
+
+```
+PASS  page mounts exactly ONE confirm modal element
+PASS  IMAGE delete opens that one modal, titled Delete "anna_quillen.png"?
+PASS    and carries the image footnote only the image flow sets
+PASS  CUSTOM-MOVE delete opens the SAME one modal, titled Delete "PHASE5D-Shared Modal Probe"?
+PASS    and does NOT leak the image footnote
+PASS    while still claiming permanence
+```
+
+That is decision 14 and the whole ownership migration demonstrated end to end: one element, two
+object types, the right title and footnote for each, and no bleed between them. The image dialog was
+cancelled rather than confirmed, so no image was touched.
 
 ---
 
