@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -8,6 +8,12 @@ import { MonsterService } from '../../../../core/monster';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { CustomSelectComponent } from '../../../../shared/custom-select.component';
+import {
+  CustomMoveCommit,
+  CustomMoveRow,
+  CustomMovesCardComponent,
+} from '../../../../shared/custom-moves-card.component';
+import { CustomMoveService, createCustomMoveDraftKey } from '../../../../core/custom-moves';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
 import { MinionFormComponent } from '../../shared/minion-form/minion-form';
 import {
@@ -51,6 +57,14 @@ export interface WeaknessDraft {
   description: string | null;
 }
 
+/** A staged custom move. Same shape as `monster-create`'s — see that file for why it carries a
+ *  client `key` and no `id`, and why it is deliberately not the wizard's draft type. */
+export interface CustomMoveDraft {
+  key: string;
+  name: string;
+  description: string | null;
+}
+
 /**
  * One create page, two routes (Resolved Decision 5 / Open Question 1 — Option C):
  *
@@ -70,6 +84,7 @@ export interface WeaknessDraft {
     RouterLink,
     MinionFormComponent,
     CustomSelectComponent,
+    CustomMovesCardComponent,
     WeaponTagSelectComponent,
   ],
   templateUrl: './minion-create.html',
@@ -96,6 +111,19 @@ export class MinionCreateComponent implements OnInit {
   readonly powerDrafts = signal<PowerDraft[]>([]);
   readonly armorDrafts = signal<ArmorDraft[]>([]);
   readonly weaknessDrafts = signal<WeaknessDraft[]>([]);
+
+  // --- Custom moves, staged (architecture.md §29.2, §29.3; Phase 5b) ---
+
+  readonly customMoveDrafts = signal<CustomMoveDraft[]>([]);
+  readonly editingCustomMoveKey = signal<string | null>(null);
+
+  readonly customMoveRows = computed<CustomMoveRow[]>(() =>
+    this.customMoveDrafts().map((draft) => ({
+      key: draft.key,
+      name: draft.name,
+      description: draft.description,
+    }))
+  );
 
   /**
    * Required monster picker, rendered only at `/minions/new`. `MinionFormComponent`
@@ -142,8 +170,33 @@ export class MinionCreateComponent implements OnInit {
     private readonly minionService: MinionService,
     private readonly monsterService: MonsterService,
     private readonly referenceDataService: ReferenceDataService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly customMoveService: CustomMoveService
   ) {}
+
+  /** The card, so a commit can return it to its add state. See `monster-create`'s twin. */
+  @ViewChild(CustomMovesCardComponent) private readonly customMovesCard?: CustomMovesCardComponent;
+
+  /** Add or edit a staged move — local only, no request. `key === null` is an add. */
+  commitCustomMoveDraft(commit: CustomMoveCommit): void {
+    const { key, name, description } = commit;
+
+    this.customMoveDrafts.update((drafts) =>
+      key === null
+        ? [...drafts, { key: createCustomMoveDraftKey(), name, description }]
+        : drafts.map((draft) => (draft.key === key ? { ...draft, name, description } : draft))
+    );
+
+    this.customMovesCard?.commitSucceeded();
+  }
+
+  /** A local splice and no modal — nothing is persisted yet, so there is nothing to confirm. */
+  removeCustomMoveDraft(row: CustomMoveRow): void {
+    this.customMoveDrafts.update((drafts) => drafts.filter((draft) => draft.key !== row.key));
+    if (this.editingCustomMoveKey() === row.key) {
+      this.editingCustomMoveKey.set(null);
+    }
+  }
 
   ngOnInit(): void {
     // Special Description is only required while Is Special is checked - UI-only rule,
@@ -415,6 +468,16 @@ export class MinionCreateComponent implements OnInit {
           this.minionService.createWeakness(minionId, {
             name: weakness.name,
             description: weakness.description,
+          })
+        )
+      ),
+      // The fifth arm (§2.10 item 2, §29.2). `runBatch`'s empty short-circuit means a create with
+      // no staged moves fires no request at all — the positive half of R5's ledger assertion.
+      customMoves: this.runBatch(
+        this.customMoveDrafts().map((move) =>
+          this.customMoveService.create('Minion', minionId, {
+            name: move.name,
+            description: move.description,
           })
         )
       ),

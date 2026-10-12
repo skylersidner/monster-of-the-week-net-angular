@@ -233,6 +233,21 @@
         </form>
       </article>
     </div>
+
+    <!--
+      Same position as `monster-detail`: the four-panel grid above is this page's run of owned
+      sub-resources, and the card joins the end of it (§13.2). Full width, outside the grid.
+    -->
+    <div class="mt-6">
+      <app-custom-moves-card
+        ownerType="Minion"
+        [rows]="customMoveRows()"
+        [(editingKey)]="editingCustomMoveKey"
+        [busy]="isMutating()"
+        (committed)="commitCustomMove($event)"
+        (removeRequested)="requestDeleteCustomMove($event)"
+      />
+    </div>
   }
 
   <!--

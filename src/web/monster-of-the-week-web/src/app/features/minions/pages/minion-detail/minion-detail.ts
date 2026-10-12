@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -7,6 +7,12 @@ import { MinionService } from '../../../../core/minion';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import {
+  CustomMoveCommit,
+  CustomMoveRow,
+  CustomMovesCardComponent,
+} from '../../../../shared/custom-moves-card.component';
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { IconComponent } from '../../../../shared/icons/icon.component';
 import { ImageCarouselComponent } from '../../../../shared/image-carousel.component';
 import { ImageUploadModalComponent } from '../../../../shared/image-upload-modal.component';
@@ -19,6 +25,7 @@ import {
   MinionAttackResponse,
   ResourceImageResponse,
   TypeRefResponse,
+  UpsertCustomMoveRequest,
   UpsertMinionArmorRequest,
   UpsertMinionAttackRequest,
   UpsertMinionPowerRequest,
@@ -35,6 +42,7 @@ import {
     MinionFormComponent,
     WeaponTagSelectComponent,
     ConfirmDeleteModalComponent,
+    CustomMovesCardComponent,
     IconComponent,
     ResourceImagesCardComponent,
     ImageCarouselComponent,
@@ -109,8 +117,13 @@ export class MinionDetailComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly minionService: MinionService,
     private readonly referenceDataService: ReferenceDataService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly customMoveService: CustomMoveService
   ) {}
+
+  /** The card, so a successful commit can reset it and restore focus. Optional: it lives inside
+   *  the template's `@if (minion())`. Identical to `monster-detail`'s. */
+  @ViewChild(CustomMovesCardComponent) private readonly customMovesCard?: CustomMovesCardComponent;
 
   ngOnInit(): void {
     // Special Description is only required while Is Special is checked - UI-only rule,
@@ -353,6 +366,59 @@ export class MinionDetailComponent implements OnInit {
         this.runAndRefresh(
           (minionId) => this.minionService.deleteWeakness(minionId, weaknessId),
           'Unable to delete weakness.'
+        ),
+    });
+  }
+
+  // --- Custom moves (architecture.md §29.1, §29.3; Phase 5b) ---
+  //
+  // **The 5a pilot, copied with the owner type and the noun changed, and nothing else.** That was
+  // the point of writing §29.3 before starting: Minion is the closest page to Monster — same
+  // four-panel grid, same closure-shaped `pendingDelete`, same `runAndRefresh` — so if anything
+  // here had needed to diverge, it would have meant the pilot's shape was wrong rather than that
+  // Minion is special. Nothing did.
+
+  /** Mapped from the `customMoves` already on `MinionDetailResponse` — no request on load. */
+  readonly customMoveRows = computed<CustomMoveRow[]>(() =>
+    (this.minion()?.customMoves ?? []).map((move) => ({
+      key: move.id,
+      name: move.name,
+      description: move.description,
+    }))
+  );
+
+  /** Which row the card has open. Bound two-way; the page owns it, the card asks (L-D1). */
+  readonly editingCustomMoveKey = signal<string | null>(null);
+
+  /** Add or edit, decided by `commit.key` — `null` means add. See `monster-detail`'s twin. */
+  commitCustomMove(commit: CustomMoveCommit): void {
+    const request: UpsertCustomMoveRequest = { name: commit.name, description: commit.description };
+    const { key } = commit;
+
+    this.runAndRefresh(
+      (minionId) =>
+        key === null
+          ? this.customMoveService.create('Minion', minionId, request)
+          : this.customMoveService.update('Minion', minionId, key, request),
+      key === null ? 'Unable to add custom move.' : 'Unable to save custom move.',
+      () => this.customMovesCard?.commitSucceeded(),
+      key === null ? 'Custom move added.' : 'Custom move saved.'
+    );
+  }
+
+  /**
+   * Through this page's single `<app-confirm-delete-modal>`, which already serves five flows — so
+   * custom moves cost one method and no template change at the modal (decision 14). No `footnote`
+   * and no `message`, so the component's own *"This cannot be undone."* default applies and the
+   * census spec's transcribed data is unaffected (R12's gate stays 5e-only).
+   */
+  requestDeleteCustomMove(row: CustomMoveRow): void {
+    this.pendingDelete.set({
+      label: row.name,
+      perform: () =>
+        this.runAndRefresh(
+          (minionId) => this.customMoveService.delete('Minion', minionId, row.key),
+          'Unable to delete custom move.'
         ),
     });
   }
