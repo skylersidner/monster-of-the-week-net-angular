@@ -4707,6 +4707,117 @@ cancelled rather than confirmed, so no image was touched.
 
 ---
 
+## 29.7 5e shipped, 2026-10-11 — the ninth call site, and the gate that turned out not to bite
+
+**Results.** Suite 1680 → **1700** (119 files), typecheck clean, two negative controls both matching
+their predictions, **30/30** browser checks on the first run. Zero data footprint. **All five detail
+pages and all four create pages now carry the card — nine of nine call sites, and §§5a–5e are
+complete.**
+
+### §4.1's list was three; L12 made it five; five is what it was
+
+Confirmed by building it. The page had no mutation state, no notifications, no modal and no stored
+route id — its only control was the *Continue in wizard* link. All five were needed:
+`activeMutation`/`isMutating`; `NotificationService`; `ConfirmDeleteModalComponent` plus the
+page-owned `pendingDelete` quartet; the **`mysteryId` signal**, because `ngOnInit` read
+`params.get('id')` inside its pipe and discarded it; and a **targeted refetch**.
+
+**Nothing beyond the five was needed**, which is worth recording because it is the first sub-phase
+where the estimate was exactly right rather than over or under.
+
+**The refetch is the one that deserved its own method.** The other four pages route custom-move
+writes through their existing `runAndRefresh`; this page has none, so 5e added `runCustomMoveWrite`
+— and it reloads **only the mystery**, not the page's four-arm `forkJoin` plus minion fan-out.
+Monsters, locations, bystanders and minions cannot change because of a custom-move write, so
+re-running those arms would be wasteful *and wrong*: a failure in any of them would surface as a
+custom-move failure. Asserted, not just commented.
+
+### The deliberate non-addition, demonstrated rather than reasoned
+
+R14's constraint is that no new inline error surface appears on this page, because
+`mystery-detail.html:6` orders `@else if (errorMessage())` ahead of the content branch. Phase A took
+that hazard out of the other four; this page never had a write path, so 5e's only job was not to
+introduce one.
+
+Both halves are now pinned. **Negative control A** — setting `errorMessage` on a failed write —
+failed **exactly 2** tests, as predicted, both the survival assertions. And the browser run showed
+the positive form: a routed 500 leaves the title, the concept section, the card and the user's
+typing in place, with the failure reported only as a toast. The complement is asserted too: a
+*load* failure still renders inline, so `errorMessage` is not unused — it is load-only, which is
+now true of all five pages and makes that branch mean exactly "this page could not be loaded".
+
+### The census was this sub-phase's gate, and it does not bite. Measured.
+
+R12 named `confirm-delete-modal.call-sites.spec.ts` as 5e's gate, warning it would *"fail on a change
+that looks unrelated to it"*. **It did not fail at all.** The production change — a new modal element
+on `mystery-detail.html` — left the entire suite green until I edited the literal by hand.
+
+The reason is in that spec's own §8.8 note, one step further than it goes. Its two count assertions
+are `Object.keys(perTemplate).toHaveLength(16)` and a `reduce` over the same literal — **facts about
+the object three lines above them, compared against themselves**, which is precisely the rot §8.8
+diagnoses. The fix recorded there ("the derived half now lives in
+`mystery-create-phase5b-monster-phase.spec.ts`") only ever covered the **wizard** rows, because that
+is where a rendering harness already existed. The ten — now eleven — non-wizard rows stayed
+self-referential.
+
+**Confirmed by control B, which I predicted would pass and did:** with the census left at 19-in-17,
+*deleting* the modal element from the template failed **2 tests, both in
+`mystery-detail.custom-moves.spec.ts`, and zero in the census**.
+
+So the census's real value is the **transcribed per-call-site input sets** — which did their job here,
+since mystery's entry is `name-only` and the one-element assertions are what caught the element
+moving. What it cannot do is notice a template gaining or losing a call site.
+
+**Where the detail pages are actually guarded:** each of the five asserts
+`app-confirm-delete-modal` appears exactly once in its own `*.custom-moves.spec.ts`, derived from
+rendered DOM. That is a real check, just distributed — it catches "this page grew a second element"
+and cannot catch "a new page appeared with one". Recorded in the census spec itself, next to the
+assertions that do not self-check, so the next reader is not misled the way R12 misled me.
+
+**Follow-up F-L4: centralise the detail-page half of the census.** Render the five detail pages and
+count their modals, the way `resource-images-four-domain-parity.spec.ts` already renders four of
+them. Not done here because it needs a provider set for five pages — that spec's shape, not the
+census file's — and because 5e's authorised edit set did not include building a new harness.
+
+### The two adjacent specs, with L12's corrections holding
+
+- **`escape-nesting.spec.ts` needed a qualifier, not a row.** R12 said 5e makes the
+  upload-modal-plus-confirm-modal pairing true of a fifth page. It does not: **mystery has no
+  images** (§2.8), so it gets a confirm modal and no upload modal, and the pairing this file tests
+  does not exist there. Its "all four detail pages" now reads "all four **image-bearing** detail
+  pages", with a note saying why there is no fifth case — because reading it the other way invites
+  someone to add an upload modal to `mystery-detail` to satisfy a census.
+- **`custom-select-escape-surfaces.spec.ts` needed nothing**, and that is stated here so nobody adds
+  an entry: its unit is templates rendering `<app-custom-select>`, and the card renders none.
+
+### Placement, which was mine to decide
+
+**After Countdown, above the four linked-entity articles** — Rosalina's §13.2 position, adopted
+because her *rule* is what generalises rather than because it was already written down. The other
+four pages put the card below the form; this page has no form, so "below the form" has no referent.
+Her fallback is the principle `monster-detail.html:19-25` states for Images: **this card is about the
+same record the title names, while every row in the grid below is an entity-link to a different
+record.** So the mystery's own content — concept, hook, overview, countdown, and now its moves —
+comes first, and the links to other records follow. Verified in the browser as
+`Overview | Countdown | CARD | Custom Moves`.
+
+That leaves the card last on monster/minion and mid-page here, which 14-R7 already logs as not being
+drift: each page keeps its own existing answer to roster-versus-sub-resource order.
+
+**The plain `<h3>` (L-D2) is now visible in context**, and the browser run asserts both halves: the
+card's heading carries no icon, *and* the page's other headings do — so the contrast is real rather
+than theoretical. Skyler's note that he can circle back stands; §26.2 L14 prices it.
+
+### The 5d cleanup lesson, applied
+
+The browser script registers its cleanup **before anything that can fail**: a `sweep()` that deletes
+every `PHASE5E-` move runs once up front and again in a `finally`, so a run that dies mid-way leaves
+nothing behind and the next run starts clean regardless. 5d's incident — a timed-out run orphaning a
+bystander while every check stayed green — is the reason. Both sweeps reported "nothing", which is
+what a working version looks like.
+
+---
+
 # 30. The wizard, 5f-0 … 5f-3
 
 §13.5 is right about the engine and I verified its central claim rather than taking it: the adapter really
@@ -5003,6 +5114,8 @@ Numbered L-R to sit beside §7's R1–R14, §14's 14-R1–14-R10 and §24's B-R1
 | ~~F-L1~~ | **Withdrawn — it is scheduled work now, not a follow-up.** "Stop the four sibling sub-resource panels unmounting the page on a failed write" is **Phase A** (§34, L-D4), ahead of Phase 1. The number is kept as a withdrawn row rather than reused or deleted, so that a reader arriving from an external reference to F-L1 — a report, a commit message, a `.squad/` record — lands on where the work went instead of on a different follow-up wearing its number. Rosalina's **F-R3** (`whitespace-pre-wrap` on the same eight panels) is *not* absorbed by Phase A; §34.3 says why. | — |
 | F-L2 | **Remove `ResourceImagesStore.requestDelete`/`confirmDelete`/`cancelDelete`** and `PendingImageDelete`, production-dead after 5c/5d (6 call sites, all in the two migrated templates), plus the 14 assertions that keep them alive. | After Phase 6, if nobody has found a page that wants the store-owned shape. §26.2 L5. |
 | F-L3 | **`createDraftKey` as one shared primitive.** Two generators will exist after 5f (the wizard's and `core/custom-moves.ts`'s). Deliberate today for the reasons in §30.1; worth revisiting with F2, which revisits the create-page batch as a unit. | With §12 F2. |
+| F-L4 | **Centralise the detail-page half of the confirm-modal census.** Its two count assertions compare a literal against itself and are blind to a template gaining or losing a call site — measured by control in 5e, where adding *and* removing a modal both left the file green (§29.7). The wizard rows are derived; the eleven non-wizard rows are not. Fix: render the five detail pages and count their modals, as `resource-images-four-domain-parity.spec.ts` already does for four of them. Needs a five-page provider set, which is that spec's shape rather than the census file's. | Any work on the census or the parity guard — and before a sixth detail page is ever added, since that is the case nothing currently catches. |
+| F-L5 | **Collapse the `isSaving` aliases on `location-detail` and `bystander-detail`** into `isMutating`, in one pass across both pages. Five assertions plus one test name in two shipped specs per page, no behaviour change (§29.5, §29.6). | Any pass over those two pages. |
 
 ---
 
