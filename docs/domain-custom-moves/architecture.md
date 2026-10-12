@@ -5060,6 +5060,178 @@ both writebacks, carrying the index phase 1 already carries.
 **Nothing in the census moved**, because no template changed — the suite's green run includes it. §35.6
 is right that the census's wizard rows are the live half for 5f; 5f-1 is where that bites, not here.
 
+## 29.9 5f-1 shipped, 2026-10-12 — the new step, and the census blindness it exposed
+
+**Results.** Suite 1700 → **1718** (121 files, two new), typecheck clean, **35/35** browser checks,
+zero data footprint, nothing backend. Two commits as planned: the renumber (`476293b`) alone, then
+the feature (`bdc823c`). Three negative controls, each predicted in both directions and each exact.
+
+### The renumber: proved complete by a derivation, then by a runtime diff that found what it missed
+
+§26.2 L8's six sites were right, and I re-derived them rather than trusting the number: a script
+resolves the phase in scope for every `currentStep.set()` in every spec and asks whether the index is
+that phase's **last** step — a question whose answer is the same before and after the renumber, so the
+literal `3` appears nowhere in the method. It found exactly the six L8 names, and also the **nine**
+phase-0 sites that are *not* submit triggers and must not move, which a `sed s/set(3)/set(4)/` would
+have broken.
+
+**That derivation was not sufficient, and the thing that proved it was a control.** The gate was "the
+sweep must be provably complete, and a count is not evidence." So: make the silent failure loud. With
+`next()`'s in-phase advance replaced by a `throw`, every test that *intends* to submit and no longer
+does fails by name. Run it against the old code, run it against the new, compare the sets:
+
+| | failing tests |
+|---|---|
+| before, phases[0].steps = 4 | **80** |
+| after, steps = 5 + the renumber | **80**, byte-identical names |
+
+Zero in either direction. But getting there took a second pass, because the first run of the full
+suite after the feature failed **two** tests the derivation could not see: `mystery-create.store.spec.ts`'s
+full-flow walk and `mystery-create-phase5b-baseline-leaks.spec.ts:451`, both of which reach phase 0's
+submit by **calling `next()` once per step** rather than by setting the last index.
+
+**That form could not have ridden in the renumber commit, and the asymmetry is the point.**
+`set(3)` → `set(4)` is a no-op under four steps — step 4 is past the last one, so it still submits,
+which is exactly why the renumber lands green on its own. An extra `next()` under four steps is *not*
+a no-op: it submits phase 0 a second time. So the two forms genuinely belong in different commits, and
+"the renumber is the whole of the sweep" was wrong — the renumber is the whole of the *index* form.
+
+### The fakes, and the bar from 5f-0 applied twice
+
+Hydrating `MysteryDetailResponse.customMoves` failed **37 tests across four files** on the first run.
+One cause: five edit-mode `getMystery` fakes predate the field, and because they are untyped
+`useValue` object literals **the compiler could not say so** — `mystery.customMoves.map` threw inside
+`loadEditData`'s `switchMap` and the whole hydration reported as "could not load".
+
+They gained `customMoves: []`. **No defensive `?? []` in the store**, deliberately: the field is
+non-optional on the response and the API serialises `[]`, so tolerating its absence would mask a
+backend regression — the inverse of the vacuous-fixture trap, and the same rule
+(`toad-fake-repositories-must-mirror-real-return-semantics`) pointing at the production side.
+
+**And `[]` everywhere would have left the whole path covered only by `of([])`**, which is §30.5 item
+3's objection. So the new spec's fake does the other half properly:
+
+- the created id is a **sentinel** (`srv-move-N`), never the draft key, so "the draft took the
+  server's id" is observable rather than assumed;
+- the name and description are **echoed**, because the real API returns the saved row and
+  `applySubResourceDiff` makes that response the next baseline. A fake answering `{ name: '' }`
+  would make every row read as dirty on the next submit, and `5f1-W4` ("a second submit sends
+  nothing") would fail for a reason unrelated to the code.
+
+### The confirm-modal census was the named risk, and the honest answer is "it could not have bitten"
+
+R12's live half is the wizard, derived in `mystery-create-phase5b-monster-phase.spec.ts`. I read it
+before trusting it, and it walks **four hard-coded coordinates** — `(1,0)`, `(1,1)`, `(2,0)`, `(3,0)`
+— which is every step the wizard had *with a modal*, not every step the wizard had. **Phase 0 was
+never visited at all.**
+
+Measured rather than reasoned. Control: put a real `<app-confirm-delete-modal>` host into the new
+step `0-4`.
+
+| | predicted | actual |
+|---|---|---|
+| census as shipped | **0** failures — blind | **0** |
+| census walking `store.phases` | **1** failure, naming `0-4` | **1**, naming `0-4` |
+
+So 5f-1 added nothing the census needed to catch, *and* the census could not have caught it. The
+derived half now enumerates `store.phases × stepsArray`, with an assertion that the walk was
+exhaustive so nothing can pass vacuously. The claim is phrased as "these four coordinates have one
+each and every other step has none" rather than as an exhaustive count map — so adding a **step**
+does not fail that file for a reason unrelated to modals, while adding a **modal** anywhere does.
+
+F-L4 still stands for the eleven non-wizard rows. This fixes the wizard half's coverage, not the
+literal half's self-reference.
+
+### Commit-on-advance: one addition beyond §30.3, and why it is not optional
+
+§30.3 listed the data. Building it surfaced a behaviour question nobody had asked: **what happens to a
+move that has been typed into the add form and not added when the user presses Next?**
+
+The four panels this copies (Attacks, Powers, Weaknesses, Armor) **discard** — type a power, press
+*Save Monster*, it is gone. I nearly inherited that and should not have, because the difference is
+where the commit point sits. Those panels are one of five inside a composer whose own *Save Monster*
+button is two inches away. **This panel is a whole step**, so `Next` is the only commit point there
+is, and discarding would be exactly what §15.2 R5 refuses — *work outranks the tidiness rule*.
+
+So step `0-4` gets the same three-way rule `next()` already applies to all four composers: empty →
+proceed, valid → commit and proceed, started-but-invalid → block with its own message. The resulting
+rule is coherent rather than a fourth inconsistency: **a panel inside a composer discards on the
+composer's save; a panel that is itself a step commits on `Next`.**
+
+**One real bug caught by its own test while writing it.** The first version asked
+`mysteryCustomMoveForm.pristine`, and both commit-on-advance tests failed: `setValue` leaves a form
+**pristine**, so the flag reports "untouched" on a form that is holding text. Its four siblings do not
+use the flag either — `locationComposerDirty` (`:755`) and `minionComposerDirty` (`:913`) are
+value-based computeds, and now so is this. The lesson is narrow and worth keeping: *in this codebase
+"dirty" is a question about values, never about Angular's dirty flag.*
+
+### The five-adapter table (§35.4), started at one on purpose
+
+`customMoveSubResource(ownerType)` is in, and the owner-type literal lives in **one adjacent
+declaration block** — `private readonly mysteryMoves = this.customMoveSubResource('Mystery')` — never
+at a save site. The other four join *that block* as 5f-2 and 5f-3a arrive, not their call sites.
+Declaring all five now would ship four unused fields whose shape depends on unscoped work; the
+mechanism §35.4 asks for is "all adjacent, none inline", and that holds at one as it will at five.
+
+§35.4's item 1 is in too, and it is the **only** guard on the write half: there is no `data-owner-type`
+analogue in the wizard, so `5f1-W1` asserts the recorded owner type **through the real path builder**
+(`customMovesPath(seen, id)` compared against `customMovesPath('Mystery', id)`) rather than against
+the string `'mysteries'`. The ledger line deliberately omits the owner type, because a transcribed
+`'Mystery'` matched against a transcribed `'Mystery'` cannot disagree.
+
+### Two more controls, predicted by name
+
+Run together, predicted **exactly two** failures and named both in advance: delete the dossier's
+Custom Moves entry and drop the `'0-4'` `stepTitle` row. Got exactly `5f1-P3` and `5f1-S1`.
+
+- The dossier one is 14-R10 measured: with the entry gone, the moves still save, every request
+  assertion still passes, and **nothing but that one test notices**. It is the whole reason the panel
+  spec exists as a second file rather than the store spec being the only coverage.
+- The title one is why `5f1-S1` walks `phases` instead of asserting `stepTitle()` at `'0-4'`. A
+  missing entry resolves to `''` and renders as a blank heading rather than erroring, and asserting
+  the literal would prove only that someone wrote the same string twice.
+
+`currentSectionIcon` needed **no** arm, as §30.3 said — phase 0 falls through to `'mystery'`. Recorded
+as `5f1-S2`, asserted as a *contrast* (step 4 matches the phase icon, step 3 does not) so "we decided"
+and "we forgot" stay distinguishable.
+
+### The browser run, 35/35 first try after two probe fixes
+
+Created `PHASE5F1-The Hollow Choir`, authored two moves, finished the wizard, read them back off the
+detail page's shared card, then re-entered edit mode and walked phase 0 with `Next` five times to
+confirm hydration. The checks that earned their place:
+
+- **the fifth tracker dot**, read from step 3 rather than step 4 — the current dot carries `.active`,
+  not `.complete`, so reading it in place would have asserted nothing about `phaseStepComplete`;
+- **exactly two rows on the detail card, not four** — the H2 failure mode is a delete-and-recreate
+  cycle, which looks identical until you count;
+- **a revisit-and-advance writes no duplicates**, which is the same claim through the browser;
+- the dossier in **both** modes, because the create-mode entry passing says nothing about hydration.
+
+Two probe bugs, both mine and both worth recording. The wizard's eyebrow has no stable hook, so it is
+read as `h1.previousElementSibling`. And `innerText` **applies `text-transform`** while `textContent`
+does not — the dossier's label is `uppercase`, so the unit test's exact-case `textContent` match had
+to become case-insensitive in the browser. The same string, two different right answers.
+
+**Cleanup ran before anything that could fail and again in a `finally`** (the 5d rule). Pre-sweep
+reported "nothing" on both runs; post-sweep removed the one mystery each time. Audited after: 4
+mysteries / 4 monsters / 6 minions / 20 locations / 15 bystanders / 4 images / **0 custom_moves** —
+byte-for-byte the state I started from, and `select … where name like 'PHASE%'` empty across five
+tables.
+
+**One thing exercised that nothing had exercised before**: deleting a mystery that *has* custom moves,
+twice, through Bowser's Phase 2 transaction. 204 both times and `custom_moves` back to zero, so the
+cascade is real rather than assumed.
+
+### The one deviation I declined to make
+
+`submitPhase0` chains the drain **after** the countdown, where phases 1, 2 and 3 all make it a
+`forkJoin` sibling (H6, §7.7h). That is pre-existing. Adding the moves beside the countdown means one
+more sibling whose failure strands a confirmed deletion, so the change *widens* an existing deviation
+rather than introducing one — and promoting the drain to a sibling would be a behaviour change on the
+failure path that 5f-1 did not ask for and **no spec pins** (nothing makes `upsertCountdown` fail
+anywhere in the suite). Stated in the code and recorded as **F-L8** rather than made quietly.
+
 ---
 
 # 30. The wizard, 5f-0 … 5f-3
@@ -5422,6 +5594,7 @@ Numbered L-R to sit beside §7's R1–R14, §14's 14-R1–14-R10 and §24's B-R1
 | F-L5 | **Collapse the `isSaving` aliases on `location-detail` and `bystander-detail`** into `isMutating`, in one pass across both pages. Five assertions plus one test name in two shipped specs per page, no behaviour change (§29.5, §29.6). | Any pass over those two pages. |
 | F-L6 | **Converge the flat rosters' save-method names on the monsters path's.** The public composer commits are `saveLocationDraft`/`saveBystanderDraft`; the monsters twin is `saveMonsterDraftToList`, which is why phase 1's private per-row save could be `saveMonsterDraft` and 5f-0's had to be `saveLocationRow`/`saveBystanderRow`. Renaming the two public ones `…DraftToList` reaches 7 call sites across 4 spec files **including `mystery-create-phase4-ledger.spec.ts:292`**, which is why it could not happen inside 5f-0 (§29.8). Pure rename, no behaviour. | After 5f-0's gate is discharged — any pass over the wizard store. |
 | F-L7 | **Decide whether `saveMonsterDraft` should keep the id it PUT at.** It returns the `PUT` response's `monster.id` and writes that onto the draft. In production the two agree; if they ever did not, a persisted monster draft would silently re-key mid-session and its baselines would stop matching — the §2.12-item-2 hazard class. 5f-0 took the other answer for locations and bystanders because `backfillDraftIds` had, and because the phase-4 ledger's fakes measure it (§29.8). Phase 1's ledger does not, so nothing says which answer it is on. One line plus one assertion. | Any pass over `submitPhase1`, and before 5f-2 extends the phase-5a oracle. |
+| F-L8 | **Make phase 0's drain a `forkJoin` sibling, as phases 1–3 already do.** `submitPhase0` chains `applyPendingRemovals` *after* the countdown, so a failed countdown strands a confirmed deletion — H6 (§7.7h) says it should not, and the other three phases agree. Pre-existing; 5f-1 widened it by one sibling (the custom-move diff) rather than introducing it, and declined to fix it because it is a behaviour change on the failure path that nothing in the suite pins (no spec makes `upsertCountdown` fail). One line in `submitPhase0`, plus the failure-path test that does not currently exist. | Any pass over `submitPhase0`, or the first time a phase-0 failure is reported as a lost removal. |
 
 ---
 
