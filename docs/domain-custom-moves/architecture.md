@@ -389,6 +389,17 @@ Table scale is trivially small; this is about matching the established shape, no
 
 ### 2.8 The enum: introduce `CustomMoveOwnerType`, do **not** extend `ResourceOwnerType`
 
+> **SUPERSEDED 2026-10-12 by Skyler, in Phase 7's research —
+> `docs/resource-images/endpoint-unification.md` §2.6.** The two enums become one five-member
+> `DomainOwnerType`. The section below is left intact because it is the record of why there were two, and
+> because its central fact is still true and is now what the replacement design has to encode explicitly:
+> **`Mystery` has no `primary_image_id` column, FK or index, so the image-legal owner set really is
+> narrower than the domain.** Under one enum that is carried by a declared `ImageOwnerTypes` set plus a
+> bidirectional drift test, instead of by the type system. The reversal was deliberate and is argued on
+> its own terms there; nothing in this section was found to be *wrong*, only outvoted. One thing it got
+> factually wrong is corrected there too: a `Mystery` member would **not** have made the two enums
+> identical — mystery images is a migration, not an enum edit.
+
 **Do not extend `ResourceOwnerType`** (`DomainEntities.cs:372`) with a `Mystery` member. Skyler cut mystery
 images from scope — *"I'm not anticipating a need for photos related to a mystery specifically"*
 (`resource-images/phases.md`, 2026-10-04) — so `resource_images.owner_type` has no legal `Mystery` value.
@@ -996,6 +1007,11 @@ treatment applies: one `ResourceImagesController` with six actions and a paramet
 unify-or-leave, with its own phases if unify. Recorded as a standing follow-up in §12 so it survives this
 document.
 
+**Done, 2026-10-12 — `docs/resource-images/endpoint-unification.md`.** Recommends unifying (four commits,
+backend-only, URLs byte-identical); three of the four "what makes it harder" bullets above did not survive
+measurement, and the fourth — the enum convergence — was re-opened and **answered against this document's
+§2.8**: see the amendment there.
+
 ---
 
 ## 6. The UI surface — scoped, not designed
@@ -1312,7 +1328,7 @@ explicitly **out of scope** for Phases 1–6.
 
 | # | Follow-up | Trigger |
 |---|---|---|
-| F1 | **Research unifying the ~24 duplicated per-domain image actions** into one `ResourceImagesController`. Skyler's standing request, including his note that Mystery has no image today and *"an easy add later if it was desired"* — which, if taken, would make `ResourceOwnerType` and `CustomMoveOwnerType` identical and is reason to re-open §2.8 on purpose. | **Phase 7** of this plan. Gated on Phase 6 completing. |
+| F1 | **Research unifying the ~24 duplicated per-domain image actions** into one `ResourceImagesController`. Skyler's standing request, including his note that Mystery has no image today and *"an easy add later if it was desired"* — which, if taken, would make `ResourceOwnerType` and `CustomMoveOwnerType` identical and is reason to re-open §2.8 on purpose. **Done, 2026-10-12 — `docs/resource-images/endpoint-unification.md`** (recommends unifying; §2.6 re-opens and closes the enum question, and corrects this row's premise — mystery images is a migration, not an enum edit). | **Phase 7** of this plan. Gated on Phase 6 completing. |
 | F2 | **Revisit the create-page batch pattern as a unit.** `saveSubResourceDrafts` + `runBatch` + `draftsFailed` + the hedged copy is hand-rolled per create page, and after this work it carries five sub-resource types plus memberships across five domains. Worth asking whether it should be extracted into one primitive — the same question §2.9 asked about controllers, one layer up, and the natural companion to F1. | After Phase 6; F1 and F2 are one "cross-domain duplication" pass. |
 | F3 | **Retire the two stale deferral notes** in `docs/phases/phase-8-minions-ui-flow.md:217` and `docs/phases/phase-9-bystanders-locations-ui-flow.md:496` (§1.7) — they defer this UI on a premise that was already false. | With Phase 6's record-keeping commit. |
 | F4 | **Consider renaming `confirm-delete-modal` to match its actual role.** Decision 14 establishes it as the app's one confirm/inform dialog, and five call sites already pass a non-delete verb (`Switch to`, `Discard`, `Remove` ×4) — so the name is the only thing suggesting a second component might be needed for a non-delete case (§4.2). A rename touches 18 call sites, one component, three census specs and a decision record, all for zero behaviour change, so it wants its own small pass. **Explicitly not part of Phases 1–6**: custom-move delete is a delete. | On request, or the first time someone needs an inform-only dialog. |
