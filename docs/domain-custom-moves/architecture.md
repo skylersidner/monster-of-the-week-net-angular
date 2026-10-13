@@ -5565,6 +5565,154 @@ expected 0 — which is the same shape as 5d's bystander count reading 16 agains
 The rule to carry: **a prefix sweep covers what a run creates; only the count audit covers what a
 run modifies.** Both, every time.
 
+## 29.13 5f-3b shipped, 2026-10-12 — the last feature sub-phase, and `list()`'s promise comes due
+
+**Results.** Suite 1761 → **1775** (128 files, two new), typecheck clean, **29/29** browser checks,
+seven controls with a self-check in front of them. Commit `38074b5`. §§5f-0 … 5f-3b are complete;
+only Phase 6's drift guard remains.
+
+### `list()`'s gate, closed — all three items
+
+Phase 4 shipped `CustomMoveService.list()` deliberately uncovered under L-D3, on Skyler's note:
+*"we just need a note to be sure to validate the functionality in 5f-3 and ensure tests have the
+correct coverage."* §30.5 turned that into three gate items. All three are now assertions:
+
+1. **A real caller with a non-empty fixture.** `5f3b-F1` attaches and asserts the server's **two**
+   rows land on the draft — names, descriptions (`null` → `''`), ids, and a distinct `localKey`
+   each. An `of([])` answer would have made every one of those vacuous, which is exactly what
+   `toad-fake-repositories-must-mirror-real-return-semantics` warns about and what §30.5 item 3
+   names. The browser half seeds two real moves **through the API** and reads them back out of the
+   panel.
+2. **A failed `list()` admits nothing** (`5f3b-E1`): no row on the roster, the error local to the
+   strip, `submitError` untouched, and retry is picking it again (`5f3b-E2`). A row whose move
+   baseline is unknown is worse than no row — the next submit would diff against a lie.
+3. **The owner type is derived, not transcribed** (`5f3b-F2`): `customMovesPath(seen, 'x')` compared
+   against the builder's own answer for each domain, plus the two being different.
+
+And `5f3b-F3` pins the choice §27.2 made: `list()` is called and `getById` does not exist on the
+service stub at all. `getById` would re-read the whole row and quietly *repair* the page-load
+staleness `phase4-ledger`'s S2 exists to characterise — a fix that would have looked like a bonus
+and was really a silent change to what a shipped test means.
+
+### The five ledger entries, and why each is a consequence
+
+`mystery-create-phase4-ledger.spec.ts` is a file whose whole job is to be an unchanged oracle, so
+each change wants stating. All five are the same cause — **attach now issues a request** — in the
+five flows where the fetch is not cleared by an intervening `sent.length = 0`:
+
+| test | why it changed |
+|---|---|
+| `A5/A6` | one attach, so one `move.list(Location,loc-a)` joins a ledger that claims to be complete |
+| `A5` (two) | two attaches, two fetches |
+| `A2/G3` | its expectation was `[]`; now `[move.list(loc-a)]` |
+| `D9` | the re-attach that cancels a pending Delete fetches again |
+| `S2` | one attach, and the comment now records that `list()` was chosen so S2 stays true |
+
+**`A2/G3` is the one that deserved thought rather than an edit.** Its comment reads *"Not 'no
+delete' — **nothing**."* The claim was never "no bytes on the wire"; it was that **no write** goes
+out for an entity that never joined the mystery, because a stray unlink would 404 outside the
+drain's rule-2 catch and fail the phase. A `GET` of the location's custom moves is not a write. The
+comment now says so in those words, so the test still means what it meant.
+
+None of the five is an accommodation: no assertion was weakened, and the complete-ledger property is
+intact — `expectLedger` still compares the whole multiset.
+
+### F-L9's stubs did need reworking, and that is how the phase announced itself
+
+The brief said to verify rather than assume, and the answer is **yes, in one file**. F-L9's two
+tiers behaved differently:
+
+- The **recording** tier (the two ledger files) needed no change at all. The new call simply
+  appeared in `sent`, which is what a recording stub is for.
+- The **refusing** tier announced the change loudly: `mystery-create-phase4.store.spec.ts` failed
+  **26 tests** naming `Unexpected CustomMoveService.list()` the moment attach started fetching.
+
+**The fix is narrow on purpose: `list` answers, the three writes still refuse.** Softening the whole
+stub would have thrown away the property F-L9 bought a day earlier — that file still fails loudly if
+an attach ever starts *writing*. And `of([])` is right there and would be wrong as the only fixture
+anywhere, which is why the comment says where the non-empty one lives.
+
+The other two attach-driving specs (`phase4.spec.ts`, `phase4-usage-unavailable.spec.ts`) needed
+nothing: they stub `ApiService`, so the root service's `list` already answered `of([])`.
+
+### The `Next`-during-attach term, tested the way it would fail
+
+§30.5 calls this a correctness fix and not polish, because `next()` reads the roster
+**synchronously**: press it while the fetch is open and the phase submits a roster the pick has not
+joined, with no error and nothing on the wire to notice.
+
+So the test holds the fetch open with a `Subject`. **An `of()` stub resolves inside the `subscribe`
+call, so the in-flight window never exists** — and a test written against one passes whether the
+`[disabled]` term is present or absent. `5f3b-N1` asserts all three moments (enabled, disabled,
+enabled again), and `5f3b-N2` pins that the window is real by asserting the roster is still empty
+while the button is disabled. The control confirmed it: reverting the term to
+`monsterAttachInFlight()` fails exactly `N1` and `N2`.
+
+One small design note: the three domains' flags are read through a single `anyAttachInFlight()`
+rather than three terms in the template. One place to be wrong instead of three, and it is the term
+`Finish` reads too.
+
+### 5f-3a's caveat inverted rather than disappeared
+
+The brief anticipated one switch — set the flag at attach, delete the line. **Half of that is
+right.** Setting it at attach is exactly the switch 5f-3a left. Deleting the line would have been
+wrong, because `loadEditData` hydrates locations from `getByMystery` — *also* a list route with no
+`CustomMoves` — so a revisited mystery's rows sit in precisely the position attach used to be in.
+Deleting the line would make the panel claim completeness it does not have on that path.
+
+So `5f3a-P2` inverts and keeps both arms live: the caveat is **gone** for an attached row (if it
+still appeared, the panel would be hedging about something it knows) and **present** for a hydrated
+one. Two live cases rather than one live and one retired. Per-row fetching on edit-mode load is a
+different cost — N requests on a load that already fans out per monster — and is recorded as
+**F-L10**.
+
+### The controls, and the self-check that had to come first
+
+5f-3a's harness reported "(none)" for all six groups and looked like a suite that noticed nothing.
+So this one opens with **group 0: a deliberate failure, to prove the harness can see one.** It
+earned its place immediately — group 0 also came back empty, and the cause was a *second* harness
+bug, not the one I had already fixed: the `FAIL` line's captured text is `describe > test`, so the
+id is inside it rather than at the start, and `(/…/.exec(s) ?? [s])[1]` is `undefined` on the
+fallback branch. Without group 0 I would have read seven empty results as seven blind spots.
+
+| group stripped alone | predicted | actual |
+|---|---|---|
+| 0. self-check (deliberate failure) | F1 | F1 |
+| 1. the `Next`-during-attach term | N1, N2 | N1, N2 |
+| 2. the strips' busy swap | S1 | S1 |
+| 3. the strips' local error line | S2 | S2 |
+| 4. the in-flight re-entrancy guard | B3 | B3 |
+| 5. `customMovesLoaded: true` at attach | L1, L2, P2, F1 | G1, G2, L1, L2, P2 |
+| 6. the fetched moves on the draft | G1, G3, E2, F1 | G1, G2, G3, E2, F1 |
+
+Five exact. **Both misses fired wider than predicted, and in the same way**: I forgot that the
+G-series assertions I had just rewritten in this session also check the flag and the fetched names.
+Over-firing tells you about coverage you did not credit; under-firing tells you about coverage you
+do not have. These were the first kind.
+
+### The browser run, 29/29 — after a fourth-in-a-row probe bug
+
+It shows the thing 5f-3a could not: a seeded location with two real server moves, attached by name,
+with both rendered in the panel — the caveat gone, the empty state gone, the dossier counting two.
+Then one removed and one added, submitted, and the end state read back off the API: the removal
+landed, the survivor **kept its id** (not deleted and recreated), and a full edit-mode revisit
+changed nothing.
+
+**The probe bug is worth recording because it looked like four code failures.** I hard-coded which
+of the two seeded moves the probe would remove; the server returned them in the other order, so the
+probe removed the other one and four checks failed describing entirely correct behaviour. Capturing
+the rendered order first and asserting against *that* is the fix. Four browser probes in a row have
+now failed on an assumption about the environment rather than on the code: the first catalogue
+option (5f-3a), a collapsed container (5f-2), a control sharing a component (5f-2), and now a
+server-side ordering. **The probe is a test and deserves the same scepticism as one.**
+
+### Dev data
+
+Audited by **count and by content**, per the rule the 5f-3a incident produced: 4 mysteries / 4
+monsters / 6 minions / 20 locations / 15 bystanders / 4 images / **0 custom_moves**, and a join of
+`custom_moves` against both owner tables returning zero rows. Nothing written onto a pre-existing
+entity this time; the probe attached by name throughout.
+
 ---
 
 # 30. The wizard, 5f-0 … 5f-3
@@ -5928,6 +6076,7 @@ Numbered L-R to sit beside §7's R1–R14, §14's 14-R1–14-R10 and §24's B-R1
 | F-L6 | **Converge the flat rosters' save-method names on the monsters path's.** The public composer commits are `saveLocationDraft`/`saveBystanderDraft`; the monsters twin is `saveMonsterDraftToList`, which is why phase 1's private per-row save could be `saveMonsterDraft` and 5f-0's had to be `saveLocationRow`/`saveBystanderRow`. Renaming the two public ones `…DraftToList` reaches 7 call sites across 4 spec files **including `mystery-create-phase4-ledger.spec.ts:292`**, which is why it could not happen inside 5f-0 (§29.8). Pure rename, no behaviour. | After 5f-0's gate is discharged — any pass over the wizard store. |
 | F-L7 | **Decide whether `saveMonsterDraft` should keep the id it PUT at.** It returns the `PUT` response's `monster.id` and writes that onto the draft. In production the two agree; if they ever did not, a persisted monster draft would silently re-key mid-session and its baselines would stop matching — the §2.12-item-2 hazard class. 5f-0 took the other answer for locations and bystanders because `backfillDraftIds` had, and because the phase-4 ledger's fakes measure it (§29.8). Phase 1's ledger does not, so nothing says which answer it is on. One line plus one assertion. | Any pass over `submitPhase1`, and before 5f-2 extends the phase-5a oracle. |
 | F-L8 | **Make phase 0's drain a `forkJoin` sibling, as phases 1–3 already do.** `submitPhase0` chains `applyPendingRemovals` *after* the countdown, so a failed countdown strands a confirmed deletion — H6 (§7.7h) says it should not, and the other three phases agree. Pre-existing; 5f-1 widened it by one sibling (the custom-move diff) rather than introducing it, and declined to fix it because it is a behaviour change on the failure path that nothing in the suite pins (no spec makes `upsertCountdown` fail). One line in `submitPhase0`, plus the failure-path test that does not currently exist. | Any pass over `submitPhase0`, or the first time a phase-0 failure is reported as a lost removal. |
+| F-L10 | **Fetch custom moves for the locations and bystanders hydrated by edit-mode load.** `loadEditData` builds those drafts from `getByMystery`, a *list* route with no `CustomMoves` — the same gap 5f-3b closed for attach. So a revisited mystery's rows still show 5f-3a's "they aren't shown here" caveat, which is honest and display-incomplete. Closing it means N `list()` calls on a load that already fans out per monster, which is a real cost and a different decision from the one 5f-3b made. Nothing is destroyed either way: an empty baseline claims nothing (§29.12's gate still holds on that path). | Any pass over `loadEditData`, or the first time a Keeper reports that a revisited location's moves are missing. |
 | ~~F-L9~~ | **Done, early — commit `18f3753`.** Skyler pulled it forward out of 5f-3b: an unstubbed root-provided `CustomMoveService` plus a dev server on :5225 is a unit test writing to dev `motw`, and a dev server has been up during four of the last six sub-phases. It named one file; deriving the set found **23**, and the derivation is now a test (`shared/custom-moves-stubbed-everywhere.spec.ts`). §29.11. The row is struck rather than deleted so an external reference lands on where the work went. |
 
 ---
