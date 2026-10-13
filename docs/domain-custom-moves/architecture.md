@@ -3113,6 +3113,27 @@ templates**, which is `84 − 8 + 2` and is an independent check on §16.2's cou
 prediction because §16.2 had one row that a running server disagreed with, and a document that corrects a
 measurement in one place should not leave an unverified number in another.
 
+> **Correction, 2026-10-13 (Bowser, from U3 of `docs/resource-images/endpoint-unification.md`).** The
+> *"plain `string` with **no `enum`**"* reading above is **half right, and the wrong half is the one that
+> matters for the recommendation.** Re-measured on the running app while verifying the same claim for the
+> image routes, the `owner` parameter is emitted as:
+>
+> ```json
+> {"name":"owner","in":"path","required":true,
+>  "schema":{"pattern":"^(mysteries|monsters|minions|locations|bystanders)$","type":"string"}}
+> ```
+>
+> **Swashbuckle *can* see an inline `regex` route constraint** — it surfaces it as a JSON-Schema
+> `pattern`. So the legal owner set never left the Swagger document; what is actually missing is the
+> **enum dropdown in the Swagger UI**, which is what the declined `IOperationFilter` would have restored.
+> The decision is unaffected and the loss is smaller than stated.
+>
+> **The reusable lesson, and the reason this correction exists at all:** *"I measured the Swagger"* has to
+> say **which Swagger** — the rendered UI and the JSON document disagree here, and the original
+> measurement was true of the UI and false of the schema. The paragraph above ends by warning against
+> leaving an unverified number next to a corrected one; this is the same failure one level down, in a
+> number that *was* verified but against the wrong artifact.
+
 **If it ever bites, the cure is small and additive.** `AddSwaggerGen()` is registered bare at
 `Program.cs:26` with **no filters of any kind** today, so a ~15-line `IOperationFilter` setting the `owner`
 parameter's `Schema.Enum` from the same five strings would be the project's first filter.

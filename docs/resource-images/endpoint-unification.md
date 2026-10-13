@@ -2,10 +2,21 @@
 
 **Prepared by:** Yoshi (Architect)
 **Date:** 2026-10-12, amended the same day with Skyler's four answers (§11)
-**Status:** **Research only.** This document produces a recommendation, a phased plan and the record of
-the decisions taken on it. It writes no production code, opens no branch and commits nothing. It is the
-deliverable of `docs/domain-custom-moves/architecture.md` **Phase 7 / §12 F1**, which was gated on Phase 6
-of that plan.
+**Status:** **LANDED, 2026-10-13**, on branch `image-endpoint-unification` (off `custom-moves`). §§0–12
+remain exactly as written when this was research; **§§13–16 are Bowser's implementation record, appended,
+and they are where this document is corrected** — four of its numbers and claims did not survive contact,
+and §16.3 lists them in one place rather than leaving a reader to find them.
+
+| Commit | Phase | What landed |
+|---|---|---|
+| `d9fea56` | **U0** | The enum merge: one `DomainOwnerType`, `ImageOwnerTypes`, `Exclude<>`, 5 pinning tests, the Postgres data-contract gate. §13. |
+| `b07d07e` | **U1** | The oracle: harness widened to all four domains, 61-case four-owner matrix. §14. |
+| `c44bb37` | **U2** | The atomic switchover: `ResourceImagesController` created and 24 actions deleted in one commit. §15. |
+| `_______` | **U3** | The drift guard, the `design.md` §3 supersession, the frontend comment, this record. §16. |
+
+It was the deliverable of `docs/domain-custom-moves/architecture.md` **Phase 7 / §12 F1**, which was gated
+on Phase 6 of that plan. As *research* it wrote no production code and committed nothing; the four commits
+above are the implementation it specified.
 **Supersedes:** `docs/resource-images/design.md` §3's *"not a new fifth cross-cutting controller"*
 sentence — in writing, in §3 of this document, not quietly. Everything else in `design.md` stands.
 **And supersedes `docs/domain-custom-moves/architecture.md` §2.8**, the two-enum decision, which Skyler
@@ -1363,3 +1374,140 @@ regex anchors fails **3 of 4** new segment cases — `xmonstersx`, `monstersx`, 
 regex rejects it anyway. Swapping `OrdinalIgnoreCase` for `Ordinal` fails **3 of 3** casing cases.
 Neither mutation fails a single one of U1's sixty matrix cases, because the matrix only ever requests
 the four correct, lower-case segments. That is the argument for these seven assertions existing.
+
+---
+
+## 16. U3, and the close of the plan
+
+**Added by Bowser, 2026-10-13.** The last of the four append-only implementation sections.
+
+### 16.1 What U3 built, and the one thing §4 assigned to it that was already done
+
+`ResourceImageOwnerDriftTests` asserts the owner set written down in **three independent places** —
+the route alternation inside `ResourceImagesController`'s `const string OwnerSegment`, that
+controller's private `Owners` dictionary, and `IResourceImageService.ImageOwnerTypes`.
+
+**§4 states the claim as one chain; it is asserted as three tests.** A chain that fails as a single
+blob says *something* drifted, not *which link*. Each link fails independently and names its own pair:
+
+| Link | Compares | Transcribed side(s) |
+|---|---|---|
+| 1 | route alternation ↔ dictionary **keys** | **both** — the regex and the dictionary are hand-written separately |
+| 2 | dictionary **values** ↔ `ImageOwnerTypes` (+ a pinned count of 4) | **both** — the dictionary and the declared set are hand-written separately |
+| 3 | each **key** is the segment of **its own value** | the dictionary; compared against the one derived rule |
+
+The alternation is read **off the `[Http*]` attributes by reflection**, not off the constant, so an
+action given its own literal template fails too — and the `^`/`$` are part of the pattern being
+matched, so an unanchored regex does not parse and the test fails.
+
+**The fourth link — the enum against the service's three `switch` expressions — is not in this file,
+and that is not an omission.** U0 landed it next to `ImageOwnerTypes` itself (§13 item 2) so the
+transcribed constant would not sit unguarded for three commits, and it is already asserted **in both
+directions**: every member of the set reaches a live arm of all three switches, and every member
+outside it reaches the throwing arm of all three. Re-asserting it here would duplicate, not
+strengthen. **Both directions are expressible only because U0 merged the enums** — under the old
+four-member `ResourceOwnerType` there was no `Mystery` to assert about, so *"and nothing else gets an
+arm"* could not be written down at all.
+
+### 16.2 What the controls found, including a bug in the guard itself
+
+Four mutations, each predicted in both directions before it was run. All four matched — **and the
+predicted non-failures are the useful half**, because they are what says each assertion earns its place.
+
+| Control | Predicted | Actual |
+|---|---|---|
+| **F1** dictionary gains `mysteries`, regex does not | links 1 **and 2** fail, **link 3 passes** | exactly that — 2 failures |
+| **F2** regex gains `mysteries`, dictionary does not | link 1 fails, **2 and 3 pass**, U2's `mysteries` routing case fails | exactly that — 2 failures |
+| **F3** dictionary cross-wired (`monsters` to `Minion`) | **links 1 and 2 pass**, link 3 fails | exactly that — 1 drift failure + 25 behavioural |
+| **F4** a domain dropped from **all three** at once | **links 1 and 3 pass**, only the pinned count catches it | exactly that — link 2's count + U0's five arm tests |
+
+**F3 is why link 3 exists.** Set equality is blind to a permutation: swap two dictionary entries and
+the key set is unchanged, the value set is unchanged, every segment still resolves to a legal owner
+type — while `/api/monsters/…` quietly reads and writes the minion image space.
+
+**F4 is the vacuity control, and it is the third time this plan has needed one** (§13 item 4, §14 item
+4). A consistently shrunken world is self-consistent: links 1 and 3 both pass on three domains. Only a
+**transcribed count** turns that into a failure.
+
+> **F1 caught a real bug in the guard, which is the whole argument for running controls on a test.**
+> `SegmentFor` originally appended `"s"`, giving `Mystery` to `"mysterys"` — wrong; the shipped segment
+> is `mysteries`. It never bit, because all four image owners end in a consonant, so the broken rule
+> passed every assertion in the file. **A rule that is only correct on the inputs it currently receives
+> is a transcription wearing a rule's clothes**, and this one would have fired a *false failure* the
+> first time a `-y` domain got images. Fixed to handle `-y` to `-ies` and pinned against all five
+> members, including the one the image feature excludes and no other assertion will ever evaluate.
+
+### 16.3 Four things this document gets wrong
+
+Three were corrected in §§13–15 as they were found. **The fourth is new, and it is the most
+consequential, because §6 is the section someone reads to decide how to write a guard.**
+
+1. **§5: "368 token edits in 41 distinct files."** The 368 is exact; the file count is **57**. §13 item 1.
+2. **§4 U1: "fifteen Monster-only facts."** It is **14**. §14 item 1.
+3. **§2.7 / §11 Q5: the Swagger loss.** The legal owner set **is** still readable from `/swagger`, as a
+   JSON-Schema `pattern` — Swashbuckle surfaces an inline `regex` route constraint. Only the enum
+   *dropdown* is lost. The Q5 decision is unaffected; the stated cost was too high. §15 item 1. *(The
+   same correction applies to `architecture.md` §22, which is amended there.)*
+4. **§6's test-strategy table marks the two strongest guards as `derived` when their entire value is
+   that they are not.** Two rows:
+   - *`ResourceImageOwnerDriftTests` — **derived**, from `ImageOwnerTypes`.* **It must not be.** A drift
+     test derived from one of the three declarations it compares would be comparing a declaration with
+     two reflections of itself, and could not fail. All three sides are transcribed independently, on
+     purpose, and that is the only reason F1–F3 above produce failures at all.
+   - *`ResourceImageEndpointTests` — **derived** owner set if parameterised over `ImageOwnerTypes`.*
+     U1 deliberately did **not** do this. A matrix whose row set comes from the declaration it is
+     meant to protect shrinks silently instead of failing — measured at §14 item 4.
+
+   **The generalisation, which is the thing worth keeping:** *derived* is not a synonym for *better*. It
+   is better exactly when the derivation's source is **not** the thing the assertion is about. When it
+   is, derivation converts a guard into a tautology. §6's own framing — inherited from §29.15 — counts
+   derivations as wins without asking that question, and this plan hit the exception three times.
+
+### 16.4 Derivation versus transcription, for the image path, as it now stands
+
+What a reader actually needs: which facts here are held by a mechanism, and which are held by someone
+remembering.
+
+**Derived — a machine will notice.**
+
+- **The images segment map's key set, on the client.** `ImageOwnerType = Exclude<DomainOwnerType,
+  'Mystery'>` plus `Record<ImageOwnerType, string>` exhaustiveness. Add a sixth domain and the map is a
+  **compile error** until someone decides whether it has images. **Newly derived at U0** — before it,
+  two hand-written unions with nothing relating them. This is the single biggest gain in the plan.
+- **Which URLs the six actions answer.** One `const string` composes all six templates, and the drift
+  test reads them back off the attributes, so there is no per-action route literal to get wrong.
+- **Every type reference to the owner enum.** The merge made these compiler-proven on both sides: the
+  old types stopped existing, so completeness was not a judgement call.
+- **That the four domains behave identically over HTTP.** U1's matrix is one body of assertions
+  parameterised over the owner, not four copies — a behaviour added for one domain and not the others
+  cannot pass.
+
+**Transcribed — a person must maintain it, and here is what watches each one.**
+
+| Transcribed fact | Watched by |
+|---|---|
+| `IResourceImageService.ImageOwnerTypes` (4 members) | drift link 2 + U0's partition test, both directions |
+| the route alternation in `OwnerSegment` | drift link 1, read off the attributes |
+| `ResourceImagesController.Owners` (keys **and** pairings) | drift links 1, 2 **and** 3 |
+| the matrix's four `{owner, segment}` rows | its own count pin (§14) |
+| the harness's seeded owner table | the matrix's count pin |
+| **the five enum member names** | `DomainOwnerTypePostgresTests` — the only one here guarding a *data* contract rather than a shape one, and the only one that needed raw SQL to be non-vacuous (§13 item 4) |
+
+**The honest summary of Q3's cost, now that it is built.** Exactly one shape fact became transcribed on
+the C# side (`ImageOwnerTypes`) and exactly one became derived on the TypeScript side (`Exclude<>`).
+§2.6.7 called that close to a wash and it was right — **but the wash is not symmetric in effort.** The
+derived side cost one line and protects itself forever. The transcribed side cost one line, one
+partition test, three drift assertions and a count pin, and it will cost a paragraph of thought every
+time someone touches it. **A transcription with a guard is not equivalent to a derivation; it is a
+derivation plus a maintenance obligation, and the obligation is the part that does not show up in a
+diff.**
+
+### 16.5 What is deliberately still open
+
+- **U-F3a stands.** When mystery images is built, the three `ArgumentOutOfRangeException` arms,
+  `ImageOwnerTypes` and the route alternation must move **together**. Drift link 2 and U0's partition
+  test fail whether the arms are added without the set or the set without the arms, which is what makes
+  this a forced conversation rather than a remembered one.
+- **U-F1, U-F2, U-F5** are unchanged and untriggered.
+- **The `ToActionResult`/`ToErrorResult` duplication is now five copies**, counting the new controller.
+  That is U-F1 and it was declined on purpose in a phase whose point was subtraction.

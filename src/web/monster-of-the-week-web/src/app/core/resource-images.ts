@@ -25,7 +25,11 @@ export const ACCEPTED_IMAGE_EXTENSIONS: readonly string[] = ['.jpg', '.jpeg', '.
 export const IMAGE_INPUT_ACCEPT = ACCEPTED_IMAGE_MIME_TYPES.join(',');
 
 /**
- * Owner type → the per-domain controller's route segment (design.md §3: images nest under each domain).
+ * Owner type → the owner segment of the shared images route
+ * (`docs/resource-images/endpoint-unification.md` §3, which supersedes `design.md` §3's
+ * per-domain-controller sentence). **The URLs this builds did not change when the server stopped
+ * serving them from four controllers** — the whole unification was backend-only precisely because
+ * this map was already the single place a client image URL is assembled.
  *
  * **Four keys, and `ImageOwnerType` is what holds it to four.** It is `Exclude<DomainOwnerType,
  * 'Mystery'>`, so `Record<…>` exhaustiveness cannot push a `Mystery: 'mysteries'` entry in here —
