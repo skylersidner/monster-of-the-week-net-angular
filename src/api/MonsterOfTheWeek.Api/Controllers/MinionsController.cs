@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using MonsterOfTheWeek.Api.Contracts;
-using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Services;
-using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Controllers;
 
 [ApiController]
-public sealed class MinionsController(IMinionService minionService, IResourceImageService resourceImageService) : ControllerBase
+public sealed class MinionsController(IMinionService minionService) : ControllerBase
 {
     [HttpGet("api/minions")]
     public async Task<ActionResult<IReadOnlyList<MinionListItemResponse>>> GetAll(CancellationToken cancellationToken) =>
@@ -154,88 +152,9 @@ public sealed class MinionsController(IMinionService minionService, IResourceIma
     // (architecture.md §3.3). IMinionService's four custom-move methods went in Phase 3, with
     // minion_custom_moves and its entity.
 
-    // --- Images (docs/resource-images/design.md §3, phases.md Phase 3) ---
-
-    private const string ImageCacheControl = "private, max-age=31536000, immutable";
-    private const long ImageRequestSizeLimitBytes = 24 * 1024 * 1024;
-
-    [HttpGet("api/minions/{id:guid}/images")]
-    public async Task<ActionResult<IReadOnlyList<ResourceImageResponse>>> GetImages(Guid id, CancellationToken cancellationToken)
-    {
-        var result = await resourceImageService.ListAsync(DomainOwnerType.Minion, id, cancellationToken);
-        if (!result.IsSuccess)
-        {
-            return ToErrorResult(result.Error!);
-        }
-
-        var primaryId = await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Minion, id, cancellationToken);
-        return Ok(result.Value!.Select(i => i.ToResponse(i.Id == primaryId)).ToList());
-    }
-
-    [HttpGet("api/minions/{id:guid}/images/{imageId:guid}/file")]
-    public async Task<IActionResult> GetImageFile(Guid id, Guid imageId, CancellationToken cancellationToken)
-    {
-        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Minion, id, imageId, cancellationToken);
-        if (image is null)
-        {
-            return NotFound();
-        }
-
-        Response.Headers.CacheControl = ImageCacheControl;
-        return File(image.ImageBytes, image.ContentType);
-    }
-
-    [HttpGet("api/minions/{id:guid}/images/{imageId:guid}/thumbnail")]
-    public async Task<IActionResult> GetImageThumbnail(Guid id, Guid imageId, CancellationToken cancellationToken)
-    {
-        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Minion, id, imageId, cancellationToken);
-        if (image is null)
-        {
-            return NotFound();
-        }
-
-        Response.Headers.CacheControl = ImageCacheControl;
-
-        return image.ThumbnailBytes is null
-            ? File(image.ImageBytes, image.ContentType)
-            : File(image.ThumbnailBytes, "image/jpeg");
-    }
-
-    // Deliberately not the ToActionResult<T>(ServiceResult<T>) convention every other action on
-    // this controller uses — the response is precise-per-file (design.md §3: an upload batch can
-    // be partially accepted), not a single pass/fail, so don't "fix" this to match the others.
-    [HttpPost("api/minions/{id:guid}/images")]
-    [RequestSizeLimit(ImageRequestSizeLimitBytes)]
-    [RequestFormLimits(MultipartBodyLengthLimit = ImageRequestSizeLimitBytes)]
-    public async Task<IActionResult> UploadImages(Guid id, [FromForm] IFormFileCollection files, CancellationToken cancellationToken)
-    {
-        var uploadFiles = await files.ToUploadFilesAsync(cancellationToken);
-        var result = await resourceImageService.UploadAsync(DomainOwnerType.Minion, id, uploadFiles, cancellationToken);
-        if (!result.IsSuccess)
-        {
-            return ToErrorResult(result.Error!);
-        }
-
-        var primaryId = result.Value!.Uploaded.Count > 0
-            ? await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Minion, id, cancellationToken)
-            : (Guid?)null;
-
-        var response = new ResourceImageUploadResponse(
-            result.Value!.Uploaded.Select(i => i.ToResponse(i.Id == primaryId)).ToList(),
-            result.Value!.Rejected.Select(r => r.ToResponse()).ToList());
-
-        return result.Value!.Uploaded.Count > 0
-            ? StatusCode(StatusCodes.Status201Created, response)
-            : BadRequest(response);
-    }
-
-    [HttpDelete("api/minions/{id:guid}/images/{imageId:guid}")]
-    public async Task<IActionResult> DeleteImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.DeleteAsync(DomainOwnerType.Minion, id, imageId, cancellationToken) ? NoContent() : NotFound();
-
-    [HttpPut("api/minions/{id:guid}/images/{imageId:guid}/primary")]
-    public async Task<IActionResult> SetPrimaryImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.SetPrimaryAsync(DomainOwnerType.Minion, id, imageId, cancellationToken) ? NoContent() : NotFound();
+    // Images moved to ResourceImagesController at U2 of resource-images/endpoint-unification.md.
+    // Same note as MonstersController: same URLs, no client edit, and IResourceImageService left
+    // this constructor while IMinionService kept it for owner-delete cleanup.
 
     private ActionResult<T> ToActionResult<T>(ServiceResult<T> result) =>
         result.IsSuccess ? Ok(result.Value) : ToErrorResult(result.Error!);

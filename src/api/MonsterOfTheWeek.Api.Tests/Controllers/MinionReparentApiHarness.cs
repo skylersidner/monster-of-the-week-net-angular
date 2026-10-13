@@ -114,6 +114,10 @@ internal sealed class MinionReparentApiHarness : IAsyncDisposable
         builder.Services.AddControllers().AddApplicationPart(typeof(MinionsController).Assembly);
         builder.Services.AddDbContext<MotwDbContext>(o => o.UseSqlite(harness.connectionString));
         builder.Services.AddScoped<IMinionRepository, MinionRepository>();
+        // NOT dead config, despite reading like it after U2 of resource-images/endpoint-unification.md.
+        // No controller in this harness takes IResourceImageService any more — the twenty-four image
+        // actions that did are gone. The four DOMAIN SERVICES still take it, for owner-delete cleanup.
+        // Removing this line does not fail the build; it fails the first request that deletes an owner.
         builder.Services.AddScoped<IResourceImageService, ResourceImageService>();
         // Phase 1 of domain custom moves: registered here, not only in Program.cs, because this
         // harness builds its own WebApplication and never sees Program.cs's container. Missing

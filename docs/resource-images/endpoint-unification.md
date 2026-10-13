@@ -1299,3 +1299,67 @@ single assertion standing between "a domain lost its coverage" and a green run.
 every URL through one private helper. U2's gate is `git diff` over
 `Controllers/ResourceImageEndpointTests.cs` returning **empty**; everything U2 must change — the DI block
 that collapses from eight registrations to one — is in the harness, which U2 is expected to edit.
+
+---
+
+## 15. U2 as built — the three places it differed from §4, and one correction to §2.7
+
+**Added by Bowser, 2026-10-13**, same append-only convention as §§13–14. Built as §4 specifies: one
+`ResourceImagesController` with six actions behind an anchored, case-insensitive four-segment
+alternation; the twenty-four per-domain actions, eight duplicated constants, four constructor
+parameters and eight `using` directives deleted **in the same commit**; the harness DI block collapsed
+from eight registrations to one.
+
+**1. §2.7 overstates the Swagger loss — the legal owner set is still readable from `/swagger`.**
+Measured off the running document, not predicted: the `owner` path parameter is emitted as
+
+```json
+{"name":"owner","in":"path","required":true,
+ "schema":{"pattern":"^(monsters|minions|locations|bystanders)$","type":"string"}}
+```
+
+Swashbuckle surfaces an inline `regex` route constraint as a JSON-Schema `pattern`, so *"which owners
+have images"* survives the move as a regex rather than vanishing. What is genuinely lost is the **enum
+dropdown** in the Swagger UI, which is what the declined `IOperationFilter` would have restored. **The
+Q5 decision is unaffected and the stated cost was too high.** The whole document went **78 → 63** path
+templates, which is `78 − 20 + 5` and independently confirms §1.1's count of twenty replaced templates.
+
+> **This also corrects my own record elsewhere.** `architecture.md` §22's post-Phase-2 Swagger
+> measurement says the custom-move `owner` is *"a plain string with no enum."* Re-measured on the same
+> host: it carries `"pattern":"^(mysteries|monsters|minions|locations|bystanders)$"` too. That earlier
+> reading was true of the UI and false of the schema. Not amended there, because that document is not
+> U2's to edit — flagged for U3's record-keeping pass.
+
+**2. The "a literal silently outranks a constrained parameter" premise is now measured for images, and
+the measurement makes §4's gate claim stronger than §4 states.** The premise was inherited from the
+custom-move switchover rather than re-observed. Re-observed here, against the real `Program.cs` host,
+by giving both `GetImages` implementations a distinguishing `X-Answered-By` response header and
+restoring one per-domain action:
+
+| Request | Answered by |
+|---|---|
+| `GET /api/monsters/{id}/images` | **`MonstersController`** — 200, no `AmbiguousMatchException`, no warning |
+| `GET /api/MONSTERS/{id}/images` | **`MonstersController`** — the literal matches case-insensitively too |
+| `GET /api/minions/{id}/images` | `ResourceImagesController` |
+
+**The second row is the finding.** §4 offers the mixed-case 200 and the DI collapse as U2's gates; the
+mixed-case probe **cannot** discriminate a survivor, because a literal route segment is matched
+case-insensitively just as a constrained one is. So the collapsed harness DI is not merely *the*
+discriminating gate — it is the **only** one. Confirmed in both directions, which is the part worth
+keeping: with the survivor present and its dependencies registered, **all 744 tests pass**, U1's
+sixty-case matrix included; with the same survivor and the collapsed DI, exactly **11** fail.
+
+**3. §4's "two assertions that only the new shape can satisfy" needed a file of their own, and that is
+not a filing decision.** §4 does not say where they go, and the obvious home is the endpoint suite —
+which would destroy the one property U1 exists for, since an assertion that can only pass *after* U2
+makes the file no longer byte-identical across the refactor. They are in a separate
+`ResourceImagesControllerRoutingTests` (7 cases: three casings, four rejected segments), and
+`ResourceImageEndpointTests.cs` has a **`git diff` of exactly zero bytes** across this commit while
+green on both sides.
+
+**4. Both one-token details are invisible to U1's matrix, measured rather than assumed.** Removing the
+regex anchors fails **3 of 4** new segment cases — `xmonstersx`, `monstersx`, `xmonsters` — and
+**`mysteries` still passes**, because it is not a superstring of any alternative and an unanchored
+regex rejects it anyway. Swapping `OrdinalIgnoreCase` for `Ordinal` fails **3 of 3** casing cases.
+Neither mutation fails a single one of U1's sixty matrix cases, because the matrix only ever requests
+the four correct, lower-case segments. That is the argument for these seven assertions existing.

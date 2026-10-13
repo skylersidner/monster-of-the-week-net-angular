@@ -6,9 +6,6 @@ using Microsoft.Extensions.Logging;
 using MonsterOfTheWeek.Api.Controllers;
 using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
-using MonsterOfTheWeek.Api.Repositories;
-using MonsterOfTheWeek.Api.Services;
-using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Tests.Controllers;
@@ -135,27 +132,30 @@ internal sealed class ResourceImageApiHarness : IAsyncDisposable
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
         builder.Logging.ClearProviders();
         builder.Services.AddProblemDetails();
-        builder.Services.AddControllers().AddApplicationPart(typeof(MonstersController).Assembly);
+        builder.Services.AddControllers().AddApplicationPart(typeof(ResourceImagesController).Assembly);
         builder.Services.AddDbContext<MotwDbContext>(o => o.UseSqlite(connectionString));
-        builder.Services.AddScoped<IMonsterRepository, MonsterRepository>();
-        builder.Services.AddScoped<IMinionRepository, MinionRepository>();
-        builder.Services.AddScoped<ILocationRepository, LocationRepository>();
-        builder.Services.AddScoped<IBystanderRepository, BystanderRepository>();
+
+        // =========================================================================================
+        // ONE registration, and that is U2's discriminating gate — not a tidy-up.
+        // =========================================================================================
+        //
+        // This block held EIGHT before U2: four repositories and four domain services, needed
+        // because each of the twenty-four image actions lived on a controller whose constructor
+        // took one. ResourceImagesController's sole dependency is IResourceImageService, and the
+        // harness seeds its eight owners through MotwDbContext directly, so none of the other
+        // seven is reachable any more.
+        //
+        // **Why the deletion matters more than the addition.** U1's matrix passing proves the URLs
+        // still answer; it does NOT prove WHICH controller answered them, because the URLs are
+        // identical either way — and a literal route segment outranks a constrained parameter, so
+        // a surviving per-domain action would quietly keep winning while every assertion stayed
+        // green. Registering only IResourceImageService is what turns "the old actions are gone"
+        // from a claim into a test: a surviving MonstersController.GetImages would need
+        // IMonsterService, fail activation, and answer 500 instead of 200.
+        //
+        // So do not restore a registration here to make something pass. If something needs one,
+        // an action that should have been deleted is still being routed to.
         builder.Services.AddScoped<IResourceImageService, ResourceImageService>();
-        // Phase 1 of domain custom moves: registered here, not only in Program.cs, because this
-        // harness builds its own WebApplication and never sees Program.cs's container. Missing
-        // this registration doesn't fail the build; it fails the first request to any of the
-        // controllers whose service takes it (architecture.md B1, B-R1).
-        builder.Services.AddScoped<ICustomMoveService, CustomMoveService>();
-        // Four domain services, because each of the four image actions lives on the controller
-        // whose constructor takes one. U2 deletes those twenty-four actions, at which point the
-        // unified controller's only dependency is IResourceImageService and this block collapses
-        // to that single registration — which is U2's own discriminating gate (§4 U2), not
-        // something to pre-empt here.
-        builder.Services.AddScoped<IMonsterService, MonsterService>();
-        builder.Services.AddScoped<IMinionService, MinionService>();
-        builder.Services.AddScoped<ILocationService, LocationService>();
-        builder.Services.AddScoped<IBystanderService, BystanderService>();
 
         harness.app = builder.Build();
         harness.app.Urls.Add("http://127.0.0.1:0");
