@@ -12,7 +12,7 @@ and §16.3 lists them in one place rather than leaving a reader to find them.
 | `d9fea56` | **U0** | The enum merge: one `DomainOwnerType`, `ImageOwnerTypes`, `Exclude<>`, 5 pinning tests, the Postgres data-contract gate. §13. |
 | `b07d07e` | **U1** | The oracle: harness widened to all four domains, 61-case four-owner matrix. §14. |
 | `c44bb37` | **U2** | The atomic switchover: `ResourceImagesController` created and 24 actions deleted in one commit. §15. |
-| `_______` | **U3** | The drift guard, the `design.md` §3 supersession, the frontend comment, this record. §16. |
+| `5244328` | **U3** | The drift guard, the `design.md` §3 supersession, the frontend comment, this record. §16. |
 
 It was the deliverable of `docs/domain-custom-moves/architecture.md` **Phase 7 / §12 F1**, which was gated
 on Phase 6 of that plan. As *research* it wrote no production code and committed nothing; the four commits
