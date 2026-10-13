@@ -39,6 +39,16 @@ describe('5f-3a — custom moves on the flat composers', () => {
    * origin of the interim state. The location really does have two moves on the server; the wizard
    * has no way to know, and must not act as though it does.
    */
+  /**
+   * **What the server already holds for the attached rows.** Until 5f-3b the wizard could not see
+   * these and the panel said so; now `list()` fetches exactly them.
+   */
+  const SEEDED_LOCATION_MOVES = [
+    { id: 'srv-loc-1', name: 'The Mill Remembers', description: 'Roll +Weird to hear it.' },
+    { id: 'srv-loc-2', name: 'Mind the Floorboards', description: null },
+  ];
+  const SEEDED_BYSTANDER_MOVES = [{ id: 'srv-bys-1', name: 'Call for Backup', description: null }];
+
   const CATALOGUE_LOCATION = {
     id: 'loc-a',
     mysteryIds: [],
@@ -89,7 +99,13 @@ describe('5f-3a — custom moves on the flat composers', () => {
         {
           provide: CustomMoveService,
           useValue: {
-            list: recordMove('move.list', () => of([])),
+            // **Non-empty, and it is 5f-3b's gate that makes it so** (§30.5 item 3). An `of([])`
+            // fixture would make every assertion below about an attached row's moves vacuous —
+            // the baseline-versus-drafts distinction would never render. These two rows are what
+            // `list()` has been waiting for since Phase 4 shipped it uncovered.
+            list: recordMove('move.list', (args) =>
+              of(args[1] === 'loc-a' ? SEEDED_LOCATION_MOVES : args[1] === 'bys-a' ? SEEDED_BYSTANDER_MOVES : []),
+            ),
             create: recordMove('move.create', (args) => {
               const request = args[2] as UpsertCustomMoveRequest;
               return of({ id: `srv-move-${++nextServerId}`, name: request.name, description: request.description });
@@ -178,19 +194,22 @@ describe('5f-3a — custom moves on the flat composers', () => {
   it('5f3a-G1: attaching a location and pressing Next deletes none of its custom moves', () => {
     store.attachLocation('loc-a');
 
-    // The draft arrived from a list route, so the wizard knows nothing about the location's moves.
-    expect(store.locations()[0].customMoves).toEqual([]);
-    expect(store.locations()[0].existingCustomMoves).toEqual([]);
-    expect(store.locations()[0].customMovesLoaded).toBe(false);
+    // **5f-3b closed the interim state this test was written against.** It used to assert that the
+    // draft arrived empty and unloaded; it now arrives with the server's two rows, from the fetch.
+    // The gate's claim is unchanged and is the one that always mattered: *nothing is destroyed.*
+    expect(store.locations()[0].customMoves.map((move) => move.id)).toEqual(['srv-loc-1', 'srv-loc-2']);
+    expect(store.locations()[0].existingCustomMoves).toEqual(SEEDED_LOCATION_MOVES);
+    expect(store.locations()[0].customMovesLoaded).toBe(true);
 
     store.next();
 
-    // **The assertion §35.1 asks for, in place of the trace.** An empty baseline claims nothing, so
-    // `applySubResourceDiff` has nothing to delete — the location's real moves survive untouched on
-    // the server. Asserted as "no move traffic at all", not merely "no delete": a stray `list` or
-    // `create` here would be 5f-3b leaking in early, which is the other thing worth catching.
-    expect(moveCalls()).toEqual([]);
+    // **The assertion §35.1 asks for, in place of the trace.** Drafts and baseline agree, so
+    // decision 9's clean branch issues nothing — no delete, no create, no update. Asserted as "the
+    // only move traffic is the attach's read", which is stronger than "no delete": it also catches
+    // a write that happened to be a create.
+    expect(moveCalls()).toEqual(['move.list(loc-a)']);
     expectLedger([
+      'move.list(loc-a)',
       'location.update(loc-a,{"name":"Ferris Mill","description":"Rust and river damp.","locationTypeId":"location-type-1"})',
       'location.link(mystery-1,loc-a)',
     ]);
@@ -200,11 +219,12 @@ describe('5f-3a — custom moves on the flat composers', () => {
     store.currentPhase.set(3);
     store.attachBystander('bys-a');
 
-    expect(store.bystanders()[0].customMovesLoaded).toBe(false);
+    expect(store.bystanders()[0].customMovesLoaded).toBe(true);
+    expect(store.bystanders()[0].customMoves.map((move) => move.name)).toEqual(['Call for Backup']);
 
     store.next();
 
-    expect(moveCalls()).toEqual([]);
+    expect(moveCalls()).toEqual(['move.list(bys-a)']);
   });
 
   it('5f3a-G3: adding one to an attached location creates it and still deletes nothing', () => {
@@ -215,8 +235,18 @@ describe('5f-3a — custom moves on the flat composers', () => {
 
     store.next();
 
-    // "A sixth rather than editing one of five" (§35.1) — display-incomplete, never destructive.
-    expect(moveCalls()).toEqual(['move.create(loc-a,{"name":"Mind the Floorboards","description":null})']);
+    // **No longer "a sixth rather than editing one of five"** — the fetch means the composer was
+    // showing the real two, so this is a genuine third alongside them, and the other two are
+    // carried forward untouched by decision 9's clean branch.
+    expect(moveCalls()).toEqual([
+      'move.list(loc-a)',
+      'move.create(loc-a,{"name":"Mind the Floorboards","description":null})',
+    ]);
+    expect(store.locations()[0].customMoves.map((move) => move.name)).toEqual([
+      'The Mill Remembers',
+      'Mind the Floorboards',
+      'Mind the Floorboards',
+    ]);
   });
 
   // --- the composer's own state -------------------------------------------------------------
@@ -351,13 +381,12 @@ describe('5f-3a — custom moves on the flat composers', () => {
     expect(store.locations()[0].customMovesLoaded).toBe(true);
 
     store.attachLocation('loc-a');
-    expect(store.locations()[1].customMovesLoaded).toBe(false);
+    // **5f-3b sets it at attach**, which is the one switch 5f-3a was built to leave: the fetch has
+    // answered by the time the draft is built, so there is nothing the panel cannot show.
+    expect(store.locations()[1].customMovesLoaded).toBe(true);
 
     store.next();
 
-    // **After a submit the diff's result *is* the server's view of the row**, so the caveat stops
-    // being true and the flag stops claiming it. That is what makes it a marker rather than a
-    // permanent label on attached rows.
     expect(store.locations().map((draft) => draft.customMovesLoaded)).toEqual([true, true]);
   });
 
@@ -368,6 +397,11 @@ describe('5f-3a — custom moves on the flat composers', () => {
     expect(store.locationComposerMovesLoaded()).toBe(true);
 
     store.editLocationDraft(store.locations()[0].localKey);
+    expect(store.locationComposerMovesLoaded()).toBe(true);
+
+    // The *hydrated* case is what still answers false — `getByMystery` is a list route too, and
+    // 5f-3b did not add a per-row fetch to edit-mode load (F-L10).
+    store.locations.update((items) => items.map((item) => ({ ...item, customMovesLoaded: false })));
     expect(store.locationComposerMovesLoaded()).toBe(false);
 
     store.startNewLocationDraft();

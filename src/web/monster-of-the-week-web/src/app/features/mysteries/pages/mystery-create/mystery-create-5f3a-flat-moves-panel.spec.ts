@@ -125,13 +125,20 @@ describe('5f-3a — the flat composers’ custom-move panels', () => {
     store.editLocationDraft(store.locations()[0].localKey);
     await settle();
 
-    // **The falsifier, answered.** The panel does not say "no custom moves"; it says it cannot see
-    // them and that anything added joins them. That is honest with no fetch, which is what makes
-    // 5f-3a shippable on its own.
+    // **5f-3b inverted this arm, which is the point of keeping it.** An attached row is fetched
+    // now, so the panel *can* show everything and the caveat has to be gone — if it still appeared,
+    // the panel would be hedging about something it knows.
+    expect(caveat()).toBeNull();
+
+    // The other arm did not go away, it moved: hydration still builds from `getByMystery`, a list
+    // route with no `CustomMoves`, so a revisited mystery's rows are where attach used to be. The
+    // contrast is still a contrast, between two live cases rather than one live and one retired.
+    store.locations.update((items) => items.map((item) => ({ ...item, customMovesLoaded: false })));
+    await settle();
+
     expect(caveat()).not.toBeNull();
     expect(caveat()!.textContent).toContain("aren't shown here");
     expect(caveat()!.textContent).toContain('added to them');
-    // And the empty state stands down, because "none" would be the claim it cannot make.
     expect(element.querySelector('[data-location-custom-moves-empty]')).toBeNull();
   });
 

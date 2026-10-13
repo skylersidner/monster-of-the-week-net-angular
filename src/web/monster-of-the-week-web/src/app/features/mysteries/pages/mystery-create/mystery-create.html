@@ -30,7 +30,7 @@
   }
 
   <button wizardFooter type="button" class="bg-transparent border border-strong rounded-lg text-muted cursor-pointer font-[inherit] text-[0.9rem] px-5 py-[0.55rem] transition-colors disabled:cursor-not-allowed disabled:opacity-40" [disabled]="!store.canGoBack()" (click)="store.back()">← Back</button>
-  <button wizardFooter type="button" class="bg-accent border-0 rounded-lg text-on-accent cursor-pointer font-[inherit] text-[0.9rem] font-semibold px-6 py-[0.55rem] hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-70 transition-colors" [disabled]="store.isSubmitting() || store.monsterAttachInFlight()" (click)="store.next()">
+  <button wizardFooter type="button" class="bg-accent border-0 rounded-lg text-on-accent cursor-pointer font-[inherit] text-[0.9rem] font-semibold px-6 py-[0.55rem] hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-70 transition-colors" [disabled]="store.isSubmitting() || store.anyAttachInFlight()" (click)="store.next()">
     @if (store.isSubmitting()) { Saving… } @else if (store.currentPhase() === store.lastPhaseIndex) { Finish } @else { Next → }
   </button>
 

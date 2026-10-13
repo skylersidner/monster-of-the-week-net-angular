@@ -614,6 +614,34 @@ export class MysteryCreateStore {
   /** `Next` is disabled while this is true (UX §17.3) — a deliberate pick must not silently evaporate. */
   readonly monsterAttachInFlight = computed(() => this.attachingMonsterName() !== null);
 
+  /**
+   * **The same three, per flat domain — new in 5f-3b, and the comment above is now out of date.**
+   *
+   * It says locations and bystanders "attach from data the list response already carries, so their
+   * pick is a pure client-side transform with no request". That was true until the list response
+   * stopped carrying everything: `CustomMoves` is on the *detail* DTO only, and 5f-3a shipped with
+   * a panel that had to admit it could not see them. 5f-3b fetches exactly that one field with
+   * `CustomMoveService.list()`, which makes attach asynchronous here too — and asynchronous means
+   * it needs every piece of feedback the monster strip needed, for the same reasons.
+   *
+   * **Three signals rather than a boolean**, copied deliberately: the busy label names the row, the
+   * error is local to the control that failed (§17.2), and the in-flight flag is what disables
+   * `Next` — which is a correctness term, not polish, because `next()` reads the roster
+   * **synchronously** and would submit one that the pick had not joined yet.
+   */
+  readonly attachingLocationName = signal<string | null>(null);
+  readonly locationAttachError = signal<string | null>(null);
+  readonly locationAttachInFlight = computed(() => this.attachingLocationName() !== null);
+
+  readonly attachingBystanderName = signal<string | null>(null);
+  readonly bystanderAttachError = signal<string | null>(null);
+  readonly bystanderAttachInFlight = computed(() => this.attachingBystanderName() !== null);
+
+  /** Any attach in flight, in any phase — the single term `Next` and `Finish` read (§30.5). */
+  readonly anyAttachInFlight = computed(
+    () => this.monsterAttachInFlight() || this.locationAttachInFlight() || this.bystanderAttachInFlight(),
+  );
+
   /** Everything in the catalogue that is not already on the roster (A2). */
   readonly attachableLocations = computed(() => {
     const onRoster = new Set(this.locations().map((draft) => draft.id));
@@ -1832,32 +1860,65 @@ export class MysteryCreateStore {
    */
   attachLocation(locationId: string): void {
     const item = this.catalogLocations().find((candidate) => candidate.id === locationId);
-    if (!item || this.locations().some((draft) => draft.id === locationId)) {
+    if (!item || this.locations().some((draft) => draft.id === locationId) || this.locationAttachInFlight()) {
       return;
     }
 
-    this.cancelPendingRemoval('locations', locationId);
-    this.locations.update((items) => [
-      ...items,
-      {
-        id: item.id,
-        localKey: createDraftKey('location'),
-        name: item.name,
-        description: item.description ?? '',
-        locationTypeId: item.locationTypeId,
-        // **The interim state §35.1 makes a condition of the split.** The catalogue list item has
-        // no `customMoves`, so an attached location arrives with empty drafts *and* an empty
-        // baseline — which `applySubResourceDiff` turns into no deletes and no saves, so the
-        // location's real moves survive untouched on the server (`5f3a-G1` asserts it rather than
-        // reasoning it). The panel says so instead of implying the location has none; 5f-3b's
-        // fetch is what makes `customMovesLoaded` true here.
-        customMoves: [],
-        existingCustomMoves: [],
-        customMovesLoaded: false,
-        mysteryIds: [...item.mysteryIds],
-      },
-    ]);
-    this.collapseComposerIfUntouched(this.locationComposerOpen, this.locationComposerDirty());
+    this.attachingLocationName.set(item.name);
+    this.locationAttachError.set(null);
+
+    /**
+     * **`list()` rather than `getById()`, and this is its first real caller** (§27.2, L-D3).
+     *
+     * The catalogue list item already carries every field `LocationDraft` needs — name,
+     * description, type, `mysteryIds` — and lacks exactly one: the custom moves. `list()` fetches
+     * that one field and nothing else, which leaves the draft-construction expression below
+     * untouched and keeps `mystery-create-phase4-ledger.spec.ts`'s **S2** staleness characterised
+     * rather than accidentally fixed — `getById()` would re-read the whole row and quietly change
+     * what S2 is about.
+     *
+     * The draft is built **only** on success. A half-attached location with an unknown move
+     * baseline is the H2 shape, and refusing the whole attach is what keeps it unreachable.
+     */
+    this.customMoveService
+      .list('Location', locationId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (moves) => {
+          this.attachingLocationName.set(null);
+          this.cancelPendingRemoval('locations', locationId);
+          this.locations.update((items) => [
+            ...items,
+            {
+              id: item.id,
+              localKey: createDraftKey('location'),
+              name: item.name,
+              description: item.description ?? '',
+              locationTypeId: item.locationTypeId,
+              // **5f-3a's interim state, closed.** The drafts and the baseline come from the *same*
+              // response array in the same step (H2), so no path can set an id without recording
+              // the baseline it came from — and `customMovesLoaded` is true, which retires the
+              // panel's "they aren't shown here" line for an attached row.
+              customMoves: moves.map((move) => this.toCustomMoveDraft(move)),
+              existingCustomMoves: moves,
+              customMovesLoaded: true,
+              mysteryIds: [...item.mysteryIds],
+            },
+          ]);
+          this.collapseComposerIfUntouched(this.locationComposerOpen, this.locationComposerDirty());
+        },
+        error: () => {
+          this.attachingLocationName.set(null);
+          // **Local to the control that failed** (UX §17.2), not the wizard's footer band, and the
+          // roster is left untouched. Retry is picking it again.
+          this.locationAttachError.set(`Couldn't load “${item.name}”. Try again.`);
+        },
+      });
+  }
+
+  /** One `CustomMoveResponse` as a draft, keyed for the panel's `track`. */
+  private toCustomMoveDraft(move: CustomMoveResponse): CustomMoveDraft {
+    return { id: move.id, localKey: createDraftKey('move'), name: move.name, description: move.description ?? '' };
   }
 
   /**
@@ -1978,27 +2039,60 @@ export class MysteryCreateStore {
 
   attachBystander(bystanderId: string): void {
     const item = this.catalogBystanders().find((candidate) => candidate.id === bystanderId);
-    if (!item || this.bystanders().some((draft) => draft.id === bystanderId)) {
+    if (!item || this.bystanders().some((draft) => draft.id === bystanderId) || this.bystanderAttachInFlight()) {
       return;
     }
 
-    this.cancelPendingRemoval('bystanders', bystanderId);
-    this.bystanders.update((items) => [
-      ...items,
-      {
-        id: item.id,
-        localKey: createDraftKey('bystander'),
-        name: item.name,
-        description: item.description ?? '',
-        bystanderTypeId: item.bystanderTypeId,
-        // See the locations twin — the same interim state, the same non-destructive trace.
-        customMoves: [],
-        existingCustomMoves: [],
-        customMovesLoaded: false,
-        mysteryIds: [...item.mysteryIds],
-      },
-    ]);
-    this.collapseComposerIfUntouched(this.bystanderComposerOpen, this.bystanderComposerDirty());
+    this.attachingBystanderName.set(item.name);
+    this.bystanderAttachError.set(null);
+
+    /**
+     * **`list()` rather than `getById()`, and this is its first real caller** (§27.2, L-D3).
+     *
+     * The catalogue list item already carries every field `BystanderDraft` needs — name,
+     * description, type, `mysteryIds` — and lacks exactly one: the custom moves. `list()` fetches
+     * that one field and nothing else, which leaves the draft-construction expression below
+     * untouched and keeps `mystery-create-phase4-ledger.spec.ts`'s **S2** staleness characterised
+     * rather than accidentally fixed — `getById()` would re-read the whole row and quietly change
+     * what S2 is about.
+     *
+     * The draft is built **only** on success. A half-attached bystander with an unknown move
+     * baseline is the H2 shape, and refusing the whole attach is what keeps it unreachable.
+     */
+    this.customMoveService
+      .list('Bystander', bystanderId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (moves) => {
+          this.attachingBystanderName.set(null);
+          this.cancelPendingRemoval('bystanders', bystanderId);
+          this.bystanders.update((items) => [
+            ...items,
+            {
+              id: item.id,
+              localKey: createDraftKey('bystander'),
+              name: item.name,
+              description: item.description ?? '',
+              bystanderTypeId: item.bystanderTypeId,
+              // **5f-3a's interim state, closed.** The drafts and the baseline come from the *same*
+              // response array in the same step (H2), so no path can set an id without recording
+              // the baseline it came from — and `customMovesLoaded` is true, which retires the
+              // panel's "they aren't shown here" line for an attached row.
+              customMoves: moves.map((move) => this.toCustomMoveDraft(move)),
+              existingCustomMoves: moves,
+              customMovesLoaded: true,
+              mysteryIds: [...item.mysteryIds],
+            },
+          ]);
+          this.collapseComposerIfUntouched(this.bystanderComposerOpen, this.bystanderComposerDirty());
+        },
+        error: () => {
+          this.attachingBystanderName.set(null);
+          // **Local to the control that failed** (UX §17.2), not the wizard's footer band, and the
+          // roster is left untouched. Retry is picking it again.
+          this.bystanderAttachError.set(`Couldn't load “${item.name}”. Try again.`);
+        },
+      });
   }
 
   /**

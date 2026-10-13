@@ -100,6 +100,19 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
    */
   const expectLedger = (expected: string[]): void => expect([...sent].sort()).toEqual([...expected].sort());
 
+  /**
+   * **`attachLocation` issues a request now, and these are complete ledgers** (5f-3b).
+   *
+   * Until 5f-3b a pick was a pure client-side transform; it now fetches the one field the catalogue
+   * list item lacks, with `CustomMoveService.list()`. Five ledgers below therefore gain a
+   * `move.list(...)` entry — not as an accommodation, but because this file's whole claim is that
+   * it records *everything* a flow sends, and the flow sends one more thing.
+   *
+   * Only five. Every other attach here is followed by `submitLocations()` and a `sent.length = 0`,
+   * so the fetch is cleared before the assertion that matters.
+   */
+  const ATTACH_FETCH = (id: string): string => `move.list(Location,${id})`;
+
   beforeEach(() => {
     sent = [];
 
@@ -231,7 +244,11 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
     // correct in Phase 4, so the criterion is "the fields are what they were", never "no PUT went
     // out". The payload is spelled out here rather than probed, so a field dropped in hydration
     // fails as a diff instead of as a silently narrower object.
-    expectLedger([update('loc-a', 'Ferris Mill', 'Rust and river damp.'), 'location.link(mystery-1,loc-a)']);
+    expectLedger([
+      ATTACH_FETCH('loc-a'),
+      update('loc-a', 'Ferris Mill', 'Rust and river damp.'),
+      'location.link(mystery-1,loc-a)',
+    ]);
   });
 
   it('A5: attaching two and pressing Next links both — once each, with no create for either', () => {
@@ -241,6 +258,8 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
     store.next();
 
     expectLedger([
+      ATTACH_FETCH('loc-a'),
+      ATTACH_FETCH('loc-b'),
       'location.link(mystery-1,loc-a)',
       'location.link(mystery-1,loc-b)',
       update('loc-a', 'Ferris Mill', 'Rust and river damp.'),
@@ -254,9 +273,12 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
 
     store.next();
 
-    // Not "no delete" — *nothing*. A stray unlink here would be a `DELETE` against a membership
-    // that was never created, which 404s outside the drain's rule-2 catch and fails the phase.
-    expectLedger([]);
+    // **Still "nothing", in the sense this test has always meant.** The attach's `GET` of the
+    // location's custom moves is the one thing on the wire, and it is a *read* — the claim here is
+    // that no **write** goes out for an entity that never joined the mystery. A stray unlink would
+    // be a `DELETE` against a membership that was never created, which 404s outside the drain's
+    // rule-2 catch and fails the phase.
+    expectLedger([ATTACH_FETCH('loc-a')]);
   });
 
   // --- removal ---------------------------------------------------------------------------
@@ -295,7 +317,11 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
     store.attachLocation('loc-a');
     store.next();
 
-    expectLedger([update('loc-a', 'Ferris Mill', 'Rust and river damp.'), 'location.link(mystery-1,loc-a)']);
+    expectLedger([
+      ATTACH_FETCH('loc-a'),
+      update('loc-a', 'Ferris Mill', 'Rust and river damp.'),
+      'location.link(mystery-1,loc-a)',
+    ]);
   });
 
   it('a mixed roster sends one call per intention: keep, author, detach, delete', () => {
@@ -414,7 +440,16 @@ describe('The wizard’s phase submit — the complete request ledger', () => {
       // Accepted, deliberately not engineered against (§5.1, S2): single-user tool, pre-existing
       // for edit-mode revisits. Asserted so the day it stops being acceptable, this test is the
       // one that has to be changed on purpose.
-      expectLedger([update('loc-a', 'Ferris Mill', 'Rust and river damp.'), 'location.link(mystery-1,loc-a)']);
+      //
+      // **5f-3b kept it that way on purpose.** The attach now issues a request, and `getById()`
+      // would have re-read the whole row and quietly repaired the staleness this test exists to
+      // characterise. `list()` fetches the custom moves and nothing else, so the name below is
+      // still the page-load snapshot.
+      expectLedger([
+        ATTACH_FETCH('loc-a'),
+        update('loc-a', 'Ferris Mill', 'Rust and river damp.'),
+        'location.link(mystery-1,loc-a)',
+      ]);
     } finally {
       CATALOGUE_LOCATIONS[0].name = 'Ferris Mill';
     }

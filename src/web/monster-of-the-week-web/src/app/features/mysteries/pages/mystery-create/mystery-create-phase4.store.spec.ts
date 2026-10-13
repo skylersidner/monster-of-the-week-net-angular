@@ -135,7 +135,20 @@ describe('MysteryCreateStore · Phase 4 — attach, re-edit, removal', () => {
             const refuse = (method: string) => () => {
               throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
             };
-            return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+            /**
+             * **`list` answers; the three writes still refuse** (5f-3b).
+             *
+             * F-L9's stub refused everything, and that is exactly how this file announced the new
+             * call: 26 tests failed naming `CustomMoveService.list()` the moment attach started
+             * fetching. Softening the whole stub would have thrown that away. Only the read is
+             * allowed, so this file still fails loudly if an attach ever starts *writing*.
+             *
+             * `of([])` is right **here** and would be wrong as the only fixture anywhere: an empty
+             * answer makes the baseline-versus-drafts distinction unobservable, which is §30.5's
+             * gate item 3. This file is about attach bookkeeping, not about moves; the non-empty
+             * fixture lives in `mystery-create-5f3b-attach-fetch.spec.ts`.
+             */
+            return { list: () => of([]), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
           })(),
         },
         MysteryCreateStore,
