@@ -308,20 +308,34 @@ public sealed class MinionWeakness
     public Minion Minion { get; set; } = null!;
 }
 
-// Resource images — docs/resource-images/design.md and phases.md Phase 1.
+// The one owner-type discriminator for the whole domain — docs/resource-images/design.md,
+// docs/domain-custom-moves/architecture.md §3.1, and docs/resource-images/endpoint-unification.md
+// §2.6, which is the decision that merged it.
 //
-// The discriminator for ResourceImage.OwnerType. Stored as a string-backed column
-// (.HasConversion<string>() in MotwDbContext.cs), which was a new pattern for this codebase
-// when it landed — no other entity used HasConversion then. Chosen over a plain int for
-// readable raw SQL and no magic numbers, not because it matched an existing precedent.
-// CustomMoveOwnerType below is the second such column (domain-custom-moves/architecture.md
-// §22), so this is now a convention with two members rather than a deliberate first.
-public enum ResourceOwnerType
+// **This was two enums until U0.** `ResourceOwnerType` (four members, for ResourceImage.OwnerType)
+// and `CustomMoveOwnerType` (five, for CustomMove.OwnerType) are now one five-member type. Skyler
+// chose one domain vocabulary over two feature-scoped ones (endpoint-unification.md §11 Q3),
+// superseding architecture.md §2.8. The thing §2.8 was protecting is real and did not go away: a
+// Mystery can own a custom move but cannot own an image, so three `switch` arms in
+// ResourceImageService that were dead by exhaustion under the four-member enum are now reachable.
+// They throw, deliberately — see IResourceImageService.ImageOwnerTypes, which is where the
+// image-legal subset is now *declared* rather than derived from the enum, and
+// ResourceImageOwnerTypeTests, which pins the throws.
+//
+// **The member names are a data contract, not a style choice.** Both columns are stored as strings
+// (.HasConversion<string>() in MotwDbContext.cs) for readable raw SQL and no magic numbers, so
+// these five identifiers are literally what sits in custom_moves.owner_type and
+// resource_images.owner_type today. Rename a member and every existing row in both tables fails to
+// materialise — DomainOwnerTypePostgresTests asserts the stored strings against the member names so
+// that failure lands in a test rather than at runtime. Member ORDER is free: the ordinals were
+// never persisted, which is why merging two enums with different member orders cost nothing.
+public enum DomainOwnerType
 {
+    Mystery,
     Monster,
     Minion,
-    Bystander,
     Location,
+    Bystander,
 }
 
 // One row per uploaded image file, owned by exactly one Monster, Minion, Bystander, or
@@ -330,6 +344,11 @@ public enum ResourceOwnerType
 // exists, and is the type it claims to be) is validated at the service layer, not the schema.
 // Accepted tradeoff of design.md §1.3's single-table decision, not an oversight.
 //
+// OwnerType is DomainOwnerType, which has five members, but only four of them are legal here.
+// Nothing in the type system says so any more (endpoint-unification.md §2.6): the image-legal
+// subset is declared by IResourceImageService.ImageOwnerTypes and enforced by the service, which
+// throws on a Mystery rather than writing a row it could never serve.
+//
 // Deliberately does NOT implement ITimestamped: an image row is immutable once stored (replace
 // = delete + re-upload), so there is no UpdatedAt to carry. That also means
 // MotwDbContext.ApplyTimestamps() — which only iterates ITimestamped entries — never touches
@@ -337,7 +356,7 @@ public enum ResourceOwnerType
 public sealed class ResourceImage
 {
     public Guid Id { get; init; } = Guid.NewGuid();
-    public ResourceOwnerType OwnerType { get; set; }
+    public DomainOwnerType OwnerType { get; set; }
     public Guid OwnerId { get; set; }
     public required string FileName { get; set; }
     public required string ContentType { get; set; }
@@ -352,26 +371,11 @@ public sealed class ResourceImage
 
 // Domain custom moves — docs/domain-custom-moves/architecture.md §3.1, Phase 1.
 //
-// The discriminator for CustomMove.OwnerType, and deliberately a SECOND owner-type enum rather
-// than a fifth member on ResourceOwnerType above (architecture.md §2.8, §22). ResourceOwnerType
-// has exactly four members because nothing can own an image but a Monster, Minion, Bystander or
-// Location; a Mystery can own a custom move. Adding Mystery to ResourceOwnerType would make
-// three throwing `_ =>` arms in ResourceImageService reachable from a compiling route, so the
-// second enum is the cheaper mistake. The two are not interchangeable and neither converts to
-// the other — if you find yourself wanting a cast, you want the wrong one.
+// CustomMove.OwnerType uses the single DomainOwnerType declared above. It had its own
+// CustomMoveOwnerType enum until endpoint-unification.md §2.6 (U0) merged the two; the rationale
+// for the merge, and for what replaced the exhaustiveness the split used to buy, is recorded at
+// that declaration rather than repeated here.
 //
-// Member order matches architecture.md §3.1. Values are persisted as strings
-// (.HasConversion<string>() in MotwDbContext.cs), so renaming a member is a data migration, not
-// a refactor; reordering is free.
-public enum CustomMoveOwnerType
-{
-    Mystery,
-    Monster,
-    Minion,
-    Location,
-    Bystander,
-}
-
 // One custom move, owned by exactly one Mystery, Monster, Minion, Location or Bystander via the
 // (OwnerType, OwnerId) discriminator pair rather than a real FK — the same single-table shape
 // ResourceImage above uses, and for the same reason: a discriminator + id pair can't reference
@@ -392,7 +396,7 @@ public enum CustomMoveOwnerType
 public sealed class CustomMove
 {
     public Guid Id { get; init; } = Guid.NewGuid();
-    public CustomMoveOwnerType OwnerType { get; set; }
+    public DomainOwnerType OwnerType { get; set; }
     public Guid OwnerId { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }

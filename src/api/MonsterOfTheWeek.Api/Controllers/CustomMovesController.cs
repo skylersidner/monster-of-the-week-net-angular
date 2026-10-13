@@ -70,14 +70,14 @@ public sealed class CustomMovesController(ICustomMoveService customMoveService) 
     /// into a 404 or a 500. B2 and B-R2; the endpoint matrix carries a mixed-case case so this
     /// cannot be undone quietly.
     /// </summary>
-    private static readonly IReadOnlyDictionary<string, CustomMoveOwnerType> Owners =
-        new Dictionary<string, CustomMoveOwnerType>(StringComparer.OrdinalIgnoreCase)
+    private static readonly IReadOnlyDictionary<string, DomainOwnerType> Owners =
+        new Dictionary<string, DomainOwnerType>(StringComparer.OrdinalIgnoreCase)
         {
-            ["mysteries"] = CustomMoveOwnerType.Mystery,
-            ["monsters"] = CustomMoveOwnerType.Monster,
-            ["minions"] = CustomMoveOwnerType.Minion,
-            ["locations"] = CustomMoveOwnerType.Location,
-            ["bystanders"] = CustomMoveOwnerType.Bystander,
+            ["mysteries"] = DomainOwnerType.Mystery,
+            ["monsters"] = DomainOwnerType.Monster,
+            ["minions"] = DomainOwnerType.Minion,
+            ["locations"] = DomainOwnerType.Location,
+            ["bystanders"] = DomainOwnerType.Bystander,
         };
 
     [HttpGet(CollectionRoute)]
@@ -122,7 +122,7 @@ public sealed class CustomMovesController(ICustomMoveService customMoveService) 
     /// <c>CustomMoveOwnerDriftTests</c> is what makes that unreachable; this throw is the
     /// backstop, not the guard.
     /// </summary>
-    private static CustomMoveOwnerType OwnerTypeOf(string owner) => Owners[owner];
+    private static DomainOwnerType OwnerTypeOf(string owner) => Owners[owner];
 
     // Copied from MonstersController/MinionsController/MysteriesController, which each have their
     // own private pair — there is no shared base class or extension method, and starting one in a

@@ -42,7 +42,7 @@ public sealed class MysteryService(
         }
 
         var customMoves = await customMoveService.ListForProjectionAsync(
-            CustomMoveOwnerType.Mystery, id, cancellationToken);
+            DomainOwnerType.Mystery, id, cancellationToken);
         return ToDetailResponse(mystery, customMoves);
     }
 
@@ -102,7 +102,7 @@ public sealed class MysteryService(
 
         var updated = await mysteryRepository.GetMysteryDetailAsync(id, asNoTracking: true, cancellationToken);
         var customMoves = await customMoveService.ListForProjectionAsync(
-            CustomMoveOwnerType.Mystery, id, cancellationToken);
+            DomainOwnerType.Mystery, id, cancellationToken);
 
         // Note what did *not* need handling: the tracked read at the top of this method
         // (asNoTracking: false) is the only caller that ever passes false, it mutates six scalar
@@ -137,7 +137,7 @@ public sealed class MysteryService(
     {
         await using var transaction = await mysteryRepository.BeginTransactionAsync(cancellationToken);
 
-        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Mystery, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Mystery, id, cancellationToken);
         var deleted = await mysteryRepository.DeleteMysteryAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);

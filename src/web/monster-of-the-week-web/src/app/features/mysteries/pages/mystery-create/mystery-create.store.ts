@@ -11,7 +11,7 @@ import { LocationService } from '../../../../core/location';
 import {
   AdventureTypeResponse,
   BystanderListItemResponse,
-  CustomMoveOwnerType,
+  DomainOwnerType,
   CustomMoveResponse,
   LocationListItemResponse,
   MonsterListItemResponse,
@@ -3486,7 +3486,7 @@ export class MysteryCreateStore {
    * `monsterPowerService`'s, which is §13.1 item 4 made concrete.
    */
   private customMoveSubResource(
-    ownerType: CustomMoveOwnerType,
+    ownerType: DomainOwnerType,
   ): SubResourceService<CustomMoveDraft, UpsertCustomMoveRequest, CustomMoveResponse> {
     return {
       create: (id, request) => this.customMoveService.create(ownerType, id, request),

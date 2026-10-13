@@ -12,7 +12,7 @@ namespace MonsterOfTheWeek.Api.Tests.Controllers;
 
 /// <summary>
 /// <see cref="CustomMovesController"/> behind a real Kestrel host, with <b>one owner of every
-/// <see cref="CustomMoveOwnerType"/></b> seeded — which is the whole point: the controller's
+/// <see cref="DomainOwnerType"/></b> seeded — which is the whole point: the controller's
 /// claim is that one route serves five domains, and that is only checkable against five real
 /// owners.
 ///
@@ -50,13 +50,13 @@ internal sealed class CustomMoveApiHarness : IAsyncDisposable
     public Guid BystanderId { get; } = Guid.NewGuid();
 
     /// <summary>The seeded owner id for a given owner type, so a theory can take the type alone.</summary>
-    public Guid OwnerIdFor(CustomMoveOwnerType ownerType) => ownerType switch
+    public Guid OwnerIdFor(DomainOwnerType ownerType) => ownerType switch
     {
-        CustomMoveOwnerType.Mystery => MysteryId,
-        CustomMoveOwnerType.Monster => MonsterId,
-        CustomMoveOwnerType.Minion => MinionId,
-        CustomMoveOwnerType.Location => LocationId,
-        CustomMoveOwnerType.Bystander => BystanderId,
+        DomainOwnerType.Mystery => MysteryId,
+        DomainOwnerType.Monster => MonsterId,
+        DomainOwnerType.Minion => MinionId,
+        DomainOwnerType.Location => LocationId,
+        DomainOwnerType.Bystander => BystanderId,
         _ => throw new ArgumentOutOfRangeException(nameof(ownerType), ownerType, "Unknown owner type."),
     };
 

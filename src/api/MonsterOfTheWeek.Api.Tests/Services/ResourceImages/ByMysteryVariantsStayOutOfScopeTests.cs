@@ -78,7 +78,7 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
 
         var imageService = new ResourceImageService(context);
         await imageService.UploadAsync(
-            ResourceOwnerType.Monster, monster.Id,
+            DomainOwnerType.Monster, monster.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
 
@@ -107,7 +107,7 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
 
         var imageService = new ResourceImageService(context);
         await imageService.UploadAsync(
-            ResourceOwnerType.Location, location.Id,
+            DomainOwnerType.Location, location.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
 
@@ -141,7 +141,7 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
 
         var imageService = new ResourceImageService(context);
         await imageService.UploadAsync(
-            ResourceOwnerType.Bystander, bystander.Id,
+            DomainOwnerType.Bystander, bystander.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
 

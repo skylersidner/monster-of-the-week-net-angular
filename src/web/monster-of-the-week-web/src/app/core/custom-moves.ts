@@ -3,7 +3,7 @@ import { HttpContext } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiService } from './api';
 import { SUPPRESS_ERROR_TOAST } from './http-context-tokens';
-import { CustomMoveOwnerType, CustomMoveResponse, UpsertCustomMoveRequest } from './models';
+import { DomainOwnerType, CustomMoveResponse, UpsertCustomMoveRequest } from './models';
 
 /**
  * Owner type → the unified controller's route segment
@@ -14,7 +14,7 @@ import { CustomMoveOwnerType, CustomMoveResponse, UpsertCustomMoveRequest } from
  * correct-but-unintended owner pair cannot be constructed by accident rests on there being exactly
  * one place a custom-move URL is assembled. Exporting this map invites a second one.
  *
- * **`Record<CustomMoveOwnerType, string>` is exhaustive**, so a sixth owner type added to the union
+ * **`Record<DomainOwnerType, string>` is exhaustive**, so a sixth owner type added to the union
  * without a segment here is a compile error rather than a runtime 404.
  *
  * **What happens if a segment is wrong**, since the guard is not this comment: the route constraint
@@ -25,7 +25,7 @@ import { CustomMoveOwnerType, CustomMoveResponse, UpsertCustomMoveRequest } from
  * from `resourceImagesPath`'s shipped map rather than re-typing them, which is the guard that
  * actually runs; §27.3 and §34's live probe are the other half.
  */
-const OWNER_SEGMENT: Readonly<Record<CustomMoveOwnerType, string>> = {
+const OWNER_SEGMENT: Readonly<Record<DomainOwnerType, string>> = {
   Mystery: 'mysteries',
   Monster: 'monsters',
   Minion: 'minions',
@@ -34,7 +34,7 @@ const OWNER_SEGMENT: Readonly<Record<CustomMoveOwnerType, string>> = {
 };
 
 /** `/api/{segment}/{ownerId}/custom-moves` — rooted, no base URL. `ApiService` adds that. */
-export function customMovesPath(ownerType: CustomMoveOwnerType, ownerId: string): string {
+export function customMovesPath(ownerType: DomainOwnerType, ownerId: string): string {
   return `/api/${OWNER_SEGMENT[ownerType]}/${ownerId}/custom-moves`;
 }
 
@@ -97,12 +97,12 @@ export class CustomMoveService {
    * returns the body would be covering `ApiService`, not a feature. **§30.5's 5f-3 gate is what
    * closes this**, and it does not close until a real caller exercises it with a non-empty fixture.
    */
-  list(ownerType: CustomMoveOwnerType, ownerId: string): Observable<CustomMoveResponse[]> {
+  list(ownerType: DomainOwnerType, ownerId: string): Observable<CustomMoveResponse[]> {
     return this.apiService.get<CustomMoveResponse[]>(customMovesPath(ownerType, ownerId), inlineErrorContext());
   }
 
   create(
-    ownerType: CustomMoveOwnerType,
+    ownerType: DomainOwnerType,
     ownerId: string,
     request: UpsertCustomMoveRequest
   ): Observable<CustomMoveResponse> {
@@ -114,7 +114,7 @@ export class CustomMoveService {
   }
 
   update(
-    ownerType: CustomMoveOwnerType,
+    ownerType: DomainOwnerType,
     ownerId: string,
     moveId: string,
     request: UpsertCustomMoveRequest
@@ -126,7 +126,7 @@ export class CustomMoveService {
     );
   }
 
-  delete(ownerType: CustomMoveOwnerType, ownerId: string, moveId: string): Observable<void> {
+  delete(ownerType: DomainOwnerType, ownerId: string, moveId: string): Observable<void> {
     return this.apiService.delete(`${customMovesPath(ownerType, ownerId)}/${moveId}`, inlineErrorContext());
   }
 }

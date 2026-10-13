@@ -36,20 +36,20 @@ public sealed class CustomMoveServiceTests
         new(name, description);
 
     /// <summary>
-    /// One owner of every <see cref="CustomMoveOwnerType"/>, seeded into one context, so a test
+    /// One owner of every <see cref="DomainOwnerType"/>, seeded into one context, so a test
     /// can name any owner type without re-seeding and so the cross-owner cases have something to
     /// be isolated from. The connection is the caller's to dispose; SQLite in-memory keeps the
     /// schema alive exactly as long as it is open.
     /// </summary>
     private sealed record Owners(Guid Mystery, Guid Monster, Guid Minion, Guid Location, Guid Bystander)
     {
-        public Guid For(CustomMoveOwnerType ownerType) => ownerType switch
+        public Guid For(DomainOwnerType ownerType) => ownerType switch
         {
-            CustomMoveOwnerType.Mystery => Mystery,
-            CustomMoveOwnerType.Monster => Monster,
-            CustomMoveOwnerType.Minion => Minion,
-            CustomMoveOwnerType.Location => Location,
-            CustomMoveOwnerType.Bystander => Bystander,
+            DomainOwnerType.Mystery => Mystery,
+            DomainOwnerType.Monster => Monster,
+            DomainOwnerType.Minion => Minion,
+            DomainOwnerType.Location => Location,
+            DomainOwnerType.Bystander => Bystander,
             _ => throw new ArgumentOutOfRangeException(nameof(ownerType), ownerType, "Unknown owner type."),
         };
     }
@@ -98,12 +98,12 @@ public sealed class CustomMoveServiceTests
     }
 
     [Theory]
-    [InlineData(CustomMoveOwnerType.Mystery)]
-    [InlineData(CustomMoveOwnerType.Monster)]
-    [InlineData(CustomMoveOwnerType.Minion)]
-    [InlineData(CustomMoveOwnerType.Location)]
-    [InlineData(CustomMoveOwnerType.Bystander)]
-    public async Task CreateAsync_ThenListAsync_RoundTrips_ForEveryOwnerType(CustomMoveOwnerType ownerType)
+    [InlineData(DomainOwnerType.Mystery)]
+    [InlineData(DomainOwnerType.Monster)]
+    [InlineData(DomainOwnerType.Minion)]
+    [InlineData(DomainOwnerType.Location)]
+    [InlineData(DomainOwnerType.Bystander)]
+    public async Task CreateAsync_ThenListAsync_RoundTrips_ForEveryOwnerType(DomainOwnerType ownerType)
     {
         // One case per enum member, not one case for Monster: OwnerExistsAsync is a five-arm
         // switch whose wrong arm compiles, and its `_ =>` arm throws. A member added without an
@@ -135,7 +135,7 @@ public sealed class CustomMoveServiceTests
 
         var service = new CustomMoveService(context);
 
-        var result = await service.ListAsync(CustomMoveOwnerType.Monster, Guid.NewGuid(), CancellationToken.None);
+        var result = await service.ListAsync(DomainOwnerType.Monster, Guid.NewGuid(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ServiceErrorType.NotFound, result.Error!.Type);
@@ -154,7 +154,7 @@ public sealed class CustomMoveServiceTests
         var owners = await SeedOneOwnerOfEachTypeAsync(context);
         var service = new CustomMoveService(context);
 
-        var result = await service.ListAsync(CustomMoveOwnerType.Monster, owners.Monster, CancellationToken.None);
+        var result = await service.ListAsync(DomainOwnerType.Monster, owners.Monster, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(result.Value!);
@@ -170,7 +170,7 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         var result = await service.CreateAsync(
-            CustomMoveOwnerType.Monster, Guid.NewGuid(), Request("Vanish"), CancellationToken.None);
+            DomainOwnerType.Monster, Guid.NewGuid(), Request("Vanish"), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ServiceErrorType.NotFound, result.Error!.Type);
@@ -191,7 +191,7 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         var result = await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Bystander, Request("Vanish"), CancellationToken.None);
+            DomainOwnerType.Monster, owners.Bystander, Request("Vanish"), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ServiceErrorType.NotFound, result.Error!.Type);
@@ -209,9 +209,9 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         var trimmed = await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, Request("  Vanish  ", "  into the dark  "), CancellationToken.None);
+            DomainOwnerType.Monster, owners.Monster, Request("  Vanish  ", "  into the dark  "), CancellationToken.None);
         var nullDescription = await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, Request("Linger"), CancellationToken.None);
+            DomainOwnerType.Monster, owners.Monster, Request("Linger"), CancellationToken.None);
 
         Assert.Equal("Vanish", trimmed.Value!.Name);
         Assert.Equal("into the dark", trimmed.Value.Description);
@@ -233,10 +233,10 @@ public sealed class CustomMoveServiceTests
         foreach (var name in new[] { "Vanish", "Act Under Pressure", "Manipulate" })
         {
             Assert.True((await service.CreateAsync(
-                CustomMoveOwnerType.Monster, owners.Monster, Request(name), CancellationToken.None)).IsSuccess);
+                DomainOwnerType.Monster, owners.Monster, Request(name), CancellationToken.None)).IsSuccess);
         }
 
-        var result = await service.ListAsync(CustomMoveOwnerType.Monster, owners.Monster, CancellationToken.None);
+        var result = await service.ListAsync(DomainOwnerType.Monster, owners.Monster, CancellationToken.None);
 
         Assert.Equal(
             ["Act Under Pressure", "Manipulate", "Vanish"],
@@ -254,13 +254,13 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         var mine = await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None);
+            DomainOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None);
         Assert.True((await service.CreateAsync(
-            CustomMoveOwnerType.Bystander, owners.Bystander, Request("Vanish"), CancellationToken.None)).IsSuccess);
+            DomainOwnerType.Bystander, owners.Bystander, Request("Vanish"), CancellationToken.None)).IsSuccess);
         Assert.True((await service.CreateAsync(
-            CustomMoveOwnerType.Minion, owners.Minion, Request("Vanish"), CancellationToken.None)).IsSuccess);
+            DomainOwnerType.Minion, owners.Minion, Request("Vanish"), CancellationToken.None)).IsSuccess);
 
-        var result = await service.ListAsync(CustomMoveOwnerType.Monster, owners.Monster, CancellationToken.None);
+        var result = await service.ListAsync(DomainOwnerType.Monster, owners.Monster, CancellationToken.None);
 
         Assert.Equal(mine.Value!.Id, Assert.Single(result.Value!).Id);
     }
@@ -280,12 +280,12 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         Assert.True((await service.CreateAsync(
-            CustomMoveOwnerType.Location, owners.Location, Request("Shift"), CancellationToken.None)).IsSuccess);
+            DomainOwnerType.Location, owners.Location, Request("Shift"), CancellationToken.None)).IsSuccess);
 
         Assert.Equal("Shift", Assert.Single(
-            await service.ListForProjectionAsync(CustomMoveOwnerType.Location, owners.Location, CancellationToken.None)).Name);
+            await service.ListForProjectionAsync(DomainOwnerType.Location, owners.Location, CancellationToken.None)).Name);
         Assert.Empty(
-            await service.ListForProjectionAsync(CustomMoveOwnerType.Location, Guid.NewGuid(), CancellationToken.None));
+            await service.ListForProjectionAsync(DomainOwnerType.Location, Guid.NewGuid(), CancellationToken.None));
     }
 
     [Fact]
@@ -303,14 +303,14 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         var created = await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None);
+            DomainOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None);
 
         // Through a different owner type...
         var crossType = await service.UpdateAsync(
-            CustomMoveOwnerType.Bystander, owners.Bystander, created.Value!.Id, Request("Stolen"), CancellationToken.None);
+            DomainOwnerType.Bystander, owners.Bystander, created.Value!.Id, Request("Stolen"), CancellationToken.None);
         // ...and through a different owner of the same type.
         var sameTypeOtherOwner = await service.UpdateAsync(
-            CustomMoveOwnerType.Monster, Guid.NewGuid(), created.Value.Id, Request("Stolen"), CancellationToken.None);
+            DomainOwnerType.Monster, Guid.NewGuid(), created.Value.Id, Request("Stolen"), CancellationToken.None);
 
         Assert.Equal(ServiceErrorType.NotFound, crossType.Error!.Type);
         Assert.Equal(ServiceErrorType.NotFound, sameTypeOtherOwner.Error!.Type);
@@ -328,10 +328,10 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         var created = await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, Request("Vanish", "old"), CancellationToken.None);
+            DomainOwnerType.Monster, owners.Monster, Request("Vanish", "old"), CancellationToken.None);
 
         var updated = await service.UpdateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, created.Value!.Id, Request("  Linger  ", null), CancellationToken.None);
+            DomainOwnerType.Monster, owners.Monster, created.Value!.Id, Request("  Linger  ", null), CancellationToken.None);
 
         Assert.True(updated.IsSuccess);
         Assert.Equal(created.Value.Id, updated.Value!.Id);
@@ -351,12 +351,12 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         var created = await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None);
+            DomainOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None);
 
         Assert.False(await service.DeleteAsync(
-            CustomMoveOwnerType.Bystander, owners.Bystander, created.Value!.Id, CancellationToken.None));
+            DomainOwnerType.Bystander, owners.Bystander, created.Value!.Id, CancellationToken.None));
         Assert.False(await service.DeleteAsync(
-            CustomMoveOwnerType.Monster, Guid.NewGuid(), created.Value.Id, CancellationToken.None));
+            DomainOwnerType.Monster, Guid.NewGuid(), created.Value.Id, CancellationToken.None));
         Assert.Equal(1, await context.CustomMoves.CountAsync());
     }
 
@@ -371,14 +371,14 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         var created = await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None);
+            DomainOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None);
 
         Assert.True(await service.DeleteAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, created.Value!.Id, CancellationToken.None));
+            DomainOwnerType.Monster, owners.Monster, created.Value!.Id, CancellationToken.None));
         // A second delete is a 404, not a 204 — derived from `deleted > 0`, matching every
         // shipped sub-resource delete (B9).
         Assert.False(await service.DeleteAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, created.Value.Id, CancellationToken.None));
+            DomainOwnerType.Monster, owners.Monster, created.Value.Id, CancellationToken.None));
         Assert.Equal(0, await context.CustomMoves.CountAsync());
     }
 
@@ -396,18 +396,18 @@ public sealed class CustomMoveServiceTests
         var service = new CustomMoveService(context);
 
         Assert.True((await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None)).IsSuccess);
+            DomainOwnerType.Monster, owners.Monster, Request("Vanish"), CancellationToken.None)).IsSuccess);
         Assert.True((await service.CreateAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, Request("Linger"), CancellationToken.None)).IsSuccess);
+            DomainOwnerType.Monster, owners.Monster, Request("Linger"), CancellationToken.None)).IsSuccess);
         Assert.True((await service.CreateAsync(
-            CustomMoveOwnerType.Minion, owners.Minion, Request("Swarm"), CancellationToken.None)).IsSuccess);
+            DomainOwnerType.Minion, owners.Minion, Request("Swarm"), CancellationToken.None)).IsSuccess);
         Assert.True((await service.CreateAsync(
-            CustomMoveOwnerType.Mystery, owners.Mystery, Request("Close In"), CancellationToken.None)).IsSuccess);
+            DomainOwnerType.Mystery, owners.Mystery, Request("Close In"), CancellationToken.None)).IsSuccess);
 
-        await service.DeleteAllForOwnerAsync(CustomMoveOwnerType.Monster, owners.Monster, CancellationToken.None);
+        await service.DeleteAllForOwnerAsync(DomainOwnerType.Monster, owners.Monster, CancellationToken.None);
 
         Assert.Empty(await service.ListForProjectionAsync(
-            CustomMoveOwnerType.Monster, owners.Monster, CancellationToken.None));
+            DomainOwnerType.Monster, owners.Monster, CancellationToken.None));
         Assert.Equal(
             ["Close In", "Swarm"],
             await context.CustomMoves.AsNoTracking().OrderBy(x => x.Name).Select(x => x.Name).ToListAsync());
@@ -425,7 +425,7 @@ public sealed class CustomMoveServiceTests
 
         var service = new CustomMoveService(context);
 
-        await service.DeleteAllForOwnerAsync(CustomMoveOwnerType.Mystery, Guid.NewGuid(), CancellationToken.None);
+        await service.DeleteAllForOwnerAsync(DomainOwnerType.Mystery, Guid.NewGuid(), CancellationToken.None);
 
         Assert.Equal(0, await context.CustomMoves.CountAsync());
     }

@@ -91,13 +91,13 @@ public sealed class MonsterMinionCascadeTests
 
         var monsterMove = new CustomMove
         {
-            OwnerType = CustomMoveOwnerType.Monster,
+            OwnerType = DomainOwnerType.Monster,
             OwnerId = harness.MonsterId,
             Name = "Rise Again",
         };
         var minionMove = new CustomMove
         {
-            OwnerType = CustomMoveOwnerType.Minion,
+            OwnerType = DomainOwnerType.Minion,
             OwnerId = minionId,
             Name = "Swarm",
         };
@@ -141,7 +141,7 @@ public sealed class MonsterMinionCascadeTests
 
         context.CustomMoves.Add(new CustomMove
         {
-            OwnerType = CustomMoveOwnerType.Monster,
+            OwnerType = DomainOwnerType.Monster,
             OwnerId = monster.Id,
             Name = "Must Survive",
         });

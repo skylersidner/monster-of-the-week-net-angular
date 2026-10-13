@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { Observable, defer, of } from 'rxjs';
 
 import { BystanderService } from '../../../../core/bystander';
-import { CustomMoveOwnerType, UpsertCustomMoveRequest } from '../../../../core/models';
+import { DomainOwnerType, UpsertCustomMoveRequest } from '../../../../core/models';
 import { CustomMoveService, customMovesPath } from '../../../../core/custom-moves';
 import { LocationService } from '../../../../core/location';
 import { MinionService } from '../../../../core/minion';
@@ -35,7 +35,7 @@ import { MysteryCreateStore } from './mystery-create.store';
 describe('Step 0-4 — the mystery’s own custom moves', () => {
   let store: MysteryCreateStore;
   let sent: string[];
-  let ownerTypesSeen: CustomMoveOwnerType[];
+  let ownerTypesSeen: DomainOwnerType[];
   let nextServerId: number;
 
   const expectLedger = (expected: string[]): void => expect([...sent].sort()).toEqual([...expected].sort());
@@ -70,7 +70,7 @@ describe('Step 0-4 — the mystery’s own custom moves', () => {
     const recordMove = <T>(name: string, result: (args: unknown[]) => Observable<T>) =>
       vi.fn((...args: unknown[]) =>
         defer(() => {
-          ownerTypesSeen.push(args[0] as CustomMoveOwnerType);
+          ownerTypesSeen.push(args[0] as DomainOwnerType);
           sent.push(`${name}(${describeArgs(args.slice(1))})`);
           return result(args);
         }),

@@ -17,8 +17,8 @@ namespace MonsterOfTheWeek.Api.Tests.Services.CustomMoves;
 ///
 /// <para>
 /// <b>The hazard.</b> Five services each call <c>ListForProjectionAsync</c> with their own
-/// <see cref="CustomMoveOwnerType"/> literal, in a method nothing else cross-checks. A monster
-/// service passing <c>CustomMoveOwnerType.Minion</c> <b>compiles</b>, passes every monster test
+/// <see cref="DomainOwnerType"/> literal, in a method nothing else cross-checks. A monster
+/// service passing <c>DomainOwnerType.Minion</c> <b>compiles</b>, passes every monster test
 /// that does not seed a custom move, and returns another owner's rows. Before Phase 2 that bug
 /// did not exist — the nav property could only ever yield the right rows — so this is a guard the
 /// switchover creates the need for, not one it inherits.
@@ -87,11 +87,11 @@ public sealed class DetailProjectionOwnerAgreementTests
         // wrong *name*, which says which arm is wrong, rather than as a count mismatch, which
         // only says something is.
         context.CustomMoves.AddRange(
-            new CustomMove { OwnerType = CustomMoveOwnerType.Mystery, OwnerId = mystery.Id, Name = "Mystery Move" },
-            new CustomMove { OwnerType = CustomMoveOwnerType.Monster, OwnerId = monster.Id, Name = "Monster Move" },
-            new CustomMove { OwnerType = CustomMoveOwnerType.Minion, OwnerId = minion.Id, Name = "Minion Move" },
-            new CustomMove { OwnerType = CustomMoveOwnerType.Location, OwnerId = location.Id, Name = "Location Move" },
-            new CustomMove { OwnerType = CustomMoveOwnerType.Bystander, OwnerId = bystander.Id, Name = "Bystander Move" });
+            new CustomMove { OwnerType = DomainOwnerType.Mystery, OwnerId = mystery.Id, Name = "Mystery Move" },
+            new CustomMove { OwnerType = DomainOwnerType.Monster, OwnerId = monster.Id, Name = "Monster Move" },
+            new CustomMove { OwnerType = DomainOwnerType.Minion, OwnerId = minion.Id, Name = "Minion Move" },
+            new CustomMove { OwnerType = DomainOwnerType.Location, OwnerId = location.Id, Name = "Location Move" },
+            new CustomMove { OwnerType = DomainOwnerType.Bystander, OwnerId = bystander.Id, Name = "Bystander Move" });
         await context.SaveChangesAsync();
 
         // Every owner id is distinct, so a service with the right OwnerId and the wrong OwnerType
@@ -152,7 +152,7 @@ public sealed class DetailProjectionOwnerAgreementTests
         Assert.Empty(created.Value!.CustomMoves);
 
         Assert.True((await customMoveService.CreateAsync(
-            CustomMoveOwnerType.Mystery, created.Value.Id, new UpsertCustomMoveRequest("Close In", null),
+            DomainOwnerType.Mystery, created.Value.Id, new UpsertCustomMoveRequest("Close In", null),
             CancellationToken.None)).IsSuccess);
 
         // Update is the third of Mystery's three projection sites, and the one that does query.

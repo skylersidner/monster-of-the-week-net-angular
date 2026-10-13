@@ -124,20 +124,20 @@ public sealed class LocationsController(ILocationService locationService, IResou
     [HttpGet("api/locations/{id:guid}/images")]
     public async Task<ActionResult<IReadOnlyList<ResourceImageResponse>>> GetImages(Guid id, CancellationToken cancellationToken)
     {
-        var result = await resourceImageService.ListAsync(ResourceOwnerType.Location, id, cancellationToken);
+        var result = await resourceImageService.ListAsync(DomainOwnerType.Location, id, cancellationToken);
         if (!result.IsSuccess)
         {
             return NotFound();
         }
 
-        var primaryId = await resourceImageService.GetPrimaryImageIdAsync(ResourceOwnerType.Location, id, cancellationToken);
+        var primaryId = await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Location, id, cancellationToken);
         return Ok(result.Value!.Select(i => i.ToResponse(i.Id == primaryId)).ToList());
     }
 
     [HttpGet("api/locations/{id:guid}/images/{imageId:guid}/file")]
     public async Task<IActionResult> GetImageFile(Guid id, Guid imageId, CancellationToken cancellationToken)
     {
-        var image = await resourceImageService.GetImageAsync(ResourceOwnerType.Location, id, imageId, cancellationToken);
+        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Location, id, imageId, cancellationToken);
         if (image is null)
         {
             return NotFound();
@@ -150,7 +150,7 @@ public sealed class LocationsController(ILocationService locationService, IResou
     [HttpGet("api/locations/{id:guid}/images/{imageId:guid}/thumbnail")]
     public async Task<IActionResult> GetImageThumbnail(Guid id, Guid imageId, CancellationToken cancellationToken)
     {
-        var image = await resourceImageService.GetImageAsync(ResourceOwnerType.Location, id, imageId, cancellationToken);
+        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Location, id, imageId, cancellationToken);
         if (image is null)
         {
             return NotFound();
@@ -172,14 +172,14 @@ public sealed class LocationsController(ILocationService locationService, IResou
     public async Task<IActionResult> UploadImages(Guid id, [FromForm] IFormFileCollection files, CancellationToken cancellationToken)
     {
         var uploadFiles = await files.ToUploadFilesAsync(cancellationToken);
-        var result = await resourceImageService.UploadAsync(ResourceOwnerType.Location, id, uploadFiles, cancellationToken);
+        var result = await resourceImageService.UploadAsync(DomainOwnerType.Location, id, uploadFiles, cancellationToken);
         if (!result.IsSuccess)
         {
             return NotFound();
         }
 
         var primaryId = result.Value!.Uploaded.Count > 0
-            ? await resourceImageService.GetPrimaryImageIdAsync(ResourceOwnerType.Location, id, cancellationToken)
+            ? await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Location, id, cancellationToken)
             : (Guid?)null;
 
         var response = new ResourceImageUploadResponse(
@@ -193,9 +193,9 @@ public sealed class LocationsController(ILocationService locationService, IResou
 
     [HttpDelete("api/locations/{id:guid}/images/{imageId:guid}")]
     public async Task<IActionResult> DeleteImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.DeleteAsync(ResourceOwnerType.Location, id, imageId, cancellationToken) ? NoContent() : NotFound();
+        await resourceImageService.DeleteAsync(DomainOwnerType.Location, id, imageId, cancellationToken) ? NoContent() : NotFound();
 
     [HttpPut("api/locations/{id:guid}/images/{imageId:guid}/primary")]
     public async Task<IActionResult> SetPrimaryImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.SetPrimaryAsync(ResourceOwnerType.Location, id, imageId, cancellationToken) ? NoContent() : NotFound();
+        await resourceImageService.SetPrimaryAsync(DomainOwnerType.Location, id, imageId, cancellationToken) ? NoContent() : NotFound();
 }

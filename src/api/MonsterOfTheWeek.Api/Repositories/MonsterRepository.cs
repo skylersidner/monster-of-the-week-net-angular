@@ -48,7 +48,7 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
                 // round trip. Confirmed via EF logging that this translates to a single SQL
                 // COALESCE over a correlated subquery, not a second query per row.
                 x.PrimaryImageId ?? dbContext.ResourceImages
-                    .Where(i => i.OwnerType == ResourceOwnerType.Monster && i.OwnerId == x.Id)
+                    .Where(i => i.OwnerType == DomainOwnerType.Monster && i.OwnerId == x.Id)
                     .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
                     .Select(i => (Guid?)i.Id)
                     .FirstOrDefault()))

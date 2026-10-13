@@ -119,7 +119,7 @@ public sealed class BystanderRepository(MotwDbContext dbContext) : IBystanderRep
                 x.CreatedAt,
                 // The derived primary — see MonsterRepository.GetAllAsync for the full reasoning.
                 x.PrimaryImageId ?? dbContext.ResourceImages
-                    .Where(i => i.OwnerType == ResourceOwnerType.Bystander && i.OwnerId == x.Id)
+                    .Where(i => i.OwnerType == DomainOwnerType.Bystander && i.OwnerId == x.Id)
                     .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
                     .Select(i => (Guid?)i.Id)
                     .FirstOrDefault()))

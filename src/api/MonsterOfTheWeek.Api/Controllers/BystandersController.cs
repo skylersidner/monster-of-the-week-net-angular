@@ -117,20 +117,20 @@ public sealed class BystandersController(IBystanderService bystanderService, IRe
     [HttpGet("api/bystanders/{id:guid}/images")]
     public async Task<ActionResult<IReadOnlyList<ResourceImageResponse>>> GetImages(Guid id, CancellationToken cancellationToken)
     {
-        var result = await resourceImageService.ListAsync(ResourceOwnerType.Bystander, id, cancellationToken);
+        var result = await resourceImageService.ListAsync(DomainOwnerType.Bystander, id, cancellationToken);
         if (!result.IsSuccess)
         {
             return NotFound();
         }
 
-        var primaryId = await resourceImageService.GetPrimaryImageIdAsync(ResourceOwnerType.Bystander, id, cancellationToken);
+        var primaryId = await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Bystander, id, cancellationToken);
         return Ok(result.Value!.Select(i => i.ToResponse(i.Id == primaryId)).ToList());
     }
 
     [HttpGet("api/bystanders/{id:guid}/images/{imageId:guid}/file")]
     public async Task<IActionResult> GetImageFile(Guid id, Guid imageId, CancellationToken cancellationToken)
     {
-        var image = await resourceImageService.GetImageAsync(ResourceOwnerType.Bystander, id, imageId, cancellationToken);
+        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Bystander, id, imageId, cancellationToken);
         if (image is null)
         {
             return NotFound();
@@ -143,7 +143,7 @@ public sealed class BystandersController(IBystanderService bystanderService, IRe
     [HttpGet("api/bystanders/{id:guid}/images/{imageId:guid}/thumbnail")]
     public async Task<IActionResult> GetImageThumbnail(Guid id, Guid imageId, CancellationToken cancellationToken)
     {
-        var image = await resourceImageService.GetImageAsync(ResourceOwnerType.Bystander, id, imageId, cancellationToken);
+        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Bystander, id, imageId, cancellationToken);
         if (image is null)
         {
             return NotFound();
@@ -165,14 +165,14 @@ public sealed class BystandersController(IBystanderService bystanderService, IRe
     public async Task<IActionResult> UploadImages(Guid id, [FromForm] IFormFileCollection files, CancellationToken cancellationToken)
     {
         var uploadFiles = await files.ToUploadFilesAsync(cancellationToken);
-        var result = await resourceImageService.UploadAsync(ResourceOwnerType.Bystander, id, uploadFiles, cancellationToken);
+        var result = await resourceImageService.UploadAsync(DomainOwnerType.Bystander, id, uploadFiles, cancellationToken);
         if (!result.IsSuccess)
         {
             return NotFound();
         }
 
         var primaryId = result.Value!.Uploaded.Count > 0
-            ? await resourceImageService.GetPrimaryImageIdAsync(ResourceOwnerType.Bystander, id, cancellationToken)
+            ? await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Bystander, id, cancellationToken)
             : (Guid?)null;
 
         var response = new ResourceImageUploadResponse(
@@ -186,9 +186,9 @@ public sealed class BystandersController(IBystanderService bystanderService, IRe
 
     [HttpDelete("api/bystanders/{id:guid}/images/{imageId:guid}")]
     public async Task<IActionResult> DeleteImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.DeleteAsync(ResourceOwnerType.Bystander, id, imageId, cancellationToken) ? NoContent() : NotFound();
+        await resourceImageService.DeleteAsync(DomainOwnerType.Bystander, id, imageId, cancellationToken) ? NoContent() : NotFound();
 
     [HttpPut("api/bystanders/{id:guid}/images/{imageId:guid}/primary")]
     public async Task<IActionResult> SetPrimaryImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.SetPrimaryAsync(ResourceOwnerType.Bystander, id, imageId, cancellationToken) ? NoContent() : NotFound();
+        await resourceImageService.SetPrimaryAsync(DomainOwnerType.Bystander, id, imageId, cancellationToken) ? NoContent() : NotFound();
 }

@@ -2,7 +2,7 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subscription, finalize } from 'rxjs';
-import { ResourceImageResponse, ResourceOwnerType } from '../core/models';
+import { ResourceImageResponse, ImageOwnerType } from '../core/models';
 import { ResourceImageService } from '../core/resource-images';
 import {
   UploadOutcome,
@@ -48,7 +48,7 @@ export class ResourceImagesStore {
   private readonly imageService = inject(ResourceImageService);
   private loadSubscription: Subscription | null = null;
 
-  readonly ownerType = signal<ResourceOwnerType | null>(null);
+  readonly ownerType = signal<ImageOwnerType | null>(null);
   readonly ownerId = signal<string | null>(null);
   /** Used in the last-image footnote ("{name} will have no images afterward"). Keep it current after a rename with `setOwnerName`. */
   readonly ownerName = signal('');
@@ -66,7 +66,7 @@ export class ResourceImagesStore {
 
   readonly count = computed(() => this.images().length);
 
-  load(ownerType: ResourceOwnerType, ownerId: string, ownerName: string): void {
+  load(ownerType: ImageOwnerType, ownerId: string, ownerName: string): void {
     this.loadSubscription?.unsubscribe();
     this.ownerType.set(ownerType);
     this.ownerId.set(ownerId);

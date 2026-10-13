@@ -33,7 +33,7 @@ public sealed class ResourceImageService(MotwDbContext dbContext) : IResourceIma
     private const int ThumbnailJpegQuality = 85;
 
     public async Task<ServiceResult<ResourceImageUploadResult>> UploadAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         IReadOnlyList<ResourceImageUploadFile> files,
         CancellationToken cancellationToken)
@@ -111,7 +111,7 @@ public sealed class ResourceImageService(MotwDbContext dbContext) : IResourceIma
     }
 
     public async Task<Guid?> GetPrimaryImageIdAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken)
     {
@@ -133,7 +133,7 @@ public sealed class ResourceImageService(MotwDbContext dbContext) : IResourceIma
     }
 
     public async Task DeleteAllForOwnerAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken)
     {
@@ -143,7 +143,7 @@ public sealed class ResourceImageService(MotwDbContext dbContext) : IResourceIma
     }
 
     public async Task<ServiceResult<IReadOnlyList<ResourceImage>>> ListAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken)
     {
@@ -162,7 +162,7 @@ public sealed class ResourceImageService(MotwDbContext dbContext) : IResourceIma
     }
 
     public Task<ResourceImage?> GetImageAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid imageId,
         CancellationToken cancellationToken) =>
@@ -173,7 +173,7 @@ public sealed class ResourceImageService(MotwDbContext dbContext) : IResourceIma
                 cancellationToken);
 
     public async Task<bool> DeleteAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid imageId,
         CancellationToken cancellationToken)
@@ -185,7 +185,7 @@ public sealed class ResourceImageService(MotwDbContext dbContext) : IResourceIma
     }
 
     public async Task<bool> SetPrimaryAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid imageId,
         CancellationToken cancellationToken)
@@ -204,23 +204,45 @@ public sealed class ResourceImageService(MotwDbContext dbContext) : IResourceIma
         return true;
     }
 
-    private Task<bool> OwnerExistsAsync(ResourceOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
+    /// <summary>
+    /// <b>The default arm here and in the two switches below became reachable at U0</b>
+    /// (endpoint-unification.md §2.6.1). Under the old four-member <c>ResourceOwnerType</c> all
+    /// four arms were covered, so <c>_ =&gt;</c> was dead by exhaustion; under the merged
+    /// five-member <see cref="DomainOwnerType"/>, <c>Mystery</c> is a value any caller can write.
+    ///
+    /// <para>
+    /// <b>It throws on purpose — do not "fix" it with a <c>Mystery =&gt; false</c> arm.</b> That
+    /// arm would be a true statement today and a permanent, silent lie the day mystery images
+    /// ships: it compiles, it passes, and it answers "this mystery has no images, and never will."
+    /// The throw fails in the opposite direction — loudly, at the exact three lines that would need
+    /// a real query (§2.6.2). No user can reach it: the route constraint rejects <c>mysteries</c>
+    /// before any application code runs, so this is a signal to a developer, not a response.
+    /// </para>
+    ///
+    /// <para>
+    /// This method dominates the other two in every call path that exists — <c>UploadAsync</c> and
+    /// <c>ListAsync</c> call it first, and nothing reaches <c>SetPrimaryImageIdAsync</c> without a
+    /// stored row that <c>UploadAsync</c> would have refused to write. The other two throws are
+    /// backstops behind this one, kept because a backstop that is never hit costs nothing.
+    /// </para>
+    /// </summary>
+    private Task<bool> OwnerExistsAsync(DomainOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
         ownerType switch
         {
-            ResourceOwnerType.Monster => dbContext.Monsters.AnyAsync(m => m.Id == ownerId, cancellationToken),
-            ResourceOwnerType.Minion => dbContext.Minions.AnyAsync(m => m.Id == ownerId, cancellationToken),
-            ResourceOwnerType.Bystander => dbContext.Bystanders.AnyAsync(b => b.Id == ownerId, cancellationToken),
-            ResourceOwnerType.Location => dbContext.Locations.AnyAsync(l => l.Id == ownerId, cancellationToken),
+            DomainOwnerType.Monster => dbContext.Monsters.AnyAsync(m => m.Id == ownerId, cancellationToken),
+            DomainOwnerType.Minion => dbContext.Minions.AnyAsync(m => m.Id == ownerId, cancellationToken),
+            DomainOwnerType.Bystander => dbContext.Bystanders.AnyAsync(b => b.Id == ownerId, cancellationToken),
+            DomainOwnerType.Location => dbContext.Locations.AnyAsync(l => l.Id == ownerId, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(ownerType), ownerType, "Unknown owner type."),
         };
 
-    private Task<Guid?> GetExplicitPrimaryImageIdAsync(ResourceOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
+    private Task<Guid?> GetExplicitPrimaryImageIdAsync(DomainOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
         ownerType switch
         {
-            ResourceOwnerType.Monster => dbContext.Monsters.Where(m => m.Id == ownerId).Select(m => m.PrimaryImageId).FirstOrDefaultAsync(cancellationToken),
-            ResourceOwnerType.Minion => dbContext.Minions.Where(m => m.Id == ownerId).Select(m => m.PrimaryImageId).FirstOrDefaultAsync(cancellationToken),
-            ResourceOwnerType.Bystander => dbContext.Bystanders.Where(b => b.Id == ownerId).Select(b => b.PrimaryImageId).FirstOrDefaultAsync(cancellationToken),
-            ResourceOwnerType.Location => dbContext.Locations.Where(l => l.Id == ownerId).Select(l => l.PrimaryImageId).FirstOrDefaultAsync(cancellationToken),
+            DomainOwnerType.Monster => dbContext.Monsters.Where(m => m.Id == ownerId).Select(m => m.PrimaryImageId).FirstOrDefaultAsync(cancellationToken),
+            DomainOwnerType.Minion => dbContext.Minions.Where(m => m.Id == ownerId).Select(m => m.PrimaryImageId).FirstOrDefaultAsync(cancellationToken),
+            DomainOwnerType.Bystander => dbContext.Bystanders.Where(b => b.Id == ownerId).Select(b => b.PrimaryImageId).FirstOrDefaultAsync(cancellationToken),
+            DomainOwnerType.Location => dbContext.Locations.Where(l => l.Id == ownerId).Select(l => l.PrimaryImageId).FirstOrDefaultAsync(cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(ownerType), ownerType, "Unknown owner type."),
         };
 
@@ -229,16 +251,16 @@ public sealed class ResourceImageService(MotwDbContext dbContext) : IResourceIma
     /// convention this codebase's repositories already use for single-column writes scoped to
     /// one row, and avoids needing the owner entity tracked just to flip one FK.
     /// </summary>
-    private Task<int> SetPrimaryImageIdAsync(ResourceOwnerType ownerType, Guid ownerId, Guid imageId, CancellationToken cancellationToken) =>
+    private Task<int> SetPrimaryImageIdAsync(DomainOwnerType ownerType, Guid ownerId, Guid imageId, CancellationToken cancellationToken) =>
         ownerType switch
         {
-            ResourceOwnerType.Monster => dbContext.Monsters.Where(m => m.Id == ownerId)
+            DomainOwnerType.Monster => dbContext.Monsters.Where(m => m.Id == ownerId)
                 .ExecuteUpdateAsync(s => s.SetProperty(m => m.PrimaryImageId, imageId), cancellationToken),
-            ResourceOwnerType.Minion => dbContext.Minions.Where(m => m.Id == ownerId)
+            DomainOwnerType.Minion => dbContext.Minions.Where(m => m.Id == ownerId)
                 .ExecuteUpdateAsync(s => s.SetProperty(m => m.PrimaryImageId, imageId), cancellationToken),
-            ResourceOwnerType.Bystander => dbContext.Bystanders.Where(b => b.Id == ownerId)
+            DomainOwnerType.Bystander => dbContext.Bystanders.Where(b => b.Id == ownerId)
                 .ExecuteUpdateAsync(s => s.SetProperty(b => b.PrimaryImageId, imageId), cancellationToken),
-            ResourceOwnerType.Location => dbContext.Locations.Where(l => l.Id == ownerId)
+            DomainOwnerType.Location => dbContext.Locations.Where(l => l.Id == ownerId)
                 .ExecuteUpdateAsync(s => s.SetProperty(l => l.PrimaryImageId, imageId), cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(ownerType), ownerType, "Unknown owner type."),
         };

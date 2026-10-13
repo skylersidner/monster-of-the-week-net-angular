@@ -20,13 +20,13 @@ namespace MonsterOfTheWeek.Api.Tests.Controllers;
 /// </summary>
 public sealed class CustomMoveEndpointTests
 {
-    public static TheoryData<CustomMoveOwnerType, string> EveryOwnerSegment() => new()
+    public static TheoryData<DomainOwnerType, string> EveryOwnerSegment() => new()
     {
-        { CustomMoveOwnerType.Mystery, "mysteries" },
-        { CustomMoveOwnerType.Monster, "monsters" },
-        { CustomMoveOwnerType.Minion, "minions" },
-        { CustomMoveOwnerType.Location, "locations" },
-        { CustomMoveOwnerType.Bystander, "bystanders" },
+        { DomainOwnerType.Mystery, "mysteries" },
+        { DomainOwnerType.Monster, "monsters" },
+        { DomainOwnerType.Minion, "minions" },
+        { DomainOwnerType.Location, "locations" },
+        { DomainOwnerType.Bystander, "bystanders" },
     };
 
     private static async Task<T> ReadAsync<T>(HttpResponseMessage response)
@@ -37,7 +37,7 @@ public sealed class CustomMoveEndpointTests
 
     [Theory]
     [MemberData(nameof(EveryOwnerSegment))]
-    public async Task AllFourVerbs_WorkAgainstEveryOwnerSegment(CustomMoveOwnerType ownerType, string segment)
+    public async Task AllFourVerbs_WorkAgainstEveryOwnerSegment(DomainOwnerType ownerType, string segment)
     {
         await using var harness = await CustomMoveApiHarness.StartAsync();
         var ownerId = harness.OwnerIdFor(ownerType);
@@ -156,7 +156,7 @@ public sealed class CustomMoveEndpointTests
         // Not merely routed — stored under Monster, which is what proves the dictionary lookup
         // succeeded rather than the request having been swallowed somewhere.
         await using var context = harness.NewContext();
-        Assert.Equal(CustomMoveOwnerType.Monster, (await context.CustomMoves.AsNoTracking().SingleAsync()).OwnerType);
+        Assert.Equal(DomainOwnerType.Monster, (await context.CustomMoves.AsNoTracking().SingleAsync()).OwnerType);
     }
 
     /// <summary>

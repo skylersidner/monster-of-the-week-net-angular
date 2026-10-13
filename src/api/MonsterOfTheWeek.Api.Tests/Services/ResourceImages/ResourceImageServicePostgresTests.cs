@@ -45,7 +45,7 @@ public sealed class ResourceImageServicePostgresTests
 
         var service = new ResourceImageService(context);
         var upload = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [
                 new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg()),
@@ -58,12 +58,12 @@ public sealed class ResourceImageServicePostgresTests
 
         // PrimaryImageId is null (no explicit choice), so the derived primary is the
         // lowest-SortOrder image: the first-uploaded, "a.jpg".
-        var primaryId = await service.GetPrimaryImageIdAsync(ResourceOwnerType.Monster, monster.Id, CancellationToken.None);
+        var primaryId = await service.GetPrimaryImageIdAsync(DomainOwnerType.Monster, monster.Id, CancellationToken.None);
         Assert.Equal(images[0].Id, primaryId);
 
         await context.ResourceImages.Where(i => i.Id == images[0].Id).ExecuteDeleteAsync();
 
-        var nextPrimaryId = await service.GetPrimaryImageIdAsync(ResourceOwnerType.Monster, monster.Id, CancellationToken.None);
+        var nextPrimaryId = await service.GetPrimaryImageIdAsync(DomainOwnerType.Monster, monster.Id, CancellationToken.None);
         Assert.Equal(images[1].Id, nextPrimaryId);
     }
 }

@@ -47,7 +47,7 @@ public sealed class ResourceImageServiceTests
 
     /// <summary>Seeds <paramref name="count"/> already-uploaded images for <paramref name="owner"/>,
     /// SortOrder 1..count, so cap/derivation tests don't each hand-roll the same setup.</summary>
-    private static async Task<List<ResourceImage>> SeedImagesAsync(MotwDbContext context, ResourceOwnerType ownerType, Guid ownerId, int count)
+    private static async Task<List<ResourceImage>> SeedImagesAsync(MotwDbContext context, DomainOwnerType ownerType, Guid ownerId, int count)
     {
         var images = new List<ResourceImage>();
         for (var i = 1; i <= count; i++)
@@ -87,7 +87,7 @@ public sealed class ResourceImageServiceTests
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             Guid.NewGuid(),
             [File("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
@@ -109,7 +109,7 @@ public sealed class ResourceImageServiceTests
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("swamp-thing.gif", ResourceImageTestFixtures.GifBytes())],
             CancellationToken.None);
@@ -132,7 +132,7 @@ public sealed class ResourceImageServiceTests
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("sound.wav", ResourceImageTestFixtures.RiffWaveBytes())],
             CancellationToken.None);
@@ -150,7 +150,7 @@ public sealed class ResourceImageServiceTests
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("good.webp", ResourceImageTestFixtures.TinyWebp())],
             CancellationToken.None);
@@ -172,7 +172,7 @@ public sealed class ResourceImageServiceTests
         var content = expectedContentType == "image/jpeg" ? ResourceImageTestFixtures.TinyJpeg() : ResourceImageTestFixtures.TinyPng();
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster, monster.Id, [File("good", content)], CancellationToken.None);
+            DomainOwnerType.Monster, monster.Id, [File("good", content)], CancellationToken.None);
 
         var uploaded = Assert.Single(result.Value!.Uploaded);
         Assert.Equal(expectedContentType, uploaded.ContentType);
@@ -191,7 +191,7 @@ public sealed class ResourceImageServiceTests
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("huge.jpg", ResourceImageTestFixtures.OverTwoMebibytes())],
             CancellationToken.None);
@@ -213,7 +213,7 @@ public sealed class ResourceImageServiceTests
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("huge-canvas.jpg", ResourceImageTestFixtures.OversizedDimensionJpeg())],
             CancellationToken.None);
@@ -231,7 +231,7 @@ public sealed class ResourceImageServiceTests
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("truncated.jpg", ResourceImageTestFixtures.TruncatedJpeg())],
             CancellationToken.None);
@@ -252,11 +252,11 @@ public sealed class ResourceImageServiceTests
         var (context, _) = await CreateContextAsync();
         await using var _1 = context;
         var monster = await SeedMonsterAsync(context);
-        await SeedImagesAsync(context, ResourceOwnerType.Monster, monster.Id, 8);
+        await SeedImagesAsync(context, DomainOwnerType.Monster, monster.Id, 8);
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [
                 File("new-1.jpg", ResourceImageTestFixtures.TinyJpeg()),
@@ -280,11 +280,11 @@ public sealed class ResourceImageServiceTests
         var (context, _) = await CreateContextAsync();
         await using var _1 = context;
         var monster = await SeedMonsterAsync(context);
-        await SeedImagesAsync(context, ResourceOwnerType.Monster, monster.Id, 10);
+        await SeedImagesAsync(context, DomainOwnerType.Monster, monster.Id, 10);
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("bad.gif", ResourceImageTestFixtures.GifBytes())],
             CancellationToken.None);
@@ -303,11 +303,11 @@ public sealed class ResourceImageServiceTests
         var (context, _) = await CreateContextAsync();
         await using var _1 = context;
         var monster = await SeedMonsterAsync(context);
-        await SeedImagesAsync(context, ResourceOwnerType.Monster, monster.Id, 2); // SortOrder 1, 2
+        await SeedImagesAsync(context, DomainOwnerType.Monster, monster.Id, 2); // SortOrder 1, 2
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [
                 File("a.jpg", ResourceImageTestFixtures.TinyJpeg()),
@@ -327,7 +327,7 @@ public sealed class ResourceImageServiceTests
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
@@ -345,7 +345,7 @@ public sealed class ResourceImageServiceTests
         var service = new ResourceImageService(context);
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
@@ -367,7 +367,7 @@ public sealed class ResourceImageServiceTests
         var countBeforeUpload = interceptor.Count;
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [
                 File("a.jpg", ResourceImageTestFixtures.TinyJpeg()),
@@ -390,7 +390,7 @@ public sealed class ResourceImageServiceTests
         var countBeforeUpload = interceptor.Count;
 
         var result = await service.UploadAsync(
-            ResourceOwnerType.Monster,
+            DomainOwnerType.Monster,
             monster.Id,
             [File("bad.gif", ResourceImageTestFixtures.GifBytes())],
             CancellationToken.None);
@@ -411,7 +411,7 @@ public sealed class ResourceImageServiceTests
         var monster = await SeedMonsterAsync(context);
         var service = new ResourceImageService(context);
 
-        var primaryId = await service.GetPrimaryImageIdAsync(ResourceOwnerType.Monster, monster.Id, CancellationToken.None);
+        var primaryId = await service.GetPrimaryImageIdAsync(DomainOwnerType.Monster, monster.Id, CancellationToken.None);
 
         Assert.Null(primaryId);
     }
@@ -422,10 +422,10 @@ public sealed class ResourceImageServiceTests
         var (context, _) = await CreateContextAsync();
         await using var _1 = context;
         var monster = await SeedMonsterAsync(context);
-        var images = await SeedImagesAsync(context, ResourceOwnerType.Monster, monster.Id, 3);
+        var images = await SeedImagesAsync(context, DomainOwnerType.Monster, monster.Id, 3);
         var service = new ResourceImageService(context);
 
-        var primaryId = await service.GetPrimaryImageIdAsync(ResourceOwnerType.Monster, monster.Id, CancellationToken.None);
+        var primaryId = await service.GetPrimaryImageIdAsync(DomainOwnerType.Monster, monster.Id, CancellationToken.None);
 
         Assert.Equal(images[0].Id, primaryId); // SortOrder 1, the first-uploaded
     }
@@ -436,12 +436,12 @@ public sealed class ResourceImageServiceTests
         var (context, _) = await CreateContextAsync();
         await using var _1 = context;
         var monster = await SeedMonsterAsync(context);
-        var images = await SeedImagesAsync(context, ResourceOwnerType.Monster, monster.Id, 3);
+        var images = await SeedImagesAsync(context, DomainOwnerType.Monster, monster.Id, 3);
         monster.PrimaryImageId = images[2].Id; // explicitly choose the last-uploaded
         await context.SaveChangesAsync();
         var service = new ResourceImageService(context);
 
-        var primaryId = await service.GetPrimaryImageIdAsync(ResourceOwnerType.Monster, monster.Id, CancellationToken.None);
+        var primaryId = await service.GetPrimaryImageIdAsync(DomainOwnerType.Monster, monster.Id, CancellationToken.None);
 
         Assert.Equal(images[2].Id, primaryId);
     }
@@ -458,14 +458,14 @@ public sealed class ResourceImageServiceTests
         var tiedA = new ResourceImage
         {
             Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
-            OwnerType = ResourceOwnerType.Monster, OwnerId = monster.Id, FileName = "a.jpg",
+            OwnerType = DomainOwnerType.Monster, OwnerId = monster.Id, FileName = "a.jpg",
             ContentType = "image/jpeg", SizeBytes = 1, Width = 1, Height = 1,
             ImageBytes = ResourceImageTestFixtures.TinyJpeg(), SortOrder = 1, CreatedAt = DateTimeOffset.UtcNow,
         };
         var tiedB = new ResourceImage
         {
             Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
-            OwnerType = ResourceOwnerType.Monster, OwnerId = monster.Id, FileName = "b.jpg",
+            OwnerType = DomainOwnerType.Monster, OwnerId = monster.Id, FileName = "b.jpg",
             ContentType = "image/jpeg", SizeBytes = 1, Width = 1, Height = 1,
             ImageBytes = ResourceImageTestFixtures.TinyJpeg(), SortOrder = 1, CreatedAt = DateTimeOffset.UtcNow,
         };
@@ -473,7 +473,7 @@ public sealed class ResourceImageServiceTests
         await context.SaveChangesAsync();
         var service = new ResourceImageService(context);
 
-        var primaryId = await service.GetPrimaryImageIdAsync(ResourceOwnerType.Monster, monster.Id, CancellationToken.None);
+        var primaryId = await service.GetPrimaryImageIdAsync(DomainOwnerType.Monster, monster.Id, CancellationToken.None);
 
         Assert.Equal(tiedA.Id, primaryId);
     }
@@ -496,7 +496,7 @@ public sealed class ResourceImageServiceTests
         Assert.Equal(1, pragmaValue);
 
         var monster = await SeedMonsterAsync(context);
-        var images = await SeedImagesAsync(context, ResourceOwnerType.Monster, monster.Id, 3);
+        var images = await SeedImagesAsync(context, DomainOwnerType.Monster, monster.Id, 3);
         monster.PrimaryImageId = images[2].Id; // explicit primary is the last-uploaded
         await context.SaveChangesAsync();
         var service = new ResourceImageService(context);
@@ -517,7 +517,7 @@ public sealed class ResourceImageServiceTests
         // Falls through to the first-uploaded remaining image (lowest SortOrder), not the
         // neighbour of the deleted one — Skyler: "First uploaded image as the next default is good."
         var verifyService = new ResourceImageService(verifyContext);
-        var primaryId = await verifyService.GetPrimaryImageIdAsync(ResourceOwnerType.Monster, monster.Id, CancellationToken.None);
+        var primaryId = await verifyService.GetPrimaryImageIdAsync(DomainOwnerType.Monster, monster.Id, CancellationToken.None);
         Assert.Equal(images[0].Id, primaryId);
     }
 
@@ -532,11 +532,11 @@ public sealed class ResourceImageServiceTests
         await using var _1 = context;
         var monster = await SeedMonsterAsync(context);
         var otherMonster = await SeedMonsterAsync(context);
-        await SeedImagesAsync(context, ResourceOwnerType.Monster, monster.Id, 2);
-        await SeedImagesAsync(context, ResourceOwnerType.Monster, otherMonster.Id, 2);
+        await SeedImagesAsync(context, DomainOwnerType.Monster, monster.Id, 2);
+        await SeedImagesAsync(context, DomainOwnerType.Monster, otherMonster.Id, 2);
         var service = new ResourceImageService(context);
 
-        await service.DeleteAllForOwnerAsync(ResourceOwnerType.Monster, monster.Id, CancellationToken.None);
+        await service.DeleteAllForOwnerAsync(DomainOwnerType.Monster, monster.Id, CancellationToken.None);
 
         Assert.Equal(0, await context.ResourceImages.CountAsync(i => i.OwnerId == monster.Id));
         Assert.Equal(2, await context.ResourceImages.CountAsync(i => i.OwnerId == otherMonster.Id));

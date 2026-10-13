@@ -479,8 +479,13 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
         // Resist "fixing" this by adding five nullable FK columns; that is the per-domain shape
         // this table exists to replace.
         //
-        // Why CustomMoveOwnerType is a second owner-type enum rather than a fifth
-        // ResourceOwnerType member: §2.8/§22, and the comment on the enum itself.
+        // OwnerType here and on resource_images above are the SAME enum since U0
+        // (endpoint-unification.md §2.6, superseding §2.8/§22's two-enum decision). Both columns
+        // are `.HasConversion<string>()`, so the merge changed no stored byte and needed no
+        // migration — the model snapshot records the provider type, not the CLR type. What it did
+        // change is that DomainOwnerType.Mystery is now writable here *and* constructible against
+        // resource_images, which is why the image service throws on it rather than silently
+        // storing a row. See IResourceImageService.ImageOwnerTypes.
         modelBuilder.Entity<CustomMove>(entity =>
         {
             entity.ToTable("custom_moves");

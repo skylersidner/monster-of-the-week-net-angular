@@ -1192,3 +1192,63 @@ three of four domains have no automated HTTP coverage of their upload limit toda
 | **U-F3a** | **When mystery images is eventually built**, the three `ArgumentOutOfRangeException` arms in `ResourceImageService` and `ImageOwnerTypes` must be updated together, and the route alternation with them. U3's bidirectional drift assertion is what forces this rather than leaving it to memory — it fails whether the arms are added without the set or the set without the arms. | Mystery images. §2.6.1, §4 U3. |
 | ~~**U-F4**~~ | ~~**The flat sub-resources** (powers, weaknesses, armors, attacks across Monster and Minion).~~ **Closed 2026-10-12 — considered and declined** by Skyler's Q7 answer, *"images only, close the question."* Not deferred. The reasoning is kept in §9.2 so the option is met as a decision; the decomposition that was on the table is recorded there in case it is ever reopened. **Distinct from `docs/domain-custom-moves/architecture.md` §12 F2, which is untouched** (§9.1, §9.3). | — |
 | **U-F5** | **`design.md` §1.3's generalisation is wrong about all three of its examples**, not just custom moves: powers, weaknesses, armors and attacks are each field-for-field identical across Monster and Minion (§9.2). The §1.3 *decision* holds; its *reason* over-reached. Worth one amended sentence whenever §1.3 is next touched. | With U3's record-keeping commit, or the next `design.md` pass. |
+
+---
+
+## 13. U0 as built — the five places it differed from §2.6/§4
+
+**Added by Bowser, 2026-10-13, on branch `image-endpoint-unification`.** Yoshi's text above is his; this
+section records only where the implementation departed from what it specified, per the standing rule that
+a spec's outcome is recorded where it differs and nowhere else. **Everything not listed here was built as
+written** — including the decision itself (one `DomainOwnerType`, five member names unchanged), the
+`Exclude<>` narrowing, the declared `ImageOwnerTypes` set, the two-token drift-spec amendment, the "no
+migration" property, and §2.6.6's four EF projections.
+
+**1. The sweep is 368 edits across 57 distinct files, not 41.** Every one of Yoshi's four component
+counts re-measured exactly — `ResourceOwnerType` 151 occurrences / 23 backend files + 32 / 10 frontend,
+`CustomMoveOwnerType` 151 / 21 + 34 / 10, totalling 368. **The 41 is an arithmetic slip, not a
+measurement error:** the two backend sets overlap in 6 files and the two frontend sets in 1, so the
+distinct count is (23 + 21 − 6) + (10 + 10 − 1) = 38 + 19 = **57**. `git status` after the sweep reports
+exactly 57 modified files, which is the same number arrived at independently.
+
+**2. Five pinning tests, not three.** §4's three (`ListAsync`, `UploadAsync`, `GetPrimaryImageIdAsync`)
+reach only **two** of §2.6.1's three switches — `ListAsync` and `UploadAsync` both land on
+`OwnerExistsAsync`. A fourth was added for `SetPrimaryAsync`, which needs a `Mystery`-owned row written
+straight through the context to get past the `belongsToOwner` check; §2.6.1 calls that arm "unreachable
+by construction", and this constructs it on purpose so the arm is *pinned* rather than merely unreached.
+A fifth asserts that `ImageOwnerTypes` and the throwing members **partition** `DomainOwnerType`, which is
+the part of U3's third assertion that is true before the controller exists — the declared constant should
+not land unguarded for three commits.
+
+**3. "The same suite counts as before" cannot hold literally, and the number that matters is the
+delta.** U0's own specified contents are new tests. Backend **677 → 682 passed** (+5: the five above),
+**7 → 8 skipped** (+1: the new Postgres gate), 0 failed. Frontend **1,790 → 1,791 passed** (+1: the new
+6-D3 assertion), 129 files unchanged. The gate was read as *"every pre-existing test still passes and the
+count moves by exactly the tests this commit deliberately adds, enumerated"* — which is checkable, where
+the literal reading forbids U0's own contents.
+
+**4. §4's Postgres assertion is vacuous as specified, and needed a transcribed pin.** *"Assert the two
+`owner_type` columns still hold exactly the five expected strings"* was first built deriving both sides
+from `Enum.GetNames<DomainOwnerType>()`. **That cannot fail.** Rename a member and the written value, the
+read value and the expectation all move together — confirmed by control: with `Mystery` renamed, the
+derived version passed, and so did `CustomMoveMigrationPostgresTests`, which round-trips the member
+through the real provider. What catches a rename is (a) a **transcribed** list of the five strings, and
+(b) rows **inserted as raw SQL with those literals** and then materialised through EF, which is the
+production failure exactly: `Cannot convert string value 'Mystery' from the database to any value in the
+mapped 'DomainOwnerType' enum.` Both are in the test; (b) was verified to fire on its own with (a)
+disabled. **Generalising: a round trip through the same converter on both ends proves the converter is a
+bijection, not that its names are the ones already in the table.**
+
+**5. §2.6.4 understates how blind `custom-moves.spec.ts` is to U-R9 — the conclusion is right and the
+reason is stronger.** §2.6.4 says the cross-check *"would pass, because `'mysteries'` is the correct
+custom-move segment."* Measured: `:69` loops over `['Monster', 'Minion', 'Bystander', 'Location']` and
+**never passes `'Mystery'` to `resourceImagesPath` at all** — the mystery segment is checked by a separate
+test, against `MysteryService`'s shipped URL. So it is not a check that happens to agree; it is a check
+that never runs on the broken input. **Control, predicted and then measured:** widening `ImageOwnerType`
+to `DomainOwnerType` without adding the forced keys fails `tsc` with exactly two errors, both
+`Property 'Mystery' is missing` (`core/resource-images.ts` `OWNER_SEGMENT` and
+`shared/resource-thumbnail.component.ts` `PLACEHOLDER_CLASSES`) — the compiler *forcing* the key in,
+verbatim as §2.6.4 describes. Add the two keys and `tsc` is **clean**, and the whole pre-U0 suite is
+**green: 1,790 passed, 0 failed.** The single failure is 6-D3, the assertion this commit adds. That is
+the evidence that the narrowing is load-bearing: without it the hazard is invisible to every test that
+existed, and visible to exactly one that did not.

@@ -37,7 +37,7 @@ public interface ICustomMoveService
     /// distinguishable on the shipped endpoints today (§16.2, §18).
     /// </summary>
     Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> ListAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken);
 
@@ -49,7 +49,7 @@ public interface ICustomMoveService
     /// implementation.
     /// </summary>
     Task<ServiceResult<CustomMoveResponse>> CreateAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         UpsertCustomMoveRequest request,
         CancellationToken cancellationToken);
@@ -66,7 +66,7 @@ public interface ICustomMoveService
     /// </para>
     /// </summary>
     Task<ServiceResult<CustomMoveResponse>> UpdateAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid moveId,
         UpsertCustomMoveRequest request,
@@ -78,7 +78,7 @@ public interface ICustomMoveService
     /// reasoning as <see cref="UpdateAsync"/>.
     /// </summary>
     Task<bool> DeleteAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid moveId,
         CancellationToken cancellationToken);
@@ -90,7 +90,7 @@ public interface ICustomMoveService
     /// through <c>GetByIdAsync</c> (B3).
     /// </summary>
     Task<IReadOnlyList<CustomMoveResponse>> ListForProjectionAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken);
 
@@ -107,7 +107,7 @@ public interface ICustomMoveService
     /// </para>
     /// </summary>
     Task DeleteAllForOwnerAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken);
 }

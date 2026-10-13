@@ -98,7 +98,7 @@ internal sealed class MinionReparentApiHarness : IAsyncDisposable
             setup.CustomMoves.Add(new CustomMove
             {
                 Id = harness.CustomMoveId,
-                OwnerType = CustomMoveOwnerType.Minion,
+                OwnerType = DomainOwnerType.Minion,
                 OwnerId = harness.MinionId,
                 Name = "Drag Under",
             });

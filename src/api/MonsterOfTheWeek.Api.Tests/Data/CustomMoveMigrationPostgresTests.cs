@@ -80,7 +80,7 @@ public sealed class CustomMoveMigrationPostgresTests
         // owner_type is the string-converted enum column (§22, the model's second HasConversion).
         // A filter on it has to translate to a varchar comparison against the stored member name;
         // if the migration had emitted an integer column this would fail at the server.
-        Assert.Equal(0, await context.CustomMoves.CountAsync(x => x.OwnerType == CustomMoveOwnerType.Mystery));
+        Assert.Equal(0, await context.CustomMoves.CountAsync(x => x.OwnerType == DomainOwnerType.Mystery));
 
         // And the round trip, because a Mystery-owned move is the one case no per-domain table
         // ever stored through this shape — mystery_custom_moves had a real FK, custom_moves has
@@ -92,7 +92,7 @@ public sealed class CustomMoveMigrationPostgresTests
 
         context.CustomMoves.Add(new CustomMove
         {
-            OwnerType = CustomMoveOwnerType.Mystery,
+            OwnerType = DomainOwnerType.Mystery,
             OwnerId = mystery.Id,
             Name = "Close In",
             Description = null,
@@ -102,7 +102,7 @@ public sealed class CustomMoveMigrationPostgresTests
         await using var verifyContext = new MotwDbContext(options);
         var stored = await verifyContext.CustomMoves.AsNoTracking().SingleAsync();
 
-        Assert.Equal(CustomMoveOwnerType.Mystery, stored.OwnerType);
+        Assert.Equal(DomainOwnerType.Mystery, stored.OwnerType);
         Assert.Equal(mystery.Id, stored.OwnerId);
         Assert.Equal("Close In", stored.Name);
         Assert.Null(stored.Description);

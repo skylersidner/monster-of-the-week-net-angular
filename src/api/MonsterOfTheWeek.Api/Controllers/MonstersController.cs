@@ -159,20 +159,20 @@ public sealed class MonstersController(IMonsterService monsterService, IResource
     [HttpGet("api/monsters/{id:guid}/images")]
     public async Task<ActionResult<IReadOnlyList<ResourceImageResponse>>> GetImages(Guid id, CancellationToken cancellationToken)
     {
-        var result = await resourceImageService.ListAsync(ResourceOwnerType.Monster, id, cancellationToken);
+        var result = await resourceImageService.ListAsync(DomainOwnerType.Monster, id, cancellationToken);
         if (!result.IsSuccess)
         {
             return ToErrorResult(result.Error!);
         }
 
-        var primaryId = await resourceImageService.GetPrimaryImageIdAsync(ResourceOwnerType.Monster, id, cancellationToken);
+        var primaryId = await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Monster, id, cancellationToken);
         return Ok(result.Value!.Select(i => i.ToResponse(i.Id == primaryId)).ToList());
     }
 
     [HttpGet("api/monsters/{id:guid}/images/{imageId:guid}/file")]
     public async Task<IActionResult> GetImageFile(Guid id, Guid imageId, CancellationToken cancellationToken)
     {
-        var image = await resourceImageService.GetImageAsync(ResourceOwnerType.Monster, id, imageId, cancellationToken);
+        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Monster, id, imageId, cancellationToken);
         if (image is null)
         {
             return NotFound();
@@ -185,7 +185,7 @@ public sealed class MonstersController(IMonsterService monsterService, IResource
     [HttpGet("api/monsters/{id:guid}/images/{imageId:guid}/thumbnail")]
     public async Task<IActionResult> GetImageThumbnail(Guid id, Guid imageId, CancellationToken cancellationToken)
     {
-        var image = await resourceImageService.GetImageAsync(ResourceOwnerType.Monster, id, imageId, cancellationToken);
+        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Monster, id, imageId, cancellationToken);
         if (image is null)
         {
             return NotFound();
@@ -209,14 +209,14 @@ public sealed class MonstersController(IMonsterService monsterService, IResource
     public async Task<IActionResult> UploadImages(Guid id, [FromForm] IFormFileCollection files, CancellationToken cancellationToken)
     {
         var uploadFiles = await files.ToUploadFilesAsync(cancellationToken);
-        var result = await resourceImageService.UploadAsync(ResourceOwnerType.Monster, id, uploadFiles, cancellationToken);
+        var result = await resourceImageService.UploadAsync(DomainOwnerType.Monster, id, uploadFiles, cancellationToken);
         if (!result.IsSuccess)
         {
             return ToErrorResult(result.Error!);
         }
 
         var primaryId = result.Value!.Uploaded.Count > 0
-            ? await resourceImageService.GetPrimaryImageIdAsync(ResourceOwnerType.Monster, id, cancellationToken)
+            ? await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Monster, id, cancellationToken)
             : (Guid?)null;
 
         var response = new ResourceImageUploadResponse(
@@ -232,11 +232,11 @@ public sealed class MonstersController(IMonsterService monsterService, IResource
 
     [HttpDelete("api/monsters/{id:guid}/images/{imageId:guid}")]
     public async Task<IActionResult> DeleteImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.DeleteAsync(ResourceOwnerType.Monster, id, imageId, cancellationToken) ? NoContent() : NotFound();
+        await resourceImageService.DeleteAsync(DomainOwnerType.Monster, id, imageId, cancellationToken) ? NoContent() : NotFound();
 
     [HttpPut("api/monsters/{id:guid}/images/{imageId:guid}/primary")]
     public async Task<IActionResult> SetPrimaryImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.SetPrimaryAsync(ResourceOwnerType.Monster, id, imageId, cancellationToken) ? NoContent() : NotFound();
+        await resourceImageService.SetPrimaryAsync(DomainOwnerType.Monster, id, imageId, cancellationToken) ? NoContent() : NotFound();
 
     private ActionResult<T> ToActionResult<T>(ServiceResult<T> result) =>
         result.IsSuccess ? Ok(result.Value) : ToErrorResult(result.Error!);

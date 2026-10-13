@@ -117,7 +117,7 @@ public sealed class MonsterService(
         }
 
         var customMoves = await customMoveService.ListForProjectionAsync(
-            CustomMoveOwnerType.Monster, id, cancellationToken);
+            DomainOwnerType.Monster, id, cancellationToken);
         return ToDetailResponse(monster, customMoves);
     }
 
@@ -211,8 +211,8 @@ public sealed class MonsterService(
 
         var minionIds = await minionRepository.GetIdsByMonsterIdAsync(id, cancellationToken);
 
-        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Monster, id, cancellationToken);
-        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Monster, id, cancellationToken);
+        await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Monster, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Monster, id, cancellationToken);
         foreach (var minionId in minionIds)
         {
             // Both owned sub-resource families, in one loop over the ids rather than two loops
@@ -220,8 +220,8 @@ public sealed class MonsterService(
             // (domain-custom-moves/architecture.md §19). The custom-move half is the one the
             // database cannot do for us either: `custom_moves` has no FK, so the minion cascade
             // below would orphan these rows exactly as it would the images.
-            await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Minion, minionId, cancellationToken);
-            await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Minion, minionId, cancellationToken);
+            await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Minion, minionId, cancellationToken);
+            await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Minion, minionId, cancellationToken);
         }
 
         var deleted = await monsterRepository.DeleteMonsterAsync(id, cancellationToken) > 0;

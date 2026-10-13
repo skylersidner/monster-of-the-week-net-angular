@@ -67,11 +67,11 @@ public sealed class MonsterImageCleanupTests
 
         var imageService = new ResourceImageService(context);
         await imageService.UploadAsync(
-            ResourceOwnerType.Monster, monster.Id,
+            DomainOwnerType.Monster, monster.Id,
             [new ResourceImageUploadFile("monster.jpg", ResourceImages.ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
         await imageService.UploadAsync(
-            ResourceOwnerType.Minion, minion.Id,
+            DomainOwnerType.Minion, minion.Id,
             [new ResourceImageUploadFile("minion.jpg", ResourceImages.ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
 

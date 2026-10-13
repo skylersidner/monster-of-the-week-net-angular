@@ -106,7 +106,7 @@ public sealed class LocationService(
         }
 
         var customMoves = await customMoveService.ListForProjectionAsync(
-            CustomMoveOwnerType.Location, id, cancellationToken);
+            DomainOwnerType.Location, id, cancellationToken);
         return ToDetailResponse(location, customMoves);
     }
 
@@ -144,8 +144,8 @@ public sealed class LocationService(
     {
         await using var transaction = await locationRepository.BeginTransactionAsync(cancellationToken);
 
-        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Location, id, cancellationToken);
-        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Location, id, cancellationToken);
+        await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Location, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Location, id, cancellationToken);
         var deleted = await locationRepository.DeleteLocationAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);

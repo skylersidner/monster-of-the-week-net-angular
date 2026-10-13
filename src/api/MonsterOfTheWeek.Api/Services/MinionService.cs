@@ -67,7 +67,7 @@ public sealed class MinionService(
         }
 
         var customMoves = await customMoveService.ListForProjectionAsync(
-            CustomMoveOwnerType.Minion, id, cancellationToken);
+            DomainOwnerType.Minion, id, cancellationToken);
         return ToDetailResponse(minion, customMoves);
     }
 
@@ -160,8 +160,8 @@ public sealed class MinionService(
     {
         await using var transaction = await minionRepository.BeginTransactionAsync(cancellationToken);
 
-        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Minion, id, cancellationToken);
-        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Minion, id, cancellationToken);
+        await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Minion, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Minion, id, cancellationToken);
         var deleted = await minionRepository.DeleteMinionAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);

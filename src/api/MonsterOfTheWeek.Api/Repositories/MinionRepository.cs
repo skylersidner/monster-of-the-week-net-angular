@@ -35,7 +35,7 @@ public sealed class MinionRepository(MotwDbContext dbContext) : IMinionRepositor
             x.CreatedAt,
             // The derived primary — see MonsterRepository.GetAllAsync for the full reasoning.
             x.PrimaryImageId ?? dbContext.ResourceImages
-                .Where(i => i.OwnerType == ResourceOwnerType.Minion && i.OwnerId == x.Id)
+                .Where(i => i.OwnerType == DomainOwnerType.Minion && i.OwnerId == x.Id)
                 .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
                 .Select(i => (Guid?)i.Id)
                 .FirstOrDefault());

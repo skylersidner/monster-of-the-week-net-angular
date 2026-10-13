@@ -48,10 +48,10 @@ internal sealed class FakeCustomMoveService : ICustomMoveService
     /// What the owner-delete cleanup actually calls, in call order — the one thing worth
     /// recording beyond the store itself.
     /// </summary>
-    public List<(CustomMoveOwnerType OwnerType, Guid OwnerId)> DeleteAllForOwnerCalls { get; } = [];
+    public List<(DomainOwnerType OwnerType, Guid OwnerId)> DeleteAllForOwnerCalls { get; } = [];
 
     public async Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> ListAsync(
-        CustomMoveOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken)
+        DomainOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken)
     {
         if (!OwnerExists)
         {
@@ -63,7 +63,7 @@ internal sealed class FakeCustomMoveService : ICustomMoveService
     }
 
     public Task<ServiceResult<CustomMoveResponse>> CreateAsync(
-        CustomMoveOwnerType ownerType, Guid ownerId, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
+        DomainOwnerType ownerType, Guid ownerId, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
     {
         if (!OwnerExists)
         {
@@ -83,7 +83,7 @@ internal sealed class FakeCustomMoveService : ICustomMoveService
     }
 
     public Task<ServiceResult<CustomMoveResponse>> UpdateAsync(
-        CustomMoveOwnerType ownerType, Guid ownerId, Guid moveId, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
+        DomainOwnerType ownerType, Guid ownerId, Guid moveId, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
     {
         var value = Find(ownerType, ownerId, moveId);
         if (value is null)
@@ -97,14 +97,14 @@ internal sealed class FakeCustomMoveService : ICustomMoveService
     }
 
     public Task<bool> DeleteAsync(
-        CustomMoveOwnerType ownerType, Guid ownerId, Guid moveId, CancellationToken cancellationToken)
+        DomainOwnerType ownerType, Guid ownerId, Guid moveId, CancellationToken cancellationToken)
     {
         var value = Find(ownerType, ownerId, moveId);
         return Task.FromResult(value is not null && Moves.Remove(value));
     }
 
     public Task<IReadOnlyList<CustomMoveResponse>> ListForProjectionAsync(
-        CustomMoveOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
+        DomainOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<CustomMoveResponse>>(
             Moves
                 .Where(x => x.OwnerType == ownerType && x.OwnerId == ownerId)
@@ -113,13 +113,13 @@ internal sealed class FakeCustomMoveService : ICustomMoveService
                 .ToList());
 
     public Task DeleteAllForOwnerAsync(
-        CustomMoveOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken)
+        DomainOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken)
     {
         DeleteAllForOwnerCalls.Add((ownerType, ownerId));
         Moves.RemoveAll(x => x.OwnerType == ownerType && x.OwnerId == ownerId);
         return Task.CompletedTask;
     }
 
-    private CustomMove? Find(CustomMoveOwnerType ownerType, Guid ownerId, Guid moveId) =>
+    private CustomMove? Find(DomainOwnerType ownerType, Guid ownerId, Guid moveId) =>
         Moves.FirstOrDefault(x => x.Id == moveId && x.OwnerType == ownerType && x.OwnerId == ownerId);
 }

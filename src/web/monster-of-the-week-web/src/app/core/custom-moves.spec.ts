@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { SUPPRESS_ERROR_TOAST } from './http-context-tokens';
-import { CustomMoveOwnerType, UpsertCustomMoveRequest } from './models';
+import { DomainOwnerType, UpsertCustomMoveRequest } from './models';
 import { MysteryService } from './mystery';
 import { resourceImagesPath } from './resource-images';
 import { CustomMoveService, createCustomMoveDraftKey, customMovesPath } from './custom-moves';
@@ -24,7 +24,7 @@ import { CustomMoveService, createCustomMoveDraftKey, customMovesPath } from './
  *  3. **The five segments, derived rather than transcribed.** See the block below.
  */
 
-const OWNERS: readonly CustomMoveOwnerType[] = ['Mystery', 'Monster', 'Minion', 'Location', 'Bystander'];
+const OWNERS: readonly DomainOwnerType[] = ['Mystery', 'Monster', 'Minion', 'Location', 'Bystander'];
 
 /** Deliberately not a GUID: these never reach a server, and a readable id makes a failure legible. */
 const OWNER_ID = 'owner-1';
@@ -114,8 +114,8 @@ describe('CustomMoveService', () => {
   const methods: readonly {
     readonly name: 'list' | 'create' | 'update' | 'delete';
     readonly verb: string;
-    readonly call: (owner: CustomMoveOwnerType) => void;
-    readonly url: (owner: CustomMoveOwnerType) => string;
+    readonly call: (owner: DomainOwnerType) => void;
+    readonly url: (owner: DomainOwnerType) => string;
     readonly body: unknown;
   }[] = [
     {

@@ -162,20 +162,20 @@ public sealed class MinionsController(IMinionService minionService, IResourceIma
     [HttpGet("api/minions/{id:guid}/images")]
     public async Task<ActionResult<IReadOnlyList<ResourceImageResponse>>> GetImages(Guid id, CancellationToken cancellationToken)
     {
-        var result = await resourceImageService.ListAsync(ResourceOwnerType.Minion, id, cancellationToken);
+        var result = await resourceImageService.ListAsync(DomainOwnerType.Minion, id, cancellationToken);
         if (!result.IsSuccess)
         {
             return ToErrorResult(result.Error!);
         }
 
-        var primaryId = await resourceImageService.GetPrimaryImageIdAsync(ResourceOwnerType.Minion, id, cancellationToken);
+        var primaryId = await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Minion, id, cancellationToken);
         return Ok(result.Value!.Select(i => i.ToResponse(i.Id == primaryId)).ToList());
     }
 
     [HttpGet("api/minions/{id:guid}/images/{imageId:guid}/file")]
     public async Task<IActionResult> GetImageFile(Guid id, Guid imageId, CancellationToken cancellationToken)
     {
-        var image = await resourceImageService.GetImageAsync(ResourceOwnerType.Minion, id, imageId, cancellationToken);
+        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Minion, id, imageId, cancellationToken);
         if (image is null)
         {
             return NotFound();
@@ -188,7 +188,7 @@ public sealed class MinionsController(IMinionService minionService, IResourceIma
     [HttpGet("api/minions/{id:guid}/images/{imageId:guid}/thumbnail")]
     public async Task<IActionResult> GetImageThumbnail(Guid id, Guid imageId, CancellationToken cancellationToken)
     {
-        var image = await resourceImageService.GetImageAsync(ResourceOwnerType.Minion, id, imageId, cancellationToken);
+        var image = await resourceImageService.GetImageAsync(DomainOwnerType.Minion, id, imageId, cancellationToken);
         if (image is null)
         {
             return NotFound();
@@ -210,14 +210,14 @@ public sealed class MinionsController(IMinionService minionService, IResourceIma
     public async Task<IActionResult> UploadImages(Guid id, [FromForm] IFormFileCollection files, CancellationToken cancellationToken)
     {
         var uploadFiles = await files.ToUploadFilesAsync(cancellationToken);
-        var result = await resourceImageService.UploadAsync(ResourceOwnerType.Minion, id, uploadFiles, cancellationToken);
+        var result = await resourceImageService.UploadAsync(DomainOwnerType.Minion, id, uploadFiles, cancellationToken);
         if (!result.IsSuccess)
         {
             return ToErrorResult(result.Error!);
         }
 
         var primaryId = result.Value!.Uploaded.Count > 0
-            ? await resourceImageService.GetPrimaryImageIdAsync(ResourceOwnerType.Minion, id, cancellationToken)
+            ? await resourceImageService.GetPrimaryImageIdAsync(DomainOwnerType.Minion, id, cancellationToken)
             : (Guid?)null;
 
         var response = new ResourceImageUploadResponse(
@@ -231,11 +231,11 @@ public sealed class MinionsController(IMinionService minionService, IResourceIma
 
     [HttpDelete("api/minions/{id:guid}/images/{imageId:guid}")]
     public async Task<IActionResult> DeleteImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.DeleteAsync(ResourceOwnerType.Minion, id, imageId, cancellationToken) ? NoContent() : NotFound();
+        await resourceImageService.DeleteAsync(DomainOwnerType.Minion, id, imageId, cancellationToken) ? NoContent() : NotFound();
 
     [HttpPut("api/minions/{id:guid}/images/{imageId:guid}/primary")]
     public async Task<IActionResult> SetPrimaryImage(Guid id, Guid imageId, CancellationToken cancellationToken) =>
-        await resourceImageService.SetPrimaryAsync(ResourceOwnerType.Minion, id, imageId, cancellationToken) ? NoContent() : NotFound();
+        await resourceImageService.SetPrimaryAsync(DomainOwnerType.Minion, id, imageId, cancellationToken) ? NoContent() : NotFound();
 
     private ActionResult<T> ToActionResult<T>(ServiceResult<T> result) =>
         result.IsSuccess ? Ok(result.Value) : ToErrorResult(result.Error!);

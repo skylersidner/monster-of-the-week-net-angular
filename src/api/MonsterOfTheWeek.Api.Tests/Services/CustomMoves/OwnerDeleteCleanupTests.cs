@@ -51,7 +51,7 @@ public sealed class OwnerDeleteCleanupTests
         return context;
     }
 
-    private static CustomMove Move(CustomMoveOwnerType ownerType, Guid ownerId, string name) =>
+    private static CustomMove Move(DomainOwnerType ownerType, Guid ownerId, string name) =>
         new() { OwnerType = ownerType, OwnerId = ownerId, Name = name };
 
     /// <summary>
@@ -68,7 +68,7 @@ public sealed class OwnerDeleteCleanupTests
         context.Bystanders.Add(bystander);
         await context.SaveChangesAsync();
 
-        context.CustomMoves.Add(Move(CustomMoveOwnerType.Bystander, bystander.Id, "Must Survive"));
+        context.CustomMoves.Add(Move(DomainOwnerType.Bystander, bystander.Id, "Must Survive"));
         await context.SaveChangesAsync();
         return bystander.Id;
     }
@@ -78,7 +78,7 @@ public sealed class OwnerDeleteCleanupTests
         var remaining = await context.CustomMoves.AsNoTracking().ToListAsync();
         var survivor = Assert.Single(remaining);
         Assert.Equal("Must Survive", survivor.Name);
-        Assert.Equal(CustomMoveOwnerType.Bystander, survivor.OwnerType);
+        Assert.Equal(DomainOwnerType.Bystander, survivor.OwnerType);
         Assert.Equal(survivingBystanderId, survivor.OwnerId);
     }
 
@@ -115,8 +115,8 @@ public sealed class OwnerDeleteCleanupTests
 
         var survivingBystanderId = await SeedSurvivingOwnerAsync(context);
         context.CustomMoves.AddRange(
-            Move(CustomMoveOwnerType.Monster, monster.Id, "Rise Again"),
-            Move(CustomMoveOwnerType.Minion, minion.Id, "Swarm"));
+            Move(DomainOwnerType.Monster, monster.Id, "Rise Again"),
+            Move(DomainOwnerType.Minion, minion.Id, "Swarm"));
         await context.SaveChangesAsync();
 
         // The premise, asserted — three rows, not "some rows".
@@ -215,8 +215,8 @@ public sealed class OwnerDeleteCleanupTests
         await context.SaveChangesAsync();
 
         context.CustomMoves.AddRange(
-            Move(CustomMoveOwnerType.Minion, minion.Id, "Swarm"),
-            Move(CustomMoveOwnerType.Monster, monster.Id, "Rise Again"));
+            Move(DomainOwnerType.Minion, minion.Id, "Swarm"),
+            Move(DomainOwnerType.Monster, monster.Id, "Rise Again"));
         await context.SaveChangesAsync();
 
         var minionService = new MinionService(
@@ -229,7 +229,7 @@ public sealed class OwnerDeleteCleanupTests
         Assert.Equal(1, await context.Monsters.CountAsync());
         var survivor = Assert.Single(await context.CustomMoves.AsNoTracking().ToListAsync());
         Assert.Equal("Rise Again", survivor.Name);
-        Assert.Equal(CustomMoveOwnerType.Monster, survivor.OwnerType);
+        Assert.Equal(DomainOwnerType.Monster, survivor.OwnerType);
     }
 
     [Fact]
@@ -266,7 +266,7 @@ public sealed class OwnerDeleteCleanupTests
         await context.SaveChangesAsync();
 
         var survivingBystanderId = await SeedSurvivingOwnerAsync(context);
-        context.CustomMoves.Add(Move(CustomMoveOwnerType.Location, location.Id, "Shift"));
+        context.CustomMoves.Add(Move(DomainOwnerType.Location, location.Id, "Shift"));
         await context.SaveChangesAsync();
 
         Assert.Equal(2, await context.CustomMoves.CountAsync());
@@ -317,8 +317,8 @@ public sealed class OwnerDeleteCleanupTests
         await context.SaveChangesAsync();
 
         context.CustomMoves.AddRange(
-            Move(CustomMoveOwnerType.Bystander, doomed.Id, "Blurt It Out"),
-            Move(CustomMoveOwnerType.Bystander, spared.Id, "Must Survive"));
+            Move(DomainOwnerType.Bystander, doomed.Id, "Blurt It Out"),
+            Move(DomainOwnerType.Bystander, spared.Id, "Must Survive"));
         await context.SaveChangesAsync();
 
         var bystanderService = new BystanderService(
@@ -377,8 +377,8 @@ public sealed class OwnerDeleteCleanupTests
 
         context.MysteryMonsters.Add(new MysteryMonster { MysteryId = mystery.Id, MonsterId = monster.Id });
         context.CustomMoves.AddRange(
-            Move(CustomMoveOwnerType.Mystery, mystery.Id, "Close In"),
-            Move(CustomMoveOwnerType.Monster, monster.Id, "Rise Again"));
+            Move(DomainOwnerType.Mystery, mystery.Id, "Close In"),
+            Move(DomainOwnerType.Monster, monster.Id, "Rise Again"));
         await context.SaveChangesAsync();
 
         var mysteryService = new MysteryService(new MysteryRepository(context), new CustomMoveService(context));
@@ -389,7 +389,7 @@ public sealed class OwnerDeleteCleanupTests
         Assert.Equal(1, await context.Monsters.CountAsync());
         var survivor = Assert.Single(await context.CustomMoves.AsNoTracking().ToListAsync());
         Assert.Equal("Rise Again", survivor.Name);
-        Assert.Equal(CustomMoveOwnerType.Monster, survivor.OwnerType);
+        Assert.Equal(DomainOwnerType.Monster, survivor.OwnerType);
     }
 
     [Fact]

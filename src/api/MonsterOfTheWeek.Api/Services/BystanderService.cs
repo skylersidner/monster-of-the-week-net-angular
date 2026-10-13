@@ -108,7 +108,7 @@ public sealed class BystanderService(
         }
 
         var customMoves = await customMoveService.ListForProjectionAsync(
-            CustomMoveOwnerType.Bystander, id, cancellationToken);
+            DomainOwnerType.Bystander, id, cancellationToken);
 
         return new BystanderDetailResponse(
             bystander.Id,
@@ -155,8 +155,8 @@ public sealed class BystanderService(
     {
         await using var transaction = await bystanderRepository.BeginTransactionAsync(cancellationToken);
 
-        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Bystander, id, cancellationToken);
-        await customMoveService.DeleteAllForOwnerAsync(CustomMoveOwnerType.Bystander, id, cancellationToken);
+        await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Bystander, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Bystander, id, cancellationToken);
         var deleted = await bystanderRepository.DeleteBystanderAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);

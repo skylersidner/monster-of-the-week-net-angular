@@ -16,7 +16,7 @@ namespace MonsterOfTheWeek.Api.Services.CustomMoves;
 public sealed class CustomMoveService(MotwDbContext dbContext) : ICustomMoveService
 {
     public async Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> ListAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken)
     {
@@ -30,7 +30,7 @@ public sealed class CustomMoveService(MotwDbContext dbContext) : ICustomMoveServ
     }
 
     public async Task<ServiceResult<CustomMoveResponse>> CreateAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         UpsertCustomMoveRequest request,
         CancellationToken cancellationToken)
@@ -54,7 +54,7 @@ public sealed class CustomMoveService(MotwDbContext dbContext) : ICustomMoveServ
     }
 
     public async Task<ServiceResult<CustomMoveResponse>> UpdateAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid moveId,
         UpsertCustomMoveRequest request,
@@ -80,7 +80,7 @@ public sealed class CustomMoveService(MotwDbContext dbContext) : ICustomMoveServ
     }
 
     public async Task<bool> DeleteAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid moveId,
         CancellationToken cancellationToken) =>
@@ -89,7 +89,7 @@ public sealed class CustomMoveService(MotwDbContext dbContext) : ICustomMoveServ
             .ExecuteDeleteAsync(cancellationToken) > 0;
 
     public async Task<IReadOnlyList<CustomMoveResponse>> ListForProjectionAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken)
     {
@@ -103,7 +103,7 @@ public sealed class CustomMoveService(MotwDbContext dbContext) : ICustomMoveServ
     }
 
     public async Task DeleteAllForOwnerAsync(
-        CustomMoveOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken)
     {
@@ -123,14 +123,14 @@ public sealed class CustomMoveService(MotwDbContext dbContext) : ICustomMoveServ
     /// over every enum member rather than by the type system (B12).
     /// </para>
     /// </summary>
-    private Task<bool> OwnerExistsAsync(CustomMoveOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
+    private Task<bool> OwnerExistsAsync(DomainOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
         ownerType switch
         {
-            CustomMoveOwnerType.Mystery => dbContext.Mysteries.AnyAsync(m => m.Id == ownerId, cancellationToken),
-            CustomMoveOwnerType.Monster => dbContext.Monsters.AnyAsync(m => m.Id == ownerId, cancellationToken),
-            CustomMoveOwnerType.Minion => dbContext.Minions.AnyAsync(m => m.Id == ownerId, cancellationToken),
-            CustomMoveOwnerType.Location => dbContext.Locations.AnyAsync(l => l.Id == ownerId, cancellationToken),
-            CustomMoveOwnerType.Bystander => dbContext.Bystanders.AnyAsync(b => b.Id == ownerId, cancellationToken),
+            DomainOwnerType.Mystery => dbContext.Mysteries.AnyAsync(m => m.Id == ownerId, cancellationToken),
+            DomainOwnerType.Monster => dbContext.Monsters.AnyAsync(m => m.Id == ownerId, cancellationToken),
+            DomainOwnerType.Minion => dbContext.Minions.AnyAsync(m => m.Id == ownerId, cancellationToken),
+            DomainOwnerType.Location => dbContext.Locations.AnyAsync(l => l.Id == ownerId, cancellationToken),
+            DomainOwnerType.Bystander => dbContext.Bystanders.AnyAsync(b => b.Id == ownerId, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(ownerType), ownerType, "Unknown owner type."),
         };
 }

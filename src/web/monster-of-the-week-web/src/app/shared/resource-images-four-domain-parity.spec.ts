@@ -12,7 +12,7 @@ import { MysteryService } from '../core/mystery';
 import { NotificationService } from '../core/notifications';
 import { ReferenceDataService } from '../core/reference-data';
 import { ResourceImageService } from '../core/resource-images';
-import { ResourceImageResponse, ResourceOwnerType } from '../core/models';
+import { ResourceImageResponse, ImageOwnerType } from '../core/models';
 import { ResourceImagesStore } from './resource-images.store';
 
 import { MonsterDetailComponent } from '../features/monsters/pages/monster-detail/monster-detail';
@@ -142,7 +142,7 @@ const location = {
 };
 
 interface Domain {
-  readonly ownerType: ResourceOwnerType;
+  readonly ownerType: ImageOwnerType;
   readonly component: Type<unknown>;
 }
 

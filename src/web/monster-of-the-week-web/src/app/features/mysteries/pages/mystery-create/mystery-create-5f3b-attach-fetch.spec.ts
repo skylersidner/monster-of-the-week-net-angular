@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { Subject, of, throwError } from 'rxjs';
 
 import { BystanderService } from '../../../../core/bystander';
-import { CustomMoveOwnerType, CustomMoveResponse } from '../../../../core/models';
+import { DomainOwnerType, CustomMoveResponse } from '../../../../core/models';
 import { CustomMoveService, customMovesPath } from '../../../../core/custom-moves';
 import { LocationService } from '../../../../core/location';
 import { MinionService } from '../../../../core/minion';
@@ -34,7 +34,7 @@ import { MysteryCreateStore } from './mystery-create.store';
  */
 describe('5f-3b — the attach fetch', () => {
   let store: MysteryCreateStore;
-  let listCalls: { ownerType: CustomMoveOwnerType; ownerId: string }[];
+  let listCalls: { ownerType: DomainOwnerType; ownerId: string }[];
   /** Set to hold the next `list()` open; resolve or fail it by hand. */
   let pending: Subject<CustomMoveResponse[]> | null;
   let failNext: boolean;
@@ -79,7 +79,7 @@ describe('5f-3b — the attach fetch', () => {
         {
           provide: CustomMoveService,
           useValue: {
-            list: vi.fn((ownerType: CustomMoveOwnerType, ownerId: string) => {
+            list: vi.fn((ownerType: DomainOwnerType, ownerId: string) => {
               listCalls.push({ ownerType, ownerId });
               if (failNext) { return throwError(() => new Error('boom')); }
               if (pending) { return pending; }

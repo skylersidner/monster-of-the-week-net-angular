@@ -25,6 +25,14 @@
  * site and says nothing about the set. §31.3's "nine call sites" is nine *card* sites; the guarded
  * surface is nine plus five.
  *
+ * **Amended by U0** (`docs/resource-images/endpoint-unification.md` §2.6.6). The owner unions were
+ * merged into one `DomainOwnerType`, so the source regex this guard reads out of `core/models.ts`
+ * had to be re-pointed — which it announces by throwing at module load, not by passing vacuously.
+ * The merge also unlocked a third derivation this file could not express before: 6-D3 checks the
+ * *images* segment map against the same five domains minus whatever `ImageOwnerType`'s `Exclude<>`
+ * takes away. Guarding two sibling maps from one declared set is not off-topic for this file; it is
+ * the same drift, one map further.
+ *
  * **Everything here is relative and derived.** No stored hash, no golden string, no list of file
  * names, no count that a reader has to maintain. A consistent change to all five domains needs no
  * edit; only an inconsistent one trips it. Where two declarations could drift apart, each side is
@@ -64,8 +72,8 @@ const entries = (predicate: (path: string, source: string) => boolean): [string,
 /** The union's members, read out of the type rather than typed out here. */
 const domainsFromUnionType = (): string[] => {
   const models = SOURCES['/src/app/core/models.ts'];
-  const declaration = /export type CustomMoveOwnerType =([^;]+);/.exec(models);
-  if (!declaration) { throw new Error('CustomMoveOwnerType not found in core/models.ts'); }
+  const declaration = /export type DomainOwnerType =([^;]+);/.exec(models);
+  if (!declaration) { throw new Error('DomainOwnerType not found in core/models.ts'); }
   return [...declaration[1].matchAll(/'(\w+)'/g)].map((m) => m[1]).sort();
 };
 
@@ -75,6 +83,36 @@ const domainsFromSegmentMap = (): string[] => {
   const block = /const OWNER_SEGMENT[^{]*\{([^}]*)\}/.exec(service);
   if (!block) { throw new Error('OWNER_SEGMENT not found in core/custom-moves.ts'); }
   return [...block[1].matchAll(/^\s*(\w+):/gm)].map((m) => m[1]).sort();
+};
+
+/**
+ * The images route-segment map's keys — the *other* segment map, read the same way.
+ *
+ * Only assertable since `endpoint-unification.md` §2.6 merged the two owner unions. Before that,
+ * `ResourceOwnerType` and `CustomMoveOwnerType` were two independent hand-written lists and "the
+ * images set is the domains minus Mystery" was a sentence in a comment, not a fact anything held.
+ */
+const imageDomainsFromSegmentMap = (): string[] => {
+  const service = SOURCES['/src/app/core/resource-images.ts'];
+  const block = /const OWNER_SEGMENT[^{]*\{([^}]*)\}/.exec(service);
+  if (!block) { throw new Error('OWNER_SEGMENT not found in core/resource-images.ts'); }
+  return [...block[1].matchAll(/^\s*(\w+):/gm)].map((m) => m[1]).sort();
+};
+
+/**
+ * What `ImageOwnerType` narrows away, read out of the `Exclude<>` itself rather than typed here.
+ *
+ * Deliberately throws rather than returning `[]` when the declaration is not an `Exclude<>`: a
+ * widened `export type ImageOwnerType = DomainOwnerType` is exactly the U-R9 mistake, and an empty
+ * result would make the assertion below read as "nothing is excluded" instead of failing.
+ */
+const domainsExcludedFromImages = (): string[] => {
+  const models = SOURCES['/src/app/core/models.ts'];
+  const declaration = /export type ImageOwnerType = Exclude<\s*DomainOwnerType\s*,([^>]+)>;/.exec(models);
+  if (!declaration) {
+    throw new Error('ImageOwnerType is not declared as Exclude<DomainOwnerType, ...> in core/models.ts');
+  }
+  return [...declaration[1].matchAll(/'(\w+)'/g)].map((m) => m[1]).sort();
 };
 
 const DOMAINS = domainsFromUnionType();
@@ -159,6 +197,28 @@ describe('Phase 6 — the five-domain custom-move drift guard', () => {
     // (or the reverse) is the drift this catches, and neither side is written down here.
     expect(domainsFromUnionType()).toEqual(domainsFromSegmentMap());
     expect(DOMAINS.length).toBe(5);
+  });
+
+  it('6-D3: the images segment map is exactly the domains that `ImageOwnerType` does not exclude', () => {
+    // The third independent declaration of the same fact, and the one the enum merge unlocked
+    // (endpoint-unification.md §2.6.4/§2.6.6). Nothing here is typed out: the excluded members come
+    // out of the `Exclude<>`, the full set out of the union, and the map's keys out of the map.
+    const excluded = domainsExcludedFromImages();
+    expect(excluded.length, 'ImageOwnerType excludes nothing — it has been widened').toBeGreaterThan(0);
+    expect(excluded.every((member) => DOMAINS.includes(member)), `excludes a non-domain: ${excluded}`).toBe(true);
+
+    const expected = DOMAINS.filter((domain) => !excluded.includes(domain)).sort();
+    expect(imageDomainsFromSegmentMap()).toEqual(expected);
+
+    // And the half that is about silence rather than shape: the custom-move segment for an excluded
+    // domain must not appear in the images map. `custom-moves.spec.ts`'s cross-check cannot see this
+    // one — `'mysteries'` is the *correct* custom-move segment, so it passes either way (U-R9).
+    const imagesMapBlock = /const OWNER_SEGMENT[^{]*\{([^}]*)\}/.exec(SOURCES['/src/app/core/resource-images.ts'])![1];
+    for (const member of excluded) {
+      expect(imagesMapBlock, `${member}'s segment leaked into the images map`).not.toMatch(
+        new RegExp(`${member.toLowerCase()}s?'`),
+      );
+    }
   });
 
   it('6-D2: every domain owns a distinguishable slice of the file tree', () => {

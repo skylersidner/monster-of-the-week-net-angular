@@ -11,7 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { CustomMoveOwnerType } from '../core/models';
+import { DomainOwnerType } from '../core/models';
 import { IconComponent } from './icons/icon.component';
 
 /**
@@ -84,7 +84,7 @@ export class CustomMovesCardComponent {
    * has a readable attribute because every call site happens to pass it as a *static* attribute;
    * a binding would not appear in `outerHTML` at all. Not depending on that accident twice.
    */
-  @Input({ required: true }) ownerType!: CustomMoveOwnerType;
+  @Input({ required: true }) ownerType!: DomainOwnerType;
 
   /** Signal-backed: read by `editingRow` below, not only by the template. */
   @Input()

@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
-import { ResourceOwnerType } from '../core/models';
+import { ImageOwnerType } from '../core/models';
 import { MAX_IMAGES_PER_RESOURCE } from '../core/resource-images';
 import { DomainIconComponent } from './domain-icon.component';
 
@@ -27,7 +27,7 @@ import { DomainIconComponent } from './domain-icon.component';
   host: { class: 'block' },
 })
 export class ResourceImagesCardComponent {
-  @Input({ required: true }) ownerType!: ResourceOwnerType;
+  @Input({ required: true }) ownerType!: ImageOwnerType;
 
   /** Read by `computed()`, so signal-backed (the documented `mystery-select.component.ts` bug). */
   @Input()

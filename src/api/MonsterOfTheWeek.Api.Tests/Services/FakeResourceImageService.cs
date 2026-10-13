@@ -14,30 +14,30 @@ namespace MonsterOfTheWeek.Api.Tests.Services;
 /// </summary>
 internal sealed class FakeResourceImageService : IResourceImageService
 {
-    public List<(ResourceOwnerType OwnerType, Guid OwnerId)> DeleteAllForOwnerCalls { get; } = [];
+    public List<(DomainOwnerType OwnerType, Guid OwnerId)> DeleteAllForOwnerCalls { get; } = [];
 
     public Task<ServiceResult<ResourceImageUploadResult>> UploadAsync(
-        ResourceOwnerType ownerType, Guid ownerId, IReadOnlyList<ResourceImageUploadFile> files, CancellationToken cancellationToken) =>
+        DomainOwnerType ownerType, Guid ownerId, IReadOnlyList<ResourceImageUploadFile> files, CancellationToken cancellationToken) =>
         Task.FromResult(ServiceResult<ResourceImageUploadResult>.Success(new ResourceImageUploadResult([], [])));
 
-    public Task<Guid?> GetPrimaryImageIdAsync(ResourceOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
+    public Task<Guid?> GetPrimaryImageIdAsync(DomainOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
         Task.FromResult<Guid?>(null);
 
-    public Task DeleteAllForOwnerAsync(ResourceOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken)
+    public Task DeleteAllForOwnerAsync(DomainOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken)
     {
         DeleteAllForOwnerCalls.Add((ownerType, ownerId));
         return Task.CompletedTask;
     }
 
-    public Task<ServiceResult<IReadOnlyList<ResourceImage>>> ListAsync(ResourceOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
+    public Task<ServiceResult<IReadOnlyList<ResourceImage>>> ListAsync(DomainOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken) =>
         Task.FromResult(ServiceResult<IReadOnlyList<ResourceImage>>.Success([]));
 
-    public Task<ResourceImage?> GetImageAsync(ResourceOwnerType ownerType, Guid ownerId, Guid imageId, CancellationToken cancellationToken) =>
+    public Task<ResourceImage?> GetImageAsync(DomainOwnerType ownerType, Guid ownerId, Guid imageId, CancellationToken cancellationToken) =>
         Task.FromResult<ResourceImage?>(null);
 
-    public Task<bool> DeleteAsync(ResourceOwnerType ownerType, Guid ownerId, Guid imageId, CancellationToken cancellationToken) =>
+    public Task<bool> DeleteAsync(DomainOwnerType ownerType, Guid ownerId, Guid imageId, CancellationToken cancellationToken) =>
         Task.FromResult(false);
 
-    public Task<bool> SetPrimaryAsync(ResourceOwnerType ownerType, Guid ownerId, Guid imageId, CancellationToken cancellationToken) =>
+    public Task<bool> SetPrimaryAsync(DomainOwnerType ownerType, Guid ownerId, Guid imageId, CancellationToken cancellationToken) =>
         Task.FromResult(false);
 }

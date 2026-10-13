@@ -374,7 +374,7 @@ public sealed class SearchProvidersTests
         // provider does not join rather than from a nav property it does not include.
         context.CustomMoves.Add(new CustomMove
         {
-            OwnerType = CustomMoveOwnerType.Monster,
+            OwnerType = DomainOwnerType.Monster,
             OwnerId = monster.Id,
             Name = "Lava Surge",
             Description = "Erupts with molten lava dealing area harm.",
@@ -517,7 +517,7 @@ public sealed class SearchProvidersTests
         // Retargeted as above — see the Monster case for why the assertion survives the switch.
         context.CustomMoves.Add(new CustomMove
         {
-            OwnerType = CustomMoveOwnerType.Minion,
+            OwnerType = DomainOwnerType.Minion,
             OwnerId = minion.Id,
             Name = "Sludge Toss",
             Description = "Hurls corrosive sludge at a hunter.",

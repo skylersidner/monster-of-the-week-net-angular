@@ -87,7 +87,7 @@ public sealed class ResourceImageMigrationPostgresTests
         };
         var image = new ResourceImage
         {
-            OwnerType = ResourceOwnerType.Monster,
+            OwnerType = DomainOwnerType.Monster,
             OwnerId = monster.Id,
             FileName = "test.webp",
             ContentType = "image/webp",

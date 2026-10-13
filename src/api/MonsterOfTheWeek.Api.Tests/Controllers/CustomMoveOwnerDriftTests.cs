@@ -78,13 +78,13 @@ public sealed class CustomMoveOwnerDriftTests
     /// loudly, with a message naming the field, which is the right failure.
     /// </para>
     /// </summary>
-    private static IReadOnlyDictionary<string, CustomMoveOwnerType> OwnerDictionary()
+    private static IReadOnlyDictionary<string, DomainOwnerType> OwnerDictionary()
     {
         var field = typeof(CustomMovesController)
             .GetField("Owners", BindingFlags.NonPublic | BindingFlags.Static);
 
         Assert.True(field is not null, "CustomMovesController.Owners is gone or was renamed; this guard reads it by name.");
-        return (IReadOnlyDictionary<string, CustomMoveOwnerType>)field!.GetValue(null)!;
+        return (IReadOnlyDictionary<string, DomainOwnerType>)field!.GetValue(null)!;
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class CustomMoveOwnerDriftTests
         // Catches: a member added to the enum and not to the dictionary (which would throw from
         // the controller's indexer), and a dictionary entry for a type that does not exist.
         Assert.Equal(
-            Enum.GetValues<CustomMoveOwnerType>().Order().ToList(),
+            Enum.GetValues<DomainOwnerType>().Order().ToList(),
             OwnerDictionary().Values.Order().ToList());
     }
 
@@ -109,12 +109,12 @@ public sealed class CustomMoveOwnerDriftTests
     }
 
     [Theory]
-    [InlineData(CustomMoveOwnerType.Mystery)]
-    [InlineData(CustomMoveOwnerType.Monster)]
-    [InlineData(CustomMoveOwnerType.Minion)]
-    [InlineData(CustomMoveOwnerType.Location)]
-    [InlineData(CustomMoveOwnerType.Bystander)]
-    public async Task EveryOwnerTypeHasAnArmInTheServicesSwitch(CustomMoveOwnerType ownerType)
+    [InlineData(DomainOwnerType.Mystery)]
+    [InlineData(DomainOwnerType.Monster)]
+    [InlineData(DomainOwnerType.Minion)]
+    [InlineData(DomainOwnerType.Location)]
+    [InlineData(DomainOwnerType.Bystander)]
+    public async Task EveryOwnerTypeHasAnArmInTheServicesSwitch(DomainOwnerType ownerType)
     {
         // The half a route test cannot see. An empty context is enough — the assertion is that
         // the owner check runs at all rather than hitting `_ => throw`, and no seeding is needed
