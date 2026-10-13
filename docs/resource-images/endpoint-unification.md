@@ -1252,3 +1252,50 @@ verbatim as §2.6.4 describes. Add the two keys and `tsc` is **clean**, and the 
 **green: 1,790 passed, 0 failed.** The single failure is 6-D3, the assertion this commit adds. That is
 the evidence that the narrowing is load-bearing: without it the hazard is invisible to every test that
 existed, and visible to exactly one that did not.
+
+---
+
+## 14. U1 as built — the four places it differed from §4
+
+**Added by Bowser, 2026-10-13**, same append-only convention as §13. Everything not listed here was built
+as §4 specifies: the harness widened to Location and Bystander, the Monster-only facts turned into a
+four-owner matrix against the **shipped per-domain routes**, zero production files touched.
+
+**1. Fourteen facts, not fifteen.** Measured before converting anything: `ResourceImageEndpointTests.cs`
+held **14 `[Fact]`s and 26 URL references, every one `api/monsters/`** — no `[Theory]`, no `[InlineData]`,
+and `public async Task` also counts 14. §4's "fifteen" is one high. Same shape as §5's 41-files slip and
+caught the same way, by counting before repeating.
+
+**2. The null-thumbnail fallback had zero coverage, not three-quarters of it.** §4's *"One thing U1
+should expect to find"* lists the fallback alongside `[RequestSizeLimit]` and the 201/400 branch as things
+U1 runs *"against Location, Bystander and Minion for the first time"* — which reads as "Monster already
+covers all three." Monster covered the first and the third. **Nothing covered the fallback, for any
+domain:** `return image.ThumbnailBytes is null ? File(image.ImageBytes, image.ContentType) : …` exists in
+four controller copies and no test in the solution ever reached it, because the service generates a
+thumbnail for every file it accepts, so no upload can produce the state the branch tests. The matrix adds
+it as a sixteenth theory, with a harness helper that nulls a stored row's `ThumbnailBytes` directly —
+**the only way to reach it.** Included rather than noted because U2 rewrites exactly this branch into one
+place, and a branch with no oracle is one a refactor can drop silently.
+
+**3. §4 expected U1 might surface a pre-existing per-domain bug. It did not — and that is a result, not a
+non-event.** All sixty matrix cases passed on the first run. §1.1's normalised source diff and §1.2's
+argument that the two error policies *"cannot produce a different response today"* both now hold under
+**execution** rather than under reading, which is precisely the gap §4 named when it said *"a diff of
+source is not a test of behaviour."* The Location/Bystander inline `NotFound()` and the
+Monster/Minion `ToErrorResult` pair produce identical responses on every path the six endpoints have.
+
+**4. The matrix is 61 cases, and which side is transcribed is a deliberate choice.** 15 theories × 4
+owners + 1 count pin. **The four `{DomainOwnerType, segment}` pairs are transcribed, and the harness's
+seed table is transcribed separately**; neither derives from `IResourceImageService.ImageOwnerTypes`. That
+is not an oversight to tidy at U3 — deriving the matrix from the declared set would make the expectation
+and the subject two readings of one declaration, so a member quietly dropped from `ImageOwnerTypes` would
+stop being seeded, stop being tested, and leave the suite green. **That is U0 §13 item 4's vacuity in a
+new costume, and it is also why U3's comparison of the declared set against the route table can be
+honest: both of U3's sides are things U1 wrote down independently.** Verified by control — deleting one
+row from the matrix drops the suite by exactly 15 cases and fails **only** the count pin, which is the
+single assertion standing between "a domain lost its coverage" and a green run.
+
+**On the property U1 exists for.** The matrix names no controller type, reaches into no DI, and builds
+every URL through one private helper. U2's gate is `git diff` over
+`Controllers/ResourceImageEndpointTests.cs` returning **empty**; everything U2 must change — the DI block
+that collapses from eight registrations to one — is in the harness, which U2 is expected to edit.
