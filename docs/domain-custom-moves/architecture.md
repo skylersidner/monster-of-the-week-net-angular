@@ -5713,6 +5713,198 @@ monsters / 6 minions / 20 locations / 15 bystanders / 4 images / **0 custom_move
 `custom_moves` against both owner tables returning zero rows. Nothing written onto a pre-existing
 entity this time; the probe attached by name throughout.
 
+
+## 29.14 Phase 6 shipped, 2026-10-12 — the drift guard, and what it can see
+
+**Results.** Suite 1775 → **1790** (129 files, one new), typecheck clean, nothing backend, no dev data
+touched and no browser run — the guard is a spec and the polish is copy and docs. Commit `257ff08`.
+**Twelve controls**, self-check first; nine exact, one stronger than predicted, one wider, one
+build-refused.
+
+### §31.3 was wrong about what a unit test can read, and correcting it changed the design
+
+My own §31.3 states flatly that *"template source is genuinely unavailable to a unit test in this
+project — `?raw` imports fail both statically and dynamically, and `import.meta.glob` hangs the
+runner. Compare rendered DOM; do not plan on reading templates."*
+
+**F-L9 measured that false a day earlier.** `custom-moves-stubbed-everywhere.spec.ts` globs every
+`.ts` in the app with `{ query: '?raw' }` and runs in milliseconds. §31.3 is amended in place. There
+is exactly one real constraint, and it is worth more than the retraction: **the call must be written
+out in full at the call site**, because it is replaced at transform time. Hoisting it into a
+`const glob = import.meta.glob` throws at module load and reports as **a suite with zero tests** —
+which is the one failure mode a guard must never have, and the reason that sentence is now a comment
+in both files that use it.
+
+Correcting it changed the design, because it buys the half a DOM-parity spec cannot have.
+
+### The two halves, and why the write half needed source
+
+§29.4's discovery, measured by 5b's under-firing control: **a card's `ownerType` and its host's write
+literal are two independent strings, and neither guards the other.** A page can render "Minion" and
+write into the monster owner space, and no amount of rendered DOM can tell — the DOM contains the
+label, not the destination.
+
+So the guard checks both, and checks each against a **third** fact: the domain the file path
+resolves to. That is what makes a *self-consistent* lie fail. Control 9 is exactly that case — the
+monster detail page relabelled **and** rewritten to `Minion`, so the two halves agree with each other
+and both disagree with where they live. It fails `6-C4`, `6-W1` and `6-W3`.
+
+And it reaches the surface §31.3 did not count. **§31.3 says "nine call sites"; the guarded surface
+is nine plus five.** The wizard's five owner literals have no card, so no `data-owner-type` exists to
+check, and until now they were covered only by per-owner write assertions spread across the 5f-1,
+5f-2, 5f-3a and 5f-3b specs — each proving its own site and saying nothing about the *set*. `6-W2`
+asserts the set, the adjacency §35.4 asked for (five declarations on five consecutive lines, derived
+from their offsets), and that the factory is called nowhere else.
+
+### How it derives its five domains — and everything else
+
+No list, no count a reader must maintain, no golden string:
+
+| what | derived from | cross-checked against |
+|---|---|---|
+| the five domains | `CustomMoveOwnerType`'s union members | `OWNER_SEGMENT`'s keys |
+| which domain owns a file | the domain name in the path, and **no other domain's** | `6-D2` asserts the mapping is unambiguous |
+| the nine card call sites | templates containing the **element** | hosts importing the component |
+| the expected call-site count | `DOMAINS.length * 2 - 1` | `6-C2` proves the shape that arithmetic encodes |
+| the binding set | the first call site | the other eight must agree |
+| the owner label | the element's `ownerType` literal | the path-derived domain |
+| the write literal | `customMoveService.*('X'` in the host | the path-derived domain |
+| the wizard's five | `customMoveSubResource('X')` declarations | the derived domain set |
+| the create-page caveat | the first one found | the other three, domain noun normalised out |
+
+**One exemption is derived rather than named.** The wizard store legitimately writes for all five
+domains — that is the condition §35.4's adapter table exists for — so the one-domain-per-file rule
+cannot apply to it. It identifies itself: *a file that declares `customMoveSubResource` is
+multi-owner by construction.* `6-W2` checks its five literals exhaustively instead. A file name in
+that position would have been the transcription the whole guard exists to avoid.
+
+### Both of the guard's own first failures were a matcher counting prose
+
+Worth recording as one lesson with two instances, because it will happen to the next person:
+
+1. `app-custom-moves-card` appears in **13** templates and is *used* in **9**. The four wizard phase
+   templates name it in comments explaining why they do **not** use it (§35.5). The opening angle
+   bracket is the difference between a usage and a reference.
+2. `customMoveSubResource(` appears **7** times in the wizard store for 5 declarations and 1
+   definition. The seventh is the §35.4 comment explaining that it must never be called inline.
+
+**A guard that reads source is reading prose too, and the prose in this codebase talks about the
+code.** Comments are stripped before anything is counted, and both numbers are now right.
+
+### The controls — twelve, self-check first
+
+| group | predicted | actual |
+|---|---|---|
+| 0. self-check (deliberate failure) | `6-X1` | `6-X1` |
+| 1. a sixth union member, map not updated | `6-D1` | **the compiler refused it** |
+| 2. a domain loses its card call site | `6-C1`, `6-C2` | `6-C1`, `6-C2`, `6-C3` (+15 others) |
+| 3. one call site drops a binding | `6-C3` | `6-C3` |
+| 4. one call site labelled with another domain | `6-C4` | `6-C4` (+4) |
+| 5. one host writes to another owner space | `6-W1`, `6-W3` | `6-W1`, `6-W3` (+1) |
+| 6. a wizard adapter declared for the wrong owner | `6-W2` | `6-W2` (+1) |
+| 7. a wizard adapter moved out of the block | `6-W2` | `6-W2` |
+| 8. the factory called inline at a save site | `6-W2` | `6-W2` |
+| 9. the card **and** the write both relabelled | `6-C4`, `6-W1`, `6-W3` | `6-C4`, `6-W1`, `6-W3` (+6) |
+| 10. one create page words its caveat differently | `6-P1` | `6-P1` (+3) |
+| 11. one create spec loses its sorted ledger | `6-P2` | `6-P2` |
+
+**Group 1 is the most useful result and it is not a pass.** Adding a sixth member to
+`CustomMoveOwnerType` without extending `OWNER_SEGMENT` **does not compile** — the map is
+`Record<CustomMoveOwnerType, string>`, so a missing key is a build error. `6-D1` is therefore a
+second line of defence, not the primary one, and the primary one is better. Said plainly because the
+alternative is a reader believing the spec is what holds that invariant.
+
+**Group 2 is the failure mode this phase exists to prevent**: the parity spec that passes when a
+domain is missing. Removing the mystery detail page's card element fails in **three** places
+(`6-C1`'s template/host asymmetry, `6-C2`'s per-domain coverage, `6-C3`'s derived count) plus fifteen
+of that page's own tests. It cannot pass quietly.
+
+### Polish: what I did, and what I left
+
+**Done:**
+
+- **14-R1's caveat assertion.** The *convergence* landed with 5c/5d — all four create pages already
+  say *"some details may not have saved"* — and §13.7 said Phase 6 owns asserting it. `6-P1`
+  compares the four **relatively**, with the domain noun normalised out, so rewording all four needs
+  no edit and rewording one trips it. (And a normalisation bug of my own: the caveat names the domain
+  *twice*, capitalised and lowercase, so lowercasing has to come before the split.)
+- **R5's cross-domain half.** The duplicate-draft-arm hazard is already pinned per page by a sorted
+  exact ledger; `6-P2` asserts that **all four** create specs carry one and count the POSTs, which is
+  the assertion a duplicated arm actually trips and the one `toContain` cannot make.
+- **F3.** The two stale deferral notes in `docs/phases/phase-8-minions-ui-flow.md` and
+  `phase-9-bystanders-locations-ui-flow.md` are retired. Both deferred this UI *"pending API
+  endpoints"* — a premise that was already false when they were written. Marked superseded with the
+  old text quoted, rather than deleted, so a reader arriving from an external reference lands on
+  what changed.
+
+**Left, deliberately, and none of them is inseparable from the guard:** F-L4 (the census's eleven
+self-referential rows), F-L6, F-L7, F-L8, F-L10, F-R1, F-R2/14-R3 (the double toast), F-R3, the
+`isSaving` alias collapse, F-L2's now-dead store wrapper, and F5. **I checked F-L4 specifically**,
+because it is the one closest to this phase's subject and the temptation was real: it is about
+`ConfirmDeleteModalComponent`'s call-site census, a different component with a different guarded
+property, and folding it in would have meant this guard growing a second subject. The right shape is
+the one it already has — F-L4's fix is to render five detail pages and count modals, which is the
+*images* parity spec's shape, not this one's.
+
+---
+
+## 29.15 What is guarded by a derivation, and what by a transcription
+
+The thing a future reader most needs, and the honest version of it. "Derived" means the guard reads
+the application and compares it against itself, so it keeps working when something new is added.
+"Transcribed" means a human typed the expected answer and must retype it.
+
+### Derived — these keep working when a sixth domain or a tenth call site arrives
+
+- **The five owner types.** `CustomMoveOwnerType` against `OWNER_SEGMENT` (`6-D1`), and the compiler
+  underneath both.
+- **The route segments.** `core/custom-moves.spec.ts` derives four of the five from
+  `resourceImagesPath`'s shipped map rather than re-typing them (§27.3), and `customMovesPath` is the
+  only builder (`6-S1`).
+- **The nine card call sites**, from the templates that render the element against the hosts that
+  import it (`6-C1`), with per-domain coverage (`6-C2`) and a count that is arithmetic over the
+  domain set (`6-C3`).
+- **Every call site's binding set**, relative to the others (`6-C3`), with `emptyText`'s designed
+  difference asserted rather than merely excluded.
+- **Every owner label and every write literal**, each against the path-derived domain (`6-C4`,
+  `6-W1`, `6-W3`) — so a self-consistent mislabelling fails.
+- **The wizard's five owner literals**, their adjacency, and the absence of inline factory calls
+  (`6-W2`).
+- **Which specs may reach the real `CustomMoveService`**, from the application's own injector set
+  (F-L9's guard) — the only reason a dev server being up no longer means `ng test` writes to dev.
+- **The wizard's step titles and blurbs**, over `phases × stepsArray` (`5f1-S1`).
+- **The wizard's confirm-modal count**, over `store.phases` rather than four hand-written
+  coordinates (§29.9).
+- **The four create pages' partial-failure caveat** (`6-P1`) and the presence of their exact ledgers
+  (`6-P2`).
+
+### Transcribed — someone must maintain these, and here is who notices first
+
+- **`confirm-delete-modal.call-sites.spec.ts`'s eleven non-wizard rows.** Its two count assertions
+  compare a literal against the object three lines above them, so **a new detail page's modal passes
+  silently**. Measured in 5e: adding *and* removing a modal both left that file green. The wizard
+  rows are derived; these are not. **F-L4**, and the single most likely place this feature rots.
+- **Each page's own `data-owner-type` assertion** in its `.custom-moves-spec`. Nine transcriptions of
+  nine literals — now backed by `6-C4`, which is the derived version, so these are a second line.
+- **The exact-call ledgers' expected arrays.** Deliberately transcribed: that is what makes them
+  oracles. They are maintained by failing loudly, which is the point — five of them were edited in
+  5f-3b and each edit is recorded with its reason (§29.13).
+- **The wizard's `phases[0].steps = 5`.** The step *count* is data; the specs that reach a submit by
+  index were swept once (§29.9) and a seventh step would need the same sweep. The runtime control
+  that proved the sweep complete is not a standing test.
+- **`5f3a-P2`'s two arms.** The caveat's presence for hydration and absence for attach are asserted
+  as a contrast, but *which* paths are un-fetched is knowledge in the test, not derived from the
+  routes. **F-L10** closes the remaining gap; until then the test says what is true and does not
+  know why.
+- **The copy strings themselves.** `6-P1` makes the four agree; it does not know what they should
+  say. A wrong-but-uniform caveat passes.
+
+### The one-sentence version
+
+**Everything about *shape* is derived — which domains exist, which pages render the card, which owner
+each writes to, which bindings they share.** What remains transcribed is *content* (the words in a
+caveat, the expected array in a ledger) and *one census* whose non-wizard half still compares itself
+to itself. If this feature breaks quietly, it will break there.
 ---
 
 # 30. The wizard, 5f-0 … 5f-3
@@ -6004,7 +6196,10 @@ were learned the hard way in it:
    pages bind the same expression.
 3. **Assert the owner type before normalising.** `[attr.data-owner-type]` (§28.1) is read and checked
    per page, then normalised. Any token you normalise away needs its own positive assertion first.
-4. **Cover the create pages, per R5.** Nine call sites, one component — so the guard asserts the *host
+4. **Cover the create pages, per R5 — and the wizard's five literals, which are not call sites at all.**
+   Nine card call sites plus five wizard owner literals: the literals have no card and therefore no
+   `data-owner-type` to check, and before Phase 6 they were guarded only by per-owner write assertions
+   spread across four spec files, each proving its own site and nothing about the set. Nine call sites, one component — so the guard asserts the *host
    wiring* (owner type, `emptyText`, which events are subscribed, and that the card is **not** a child of
    the four-panel grid per 14-R2), not nine markup trees. It cannot compare detail and create DOM to each
    other directly: the empty text differs by design and a create page has no modal. Two groups — five and
@@ -6012,9 +6207,18 @@ were learned the hard way in it:
    `emptyText` is normalised. That shape is what §13.7 means by "cheaper than §5 assumes", stated
    concretely.
 
-**And one thing the images guard taught that applies with more force here:** template source is genuinely
-unavailable to a unit test in this project — `?raw` imports fail both statically and dynamically, and
-`import.meta.glob` hangs the runner. Compare rendered DOM; do not plan on reading templates.
+**Source *is* readable, and planning around that was this section's one real error.** It said template
+source was unavailable — that `?raw` imports fail and `import.meta.glob` hangs the runner. F-L9 measured
+otherwise: `import.meta.glob('/src/app/**/*.{ts,html}', { query: '?raw', eager: true })` reads the whole
+application in milliseconds. **One constraint, and it is sharp:** the call must be written out in full at
+the call site, because it is replaced at transform time — hoisting it into a `const` throws at module load
+and reports as *a suite with zero tests*, which is the one failure mode a guard must never have.
+
+That matters because it buys the half rendered DOM cannot give: **the write literal**. §29.4's finding is
+that a card's `ownerType` and its host's write literal are independent strings, so the DOM contains the
+label and never the destination. Phase 6 therefore reads source, checks both halves, and checks each
+against the domain the file path resolves to — a third independent fact, which is what makes a
+self-consistent mislabelling fail too. §29.14 records what shipped.
 
 **One negative control I would insist on, because it is the one that found a real hole last time:** wire
 one page's card to another domain's owner type and confirm the guard fails. If it passes, the owner-type
