@@ -34,10 +34,12 @@ function rosterMonster(overrides: Partial<MonsterDraft> = {}): MonsterDraft {
     powers: [],
     weaknesses: [],
     armors: [],
+    customMoves: [],
     existingAttacks: [],
     existingPowers: [],
     existingWeaknesses: [],
     existingArmors: [],
+    existingCustomMoves: [],
     existingMinionIds: [],
     mysteryIds: [],
     ...overrides,
@@ -78,10 +80,12 @@ function minionDraft(name: string, counts: Partial<Record<'attacks' | 'powers' |
       isSpecial: false,
       specialDescription: '',
     })),
+    customMoves: [],
     existingAttacks: [],
     existingPowers: [],
     existingWeaknesses: [],
     existingArmors: [],
+    existingCustomMoves: [],
   };
 }
 

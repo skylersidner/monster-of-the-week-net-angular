@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { ResourceOwnerType } from '../core/models';
+import { ImageOwnerType } from '../core/models';
 import { ResourceThumbnailComponent } from './resource-thumbnail.component';
 
 @Component({
@@ -16,7 +16,7 @@ import { ResourceThumbnailComponent } from './resource-thumbnail.component';
   `,
 })
 class HostComponent {
-  readonly ownerType = signal<ResourceOwnerType>('Monster');
+  readonly ownerType = signal<ImageOwnerType>('Monster');
   readonly url = signal<string | null>(null);
   readonly size = signal<'row' | 'compact' | 'fill'>('row');
 }

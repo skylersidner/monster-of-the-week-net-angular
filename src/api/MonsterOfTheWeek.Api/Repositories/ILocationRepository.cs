@@ -32,10 +32,6 @@ public interface ILocationRepository
     Task<Location?> GetLocationDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken);
     Task<Location?> GetLocationForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> LocationExistsAsync(Guid id, CancellationToken cancellationToken);
-    Task<IReadOnlyList<LocationCustomMove>> GetLocationCustomMovesAsync(Guid id, CancellationToken cancellationToken);
-    Task AddLocationCustomMoveAsync(LocationCustomMove move, CancellationToken cancellationToken);
-    Task<LocationCustomMove?> GetLocationCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
-    Task<int> DeleteLocationCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
     Task<int> DeleteLocationAsync(Guid id, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 

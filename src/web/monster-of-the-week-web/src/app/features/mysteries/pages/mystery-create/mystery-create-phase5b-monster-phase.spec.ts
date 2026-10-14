@@ -590,8 +590,8 @@ describe('The wizard’s Monsters phase — Phase 5b', () => {
   it('5b-X1: and the dossier’s own location list does the same', async () => {
     await create();
     store.locations.set([
-      { id: null, localKey: 'loc-a', name: 'Alpha', description: '', locationTypeId: 'location-type-1', mysteryIds: [] },
-      { id: null, localKey: 'loc-b', name: 'Beta', description: '', locationTypeId: 'location-type-1', mysteryIds: [] },
+      { id: null, localKey: 'loc-a', name: 'Alpha', description: '', locationTypeId: 'location-type-1', customMoves: [], existingCustomMoves: [], customMovesLoaded: true, mysteryIds: [] },
+      { id: null, localKey: 'loc-b', name: 'Beta', description: '', locationTypeId: 'location-type-1', customMoves: [], existingCustomMoves: [], customMovesLoaded: true, mysteryIds: [] },
     ]);
     store.currentPhase.set(2);
     await settle();
@@ -637,10 +637,10 @@ describe('The wizard’s Monsters phase — Phase 5b', () => {
     // three), so counting there would have recorded one fewer and passed.
     authorMonster('Maestro Vey');
     store.locations.set([
-      { id: null, localKey: 'loc-a', name: 'Ferris Mill', description: '', locationTypeId: 'location-type-1', mysteryIds: [] },
+      { id: null, localKey: 'loc-a', name: 'Ferris Mill', description: '', locationTypeId: 'location-type-1', customMoves: [], existingCustomMoves: [], customMovesLoaded: true, mysteryIds: [] },
     ]);
     store.bystanders.set([
-      { id: null, localKey: 'bys-a', name: 'Sheriff Dalton', description: '', bystanderTypeId: 'bystander-type-1', mysteryIds: [] },
+      { id: null, localKey: 'bys-a', name: 'Sheriff Dalton', description: '', bystanderTypeId: 'bystander-type-1', customMoves: [], existingCustomMoves: [], customMovesLoaded: true, mysteryIds: [] },
     ]);
 
     const hostsInPhase = async (phase: number, step: number): Promise<number> => {
@@ -650,16 +650,43 @@ describe('The wizard’s Monsters phase — Phase 5b', () => {
       return element.querySelectorAll('app-confirm-delete-modal').length;
     };
 
-    // The monster phase carries two: the monster roster's (5b) and the minion roster's (multi-minion).
-    expect(await hostsInPhase(1, 0)).toBe(1);
-    expect(await hostsInPhase(1, 1)).toBe(1);
-    // …and Locations and Bystanders one each, both from Phase 4.
-    expect(await hostsInPhase(2, 0)).toBe(1);
-    expect(await hostsInPhase(3, 0)).toBe(1);
+    /**
+     * **The walk is derived from `store.phases`, not a list of four pairs** (5f-1).
+     *
+     * It used to assert `hostsInPhase(1, 0)`, `(1, 1)`, `(2, 0)`, `(3, 0)` — four hard-coded
+     * coordinates, which is every step the wizard had *with a modal* and not every step the wizard
+     * had. Phase 0's four prose steps were never visited, so a dialog added to one of them was
+     * invisible here, and invisible in `confirm-delete-modal.call-sites.spec.ts` too because its
+     * own two assertions compare a literal against itself.
+     *
+     * Measured, when 5f-1 added phase 0 a fifth step: a real `<app-confirm-delete-modal>` host put
+     * into that step failed **nothing** in the whole suite. With the walk derived it fails here, as
+     * the census is supposed to make it.
+     *
+     * The claim is asserted as "these coordinates have one each and every other step has none",
+     * rather than as an exhaustive map of counts — so adding a step does not fail this file for a
+     * reason that has nothing to do with modals, while adding a *modal* anywhere does.
+     */
+    const counts: Record<string, number> = {};
+    for (const phase of store.phases) {
+      for (const step of phase.stepsArray) {
+        counts[`${phase.index}-${step}`] = await hostsInPhase(phase.index, step);
+      }
+    }
+
+    // The walk really was exhaustive — otherwise everything below could pass vacuously.
+    expect(Object.keys(counts)).toHaveLength(store.phases.reduce((total, phase) => total + phase.steps, 0));
+
+    // The monster phase carries two: the monster roster's (5b) and the minion roster's
+    // (multi-minion); Locations and Bystanders one each, both from Phase 4. Nothing anywhere else.
+    expect(Object.entries(counts).filter(([, count]) => count > 0)).toEqual([
+      ['1-0', 1],
+      ['1-1', 1],
+      ['2-0', 1],
+      ['3-0', 1],
+    ]);
 
     // Four in total across the wizard, which is the census row this derives.
-    const total = [await hostsInPhase(1, 0), await hostsInPhase(1, 1), await hostsInPhase(2, 0), await hostsInPhase(3, 0)]
-      .reduce((a, b) => a + b, 0);
-    expect(total).toBe(4);
+    expect(Object.values(counts).reduce((a, b) => a + b, 0)).toBe(4);
   });
 });

@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -8,6 +8,12 @@ import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { WeaponTagSelectComponent } from '../../../../shared/weapon-tag-select.component';
+import {
+  CustomMoveCommit,
+  CustomMoveRow,
+  CustomMovesCardComponent,
+} from '../../../../shared/custom-moves-card.component';
+import { CustomMoveService, createCustomMoveDraftKey } from '../../../../core/custom-moves';
 import { MonsterFormComponent, MonsterFormSubmit } from '../../shared/monster-form/monster-form';
 import {
   MonsterArchetypeResponse,
@@ -51,6 +57,20 @@ export interface WeaknessDraft {
   description: string | null;
 }
 
+/**
+ * A staged custom move. Same three fields as `PowerDraft` plus the client key the card tracks rows
+ * by, and deliberately **not** the wizard's `CustomMoveDraft extends SubResourceIdentity`: that one
+ * carries `id: string | null` because the wizard diffs against a hydrated baseline, and a fresh
+ * create page has none. Two draft types with the same fields and different identity semantics is
+ * already the situation for powers and weaknesses, and is correct for the same reason.
+ */
+export interface CustomMoveDraft {
+  /** From `createCustomMoveDraftKey()`. The card tracks by this, never by `$index` (14-R4). */
+  key: string;
+  name: string;
+  description: string | null;
+}
+
 @Component({
   selector: 'app-monster-create',
   imports: [
@@ -58,6 +78,7 @@ export interface WeaknessDraft {
     RouterLink,
     MonsterFormComponent,
     WeaponTagSelectComponent,
+    CustomMovesCardComponent,
   ],
   templateUrl: './monster-create.html',
 })
@@ -78,6 +99,29 @@ export class MonsterCreateComponent implements OnInit {
   readonly powerDrafts = signal<PowerDraft[]>([]);
   readonly armorDrafts = signal<ArmorDraft[]>([]);
   readonly weaknessDrafts = signal<WeaknessDraft[]>([]);
+
+  // --- Custom moves, staged (architecture.md §29.2; Phase 5a) ---
+  //
+  // The fifth sibling draft list. `signal<T[]>`, not a `FormArray`, per the standing rule and the
+  // four lists above. The card owns the *form*; this page owns only the list and the write.
+
+  readonly customMoveDrafts = signal<CustomMoveDraft[]>([]);
+
+  /** Which staged row the card has open for editing. Bound two-way (L-D1). */
+  readonly editingCustomMoveKey = signal<string | null>(null);
+
+  /**
+   * The card's rows. Identical mapping to `monster-detail`'s, except the key is the client draft
+   * key rather than a server id — which is the entire difference between staged and immediate
+   * authoring as far as the card is concerned. It has no `mode` input and needs none (§13.4).
+   */
+  readonly customMoveRows = computed<CustomMoveRow[]>(() =>
+    this.customMoveDrafts().map((draft) => ({
+      key: draft.key,
+      name: draft.name,
+      description: draft.description,
+    }))
+  );
 
   /** Optional "attach to mystery" picker. Blank is the valid "create unattached" path. */
 
@@ -111,8 +155,43 @@ export class MonsterCreateComponent implements OnInit {
     private readonly monsterService: MonsterService,
     private readonly mysteryService: MysteryService,
     private readonly referenceDataService: ReferenceDataService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly customMoveService: CustomMoveService
   ) {}
+
+  /** The card, so a commit can return it to its add state. See `monster-detail`'s twin. */
+  @ViewChild(CustomMovesCardComponent) private readonly customMovesCard?: CustomMovesCardComponent;
+
+  /**
+   * Add or edit a staged move — purely local, no request. `key === null` is an add.
+   *
+   * **The staged counterpart of `monster-detail.commitCustomMove`**, and the contrast is the point:
+   * same card, same event, same payload; one turns it into a `POST`/`PUT`, this one into a
+   * `signal<T[]>` update. Nothing inside the card knows which.
+   */
+  commitCustomMoveDraft(commit: CustomMoveCommit): void {
+    const { key, name, description } = commit;
+
+    this.customMoveDrafts.update((drafts) =>
+      key === null
+        ? [...drafts, { key: createCustomMoveDraftKey(), name, description }]
+        : drafts.map((draft) => (draft.key === key ? { ...draft, name, description } : draft))
+    );
+
+    this.customMovesCard?.commitSucceeded();
+  }
+
+  /**
+   * Remove a staged move. A local splice and **no modal** — nothing is persisted yet, so there is
+   * nothing to confirm (§13.3). The trash glyph is still the trash: one component must not change
+   * its glyph by mode, and the trash already means "deferred removal" in the wizard roster.
+   */
+  removeCustomMoveDraft(row: CustomMoveRow): void {
+    this.customMoveDrafts.update((drafts) => drafts.filter((draft) => draft.key !== row.key));
+    if (this.editingCustomMoveKey() === row.key) {
+      this.editingCustomMoveKey.set(null);
+    }
+  }
 
   ngOnInit(): void {
     forkJoin({
@@ -366,6 +445,21 @@ export class MonsterCreateComponent implements OnInit {
           this.monsterService.createWeakness(monsterId, {
             name: weakness.name,
             description: weakness.description,
+          })
+        )
+      ),
+      // The fifth arm (§2.10 item 2, §29.2). One `POST /api/monsters/{id}/custom-moves` per staged
+      // move, through the same owner-checked endpoint a detail page uses — there is no second write
+      // path and no "trust me, I just created it" exemption (§2.10 item 4).
+      //
+      // `runBatch`'s empty short-circuit means a create with no staged moves fires **no** request at
+      // all, which is the positive half of R5's ledger assertion: for N staged moves, exactly N
+      // custom-move POSTs, and zero for an empty list.
+      customMoves: this.runBatch(
+        this.customMoveDrafts().map((move) =>
+          this.customMoveService.create('Monster', monsterId, {
+            name: move.name,
+            description: move.description,
           })
         )
       ),

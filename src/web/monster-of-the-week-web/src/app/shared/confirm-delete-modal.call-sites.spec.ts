@@ -189,11 +189,11 @@ function buttonLabels(element: HTMLElement): string[] {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The 13 call sites, transcribed from their templates
+// The 14 call sites, transcribed from their templates
 // ---------------------------------------------------------------------------------------------
 
 /**
- * The ten call sites whose rendering must not change. Each entry is the exact input set its template
+ * The eleven call sites whose rendering must not change. Each entry is the exact input set its template
  * passes; `null`-ish inputs are omitted so the component's own defaults apply, exactly as they do in
  * the real template.
  */
@@ -221,6 +221,13 @@ const untouched: ReadonlyArray<{ site: string; shape: HostShape; inputs: CallSit
   },
   // --- pass nothing but a name, so `message`'s own default carries the sentence ---------------
   { site: 'mysteries-list.html:42', shape: 'name-only', inputs: { itemName: 'The Quiet' } },
+  // mystery-detail.html — NEW in Phase 5e of domain-custom-moves, and **the only call site that
+  // whole plan adds**: the other four detail pages already mounted a modal, so their custom-move
+  // delete reused it. This page had none, because until 5e its only control was a link to the
+  // wizard. It passes `visible` and `itemName` and nothing else — no `message`, so the component's
+  // own permanence sentence applies, and no `footnote`, since only the image flow sets one and
+  // mystery has no images. The least demanding of all nineteen.
+  { site: 'mystery-detail.html (custom-move delete)', shape: 'name-only', inputs: { itemName: 'Reach Through' } },
   // monster-detail.html:274 — still here, and still byte-identical, because its `[footnote]` (new
   // in Phase 6a) is only populated by the image-delete flow. An attack/power/armor/weakness delete
   // passes no footnote, so `?? ''` supplies the component's own default and nothing renders.
@@ -303,6 +310,8 @@ describe('ConfirmDeleteModalComponent · the shipped call sites', () => {
     'monster-detail.html': 1,
     'monsters-list.html': 1,
     'mysteries-list.html': 1,
+    // NEW in Phase 5e of domain-custom-moves: the page's first modal, and the plan's only one.
+    'mystery-detail.html': 1,
     // The wizard's three, derived in the phase-5b spec.
     'mystery-create-monster-phase.html': 2,
     'mystery-create-locations-phase.html': 1,
@@ -317,11 +326,27 @@ describe('ConfirmDeleteModalComponent · the shipped call sites', () => {
     'mystery-create-bystanders-phase.html': perTemplate['mystery-create-bystanders-phase.html'],
   };
 
-  it('there are 18 of them, in 16 templates — and the wizard now carries four, not one', () => {
-    // 16-in-14 until Phase 6c and 6d, which each added a detail page's first modal (its image-delete
-    // confirmation). Monster's and Minion's image flows reused modals that were already counted.
-    expect(Object.keys(perTemplate)).toHaveLength(16);
-    expect(Object.values(perTemplate).reduce((a, b) => a + b, 0)).toBe(18);
+  it('there are 19 of them, in 17 templates — and the wizard carries four', () => {
+    // 16-in-14 until resource-images Phase 6c and 6d, which each added a detail page's first modal
+    // (its image-delete confirmation); Monster's and Minion's image flows reused modals already
+    // counted. Then 18-in-16, and 19-in-17 as of domain-custom-moves Phase 5e, which gave
+    // `mystery-detail` its first and is the only call site that whole plan adds.
+    //
+    // **These two assertions still do not self-check, and 5e proved it by control.** They compare
+    // the literal above against itself — the rot §8.8 diagnoses — and the fix recorded there ("the
+    // derived half now lives in `mystery-create-phase5b-monster-phase.spec.ts`") only ever covered
+    // the *wizard* rows, because that is where a rendering harness existed. Measured: adding the
+    // modal to `mystery-detail.html` left the whole suite green until this literal was edited by
+    // hand, and deleting it again still leaves this file green.
+    //
+    // The non-wizard rows are not *un*guarded — they are guarded per page rather than here. Each of
+    // the five detail pages asserts `app-confirm-delete-modal` appears exactly once in its own
+    // `*.custom-moves.spec.ts`, derived from rendered DOM. That catches "this page grew a second
+    // element"; it cannot catch "a new page appeared with one", which is the residual gap.
+    // Centralising it needs a provider set for five pages — the parity spec's shape, not this
+    // file's — so it is tracked as a follow-up (§29.7) rather than bolted on here.
+    expect(Object.keys(perTemplate)).toHaveLength(17);
+    expect(Object.values(perTemplate).reduce((a, b) => a + b, 0)).toBe(19);
 
     // The half that is a real claim rather than arithmetic: the wizard's share. Phase 4 gave
     // Locations and Bystanders one each and 5b gave the monster phase a second, and the census
@@ -329,7 +354,7 @@ describe('ConfirmDeleteModalComponent · the shipped call sites', () => {
     expect(Object.values(wizardCensus).reduce((a, b) => a + b, 0)).toBe(4);
   });
 
-  describe('the ten that must render byte-identically', () => {
+  describe('the eleven that must render byte-identically', () => {
     for (const { site, shape, inputs } of untouched) {
       it(`${site}`, async () => {
         const element = await render(inputs, shape);

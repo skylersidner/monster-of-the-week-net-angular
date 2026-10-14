@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
@@ -8,19 +8,38 @@ import { MysteryService } from '../../../../core/mystery';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { BystanderFormComponent, BystanderFormSubmit } from '../../shared/bystander-form/bystander-form';
+import {
+  CustomMoveCommit,
+  CustomMoveRow,
+  CustomMovesCardComponent,
+} from '../../../../shared/custom-moves-card.component';
+import { CustomMoveService, createCustomMoveDraftKey } from '../../../../core/custom-moves';
+
+/** A staged custom move. Same shape as the other three create pages' — see monster-create.ts. */
+export interface CustomMoveDraft {
+  key: string;
+  name: string;
+  description: string | null;
+}
 
 /**
- * Bystander has no interactive sub-resources (see plan doc Resolved Decision 2) — this
- * page is a single form with exactly one create call on submit, followed by a membership
- * `PUT` per selected mystery. No draft arrays, no batched sub-resource submit.
+ * **This page gained its first sub-resource in Phase 5d of domain-custom-moves**, and the comment
+ * that used to sit here said the opposite — *"Bystander has no interactive sub-resources… No draft
+ * arrays, no batched sub-resource submit."* True until custom moves, false now.
  *
- * The bespoke external `mysteryControl` this page used to carry is gone: the membership
- * picker is now the last field of `BystanderFormComponent`'s own `FormGroup` (UX §9.1), so
- * the page no longer needs `ReactiveFormsModule`, a `FormBuilder`, or its own select.
+ * What it came to, confirming 5c's correction to §13.1 item 3: the draft list, the second
+ * `forkJoin` arm and the combined failure flag are new — **three items, not four, because the draft
+ * *surface* is free.** `app-custom-moves-card` owns its own form, so this page still needs no
+ * `ReactiveFormsModule` and no `FormBuilder`, which is the one thing the old comment said that
+ * remains true:
+ *
+ * The bespoke external `mysteryControl` this page used to carry is gone: the membership picker is
+ * the last field of `BystanderFormComponent`'s own `FormGroup` (UX §9.1), so the page does not need
+ * reactive-forms plumbing to render an authoring surface.
  */
 @Component({
   selector: 'app-bystander-create',
-  imports: [RouterLink, BystanderFormComponent],
+  imports: [RouterLink, BystanderFormComponent, CustomMovesCardComponent],
   templateUrl: './bystander-create.html',
 })
 export class BystanderCreateComponent implements OnInit {
@@ -38,8 +57,46 @@ export class BystanderCreateComponent implements OnInit {
     private readonly bystanderService: BystanderService,
     private readonly mysteryService: MysteryService,
     private readonly referenceDataService: ReferenceDataService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly customMoveService: CustomMoveService
   ) {}
+
+  /** The card, so a commit can return it to its add state. */
+  @ViewChild(CustomMovesCardComponent) private readonly customMovesCard?: CustomMovesCardComponent;
+
+  // --- Custom moves, staged (architecture.md §29.2, §29.6; Phase 5d — first-of-kind here) ---
+
+  readonly customMoveDrafts = signal<CustomMoveDraft[]>([]);
+  readonly editingCustomMoveKey = signal<string | null>(null);
+
+  readonly customMoveRows = computed<CustomMoveRow[]>(() =>
+    this.customMoveDrafts().map((draft) => ({
+      key: draft.key,
+      name: draft.name,
+      description: draft.description,
+    }))
+  );
+
+  /** Add or edit a staged move — local only, no request. `key === null` is an add. */
+  commitCustomMoveDraft(commit: CustomMoveCommit): void {
+    const { key, name, description } = commit;
+
+    this.customMoveDrafts.update((drafts) =>
+      key === null
+        ? [...drafts, { key: createCustomMoveDraftKey(), name, description }]
+        : drafts.map((draft) => (draft.key === key ? { ...draft, name, description } : draft))
+    );
+
+    this.customMovesCard?.commitSucceeded();
+  }
+
+  /** A local splice and no modal — nothing is persisted yet, so there is nothing to confirm. */
+  removeCustomMoveDraft(row: CustomMoveRow): void {
+    this.customMoveDrafts.update((drafts) => drafts.filter((draft) => draft.key !== row.key));
+    if (this.editingCustomMoveKey() === row.key) {
+      this.editingCustomMoveKey.set(null);
+    }
+  }
 
   ngOnInit(): void {
     forkJoin({
@@ -85,25 +142,41 @@ export class BystanderCreateComponent implements OnInit {
         switchMap((bystander) =>
           // The bystander now exists. A failure past this point must not look like a
           // total failure, so it is caught here rather than reaching the error handler.
-          this.runBatch(
-            submit.mysteryIds.map((mysteryId) => this.bystanderService.linkToMystery(mysteryId, bystander.id))
-          ).pipe(
-            map(() => ({ bystanderId: bystander.id, linksFailed: false })),
-            catchError(() => of({ bystanderId: bystander.id, linksFailed: true }))
+          // **Two arms now, not one** (Phase 5d, §29.2). Memberships were this page's only
+          // post-create batch; custom moves join them as a sibling, which is why the old
+          // `linksFailed` became `draftsFailed` — one combined flag, because `forkJoin` reports
+          // that *one* call
+          // failed and never which, so a flag per arm would be a distinction the data cannot
+          // support.
+          forkJoin({
+            links: this.runBatch(
+              submit.mysteryIds.map((mysteryId) => this.bystanderService.linkToMystery(mysteryId, bystander.id))
+            ),
+            customMoves: this.runBatch(
+              this.customMoveDrafts().map((move) =>
+                this.customMoveService.create('Bystander', bystander.id, {
+                  name: move.name,
+                  description: move.description,
+                })
+              )
+            ),
+          }).pipe(
+            map(() => ({ bystanderId: bystander.id, draftsFailed: false })),
+            catchError(() => of({ bystanderId: bystander.id, draftsFailed: true }))
           )
         ),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
-        next: ({ bystanderId, linksFailed }) => {
+        next: ({ bystanderId, draftsFailed }) => {
           this.isSaving.set(false);
 
-          if (linksFailed) {
+          if (draftsFailed) {
             // `forkJoin` reports that one call failed, never that all of them did, so the
             // copy hedges. `NotificationKind` has no warning severity, so the caveat spends
             // `.error()` exactly as `monster-create` does.
             this.notificationService.error(
-              'Bystander created, but some of its mysteries may not have saved. Review them on the bystander page.'
+              'Bystander created, but some details may not have saved. Review them on the bystander page.'
             );
           } else {
             this.notificationService.success('Bystander created.');
@@ -112,7 +185,7 @@ export class BystanderCreateComponent implements OnInit {
           // On the partial branch the scoped route would assert a membership we no longer
           // know holds, so it is always the flat one (UX §9.5.1, state C6).
           void this.router.navigate(
-            linksFailed ? ['/bystanders', bystanderId] : this.detailLink(bystanderId, submit.mysteryIds)
+            draftsFailed ? ['/bystanders', bystanderId] : this.detailLink(bystanderId, submit.mysteryIds)
           );
         },
         error: () => {

@@ -26,6 +26,25 @@
     @if (store.mysteryPreview().overview) {
       <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Overview</span> {{ store.mysteryPreview().overview }}</p>
     }
+    <!--
+      The Powers block's label-plus-`<ul>` idiom (`:117-129`), copied including its description
+      sub-line. The dossier is the wizard's running account of what has been authored, so a
+      collection missing from it reads to the user as a collection that did not save (14-R10) —
+      which is why this is not optional polish.
+    -->
+    @if (store.mysteryPreview().customMoves.length > 0) {
+      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Custom Moves</span></p>
+      <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5" data-dossier-mystery-custom-moves>
+        @for (move of store.mysteryPreview().customMoves; track move.localKey) {
+          <li>
+            <span>{{ move.name }}</span>
+            @if (move.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+            }
+          </li>
+        }
+      </ul>
+    }
   </section>
 }
 
@@ -76,8 +95,8 @@
           }
           <small class="text-muted block mt-1">
             Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
-            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Minions:
-            {{ minionCountFor(draft.localKey) }}
+            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Moves:
+            {{ draft.customMoves.length }} · Minions: {{ minionCountFor(draft.localKey) }}
           </small>
         </div>
       }
@@ -156,6 +175,19 @@
         }
       </ul>
     }
+    @if (store.monsterComposerPreview().customMoves.length > 0) {
+      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Custom Moves</span></p>
+      <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5" data-dossier-monster-custom-moves>
+        @for (move of store.monsterComposerPreview().customMoves; track move.localKey) {
+          <li>
+            <span>{{ move.name }}</span>
+            @if (move.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+            }
+          </li>
+        }
+      </ul>
+    }
   </div>
 </ng-template>
 
@@ -178,7 +210,8 @@
           }
           <small class="text-muted block mt-1">
             Attacks: {{ draft.attacks.length }} · Powers: {{ draft.powers.length }} · Armors:
-            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }}
+            {{ draft.armors.length }} · Weaknesses: {{ draft.weaknesses.length }} · Moves:
+            {{ draft.customMoves.length }}
           </small>
         </div>
       }
@@ -254,6 +287,19 @@
         }
       </ul>
     }
+    @if (store.minionPreview().customMoves.length > 0) {
+      <p class="text-primary text-[0.9rem] leading-[1.5] mb-2"><span class="text-muted text-[0.75rem] font-semibold tracking-[0.04em] mr-2 uppercase">Custom Moves</span></p>
+      <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5" data-dossier-minion-custom-moves>
+        @for (move of store.minionPreview().customMoves; track move.localKey) {
+          <li>
+            <span>{{ move.name }}</span>
+            @if (move.description) {
+              <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+            }
+          </li>
+        }
+      </ul>
+    }
   </div>
 </ng-template>
 
@@ -267,7 +313,8 @@
     </h3>
     <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
       @for (location of store.locations(); track location.localKey) {
-        <li>{{ location.name }}</li>
+        <!-- 14-R10: a collection missing from the dossier reads as a collection that did not save. -->
+        <li>{{ location.name }}@if (location.customMoves.length > 0) { · {{ location.customMoves.length }} {{ location.customMoves.length === 1 ? 'move' : 'moves' }} }</li>
       }
     </ul>
   </section>
@@ -283,7 +330,7 @@
     </h3>
     <ul class="text-primary text-sm leading-[1.6] mt-1 mb-0 pl-5">
       @for (bystander of store.bystanders(); track bystander.localKey) {
-        <li>{{ bystander.name }}</li>
+        <li>{{ bystander.name }}@if (bystander.customMoves.length > 0) { · {{ bystander.customMoves.length }} {{ bystander.customMoves.length === 1 ? 'move' : 'moves' }} }</li>
       }
     </ul>
   </section>

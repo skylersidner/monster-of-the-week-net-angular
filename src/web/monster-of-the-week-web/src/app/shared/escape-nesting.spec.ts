@@ -109,11 +109,18 @@ describe('Escape nesting — a CustomSelect inside a ConfirmDeleteModal', () => 
  * test is not either component's own Escape handling — both have that in their own specs — but what
  * happens when **two** `document:keydown` listeners are mounted at once.
  *
- * All four detail pages render the upload modal and `<app-confirm-delete-modal>` as siblings, so
- * this pairing is real markup rather than a contrived fixture. `ImageUploadModalComponent.onKeydown`
- * calls `stopPropagation()`; nothing outside this file proved that it stops the press from also
- * reaching the dialog, and a missing `stopPropagation()` would close both overlays on one press
- * exactly as the `CustomSelect`/dialog pair would.
+ * All four **image-bearing** detail pages render the upload modal and `<app-confirm-delete-modal>`
+ * as siblings, so this pairing is real markup rather than a contrived fixture.
+ * `ImageUploadModalComponent.onKeydown` calls `stopPropagation()`; nothing outside this file proved
+ * that it stops the press from also reaching the dialog, and a missing `stopPropagation()` would
+ * close both overlays on one press exactly as the `CustomSelect`/dialog pair would.
+ *
+ * **"Four" is now a qualifier rather than a total, and that is deliberate.** There are five detail
+ * pages as of domain-custom-moves Phase 5e, and `mystery-detail` is the fifth — but it mounts a
+ * confirm modal and **no** upload modal, because mystery images were cut from scope
+ * (`domain-custom-moves/architecture.md` §2.8). So the pairing this file tests does not exist there
+ * and **this file needs no fifth case**. Recorded because R12 predicted the opposite, and reading it
+ * that way would invite someone to add an upload modal to `mystery-detail` to satisfy a census.
  *
  * **Why the upload modal is not in `custom-select-escape-surfaces.spec.ts`** (asked during Phase 7's
  * close-out, recorded so the absence is a decision rather than an oversight): that file's inventory

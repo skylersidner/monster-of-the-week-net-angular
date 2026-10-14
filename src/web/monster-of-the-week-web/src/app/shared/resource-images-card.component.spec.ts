@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { ResourceOwnerType } from '../core/models';
+import { ImageOwnerType } from '../core/models';
 import { ResourceImagesCardComponent } from './resource-images-card.component';
 
 @Component({
@@ -18,7 +18,7 @@ import { ResourceImagesCardComponent } from './resource-images-card.component';
   `,
 })
 class HostComponent {
-  readonly ownerType = signal<ResourceOwnerType>('Bystander');
+  readonly ownerType = signal<ImageOwnerType>('Bystander');
   readonly count = signal(3);
   readonly disabled = signal(false);
   addCount = 0;

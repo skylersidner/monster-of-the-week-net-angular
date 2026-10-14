@@ -4,6 +4,7 @@ import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { LocationDetailResponse, MysteryListItemResponse, TypeRefResponse, UpsertLocationRequest } from '../../../../core/models';
 import { LocationService } from '../../../../core/location';
 import { MysteryService } from '../../../../core/mystery';
@@ -83,6 +84,23 @@ describe('LocationCreateComponent', () => {
     await TestBed.configureTestingModule({
       imports: [LocationCreateComponent],
       providers: [
+        /**
+         * **F-L9.** `CustomMoveService` is `providedIn: 'root'`, so without this the real one
+         * resolves and any stray call becomes a real HTTP request — refused today only because
+         * nothing is listening on :5225, and a write against dev the moment something is. This
+         * spec drives no custom-move traffic, so the stub says so by throwing.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: (() => {
+            // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+            // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+            const refuse = (method: string) => () => {
+              throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+            };
+            return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+          })(),
+        },
         provideRouter([]),
         {
           provide: LocationService,
@@ -320,11 +338,16 @@ describe('LocationCreateComponent', () => {
 
     component.onCreate(submitWith(['mystery-1', 'mystery-2']));
 
+    // **Converged on the shipped monster/minion string in Phase 5c of domain-custom-moves**
+    // (§13.6.1 Ruling 1, decision 13), and a correctness fix rather than a wording preference:
+    // the old "some of its mysteries" became false by omission once a custom-move POST could fail
+    // under the same combined flag, which would have sent a user whose *move* failed off to check
+    // their mysteries. The wording itself is unchanged from the string monster and minion already
+    // shipped — "details" is a category word, so it does not go stale with the next type.
     expect(notifications).toEqual([
       {
         kind: 'error',
-        message:
-          'Location created, but some of its mysteries may not have saved. Review them on the location page.',
+        message: 'Location created, but some details may not have saved. Review them on the location page.',
       },
     ]);
   });

@@ -13,8 +13,4 @@ public interface IBystanderService
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> LinkToMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken);
     Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken);
-    Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken);
-    Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(Guid id, UpsertCustomMoveRequest request, CancellationToken cancellationToken);
-    Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(Guid id, Guid moveId, UpsertCustomMoveRequest request, CancellationToken cancellationToken);
-    Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
 }

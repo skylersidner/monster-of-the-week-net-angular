@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
-import { ResourceImageResponse, ResourceOwnerType } from '../core/models';
+import { ResourceImageResponse, ImageOwnerType } from '../core/models';
 import { resourceImageFileUrl, resourceImageThumbnailUrl } from '../core/resource-images';
 import { IconComponent } from './icons/icon.component';
 import { ResourceThumbnailComponent } from './resource-thumbnail.component';
@@ -44,7 +44,7 @@ import { compareImages, derivePrimaryImageId } from './resource-image-rules';
   host: { class: 'block' },
 })
 export class ImageCarouselComponent {
-  @Input({ required: true }) ownerType!: ResourceOwnerType;
+  @Input({ required: true }) ownerType!: ImageOwnerType;
   @Input({ required: true }) ownerId!: string;
   /** For alt text: "{ownerName} image {n} of {count}" (design.md §8). */
   @Input() ownerName = '';

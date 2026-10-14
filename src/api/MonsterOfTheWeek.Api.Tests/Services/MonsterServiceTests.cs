@@ -10,6 +10,16 @@ namespace MonsterOfTheWeek.Api.Tests.Services;
 
 public sealed class MonsterServiceTests
 {
+    /// <summary>
+    /// The one construction every test in this file uses, extracted so that a new constructor
+    /// dependency on <see cref="MonsterService"/> is one edit here rather than eighteen below
+    /// (architecture.md §16.3 B1). The collaborators are deliberately fresh per call — these
+    /// tests assert against <c>repository</c>, never against the minion repository or the image
+    /// service, so sharing them would only create coupling between tests.
+    /// </summary>
+    private static MonsterService CreateService(FakeMonsterRepository repository) =>
+        new(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService(), new FakeCustomMoveService());
+
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenMonsterTypeDoesNotExist()
     {
@@ -18,7 +28,7 @@ public sealed class MonsterServiceTests
             MysteryExists = true,
             MonsterTypeExists = false
         };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
         var missingMonsterTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -36,7 +46,7 @@ public sealed class MonsterServiceTests
     public async Task CreateAsync_NoMysteryId_CreatesStandaloneMonster_WithEmptyMysteryIds()
     {
         var repository = new FakeMonsterRepository();
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var result = await service.CreateAsync(
             new UpsertMonsterRequest("Standalone Horror", "desc", 6, Guid.NewGuid(), Guid.NewGuid()),
@@ -55,7 +65,7 @@ public sealed class MonsterServiceTests
         {
             MonsterTypeExists = false
         };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
         var missingMonsterTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -75,7 +85,7 @@ public sealed class MonsterServiceTests
         {
             MonsterArchetypeExists = false
         };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
         var missingMonsterArchetypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -92,7 +102,7 @@ public sealed class MonsterServiceTests
     public async Task CreateAsync_NoMysteryId_MonsterIsRetrievableViaGetByIdAsync_AndAppearsInGetAllAsync()
     {
         var repository = new FakeMonsterRepository();
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var createResult = await service.CreateAsync(
             new UpsertMonsterRequest("Standalone Horror", "desc", 6, Guid.NewGuid(), Guid.NewGuid()),
@@ -114,7 +124,7 @@ public sealed class MonsterServiceTests
     public async Task LinkToMysteryAsync_AddsBridgeRow_WhenMysteryAndMonsterExist()
     {
         var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -127,7 +137,7 @@ public sealed class MonsterServiceTests
     public async Task LinkToMysteryAsync_IsIdempotent_WhenAlreadyLinked()
     {
         var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var monsterId = Guid.NewGuid();
 
@@ -142,7 +152,7 @@ public sealed class MonsterServiceTests
     public async Task LinkToMysteryAsync_ReturnsFalse_WhenMysteryDoesNotExist()
     {
         var repository = new FakeMonsterRepository { MysteryExists = false, MonsterExists = true };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -155,7 +165,7 @@ public sealed class MonsterServiceTests
     public async Task LinkToMysteryAsync_ReturnsFalse_WhenMonsterDoesNotExist()
     {
         var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = false };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -168,7 +178,7 @@ public sealed class MonsterServiceTests
     public async Task LinkToMysteryAsync_ThenUnlink_RoundTrips()
     {
         var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var monsterId = Guid.NewGuid();
 
@@ -182,7 +192,7 @@ public sealed class MonsterServiceTests
     public async Task UnlinkFromMysteryAsync_ReturnsFalse_WhenNotLinked()
     {
         var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var unlinked = await service.UnlinkFromMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -195,7 +205,7 @@ public sealed class MonsterServiceTests
     public async Task LinkToMysteryAsync_WritesAgain_AfterUnlink()
     {
         var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var monsterId = Guid.NewGuid();
 
@@ -219,7 +229,7 @@ public sealed class MonsterServiceTests
         var mysteryId = Guid.NewGuid();
         var monsterId = Guid.NewGuid();
         repository.SeedLink(mysteryId, monsterId);
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None);
 
@@ -235,7 +245,7 @@ public sealed class MonsterServiceTests
         var mysteryId = Guid.NewGuid();
         var monsterId = Guid.NewGuid();
         repository.SeedLink(mysteryId, monsterId);
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(mysteryId, monsterId, CancellationToken.None);
 
@@ -250,7 +260,7 @@ public sealed class MonsterServiceTests
     public async Task LinkToMysteryAsync_LinksOneMonsterToTwoMysteries()
     {
         var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
         var firstMysteryId = Guid.NewGuid();
         var secondMysteryId = Guid.NewGuid();
         var monsterId = Guid.NewGuid();
@@ -272,7 +282,7 @@ public sealed class MonsterServiceTests
     public async Task LinkToMysteryAsync_LinksTwoMonstersToOneMystery()
     {
         var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var firstMonsterId = Guid.NewGuid();
         var secondMonsterId = Guid.NewGuid();
@@ -290,7 +300,7 @@ public sealed class MonsterServiceTests
     public async Task LinkToMysteryAsync_WritesTheGivenIdsIntoTheBridgeRow()
     {
         var repository = new FakeMonsterRepository { MysteryExists = true, MonsterExists = true };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var monsterId = Guid.NewGuid();
 
@@ -311,7 +321,7 @@ public sealed class MonsterServiceTests
             WeaponTagExists = true,
             AttackWeaponTagAssigned = true
         };
-        var service = new MonsterService(repository, new MinionServiceTests.FakeMinionRepository(), new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var result = await service.AssignAttackWeaponTagAsync(
             Guid.NewGuid(),
@@ -331,6 +341,11 @@ public sealed class MonsterServiceTests
     // Name field plus all five sub-resource Name fields (Attack/Power/Armor/Weakness/CustomMove),
     // each of which live-verified the identical blank/whitespace-persists-as-"" and
     // oversized-name-500s gaps this fix closes.
+    //
+    // UpsertCustomMoveRequest stays in the table after domain-custom-moves Phase 3 even though
+    // monster_custom_moves is gone: the DTO is untouched by that rework (§2.1 budgets zero
+    // contract change) and this is now the only place asserting its annotations, since the one
+    // controller serving all five owners relies on exactly them for its model-state 400.
     public static IEnumerable<object[]> NameRequestTypes =>
     [
         [typeof(UpsertMonsterRequest)],
@@ -521,10 +536,6 @@ public sealed class MonsterServiceTests
         public Task<MonsterWeakness?> GetWeaknessAsync(Guid monsterId, Guid weaknessId, CancellationToken cancellationToken) => Task.FromResult<MonsterWeakness?>(null);
         public Task AddWeaknessAsync(MonsterWeakness value, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task<int> DeleteWeaknessAsync(Guid monsterId, Guid weaknessId, CancellationToken cancellationToken) => Task.FromResult(1);
-        public Task<IReadOnlyList<MonsterCustomMove>> GetCustomMovesAsync(Guid monsterId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<MonsterCustomMove>>([]);
-        public Task<MonsterCustomMove?> GetCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken) => Task.FromResult<MonsterCustomMove?>(null);
-        public Task AddCustomMoveAsync(MonsterCustomMove value, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task<int> DeleteCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken) => Task.FromResult(1);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {

@@ -18,8 +18,8 @@ public interface IMinionRepository
     /// at the DB level (phases.md Phase 3, resource-images).</summary>
     Task<IReadOnlyList<Guid>> GetIdsByMonsterIdAsync(Guid monsterId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken);
-    Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken);
-    Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
+    Task<Minion?> GetMinionDetailAsync(Guid id, CancellationToken cancellationToken);
+    Task<Minion?> GetMinionForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task AddAsync(Minion minion, CancellationToken cancellationToken);
     Task<int> DeleteMinionAsync(Guid id, CancellationToken cancellationToken);
 
@@ -45,11 +45,6 @@ public interface IMinionRepository
     Task<MinionWeakness?> GetWeaknessAsync(Guid minionId, Guid weaknessId, CancellationToken cancellationToken);
     Task AddWeaknessAsync(MinionWeakness weakness, CancellationToken cancellationToken);
     Task<int> DeleteWeaknessAsync(Guid minionId, Guid weaknessId, CancellationToken cancellationToken);
-
-    Task<IReadOnlyList<MinionCustomMove>> GetCustomMovesAsync(Guid minionId, CancellationToken cancellationToken);
-    Task<MinionCustomMove?> GetCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken);
-    Task AddCustomMoveAsync(MinionCustomMove move, CancellationToken cancellationToken);
-    Task<int> DeleteCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 

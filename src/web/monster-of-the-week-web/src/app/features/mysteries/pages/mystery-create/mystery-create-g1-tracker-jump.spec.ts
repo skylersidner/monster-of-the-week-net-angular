@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { BystanderService } from '../../../../core/bystander';
 import { LocationService } from '../../../../core/location';
 import { MinionService } from '../../../../core/minion';
@@ -82,6 +83,23 @@ describe('G1 — a confirmed Delete survives an edit-mode tracker jump', () => {
     await TestBed.configureTestingModule({
       imports: [MysteryCreateComponent],
       providers: [
+        /**
+         * **F-L9.** `CustomMoveService` is `providedIn: 'root'`, so without this the real one
+         * resolves and any stray call becomes a real HTTP request — refused today only because
+         * nothing is listening on :5225, and a write against dev the moment something is. This
+         * spec drives no custom-move traffic, so the stub says so by throwing.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: (() => {
+            // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+            // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+            const refuse = (method: string) => () => {
+              throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+            };
+            return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+          })(),
+        },
         // The route param is `id`, not `mysteryId` (`mystery-create.ts:66`) — get it wrong and the
         // wizard silently opens in *create* mode, where every Phase 4 assertion here is vacuous.
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: new Map([['id', 'mystery-1']]) } } },
@@ -126,6 +144,7 @@ describe('G1 — a confirmed Delete survives an edit-mode tracker jump', () => {
                 overview: '',
                 adventureType: { id: 'adventure-type-1', name: 'Haunting' },
                 countdown: null,
+                customMoves: [],
               }),
             getMysteries: () => of([{ id: 'mystery-1', name: 'The Hollow Choir' }]),
             update: () => of({ id: 'mystery-1' }),

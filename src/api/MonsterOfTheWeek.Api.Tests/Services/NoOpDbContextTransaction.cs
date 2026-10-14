@@ -4,9 +4,17 @@ namespace MonsterOfTheWeek.Api.Tests.Services;
 
 /// <summary>
 /// Stands in for the real transaction <c>IMonsterRepository.BeginTransactionAsync</c> (and its
-/// three siblings) returns, for the fake-repository unit tests that don't exercise a real
-/// database — see <c>ResourceImageOwnerDeleteCleanupTests</c> for the test that exercises a real
-/// one instead.
+/// <b>four</b> siblings — <c>IMysteryRepository</c> gained one in Phase 2 of
+/// domain-custom-moves, §3.5) returns, for the fake-repository unit tests that don't exercise a
+/// real database.
+///
+/// <para>
+/// For the tests that exercise a real one instead, see
+/// <see cref="MonsterImageCleanupTests"/> and <see cref="CustomMoves.OwnerDeleteCleanupTests"/>.
+/// <b>This pointer said <c>ResourceImageOwnerDeleteCleanupTests</c>, which has never existed</b>
+/// (architecture.md B10) — a cross-reference to a plausible-sounding file name is worse than
+/// none, because it reads as checked.
+/// </para>
 /// </summary>
 internal sealed class NoOpDbContextTransaction : IDbContextTransaction
 {

@@ -8,6 +8,7 @@ using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Tests.Controllers;
@@ -87,7 +88,20 @@ internal sealed class MinionReparentApiHarness : IAsyncDisposable
             setup.MinionPowers.Add(new MinionPower { Id = harness.PowerId, MinionId = harness.MinionId, Name = "Burrow" });
             setup.MinionArmors.Add(new MinionArmor { Id = harness.ArmorId, MinionId = harness.MinionId, Name = "Grave Dirt", HarmSoak = 1 });
             setup.MinionWeaknesses.Add(new MinionWeakness { Id = harness.WeaknessId, MinionId = harness.MinionId, Name = "Salt" });
-            setup.MinionCustomMoves.Add(new MinionCustomMove { Id = harness.CustomMoveId, MinionId = harness.MinionId, Name = "Drag Under" });
+
+            // A custom_moves row. This seeded a per-domain minion_custom_moves row until
+            // domain-custom-moves Phase 2 (architecture.md §5, B7 item 5); Phase 3 deleted that
+            // table and its entity. The assertion it serves got *stronger* for the switch: the
+            // move used to follow a reparented minion because the FK did not change, and now
+            // follows because OwnerId does not change — no FK enforces it, so the test is doing
+            // real work rather than restating a schema constraint.
+            setup.CustomMoves.Add(new CustomMove
+            {
+                Id = harness.CustomMoveId,
+                OwnerType = DomainOwnerType.Minion,
+                OwnerId = harness.MinionId,
+                Name = "Drag Under",
+            });
 
             await setup.SaveChangesAsync();
         }
@@ -100,7 +114,16 @@ internal sealed class MinionReparentApiHarness : IAsyncDisposable
         builder.Services.AddControllers().AddApplicationPart(typeof(MinionsController).Assembly);
         builder.Services.AddDbContext<MotwDbContext>(o => o.UseSqlite(harness.connectionString));
         builder.Services.AddScoped<IMinionRepository, MinionRepository>();
+        // NOT dead config, despite reading like it after U2 of resource-images/endpoint-unification.md.
+        // No controller in this harness takes IResourceImageService any more — the twenty-four image
+        // actions that did are gone. The four DOMAIN SERVICES still take it, for owner-delete cleanup.
+        // Removing this line does not fail the build; it fails the first request that deletes an owner.
         builder.Services.AddScoped<IResourceImageService, ResourceImageService>();
+        // Phase 1 of domain custom moves: registered here, not only in Program.cs, because this
+        // harness builds its own WebApplication and never sees Program.cs's container. Missing
+        // this registration doesn't fail the build; it fails the first request to any of the
+        // controllers whose service takes it (architecture.md B1, B-R1).
+        builder.Services.AddScoped<ICustomMoveService, CustomMoveService>();
         builder.Services.AddScoped<IMinionService, MinionService>();
 
         harness.app = builder.Build();

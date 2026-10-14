@@ -86,7 +86,6 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
         var query = dbContext.Locations
             .Include(x => x.LocationType)
             .Include(x => x.Mysteries)
-            .Include(x => x.CustomMoves)
             .Where(x => x.Id == id);
 
         if (asNoTracking)
@@ -102,25 +101,6 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
 
     public Task<bool> LocationExistsAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Locations.AnyAsync(x => x.Id == id, cancellationToken);
-
-    public async Task<IReadOnlyList<LocationCustomMove>> GetLocationCustomMovesAsync(Guid id, CancellationToken cancellationToken) =>
-        await dbContext.LocationCustomMoves
-            .AsNoTracking()
-            .Where(x => x.LocationId == id)
-            .OrderBy(x => x.Name)
-            .ToListAsync(cancellationToken);
-
-    public Task AddLocationCustomMoveAsync(LocationCustomMove move, CancellationToken cancellationToken)
-    {
-        dbContext.LocationCustomMoves.Add(move);
-        return Task.CompletedTask;
-    }
-
-    public Task<LocationCustomMove?> GetLocationCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.LocationCustomMoves.FirstOrDefaultAsync(x => x.Id == moveId && x.LocationId == id, cancellationToken);
-
-    public Task<int> DeleteLocationCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.LocationCustomMoves.Where(x => x.Id == moveId && x.LocationId == id).ExecuteDeleteAsync(cancellationToken);
 
     public Task<int> DeleteLocationAsync(Guid id, CancellationToken cancellationToken) =>
         dbContext.Locations.Where(x => x.Id == id).ExecuteDeleteAsync(cancellationToken);
@@ -140,7 +120,7 @@ public sealed class LocationRepository(MotwDbContext dbContext) : ILocationRepos
                 x.CreatedAt,
                 // The derived primary — see MonsterRepository.GetAllAsync for the full reasoning.
                 x.PrimaryImageId ?? dbContext.ResourceImages
-                    .Where(i => i.OwnerType == ResourceOwnerType.Location && i.OwnerId == x.Id)
+                    .Where(i => i.OwnerType == DomainOwnerType.Location && i.OwnerId == x.Id)
                     .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
                     .Select(i => (Guid?)i.Id)
                     .FirstOrDefault()))

@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { Observable, defer, of, throwError } from 'rxjs';
 
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { BystanderService } from '../../../../core/bystander';
 import { LocationService } from '../../../../core/location';
 import { MinionService } from '../../../../core/minion';
@@ -120,6 +121,36 @@ describe('MysteryCreateStore · Phase 4 — attach, re-edit, removal', () => {
 
     TestBed.configureTestingModule({
       providers: [
+        /**
+         * **F-L9.** `CustomMoveService` is `providedIn: 'root'`, so without this the real one
+         * resolves and any stray call becomes a real HTTP request — refused today only because
+         * nothing is listening on :5225, and a write against dev the moment something is. This
+         * spec drives no custom-move traffic, so the stub says so by throwing.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: (() => {
+            // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+            // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+            const refuse = (method: string) => () => {
+              throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+            };
+            /**
+             * **`list` answers; the three writes still refuse** (5f-3b).
+             *
+             * F-L9's stub refused everything, and that is exactly how this file announced the new
+             * call: 26 tests failed naming `CustomMoveService.list()` the moment attach started
+             * fetching. Softening the whole stub would have thrown that away. Only the read is
+             * allowed, so this file still fails loudly if an attach ever starts *writing*.
+             *
+             * `of([])` is right **here** and would be wrong as the only fixture anywhere: an empty
+             * answer makes the baseline-versus-drafts distinction unobservable, which is §30.5's
+             * gate item 3. This file is about attach bookkeeping, not about moves; the non-empty
+             * fixture lives in `mystery-create-5f3b-attach-fetch.spec.ts`.
+             */
+            return { list: () => of([]), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+          })(),
+        },
         MysteryCreateStore,
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: NotificationService, useValue: { success: vi.fn() } },
@@ -531,7 +562,7 @@ describe('MysteryCreateStore · Phase 4 — attach, re-edit, removal', () => {
 
     store.removeLocationDraft(locationKeys()[0], 'detach');
     store.jumpToPhase(0);
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     expect(calls).toContain('location.unlink(mystery-1,loc-existing)');

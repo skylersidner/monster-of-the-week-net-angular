@@ -32,10 +32,6 @@ public interface IBystanderRepository
     Task<Bystander?> GetBystanderDetailAsync(Guid id, bool asNoTracking, CancellationToken cancellationToken);
     Task<Bystander?> GetBystanderForUpdateAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> BystanderExistsAsync(Guid id, CancellationToken cancellationToken);
-    Task<IReadOnlyList<BystanderCustomMove>> GetBystanderCustomMovesAsync(Guid id, CancellationToken cancellationToken);
-    Task AddBystanderCustomMoveAsync(BystanderCustomMove move, CancellationToken cancellationToken);
-    Task<BystanderCustomMove?> GetBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
-    Task<int> DeleteBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
     Task<int> DeleteBystanderAsync(Guid id, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 

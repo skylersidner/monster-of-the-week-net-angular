@@ -1,5 +1,5 @@
 import { Component, Input, computed, signal } from '@angular/core';
-import { ResourceOwnerType } from '../core/models';
+import { ImageOwnerType } from '../core/models';
 import { DomainIconComponent, DomainIconSize } from './domain-icon.component';
 
 /**
@@ -8,7 +8,7 @@ import { DomainIconComponent, DomainIconSize } from './domain-icon.component';
  * verbatim in the source. The `/40` modifier works because the badge colours are
  * `@theme`-generated, not `@utility`. Same domain-colour-map shape as `search-results.ts`.
  */
-const PLACEHOLDER_CLASSES: Readonly<Record<ResourceOwnerType, string>> = {
+const PLACEHOLDER_CLASSES: Readonly<Record<ImageOwnerType, string>> = {
   Monster: 'bg-badge-monster/40 text-on-badge-monster',
   Minion: 'bg-badge-minion/40 text-on-badge-minion',
   Bystander: 'bg-badge-bystander/40 text-on-badge-bystander',
@@ -80,7 +80,7 @@ const PLACEHOLDER_CLASSES: Readonly<Record<ResourceOwnerType, string>> = {
 })
 export class ResourceThumbnailComponent {
   /** Picks the placeholder's colour and icon. */
-  @Input({ required: true }) ownerType!: ResourceOwnerType;
+  @Input({ required: true }) ownerType!: ImageOwnerType;
 
   /** Read by `computed()`, so it is signal-backed (the `mystery-select` pattern). A plain field would freeze `showImage`. */
   @Input()

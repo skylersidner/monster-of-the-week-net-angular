@@ -34,48 +34,64 @@
           [busy]="imagesStore.isMutating()"
           (activeImageIdChange)="imagesStore.setActive($event)"
           (setPrimary)="imagesStore.setPrimary($event)"
-          (deleteRequested)="imagesStore.requestDelete($event)"
+          (deleteRequested)="requestDeleteImage($event)"
         />
       </app-resource-images-card>
     </div>
 
-    @if (isSaving()) {
-      <p class="text-primary font-semibold">Saving bystander...</p>
+    <!-- The message comes from the state now, so it is correct for a custom-move write too (L4):
+         this used to print a hard-coded "Saving bystander..." for whatever was in flight. -->
+    @if (activeMutation(); as message) {
+      <p class="text-primary font-semibold">{{ message }}</p>
     }
 
     <app-bystander-form
       [bystander]="bystander()"
       [bystanderTypes]="bystanderTypes()"
       [mysteries]="mysteries()"
-      [isSaving]="isSaving()"
+      [isSaving]="isMutating()"
       submitLabel="Save Bystander"
       (save)="save($event)"
     ></app-bystander-form>
 
-    <h3>Custom Moves</h3>
-    @if (bystander()!.customMoves.length === 0) {
-      <p>No custom moves.</p>
-    } @else {
-      <ul>
-        @for (move of bystander()!.customMoves; track move.id) {
-          <li>{{ move.name }}</li>
-        }
-      </ul>
-    }
+    <!--
+      **Replaces the read-only heading-and-list this page shipped with** (§13.2's "replace, don't
+      add beside"). Position unchanged — below the form, where this file's header comment already
+      said Custom Moves belongs as an owned sub-resource — so the placement assertion in
+      `bystander-detail.images.spec.ts` still holds: the card keeps an `<h3>Custom Moves</h3>` at
+      exactly that point.
+
+      The last of the five detail pages to get this, so after 5d the card is on every one of them.
+    -->
+    <div class="mt-6">
+      <app-custom-moves-card
+        ownerType="Bystander"
+        [rows]="customMoveRows()"
+        [(editingKey)]="editingCustomMoveKey"
+        [busy]="isMutating()"
+        (committed)="commitCustomMove($event)"
+        (removeRequested)="requestDeleteCustomMove($event)"
+      />
+    </div>
   }
 
   <!--
-    This page's first and only confirm-delete modal, and the only delete flow on it, so the store
-    holds the pending state rather than the page keeping a parallel `pendingDelete` — see the note
-    on `imagesStore`. `[footnote]` carries §6's three branches and is `''` for a non-primary image,
-    which the modal renders as nothing.
+    **One modal for every delete on this page, images included** — rebound in Phase 5d from
+    `imagesStore.pendingDelete()` to the page's own record, because custom moves are the second
+    delete flow this page's own standing note said would trigger the move (R13, decision 14). With
+    this, all four image-bearing pages own their pending record and the store's wrapper has no
+    production caller left anywhere.
+
+    `[footnote]` is populated only by the image flow; a custom-move delete leaves it undefined, so
+    `?? ''` supplies the modal's own default and nothing renders — which is why this call site's
+    rendered output is unchanged and the confirm-modal census needs no new entry.
   -->
   <app-confirm-delete-modal
-    [visible]="imagesStore.pendingDelete() !== null"
-    [itemName]="imagesStore.pendingDelete()?.image?.fileName ?? ''"
-    [footnote]="imagesStore.pendingDelete()?.footnote ?? ''"
-    (confirmed)="imagesStore.confirmDelete()"
-    (cancelled)="imagesStore.cancelDelete()"
+    [visible]="pendingDelete() !== null"
+    [itemName]="pendingDelete()?.label ?? ''"
+    [footnote]="pendingDelete()?.footnote ?? ''"
+    (confirmed)="onDeleteConfirmed()"
+    (cancelled)="onDeleteCancelled()"
   ></app-confirm-delete-modal>
 
   @if (bystander()) {

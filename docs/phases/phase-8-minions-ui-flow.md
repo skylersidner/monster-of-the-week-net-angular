@@ -214,7 +214,7 @@ src/web/.../features/minions/pages/minion-detail/
 - Reactive form: `name`, `description`, `harmCapacity`, `minionTypeId`
 - Signal-based loading and mutation state
 - Sub-resource panels — one each for: **Attacks** (with weapon tags), **Powers**, **Armors**, **Weaknesses**
-- Custom moves: render read-only list from `customMoves` in response; add a visible note that create/edit is not yet supported (no API endpoints). Do not add create/edit UI until API endpoints exist.
+- Custom moves: the shared `app-custom-moves-card`, with add, edit in place and remove. **Superseded, 2026-10-12** — this line used to say "render read-only; create/edit is not yet supported (no API endpoints); do not add create/edit UI until API endpoints exist." The premise was already false when it was written: the endpoints existed. `docs/domain-custom-moves/architecture.md` is the plan that shipped it, across all five domains and the wizard; its F3 scheduled this correction for Phase 6.
 - Back-link: "← Back to {MonsterName}" — requires knowing the parent monster. Source this from either the route state (if navigated from monster detail) or a `getById` call that returns the monsterId + resolves the name. Provide a fallback "← Back to Monsters" if parent context is unavailable.
 
 **Sub-resource panel pattern (identical to monster-detail):**

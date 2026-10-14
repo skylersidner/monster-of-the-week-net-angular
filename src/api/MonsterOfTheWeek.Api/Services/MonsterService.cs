@@ -1,6 +1,7 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
@@ -8,7 +9,8 @@ namespace MonsterOfTheWeek.Api.Services;
 public sealed class MonsterService(
     IMonsterRepository monsterRepository,
     IMinionRepository minionRepository,
-    IResourceImageService resourceImageService) : IMonsterService
+    IResourceImageService resourceImageService,
+    ICustomMoveService customMoveService) : IMonsterService
 {
     public async Task<IReadOnlyList<MonsterListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         await monsterRepository.GetAllAsync(cancellationToken);
@@ -93,10 +95,30 @@ public sealed class MonsterService(
         return ServiceResult<MonsterDetailResponse>.Success(detail!);
     }
 
+    /// <summary>
+    /// <b>The custom moves come from a second query now</b>
+    /// (domain-custom-moves/architecture.md §3.4, B3). Create and Update both funnel their
+    /// response through here, so this extra round trip lands on sixteen responses across the four
+    /// domains, not five detail loads — and on a create the answer is provably empty. Not split
+    /// into a detail-only variant: the duplication would cost more than one index seek returning
+    /// nothing, and §2.6's budget is honest about this rather than quiet about it.
+    /// <para>
+    /// Partly offset, which §2.6 does not claim: <c>GetMonsterDetailAsync</c> was a single query
+    /// with <b>six</b> collection <c>Include</c>s and no <c>AsSplitQuery</c>, so dropping one
+    /// strictly reduces the cartesian row count. +1 round trip, −1 collection join.
+    /// </para>
+    /// </summary>
     public async Task<MonsterDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var monster = await monsterRepository.GetMonsterDetailAsync(id, cancellationToken);
-        return monster is null ? null : ToDetailResponse(monster);
+        if (monster is null)
+        {
+            return null;
+        }
+
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            DomainOwnerType.Monster, id, cancellationToken);
+        return ToDetailResponse(monster, customMoves);
     }
 
     public async Task<ServiceResult<MonsterDetailResponse>> UpdateAsync(
@@ -166,7 +188,8 @@ public sealed class MonsterService(
         await monsterRepository.UnlinkMonsterFromMysteryAsync(mysteryId, id, cancellationToken) > 0;
 
     /// <summary>
-    /// Deletes the Monster and, in the same transaction, every image it or its Minions own.
+    /// Deletes the Monster and, in the same transaction, every image and custom move it or its
+    /// Minions own.
     ///
     /// <para>
     /// <b>The first explicit transaction in this codebase</b> (phases.md Phase 3, resource-images;
@@ -188,10 +211,17 @@ public sealed class MonsterService(
 
         var minionIds = await minionRepository.GetIdsByMonsterIdAsync(id, cancellationToken);
 
-        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Monster, id, cancellationToken);
+        await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Monster, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Monster, id, cancellationToken);
         foreach (var minionId in minionIds)
         {
-            await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Minion, minionId, cancellationToken);
+            // Both owned sub-resource families, in one loop over the ids rather than two loops
+            // over the same ids — so this reads as "clean up everything this minion owns"
+            // (domain-custom-moves/architecture.md §19). The custom-move half is the one the
+            // database cannot do for us either: `custom_moves` has no FK, so the minion cascade
+            // below would orphan these rows exactly as it would the images.
+            await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Minion, minionId, cancellationToken);
+            await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Minion, minionId, cancellationToken);
         }
 
         var deleted = await monsterRepository.DeleteMonsterAsync(id, cancellationToken) > 0;
@@ -461,52 +491,9 @@ public sealed class MonsterService(
     public async Task<bool> DeleteWeaknessAsync(Guid id, Guid weaknessId, CancellationToken cancellationToken) =>
         await monsterRepository.DeleteWeaknessAsync(id, weaknessId, cancellationToken) > 0;
 
-    public async Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken)
-    {
-        if (!await monsterRepository.MonsterExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<IReadOnlyList<CustomMoveResponse>>.NotFound($"Monster {id} was not found.");
-        }
-
-        var values = await monsterRepository.GetCustomMovesAsync(id, cancellationToken);
-        return ServiceResult<IReadOnlyList<CustomMoveResponse>>.Success(values.Select(x => x.ToResponse()).ToList());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(Guid id, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
-    {
-        if (!await monsterRepository.MonsterExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Monster {id} was not found.");
-        }
-
-        var value = new MonsterCustomMove { MonsterId = id, Name = request.Name.Trim(), Description = request.Description?.Trim() };
-        await monsterRepository.AddCustomMoveAsync(value, cancellationToken);
-        await monsterRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(value.ToResponse());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(
-        Guid id,
-        Guid moveId,
-        UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        var value = await monsterRepository.GetCustomMoveAsync(id, moveId, cancellationToken);
-        if (value is null)
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Custom move {moveId} was not found.");
-        }
-
-        value.Name = request.Name.Trim();
-        value.Description = request.Description?.Trim();
-        await monsterRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(value.ToResponse());
-    }
-
-    public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        await monsterRepository.DeleteCustomMoveAsync(id, moveId, cancellationToken) > 0;
-
-    private static MonsterDetailResponse ToDetailResponse(Monster monster) =>
+    private static MonsterDetailResponse ToDetailResponse(
+        Monster monster,
+        IReadOnlyList<CustomMoveResponse> customMoves) =>
         new(
             monster.Id,
             monster.Mysteries.Select(mm => mm.MysteryId).ToList(),
@@ -520,5 +507,5 @@ public sealed class MonsterService(
             monster.Powers.Select(x => x.ToResponse()).ToList(),
             monster.Armors.Select(x => x.ToResponse()).ToList(),
             monster.Weaknesses.Select(x => x.ToResponse()).ToList(),
-            monster.CustomMoves.Select(x => x.ToResponse()).ToList());
+            customMoves);
 }

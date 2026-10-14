@@ -6,10 +6,13 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, startWith, switchMap, tap, throwError } from 'rxjs';
 
 import { BystanderService } from '../../../../core/bystander';
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { LocationService } from '../../../../core/location';
 import {
   AdventureTypeResponse,
   BystanderListItemResponse,
+  DomainOwnerType,
+  CustomMoveResponse,
   LocationListItemResponse,
   MonsterListItemResponse,
   MysteryListItemResponse,
@@ -25,6 +28,7 @@ import {
   MonsterWeaknessResponse,
   TypeRefResponse,
   UpsertBystanderRequest,
+  UpsertCustomMoveRequest,
   UpsertMinionArmorRequest,
   UpsertMinionAttackRequest,
   UpsertMinionPowerRequest,
@@ -88,6 +92,23 @@ export interface WeaknessDraft extends SubResourceIdentity {
   description: string;
 }
 
+/**
+ * A custom move staged in the wizard.
+ *
+ * **It extends `SubResourceIdentity` and is deliberately *not* `CustomMoveRow`** (§35.5): the
+ * card's row type collapses identity into one opaque `key`, which is the right simplification for
+ * a surface that writes immediately, and the wrong one here — the diff needs `id` to decide
+ * create-versus-update and `localKey` to keep a clean row stable across the phase transition where
+ * the id arrives. Two view models of one wire type; neither derives from the other.
+ *
+ * Structurally identical to `PowerDraft`, which is why `addNamedDraft` serves both. Named
+ * separately because they are different collections, not because they differ in shape.
+ */
+export interface CustomMoveDraft extends SubResourceIdentity {
+  name: string;
+  description: string;
+}
+
 export interface ArmorDraft extends SubResourceIdentity {
   name: string;
   description: string;
@@ -104,6 +125,23 @@ export interface LocationDraft {
   name: string;
   description: string;
   locationTypeId: string;
+  customMoves: CustomMoveDraft[];
+  existingCustomMoves: CustomMoveResponse[];
+  /**
+   * **Whether `customMoves` is the whole truth for this location** — the interim marker 5f-3a
+   * needs and 5f-3b deletes.
+   *
+   * `true` for a location authored in this session: the wizard made every move it has, so the
+   * panel is authoritative. `false` for one that arrived by **attach** or by **edit-mode
+   * hydration**, because both build the draft from a *list* response and `CustomMoves` is only on
+   * the detail one. Such a location may have moves on the server that the wizard has never seen.
+   *
+   * It is not cosmetic. §35.1 makes it a condition of splitting 5f-3 at all: the interim state is
+   * acceptable *because* it is display-incomplete and non-destructive, and that is only true if
+   * the panel declines to claim completeness it does not have. The diff is unaffected either way —
+   * an empty baseline claims nothing, so nothing is deleted (pinned by `5f3a-G1`).
+   */
+  customMovesLoaded: boolean;
   /**
    * The mysteries this entity belonged to when it was hydrated or attached. Read only by the
    * removal modal, to name the *other* mysteries a Delete would take it out of (§7.2). A page-load
@@ -120,6 +158,23 @@ export interface BystanderDraft {
   name: string;
   description: string;
   bystanderTypeId: string;
+  customMoves: CustomMoveDraft[];
+  existingCustomMoves: CustomMoveResponse[];
+  /**
+   * **Whether `customMoves` is the whole truth for this bystander** — the interim marker 5f-3a
+   * needs and 5f-3b deletes.
+   *
+   * `true` for a bystander authored in this session: the wizard made every move it has, so the
+   * panel is authoritative. `false` for one that arrived by **attach** or by **edit-mode
+   * hydration**, because both build the draft from a *list* response and `CustomMoves` is only on
+   * the detail one. Such a bystander may have moves on the server that the wizard has never seen.
+   *
+   * It is not cosmetic. §35.1 makes it a condition of splitting 5f-3 at all: the interim state is
+   * acceptable *because* it is display-incomplete and non-destructive, and that is only true if
+   * the panel declines to claim completeness it does not have. The diff is unaffected either way —
+   * an empty baseline claims nothing, so nothing is deleted (pinned by `5f3a-G1`).
+   */
+  customMovesLoaded: boolean;
   /** See `LocationDraft.mysteryIds`. */
   mysteryIds: string[];
 }
@@ -173,6 +228,8 @@ const COMPOSER_BLOCKED_MESSAGE = "Finish or clear the minion you're editing befo
 const MONSTER_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the monster you're editing before continuing.";
 const LOCATION_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the location you're editing before continuing.";
 const BYSTANDER_COMPOSER_BLOCKED_MESSAGE = "Finish or clear the bystander you're editing before continuing.";
+/** Step `0-4`'s add form. "Adding" rather than "editing" because that panel has no row edit (§13.5.3). */
+const CUSTOM_MOVE_BLOCKED_MESSAGE = "Finish or clear the custom move you're adding before continuing.";
 
 /**
  * Monotonic within a session, so a key is never reused even after the roster is cleared and
@@ -208,11 +265,13 @@ export interface MonsterDraft {
   powers: PowerDraft[];
   weaknesses: WeaknessDraft[];
   armors: ArmorDraft[];
+  customMoves: CustomMoveDraft[];
   /** Per-draft sub-resource baseline. Responses, not ids — see `MinionDraft.existingAttacks`. */
   existingAttacks: MonsterAttackResponse[];
   existingPowers: MonsterPowerResponse[];
   existingWeaknesses: MonsterWeaknessResponse[];
   existingArmors: MonsterArmorResponse[];
+  existingCustomMoves: CustomMoveResponse[];
   /**
    * **The persisted minions of *this* monster** (J1, §7.7i) — replacing the store-level flat
    * `existingMinionIds` the wizard carried until 5b.
@@ -284,6 +343,7 @@ export interface MinionDraft {
   powers: PowerDraft[];
   weaknesses: WeaknessDraft[];
   armors: ArmorDraft[];
+  customMoves: CustomMoveDraft[];
   /**
    * **The baseline: the server responses themselves, not a list of ids** (§5.4).
    *
@@ -299,6 +359,7 @@ export interface MinionDraft {
   existingPowers: MinionPowerResponse[];
   existingWeaknesses: MinionWeaknessResponse[];
   existingArmors: MinionArmorResponse[];
+  existingCustomMoves: CustomMoveResponse[];
 }
 
 interface SavedThreatCollections {
@@ -306,6 +367,7 @@ interface SavedThreatCollections {
   powers: MonsterPowerResponse[];
   weaknesses: MonsterWeaknessResponse[];
   armors: MonsterArmorResponse[];
+  customMoves: CustomMoveResponse[];
 }
 
 /** One roster row's save result, carried back to `writeBackMonsterDrafts` by draft index. */
@@ -328,6 +390,23 @@ interface SavedMinionCollections {
   powers: MinionPowerResponse[];
   weaknesses: MinionWeaknessResponse[];
   armors: MinionArmorResponse[];
+  customMoves: CustomMoveResponse[];
+}
+
+/**
+ * A locations/bystanders roster row's save result, carried back to its writeback by draft index.
+ *
+ * The flat twin of `SavedMonster`, and 5f-3a is where it stopped being "one id and no
+ * collections": the custom-move baseline the diff returned travels back with the id, from the same
+ * result, in the same step. That pairing is the whole reason phases 2 and 3 were given the per-row
+ * shape in 5f-0 — refresh the id without the baseline and every later submit deletes and recreates
+ * the lot (H2). One type for both rosters, because the operation is identical and the draft type it
+ * is written onto is the only thing that differs.
+ */
+interface SavedFlatRow {
+  index: number;
+  id: string;
+  customMoves: CustomMoveResponse[];
 }
 
 interface PhaseDefinition {
@@ -380,13 +459,18 @@ export class MysteryCreateStore {
   private readonly minionService = inject(MinionService);
   private readonly locationService = inject(LocationService);
   private readonly bystanderService = inject(BystanderService);
+  private readonly customMoveService = inject(CustomMoveService);
   private readonly referenceDataService = inject(ReferenceDataService);
   private readonly notificationService = inject(NotificationService);
 
   private initialized = false;
 
   readonly phases: readonly PhaseDefinition[] = [
-    { index: 0, name: 'Mystery', icon: 'mystery', steps: 4, stepsArray: [0, 1, 2, 3] },
+    // Step 4 is the mystery's own custom moves (5f-1). A fifth *step*, not a phase: phase 0 is
+    // "the mystery's own fields" and a move is the mystery's own sub-resource, so it belongs here —
+    // and a new phase would renumber the tracker and imply a new kind of thing. Last in the phase,
+    // after Countdown, so the three prose steps stay adjacent.
+    { index: 0, name: 'Mystery', icon: 'mystery', steps: 5, stepsArray: [0, 1, 2, 3, 4] },
     { index: 1, name: 'Monsters', icon: 'monster', steps: 2, stepsArray: [0, 1] },
     { index: 2, name: 'Locations', icon: 'locations', steps: 1, stepsArray: [0] },
     { index: 3, name: 'Bystanders', icon: 'bystanders', steps: 1, stepsArray: [0] },
@@ -425,13 +509,28 @@ export class MysteryCreateStore {
   readonly adventureTypes = signal<AdventureTypeResponse[]>([]);
 
   readonly monsterAttacks = signal<AttackDraft[]>([]);
+  /**
+   * The mystery's own custom moves — the drafts, and the server's view of them.
+   *
+   * The pair travels together everywhere it is written (H2, and BUG 2's principle 5): hydration
+   * sets both from one response object, and the submit's writeback sets both from one diff result.
+   * No path can set an id without recording the baseline it came from.
+   */
+  readonly mysteryCustomMoves = signal<CustomMoveDraft[]>([]);
+  private readonly existingMysteryCustomMoves = signal<CustomMoveResponse[]>([]);
+
   readonly monsterPowers = signal<PowerDraft[]>([]);
   readonly monsterWeaknesses = signal<WeaknessDraft[]>([]);
   readonly monsterArmors = signal<ArmorDraft[]>([]);
+  readonly monsterCustomMoves = signal<CustomMoveDraft[]>([]);
   readonly minionAttacks = signal<AttackDraft[]>([]);
   readonly minionPowers = signal<PowerDraft[]>([]);
   readonly minionWeaknesses = signal<WeaknessDraft[]>([]);
   readonly minionArmors = signal<ArmorDraft[]>([]);
+  readonly minionCustomMoves = signal<CustomMoveDraft[]>([]);
+  readonly locationCustomMoves = signal<CustomMoveDraft[]>([]);
+  readonly bystanderCustomMoves = signal<CustomMoveDraft[]>([]);
+
   readonly locations = signal<LocationDraft[]>([]);
   readonly bystanders = signal<BystanderDraft[]>([]);
 
@@ -514,6 +613,34 @@ export class MysteryCreateStore {
   readonly monsterAttachError = signal<string | null>(null);
   /** `Next` is disabled while this is true (UX §17.3) — a deliberate pick must not silently evaporate. */
   readonly monsterAttachInFlight = computed(() => this.attachingMonsterName() !== null);
+
+  /**
+   * **The same three, per flat domain — new in 5f-3b, and the comment above is now out of date.**
+   *
+   * It says locations and bystanders "attach from data the list response already carries, so their
+   * pick is a pure client-side transform with no request". That was true until the list response
+   * stopped carrying everything: `CustomMoves` is on the *detail* DTO only, and 5f-3a shipped with
+   * a panel that had to admit it could not see them. 5f-3b fetches exactly that one field with
+   * `CustomMoveService.list()`, which makes attach asynchronous here too — and asynchronous means
+   * it needs every piece of feedback the monster strip needed, for the same reasons.
+   *
+   * **Three signals rather than a boolean**, copied deliberately: the busy label names the row, the
+   * error is local to the control that failed (§17.2), and the in-flight flag is what disables
+   * `Next` — which is a correctness term, not polish, because `next()` reads the roster
+   * **synchronously** and would submit one that the pick had not joined yet.
+   */
+  readonly attachingLocationName = signal<string | null>(null);
+  readonly locationAttachError = signal<string | null>(null);
+  readonly locationAttachInFlight = computed(() => this.attachingLocationName() !== null);
+
+  readonly attachingBystanderName = signal<string | null>(null);
+  readonly bystanderAttachError = signal<string | null>(null);
+  readonly bystanderAttachInFlight = computed(() => this.attachingBystanderName() !== null);
+
+  /** Any attach in flight, in any phase — the single term `Next` and `Finish` read (§30.5). */
+  readonly anyAttachInFlight = computed(
+    () => this.monsterAttachInFlight() || this.locationAttachInFlight() || this.bystanderAttachInFlight(),
+  );
 
   /** Everything in the catalogue that is not already on the roster (A2). */
   readonly attachableLocations = computed(() => {
@@ -620,6 +747,11 @@ export class MysteryCreateStore {
     weaponTagIds: this.fb.nonNullable.control<string[]>([]),
   });
 
+  readonly mysteryCustomMoveForm: NamedDraftFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+  });
+
   readonly monsterPowerForm: NamedDraftFormGroup = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
@@ -647,6 +779,16 @@ export class MysteryCreateStore {
     description: this.fb.control(''),
   });
 
+  readonly monsterCustomMoveForm: NamedDraftFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+  });
+
+  readonly minionCustomMoveForm: NamedDraftFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+  });
+
   readonly monsterArmorForm: ArmorFormGroup = this.fb.group({
     name: this.fb.nonNullable.control('', [Validators.required]),
     description: this.fb.control(''),
@@ -661,6 +803,16 @@ export class MysteryCreateStore {
     harmSoak: this.fb.nonNullable.control(0, [Validators.required, Validators.min(0)]),
     isSpecial: this.fb.nonNullable.control(false),
     specialDescription: this.fb.control(''),
+  });
+
+  readonly locationCustomMoveForm: NamedDraftFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
+  });
+
+  readonly bystanderCustomMoveForm: NamedDraftFormGroup = this.fb.group({
+    name: this.fb.nonNullable.control('', [Validators.required]),
+    description: this.fb.control(''),
   });
 
   readonly addLocationForm: LocationFormGroup = this.fb.group({
@@ -696,12 +848,35 @@ export class MysteryCreateStore {
    * reason `minionComposerDirty` is: a composer holding a name and no type must block `Next` rather than
    * be silently discarded. A type picked with no name counts too.
    */
+  /**
+   * **Does the open composer know the whole of this row's custom moves?**
+   *
+   * `true` while authoring a new draft — there is nothing on the server to be missing. `false`
+   * while editing a row that arrived by attach or by edit-mode hydration, because neither fetched
+   * them. The panel reads this and says so; §35.1 makes that a condition of shipping 5f-3a without
+   * 5f-3b, and it is what the falsifier asks: *can the panel be rendered honestly without the
+   * fetch?* It can, because the draft already records which of the two it is.
+   */
+  readonly locationComposerMovesLoaded = computed(() => {
+    const key = this.editingLocationKey();
+    return key === null || (this.locations().find((item) => item.localKey === key)?.customMovesLoaded ?? true);
+  });
+
+  readonly bystanderComposerMovesLoaded = computed(() => {
+    const key = this.editingBystanderKey();
+    return key === null || (this.bystanders().find((item) => item.localKey === key)?.customMovesLoaded ?? true);
+  });
+
   readonly locationComposerDirty = computed(() => {
     const value = this.locationValue();
     return (
       (value?.name ?? '').trim().length > 0 ||
       (value?.description ?? '').trim().length > 0 ||
-      (value?.locationTypeId ?? '').length > 0
+      (value?.locationTypeId ?? '').length > 0 ||
+      // **The correctness half** (§26.2 L6 site 5, one domain over). `attachLocation` collapses an
+      // *untouched* composer, and `next()`'s commit rule skips a closed one — so without this a
+      // composer holding only a custom move is silently discarded by an attach.
+      this.locationCustomMoves().length > 0
     );
   });
   readonly bystanderComposerDirty = computed(() => {
@@ -709,7 +884,8 @@ export class MysteryCreateStore {
     return (
       (value?.name ?? '').trim().length > 0 ||
       (value?.description ?? '').trim().length > 0 ||
-      (value?.bystanderTypeId ?? '').length > 0
+      (value?.bystanderTypeId ?? '').length > 0 ||
+      this.bystanderCustomMoves().length > 0
     );
   });
 
@@ -742,6 +918,10 @@ export class MysteryCreateStore {
     hook: this.hookValue()?.hook ?? '',
     overview: this.overviewValue()?.overview ?? '',
     countdown: this.countdownValue(),
+    // The dossier's source for the Mystery block. A collection missing from the dossier reads to
+    // the user as a collection that did not save (14-R10), so it travels through the preview rather
+    // than being read straight off the signal in the template.
+    customMoves: this.mysteryCustomMoves(),
   }));
 
   readonly phaseStepComplete = computed<boolean[][]>(() => {
@@ -757,6 +937,9 @@ export class MysteryCreateStore {
         (preview.hook ?? '').trim().length > 0,
         (preview.overview ?? '').trim().length > 0,
         hasAnyCountdown,
+        // "Has content", uniformly with the other eight dots (J3). Not "visited", not "satisfied" —
+        // the step is optional and an empty collection still advances.
+        this.mysteryCustomMoves().length > 0,
       ],
       // Phase 1 — Monsters (monster, minion)
       [
@@ -802,6 +985,12 @@ export class MysteryCreateStore {
       powers: this.monsterPowers(),
       weaknesses: this.monsterWeaknesses(),
       armors: this.monsterArmors(),
+      // **The least visible of the five silent sites** (§30.7 flag 1). The dossier is the surface
+      // whose whole job is to report what was authored, so an omission here reads to the user as a
+      // collection that did not save (14-R10) — with no error, no empty state and nothing on the
+      // wire to notice. Pinned by a fixture holding *only* a custom move; anything else in the
+      // composer makes the entry render either way.
+      customMoves: this.monsterCustomMoves(),
     };
   });
 
@@ -832,6 +1021,7 @@ export class MysteryCreateStore {
       powers: this.minionPowers(),
       weaknesses: this.minionWeaknesses(),
       armors: this.minionArmors(),
+      customMoves: this.minionCustomMoves(),
     };
   });
 
@@ -861,7 +1051,8 @@ export class MysteryCreateStore {
       this.minionAttacks().length > 0 ||
       this.minionPowers().length > 0 ||
       this.minionWeaknesses().length > 0 ||
-      this.minionArmors().length > 0
+      this.minionArmors().length > 0 ||
+      this.minionCustomMoves().length > 0
     );
   });
 
@@ -918,7 +1109,13 @@ export class MysteryCreateStore {
       this.monsterAttacks().length > 0 ||
       this.monsterPowers().length > 0 ||
       this.monsterWeaknesses().length > 0 ||
-      this.monsterArmors().length > 0
+      this.monsterArmors().length > 0 ||
+      // **A correctness item, not a checklist row** (§26.2 L6, site 5). This computed is read by
+      // `collapseComposerIfUntouched` via `attachMonster` and by `next()`'s commit rules, so
+      // omitting the moves makes a composer holding *only* a custom move count as untouched — and
+      // attaching an existing monster then **silently discards it**. Same property
+      // `mystery-create-phase4-ledger.spec.ts:479` already protects for locations.
+      this.monsterCustomMoves().length > 0
     );
   });
 
@@ -944,6 +1141,7 @@ export class MysteryCreateStore {
       '0-1': 'How Do the Hunters Get Involved?',
       '0-2': "What's Really Happening?",
       '0-3': "What Happens If the Hunters Don't Intervene?",
+      '0-4': 'What Moves Does This Mystery Have?',
       '1-0': 'What Is the Threat?',
       '1-1': 'Who or What Serves the Monster?',
       '2-0': 'Where Does the Mystery Unfold?',
@@ -969,6 +1167,11 @@ export class MysteryCreateStore {
       // same shape `2-0` and `3-0` already carry, and giving zero a reason is what keeps it a nudge
       // rather than a warning under decision 4 (§16.2). This is the *only* place the nudge appears:
       // no confirmation on Finish, no band, no asterisk (`5b-O8`).
+      // Imperatives describe the panel; the closing sentence gives zero a reason, the way `1-0`
+      // and `1-1` do. Orienting rather than instructing (UX §16.1) — a Keeper who has never needed
+      // a custom move should read this and move on, not wonder what they have missed.
+      '0-4':
+        "Custom moves are rules that belong to this mystery itself—a roll the Keeper calls for, a special way the hunters can act here, a procedure the mystery imposes on everyone in it. Give each one a name and describe when it applies and what happens. Most mysteries don't need any—add one when the mystery itself can act.",
       '1-0':
         'This is your primary antagonist—the creature, entity, or force causing the mystery. Give it a name, describe what it is and how it manifests, and define its harm capacity. Choose a monster type, and list its attacks, powers, and weaknesses. Make it dangerous but defeatable. Most mysteries have one monster, though you can add several—or none, if the threat isn\'t a creature. A monster you attach brings its minions with it.',
       '1-1':
@@ -1168,6 +1371,20 @@ export class MysteryCreateStore {
             });
           }
 
+          // **Both halves from one response object, in one step** (H2, BUG 2 principle 5). The
+          // baseline cannot exist without the drafts it was built beside, so there is no window in
+          // which `applySubResourceDiff` could see a populated baseline against an empty draft list
+          // and delete the lot.
+          this.mysteryCustomMoves.set(
+            mystery.customMoves.map((move) => ({
+              id: move.id,
+              localKey: createDraftKey('move'),
+              name: move.name,
+              description: move.description ?? '',
+            })),
+          );
+          this.existingMysteryCustomMoves.set(mystery.customMoves);
+
           this.existingLocationIds.set(locations.map((l) => l.id));
           this.locations.set(
             locations.map((l) => ({
@@ -1176,6 +1393,11 @@ export class MysteryCreateStore {
               name: l.name,
               description: l.description ?? '',
               locationTypeId: l.locationTypeId,
+              // Hydration reads `getByMystery`, a **list** route, so it is in the same position
+              // as attach: no `customMoves` on the response and no claim to completeness.
+              customMoves: [],
+              existingCustomMoves: [],
+              customMovesLoaded: false,
               // Retained through hydration (§7.2) — the list response already carries it, and the
               // removal modal has no other source for "which other mysteries use this".
               mysteryIds: [...l.mysteryIds],
@@ -1190,6 +1412,9 @@ export class MysteryCreateStore {
               name: b.name,
               description: b.description ?? '',
               bystanderTypeId: b.bystanderTypeId,
+              customMoves: [],
+              existingCustomMoves: [],
+              customMovesLoaded: false,
               mysteryIds: [...b.mysteryIds],
             }))
           );
@@ -1288,6 +1513,12 @@ export class MysteryCreateStore {
       return;
     }
 
+    // Step `0-4`'s add form, same rule — see `commitMysteryCustomMoveIfValid` for why this panel
+    // commits on advance when its four neighbours inside the monster composer do not.
+    if (this.currentPhase() === 0 && this.currentStep() === 4 && !this.commitMysteryCustomMoveIfValid()) {
+      return;
+    }
+
     // The same rule for the other two rosters (§5.3, R4). Valid but uncommitted → commit silently,
     // then submit; started but invalid → block with that phase's own message and issue nothing.
     if (this.currentPhase() === 2 && !this.commitLocationComposerIfValid()) {
@@ -1346,6 +1577,67 @@ export class MysteryCreateStore {
     this.removeDraft(this.monsterAttacks, localKey);
   }
 
+  addLocationCustomMove(): void {
+    this.addNamedDraft(this.locationCustomMoves, this.locationCustomMoveForm, 'move');
+  }
+
+  removeLocationCustomMove(localKey: string): void {
+    this.removeDraft(this.locationCustomMoves, localKey);
+  }
+
+  addBystanderCustomMove(): void {
+    this.addNamedDraft(this.bystanderCustomMoves, this.bystanderCustomMoveForm, 'move');
+  }
+
+  removeBystanderCustomMove(localKey: string): void {
+    this.removeDraft(this.bystanderCustomMoves, localKey);
+  }
+
+  addMysteryCustomMove(): void {
+    this.addNamedDraft(this.mysteryCustomMoves, this.mysteryCustomMoveForm, 'move');
+  }
+
+  removeMysteryCustomMove(localKey: string): void {
+    this.removeDraft(this.mysteryCustomMoves, localKey);
+  }
+
+  /**
+   * **Commit-on-advance for step `0-4`'s add form** — the same three-way rule `next()` already
+   * applies to the four composers: empty → proceed, valid → commit and proceed, started but
+   * invalid → block and say so.
+   *
+   * This is an addition to §30.3's list and the reason needs stating, because the four *neighbour*
+   * panels (Attacks, Powers, Weaknesses, Armor) deliberately do **not** do this — type a power,
+   * press *Save Monster*, and it is discarded. The difference is where the commit point is. Those
+   * panels sit inside a composer whose own *Save Monster* button is the commit, two inches away.
+   * This panel **is** a whole step, so `Next` is the only commit point there is, and without this
+   * rule a typed-but-unadded move vanishes with no message — the thing §15.2 R5 refuses ("work
+   * outranks the tidiness rule"). So: a panel inside a composer discards on the composer's save; a
+   * panel that is itself a step commits on `Next`.
+   */
+  commitMysteryCustomMoveIfValid(): boolean {
+    // **Dirtiness is a question about the values, not about Angular's `dirty` flag** — the same
+    // answer `locationComposerDirty` (`:755`) and `minionComposerDirty` (`:913`) give, and for the
+    // same reason: `setValue` leaves a form `pristine`, so the flag reports "untouched" on a form
+    // that is holding text. A negative control had both commit-on-advance tests failing on exactly
+    // that before this was value-based.
+    const name = (this.mysteryCustomMoveForm.controls.name.value ?? '').trim();
+    const description = (this.mysteryCustomMoveForm.controls.description.value ?? '').trim();
+    if (name.length === 0 && description.length === 0) {
+      return true;
+    }
+
+    // Name is the only required field, so "started but invalid" is a description with no name.
+    if (this.mysteryCustomMoveForm.invalid) {
+      this.mysteryCustomMoveForm.markAllAsTouched();
+      this.submitError.set(CUSTOM_MOVE_BLOCKED_MESSAGE);
+      return false;
+    }
+
+    this.addMysteryCustomMove();
+    return true;
+  }
+
   addMonsterPower(): void {
     this.addNamedDraft(this.monsterPowers, this.monsterPowerForm, 'trait');
   }
@@ -1384,6 +1676,22 @@ export class MysteryCreateStore {
 
   removeMinionWeakness(localKey: string): void {
     this.removeDraft(this.minionWeaknesses, localKey);
+  }
+
+  addMonsterCustomMove(): void {
+    this.addNamedDraft(this.monsterCustomMoves, this.monsterCustomMoveForm, 'move');
+  }
+
+  removeMonsterCustomMove(localKey: string): void {
+    this.removeDraft(this.monsterCustomMoves, localKey);
+  }
+
+  addMinionCustomMove(): void {
+    this.addNamedDraft(this.minionCustomMoves, this.minionCustomMoveForm, 'move');
+  }
+
+  removeMinionCustomMove(localKey: string): void {
+    this.removeDraft(this.minionCustomMoves, localKey);
   }
 
   addMonsterArmor(): void {
@@ -1484,6 +1792,11 @@ export class MysteryCreateStore {
       name: this.addLocationForm.controls.name.value.trim(),
       description: this.addLocationForm.controls.description.value ?? '',
       locationTypeId: this.addLocationForm.controls.locationTypeId.value,
+      customMoves: [...this.locationCustomMoves()],
+      existingCustomMoves: existing?.existingCustomMoves ?? [],
+      // A draft the wizard is authoring knows its own moves. One loaded from a roster card keeps
+      // whatever answer that card already had — editing an attached location does not fetch.
+      customMovesLoaded: existing?.customMovesLoaded ?? true,
       mysteryIds: existing?.mysteryIds ?? [],
     };
 
@@ -1513,6 +1826,7 @@ export class MysteryCreateStore {
       description: draft.description,
       locationTypeId: draft.locationTypeId,
     });
+    this.locationCustomMoves.set([...draft.customMoves]);
     this.editingLocationKey.set(key);
     this.locationComposerOpen.set(true);
     return true;
@@ -1546,23 +1860,65 @@ export class MysteryCreateStore {
    */
   attachLocation(locationId: string): void {
     const item = this.catalogLocations().find((candidate) => candidate.id === locationId);
-    if (!item || this.locations().some((draft) => draft.id === locationId)) {
+    if (!item || this.locations().some((draft) => draft.id === locationId) || this.locationAttachInFlight()) {
       return;
     }
 
-    this.cancelPendingRemoval('locations', locationId);
-    this.locations.update((items) => [
-      ...items,
-      {
-        id: item.id,
-        localKey: createDraftKey('location'),
-        name: item.name,
-        description: item.description ?? '',
-        locationTypeId: item.locationTypeId,
-        mysteryIds: [...item.mysteryIds],
-      },
-    ]);
-    this.collapseComposerIfUntouched(this.locationComposerOpen, this.locationComposerDirty());
+    this.attachingLocationName.set(item.name);
+    this.locationAttachError.set(null);
+
+    /**
+     * **`list()` rather than `getById()`, and this is its first real caller** (§27.2, L-D3).
+     *
+     * The catalogue list item already carries every field `LocationDraft` needs — name,
+     * description, type, `mysteryIds` — and lacks exactly one: the custom moves. `list()` fetches
+     * that one field and nothing else, which leaves the draft-construction expression below
+     * untouched and keeps `mystery-create-phase4-ledger.spec.ts`'s **S2** staleness characterised
+     * rather than accidentally fixed — `getById()` would re-read the whole row and quietly change
+     * what S2 is about.
+     *
+     * The draft is built **only** on success. A half-attached location with an unknown move
+     * baseline is the H2 shape, and refusing the whole attach is what keeps it unreachable.
+     */
+    this.customMoveService
+      .list('Location', locationId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (moves) => {
+          this.attachingLocationName.set(null);
+          this.cancelPendingRemoval('locations', locationId);
+          this.locations.update((items) => [
+            ...items,
+            {
+              id: item.id,
+              localKey: createDraftKey('location'),
+              name: item.name,
+              description: item.description ?? '',
+              locationTypeId: item.locationTypeId,
+              // **5f-3a's interim state, closed.** The drafts and the baseline come from the *same*
+              // response array in the same step (H2), so no path can set an id without recording
+              // the baseline it came from — and `customMovesLoaded` is true, which retires the
+              // panel's "they aren't shown here" line for an attached row.
+              customMoves: moves.map((move) => this.toCustomMoveDraft(move)),
+              existingCustomMoves: moves,
+              customMovesLoaded: true,
+              mysteryIds: [...item.mysteryIds],
+            },
+          ]);
+          this.collapseComposerIfUntouched(this.locationComposerOpen, this.locationComposerDirty());
+        },
+        error: () => {
+          this.attachingLocationName.set(null);
+          // **Local to the control that failed** (UX §17.2), not the wizard's footer band, and the
+          // roster is left untouched. Retry is picking it again.
+          this.locationAttachError.set(`Couldn't load “${item.name}”. Try again.`);
+        },
+      });
+  }
+
+  /** One `CustomMoveResponse` as a draft, keyed for the panel's `track`. */
+  private toCustomMoveDraft(move: CustomMoveResponse): CustomMoveDraft {
+    return { id: move.id, localKey: createDraftKey('move'), name: move.name, description: move.description ?? '' };
   }
 
   /**
@@ -1590,6 +1946,10 @@ export class MysteryCreateStore {
 
   private resetLocationComposer(): void {
     this.addLocationForm.reset({ name: '', description: '', locationTypeId: '' });
+    // The one with a data consequence rather than a display one: leak these into the next
+    // composer and they are *written* to the next location on the following submit.
+    this.locationCustomMoves.set([]);
+    this.locationCustomMoveForm.reset({ name: '', description: '' });
   }
 
   /** Bystanders: the same eight members, one noun over. */
@@ -1623,6 +1983,9 @@ export class MysteryCreateStore {
       name: this.addBystanderForm.controls.name.value.trim(),
       description: this.addBystanderForm.controls.description.value ?? '',
       bystanderTypeId: this.addBystanderForm.controls.bystanderTypeId.value,
+      customMoves: [...this.bystanderCustomMoves()],
+      existingCustomMoves: existing?.existingCustomMoves ?? [],
+      customMovesLoaded: existing?.customMovesLoaded ?? true,
       mysteryIds: existing?.mysteryIds ?? [],
     };
 
@@ -1651,6 +2014,7 @@ export class MysteryCreateStore {
       description: draft.description,
       bystanderTypeId: draft.bystanderTypeId,
     });
+    this.bystanderCustomMoves.set([...draft.customMoves]);
     this.editingBystanderKey.set(key);
     this.bystanderComposerOpen.set(true);
     return true;
@@ -1675,23 +2039,60 @@ export class MysteryCreateStore {
 
   attachBystander(bystanderId: string): void {
     const item = this.catalogBystanders().find((candidate) => candidate.id === bystanderId);
-    if (!item || this.bystanders().some((draft) => draft.id === bystanderId)) {
+    if (!item || this.bystanders().some((draft) => draft.id === bystanderId) || this.bystanderAttachInFlight()) {
       return;
     }
 
-    this.cancelPendingRemoval('bystanders', bystanderId);
-    this.bystanders.update((items) => [
-      ...items,
-      {
-        id: item.id,
-        localKey: createDraftKey('bystander'),
-        name: item.name,
-        description: item.description ?? '',
-        bystanderTypeId: item.bystanderTypeId,
-        mysteryIds: [...item.mysteryIds],
-      },
-    ]);
-    this.collapseComposerIfUntouched(this.bystanderComposerOpen, this.bystanderComposerDirty());
+    this.attachingBystanderName.set(item.name);
+    this.bystanderAttachError.set(null);
+
+    /**
+     * **`list()` rather than `getById()`, and this is its first real caller** (§27.2, L-D3).
+     *
+     * The catalogue list item already carries every field `BystanderDraft` needs — name,
+     * description, type, `mysteryIds` — and lacks exactly one: the custom moves. `list()` fetches
+     * that one field and nothing else, which leaves the draft-construction expression below
+     * untouched and keeps `mystery-create-phase4-ledger.spec.ts`'s **S2** staleness characterised
+     * rather than accidentally fixed — `getById()` would re-read the whole row and quietly change
+     * what S2 is about.
+     *
+     * The draft is built **only** on success. A half-attached bystander with an unknown move
+     * baseline is the H2 shape, and refusing the whole attach is what keeps it unreachable.
+     */
+    this.customMoveService
+      .list('Bystander', bystanderId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (moves) => {
+          this.attachingBystanderName.set(null);
+          this.cancelPendingRemoval('bystanders', bystanderId);
+          this.bystanders.update((items) => [
+            ...items,
+            {
+              id: item.id,
+              localKey: createDraftKey('bystander'),
+              name: item.name,
+              description: item.description ?? '',
+              bystanderTypeId: item.bystanderTypeId,
+              // **5f-3a's interim state, closed.** The drafts and the baseline come from the *same*
+              // response array in the same step (H2), so no path can set an id without recording
+              // the baseline it came from — and `customMovesLoaded` is true, which retires the
+              // panel's "they aren't shown here" line for an attached row.
+              customMoves: moves.map((move) => this.toCustomMoveDraft(move)),
+              existingCustomMoves: moves,
+              customMovesLoaded: true,
+              mysteryIds: [...item.mysteryIds],
+            },
+          ]);
+          this.collapseComposerIfUntouched(this.bystanderComposerOpen, this.bystanderComposerDirty());
+        },
+        error: () => {
+          this.attachingBystanderName.set(null);
+          // **Local to the control that failed** (UX §17.2), not the wizard's footer band, and the
+          // roster is left untouched. Retry is picking it again.
+          this.bystanderAttachError.set(`Couldn't load “${item.name}”. Try again.`);
+        },
+      });
   }
 
   /**
@@ -1738,6 +2139,8 @@ export class MysteryCreateStore {
 
   private resetBystanderComposer(): void {
     this.addBystanderForm.reset({ name: '', description: '', bystanderTypeId: '' });
+    this.bystanderCustomMoves.set([]);
+    this.bystanderCustomMoveForm.reset({ name: '', description: '' });
   }
 
   private recordRemoval(removal: PendingRemoval): void {
@@ -1809,10 +2212,12 @@ export class MysteryCreateStore {
       powers: [...this.monsterPowers()],
       weaknesses: [...this.monsterWeaknesses()],
       armors: [...this.monsterArmors()],
+      customMoves: [...this.monsterCustomMoves()],
       existingAttacks: existing?.existingAttacks ?? [],
       existingPowers: existing?.existingPowers ?? [],
       existingWeaknesses: existing?.existingWeaknesses ?? [],
       existingArmors: existing?.existingArmors ?? [],
+      existingCustomMoves: existing?.existingCustomMoves ?? [],
       existingMinionIds: existing?.existingMinionIds ?? [],
       mysteryIds: existing?.mysteryIds ?? [],
     };
@@ -1851,6 +2256,7 @@ export class MysteryCreateStore {
     this.monsterPowers.set([...draft.powers]);
     this.monsterWeaknesses.set([...draft.weaknesses]);
     this.monsterArmors.set([...draft.armors]);
+    this.monsterCustomMoves.set([...draft.customMoves]);
 
     this.editingMonsterKey.set(key);
     this.monsterComposerOpen.set(true);
@@ -1993,9 +2399,14 @@ export class MysteryCreateStore {
     this.monsterPowers.set([]);
     this.monsterWeaknesses.set([]);
     this.monsterArmors.set([]);
+    // **The one silent site with a data consequence rather than a display one** (§30.4). Omit this
+    // and the previous monster's moves leak into the next composer — and then get *written* to it
+    // on the next submit, against a monster the user never gave them to.
+    this.monsterCustomMoves.set([]);
     this.monsterAttackForm.reset({ name: '', harm: 0, description: '', weaponTagIds: [] });
     this.monsterPowerForm.reset({ name: '', description: '' });
     this.monsterWeaknessForm.reset({ name: '', description: '' });
+    this.monsterCustomMoveForm.reset({ name: '', description: '' });
     this.monsterArmorForm.reset({ name: '', description: '', harmSoak: 0, isSpecial: false, specialDescription: '' });
   }
 
@@ -2046,10 +2457,12 @@ export class MysteryCreateStore {
       powers: [...this.minionPowers()],
       weaknesses: [...this.minionWeaknesses()],
       armors: [...this.minionArmors()],
+      customMoves: [...this.minionCustomMoves()],
       existingAttacks: existing?.existingAttacks ?? [],
       existingPowers: existing?.existingPowers ?? [],
       existingWeaknesses: existing?.existingWeaknesses ?? [],
       existingArmors: existing?.existingArmors ?? [],
+      existingCustomMoves: existing?.existingCustomMoves ?? [],
     };
 
     this.minionDrafts.update((drafts) =>
@@ -2095,6 +2508,7 @@ export class MysteryCreateStore {
     this.minionPowers.set([...draft.powers]);
     this.minionWeaknesses.set([...draft.weaknesses]);
     this.minionArmors.set([...draft.armors]);
+    this.minionCustomMoves.set([...draft.customMoves]);
 
     this.editingMinionKey.set(key);
     this.minionComposerOpen.set(true);
@@ -2174,9 +2588,11 @@ export class MysteryCreateStore {
     this.minionPowers.set([]);
     this.minionWeaknesses.set([]);
     this.minionArmors.set([]);
+    this.minionCustomMoves.set([]);
     this.minionAttackForm.reset({ name: '', harm: 0, description: '', weaponTagIds: [] });
     this.minionPowerForm.reset({ name: '', description: '' });
     this.minionWeaknessForm.reset({ name: '', description: '' });
+    this.minionCustomMoveForm.reset({ name: '', description: '' });
     this.minionArmorForm.reset({ name: '', description: '', harmSoak: 0, isSpecial: false, specialDescription: '' });
   }
 
@@ -2276,11 +2692,39 @@ export class MysteryCreateStore {
             midnight: this.toNullable(this.countdownForm.controls.midnight.value),
           };
 
-          // Every phase drains, including this one (decision 15). Reachable in edit mode: trash a
-          // location, confirm Delete, jump back to the Mystery phase on the tracker, press Next.
-          return this.mysteryService
-            .upsertCountdown(mystery.id, countdownRequest)
-            .pipe(switchMap(() => this.applyPendingRemovals(mystery.id)));
+          // **The moves are a `forkJoin` sibling of the countdown, not chained after it** (§30.3).
+          // Both are sub-resources of the same id and neither depends on the other; chaining would
+          // make a countdown failure hide a move failure, and the reverse. This is the shape §13.5.2
+          // predicted — `submitPhase0` was already an entity-then-id-dependent-sub-resource
+          // pipeline, so the moves are one more entry beside `upsertCountdown` rather than a new
+          // stage.
+          //
+          // **The drain stays chained after both, and that is pre-existing rather than chosen.**
+          // H6 (§7.7h) says the drain should be a `forkJoin` sibling so a failed save cannot
+          // strand a confirmed deletion, and phases 1, 2 and 3 all do that. Phase 0 does not, and
+          // did not before this change — adding the moves beside the countdown means one more
+          // sibling whose failure strands the drain. Promoting it here is a behaviour change on the
+          // failure path that nothing in 5f-1 asked for and no spec pins, so it is recorded as
+          // **F-L8** instead of made quietly.
+          return forkJoin({
+            countdown: this.mysteryService.upsertCountdown(mystery.id, countdownRequest),
+            moves: applySubResourceDiff(
+              mystery.id,
+              this.mysteryCustomMoves(),
+              this.existingMysteryCustomMoves(),
+              this.mysteryMoves,
+            ),
+          }).pipe(
+            switchMap(({ moves }) => {
+              // Ids onto the drafts **and** the new baseline, from the one diff result, in one step
+              // (H2) — the same discipline `writeBackMonsterDrafts` follows one phase over.
+              this.writeBackMysteryCustomMoves(moves);
+              // Every phase drains, including this one (decision 15). Reachable in edit mode: trash
+              // a location, confirm Delete, jump back to the Mystery phase on the tracker, press
+              // Next.
+              return this.applyPendingRemovals(mystery.id);
+            }),
+          );
         }),
         takeUntilDestroyed(this.destroyRef)
       )
@@ -2408,10 +2852,15 @@ export class MysteryCreateStore {
           powers: rekeyDrafts(draft.powers, collections.powers),
           weaknesses: rekeyDrafts(draft.weaknesses, collections.weaknesses),
           armors: rekeyDrafts(draft.armors, collections.armors),
+          // **The H2 shape** (§26.2 L6, site 9). Omit the re-key and the ids never come back onto
+          // the drafts while `existingCustomMoves` below does — so every later submit deletes and
+          // recreates the lot. The two halves are written here together for exactly that reason.
+          customMoves: rekeyDrafts(draft.customMoves, collections.customMoves),
           existingAttacks: collections.attacks,
           existingPowers: collections.powers,
           existingWeaknesses: collections.weaknesses,
           existingArmors: collections.armors,
+          existingCustomMoves: collections.customMoves,
         };
       }
       return next;
@@ -2421,6 +2870,42 @@ export class MysteryCreateStore {
     this.existingMonsterIds.set(this.savedDraftIds(this.monsterDrafts()));
   }
 
+  /**
+   * **Phase 2 in phase 1's per-row shape** (5f-0).
+   *
+   * Behaviour-preserving by construction. The same five request groups go out; they are only
+   * *reassociated*, from "all the updates, then all the links" into one `update`+`link` pair per
+   * draft. `forkJoin` subscribes in source order, so the **wire order** changes and nothing else
+   * does — which is observable only to an oracle that asserts sequence, and neither ledger spec
+   * does: `expectLedger` is `expect([...sent].sort()).toEqual([...expected].sort())`, which is
+   * **multiset** equality. Same calls, same multiplicity, any order. Sequence is the one thing
+   * given up, and `PUT /api/locations/{id}` and `PUT /api/mysteries/{m}/locations/{id}` are
+   * independent resources whose interleaving is unobservable.
+   *
+   * **There is no entity-level dirty check here and there must not be one.** Every draft with an id
+   * is written unconditionally, exactly as before. The temptation is structural rather than
+   * careless — this shape exists so that `applySubResourceDiff` can hang off stage two, and a
+   * reader who has just internalised "don't write what hasn't changed" one level down will reach
+   * for it one level up. `S4` ("three rows, six calls") and `A6` are the tests that say no; the
+   * dirty check lives only inside `applySubResourceDiff`, over a sub-resource collection, where
+   * decision 9 put it.
+   *
+   * **The shape is the point, not the saving.** `saveLocationRow` now has a stage that runs with the
+   * location's own id in hand, which is where its custom-move diff goes in 5f-3a. Deliberately
+   * empty here: 5f-0 ships no custom-move code at all, so that "the ledgers pass unchanged" is a
+   * claim about a restructure and nothing else.
+   *
+   * Two deviations from phase 1's literal shape, both deliberate:
+   *
+   * 1. **The outer `forkJoin` stays flat.** `submitPhase1` nests `{ unlinked, saved }` inside a
+   *    `switchMap` because minions cannot be saved until every monster has an id. Locations have no
+   *    dependent second collection, so the nesting would buy nothing and would move the writeback
+   *    into an async step for no reason.
+   * 2. **`saveLocationRow`, not `saveLocationDraft`.** That name is taken by the public composer
+   *    commit (`:1472`), and the symmetric fix — renaming it `saveLocationDraftToList`, as the
+   *    monsters path did — would edit `mystery-create-phase4-ledger.spec.ts`, which is 5f-0's
+   *    oracle. The rename is a follow-up for after this gate is discharged (F-L6).
+   */
   private submitPhase2(): void {
     const mysteryId = this.mysteryId();
     if (!mysteryId) {
@@ -2429,48 +2914,93 @@ export class MysteryCreateStore {
     }
 
     const drafts = this.locations();
-    const toRequest = (draft: LocationDraft): UpsertLocationRequest => ({
-      name: draft.name,
-      description: this.toNullable(draft.description),
-      locationTypeId: draft.locationTypeId,
-    });
+
+    // `pendingRemovals` is authoritative; this is the consistency check (§7.3). Anything with a
+    // recorded disposition is excluded, so a confirmed Delete does not also fire a blind unlink.
+    const unlinked$ = this.runBatch(
+      this.idsToRemove(this.existingLocationIds(), drafts, 'locations').map((locationId) =>
+        this.locationService.unlinkFromMystery(mysteryId, locationId),
+      ),
+    );
+
+    // `runBatch`'s empty short-circuit is load-bearing on this path, not a tidiness: an empty
+    // roster must still *emit* so the subscriber runs, and a bare `forkJoin([])` completes without
+    // emitting. See the same note on `batch` in `sub-resource-diff.ts`.
+    const saved$ = this.runBatch(drafts.map((draft, index) => this.saveLocationRow(mysteryId, draft, index)));
 
     forkJoin({
+      // The drain is a `forkJoin` sibling, not a link in the save chain (H6, §7.7h), so a failed
+      // location save cannot strand a confirmed deletion.
       drained: this.applyPendingRemovals(mysteryId),
-      unlinked: this.runBatch(
-        this.idsToRemove(this.existingLocationIds(), drafts, 'locations').map((locationId) =>
-          this.locationService.unlinkFromMystery(mysteryId, locationId)
-        )
-      ),
-      updated: this.runBatch(
-        drafts
-          .filter((draft): draft is LocationDraft & { id: string } => draft.id !== null)
-          .map((draft) => this.locationService.update(draft.id, toRequest(draft)))
-      ),
-      // §5.1 Concern A. `update` carries no mystery in its URL, so without this an attached
-      // location has its fields written and is never added to the mystery — a silent no-op that
-      // makes the whole feature look like it works. Fired for every draft with an id,
-      // unconditionally: the verb is idempotent in effect, so no branch is needed or wanted.
-      linked: this.runBatch(
-        drafts
-          .filter((draft): draft is LocationDraft & { id: string } => draft.id !== null)
-          .map((draft) => this.locationService.linkToMystery(mysteryId, draft.id))
-      ),
-      created: this.runBatch(
-        drafts.filter((draft) => draft.id === null).map((draft) => this.locationService.create(mysteryId, toRequest(draft)))
-      ),
+      unlinked: unlinked$,
+      saved: saved$,
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ created, drained }) => {
+        next: ({ saved, drained }) => {
           this.clearDrainedRemovals(drained);
-          const saved = this.backfillDraftIds(drafts, created);
-          this.locations.set(saved);
-          this.existingLocationIds.set(this.savedDraftIds(saved));
+          this.writeBackLocationDrafts(saved);
           this.advancePhase();
         },
         error: () => this.handleSubmitError('Could not save locations. Please try again.'),
       });
+  }
+
+  /**
+   * One locations roster row: the location itself and its membership.
+   *
+   * The `index` is carried through to the writeback rather than the result being matched by
+   * position at resolve time — phase 1's approach (`saveMonsterDraft:2360`), and the reason
+   * `backfillDraftIds` is gone. That helper paired create responses against the id-less drafts *in
+   * order*, which is correct only while nothing mutates the array between submit and resolve. The
+   * index costs nothing and does not depend on that holding.
+   */
+  private saveLocationRow(mysteryId: string, draft: LocationDraft, index: number): Observable<SavedFlatRow> {
+    const request: UpsertLocationRequest = {
+      name: draft.name,
+      description: this.toNullable(draft.description),
+      locationTypeId: draft.locationTypeId,
+    };
+
+    // §5.1 Concern A, the same one the monsters path states: `update` carries no mystery in its
+    // URL, so without the membership PUT an attached location has its fields written and is never
+    // added to the mystery — a silent no-op that makes the whole feature look like it works. Fired
+    // for every draft with an id, unconditionally: the verb is idempotent in effect, so no branch
+    // is needed or wanted. `create` needs no such call — its URL is mystery-scoped and the row is
+    // created attached.
+    //
+    // **The row keeps the id we PUT at — it is not re-read from the response.** The ledger fakes
+    // answer `update` with a sentinel ('loc-updated'), and adopting it re-keys a persisted draft
+    // off whatever the server echoed. In production the two agree, so this is invisible until
+    // they do not; it is still a behaviour change, and 5f-0 must not make one. (`saveMonsterDraft`
+    // does take the response id — the same observation, one phase over, recorded as F-L7.)
+    const persistedId = draft.id;
+    const saved$ =
+      persistedId !== null
+        ? forkJoin({
+            location: this.locationService.update(persistedId, request),
+            linked: this.locationService.linkToMystery(mysteryId, persistedId),
+          }).pipe(map(() => persistedId))
+        : this.locationService.create(mysteryId, request).pipe(map((location) => location.id));
+
+    // **5f-3a fills the seam 5f-0 left.** The entity write is stage one and the row's custom-move
+    // diff is stage two, which is the only reason this method exists in this shape: the diff needs
+    // the location's own id, and a `create` does not have one until its response arrives.
+    return saved$.pipe(
+      switchMap((id) =>
+        applySubResourceDiff(id, draft.customMoves, draft.existingCustomMoves, this.locationMoves).pipe(
+          map((customMoves) => ({ index, id, customMoves })),
+        ),
+      ),
+    );
+  }
+
+  /** Ids back onto the locations roster by draft index, and the membership baseline, in one step. */
+  private writeBackLocationDrafts(saved: SavedFlatRow[]): void {
+    this.locations.update((drafts) => this.applySavedIds(drafts, saved));
+    // Unconditional, including when nothing was saved: emptying the roster by removing its last
+    // location has to clear the baseline too, or the next submit's `idsToRemove` re-fires it.
+    this.existingLocationIds.set(this.savedDraftIds(this.locations()));
   }
 
   private submitPhase3(): void {
@@ -2481,43 +3011,25 @@ export class MysteryCreateStore {
     }
 
     const drafts = this.bystanders();
-    const toRequest = (draft: BystanderDraft): UpsertBystanderRequest => ({
-      name: draft.name,
-      description: this.toNullable(draft.description),
-      bystanderTypeId: draft.bystanderTypeId,
-    });
+
+    const unlinked$ = this.runBatch(
+      this.idsToRemove(this.existingBystanderIds(), drafts, 'bystanders').map((bystanderId) =>
+        this.bystanderService.unlinkFromMystery(mysteryId, bystanderId),
+      ),
+    );
+
+    const saved$ = this.runBatch(drafts.map((draft, index) => this.saveBystanderRow(mysteryId, draft, index)));
 
     forkJoin({
       drained: this.applyPendingRemovals(mysteryId),
-      unlinked: this.runBatch(
-        this.idsToRemove(this.existingBystanderIds(), drafts, 'bystanders').map((bystanderId) =>
-          this.bystanderService.unlinkFromMystery(mysteryId, bystanderId)
-        )
-      ),
-      updated: this.runBatch(
-        drafts
-          .filter((draft): draft is BystanderDraft & { id: string } => draft.id !== null)
-          .map((draft) => this.bystanderService.update(draft.id, toRequest(draft)))
-      ),
-      // §5.1 Concern A — see the locations twin.
-      linked: this.runBatch(
-        drafts
-          .filter((draft): draft is BystanderDraft & { id: string } => draft.id !== null)
-          .map((draft) => this.bystanderService.linkToMystery(mysteryId, draft.id))
-      ),
-      created: this.runBatch(
-        drafts
-          .filter((draft) => draft.id === null)
-          .map((draft) => this.bystanderService.create(mysteryId, toRequest(draft)))
-      ),
+      unlinked: unlinked$,
+      saved: saved$,
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ created, drained }) => {
+        next: ({ saved, drained }) => {
           this.clearDrainedRemovals(drained);
-          const saved = this.backfillDraftIds(drafts, created);
-          this.bystanders.set(saved);
-          this.existingBystanderIds.set(this.savedDraftIds(saved));
+          this.writeBackBystanderDrafts(saved);
 
           this.isSubmitting.set(false);
           this.notificationService.success(this.isEditMode() ? 'Mystery updated!' : 'Mystery created!');
@@ -2525,6 +3037,78 @@ export class MysteryCreateStore {
         },
         error: () => this.handleSubmitError('Could not save bystanders. Please try again.'),
       });
+  }
+
+  /** One bystanders roster row — see the locations twin for Concern A and for the carried `index`. */
+  private saveBystanderRow(mysteryId: string, draft: BystanderDraft, index: number): Observable<SavedFlatRow> {
+    const request: UpsertBystanderRequest = {
+      name: draft.name,
+      description: this.toNullable(draft.description),
+      bystanderTypeId: draft.bystanderTypeId,
+    };
+
+    const persistedId = draft.id;
+    const saved$ =
+      persistedId !== null
+        ? forkJoin({
+            bystander: this.bystanderService.update(persistedId, request),
+            linked: this.bystanderService.linkToMystery(mysteryId, persistedId),
+          }).pipe(map(() => persistedId))
+        : this.bystanderService.create(mysteryId, request).pipe(map((bystander) => bystander.id));
+
+    // Stage two, and the id rule — see the locations twin.
+    return saved$.pipe(
+      switchMap((id) =>
+        applySubResourceDiff(id, draft.customMoves, draft.existingCustomMoves, this.bystanderMoves).pipe(
+          map((customMoves) => ({ index, id, customMoves })),
+        ),
+      ),
+    );
+  }
+
+  /** See `writeBackLocationDrafts`. */
+  private writeBackBystanderDrafts(saved: SavedFlatRow[]): void {
+    this.bystanders.update((drafts) => this.applySavedIds(drafts, saved));
+    this.existingBystanderIds.set(this.savedDraftIds(this.bystanders()));
+  }
+
+  /**
+   * A flat roster's writeback, shared by locations and bystanders because they are the same
+   * operation on two draft types. Rows the save did not cover are left alone — only reachable if
+   * the array shrank mid-flight, and the case `backfillDraftIds`' positional match got wrong.
+   *
+   * **The id, the re-keyed drafts and the new baseline are written from one result, in one step**
+   * (H2). Refreshing the id without the baseline is the failure that makes every later submit
+   * delete and recreate the collection; they are in the same object literal so neither can be
+   * forgotten.
+   *
+   * `customMovesLoaded` settles to `true` here, and the reason is worth stating: whatever the
+   * draft knew before, after a submit the diff's result **is** the server's view of this row's
+   * moves. An attached location that arrived un-fetched is fully known once it has been written
+   * through — so the panel's caveat disappears at exactly the moment it stops being true.
+   */
+  private applySavedIds<T extends { id: string | null; customMoves: CustomMoveDraft[] }>(
+    drafts: T[],
+    saved: SavedFlatRow[],
+  ): T[] {
+    if (saved.length === 0) {
+      return drafts;
+    }
+
+    const next = [...drafts];
+    for (const { index, id, customMoves } of saved) {
+      const draft = next[index];
+      if (draft) {
+        next[index] = {
+          ...draft,
+          id,
+          customMoves: rekeyDrafts(draft.customMoves, customMoves),
+          existingCustomMoves: customMoves,
+          customMovesLoaded: true,
+        };
+      }
+    }
+    return next;
   }
 
   /**
@@ -2641,10 +3225,12 @@ export class MysteryCreateStore {
         powers: rekeyDrafts(draft.powers, collections.powers),
         weaknesses: rekeyDrafts(draft.weaknesses, collections.weaknesses),
         armors: rekeyDrafts(draft.armors, collections.armors),
+        customMoves: rekeyDrafts(draft.customMoves, collections.customMoves),
         existingAttacks: collections.attacks,
         existingPowers: collections.powers,
         existingWeaknesses: collections.weaknesses,
         existingArmors: collections.armors,
+        existingCustomMoves: collections.customMoves,
       };
     }
 
@@ -2884,15 +3470,6 @@ export class MysteryCreateStore {
     }
   }
 
-  /**
-   * Pairs newly created records back onto the drafts they came from. The locations/bystanders steps are
-   * strictly append/remove — no reordering, no edit-in-place — so create responses line up by order.
-   */
-  private backfillDraftIds<T extends { id: string | null }>(drafts: T[], created: { id: string }[]): T[] {
-    let createdIndex = 0;
-    return drafts.map((draft) => (draft.id !== null ? draft : { ...draft, id: created[createdIndex++]?.id ?? null }));
-  }
-
   private savedDraftIds(drafts: { id: string | null }[]): string[] {
     return drafts.map((draft) => draft.id).filter((id): id is string => id !== null);
   }
@@ -2901,6 +3478,54 @@ export class MysteryCreateStore {
    * The four sub-resource adapters for a minion. Each one is the small amount that differs between
    * collections; everything else lives in `applySubResourceDiff`.
    */
+  /**
+   * The custom-move adapter, parameterised by owner type — **the first adapter in this file that
+   * needs no per-owner twin** (§13.5.1). `monsterPowerService` and `minionPowerService` exist as a
+   * pair only because their service methods differ by domain; `CustomMoveService`'s do not, so one
+   * factory and a closure per owner is the whole of it. The last two members are byte-identical to
+   * `monsterPowerService`'s, which is §13.1 item 4 made concrete.
+   */
+  private customMoveSubResource(
+    ownerType: DomainOwnerType,
+  ): SubResourceService<CustomMoveDraft, UpsertCustomMoveRequest, CustomMoveResponse> {
+    return {
+      create: (id, request) => this.customMoveService.create(ownerType, id, request),
+      update: (id, moveId, request) => this.customMoveService.update(ownerType, id, moveId, request),
+      delete: (id, moveId) => this.customMoveService.delete(ownerType, id, moveId),
+      toRequest: (draft) => ({ name: draft.name, description: this.toNullable(draft.description) }),
+      isDirty: (draft, baseline) =>
+        draft.name.trim() !== baseline.name || !sameNullableText(draft.description, baseline.description),
+    };
+  }
+
+  /**
+   * **The owner-type literals live here, adjacent, and never at a save site** (§35.4).
+   *
+   * The wizard will end up with five owners in one 3,000-line file, and
+   * `customMoveSubResource('Monster')` written inside `saveMinionCollections` is one token, compiles,
+   * and writes a minion's moves into the monster owner space — invisible until someone opens the
+   * monster. Collapsing the literals into a block that reads as a table is the fix that works: a
+   * reviewer can check five adjacent lines against five collection names in one glance, and cannot
+   * check five literals a thousand lines apart. Same move `OWNER_SEGMENT` makes in
+   * `core/custom-moves.ts`.
+   *
+   * **One field so far, by design.** The other four join *this block* as 5f-2 and 5f-3a arrive —
+   * not their save sites. Declaring them now would ship four unused fields whose shape depends on
+   * work that has not been scoped yet; the mechanism the recommendation asks for is "all five
+   * adjacent, none inline", and that holds at one as it will at five.
+   */
+  private readonly mysteryMoves = this.customMoveSubResource('Mystery');
+  private readonly monsterMoves = this.customMoveSubResource('Monster');
+  private readonly minionMoves = this.customMoveSubResource('Minion');
+  private readonly locationMoves = this.customMoveSubResource('Location');
+  private readonly bystanderMoves = this.customMoveSubResource('Bystander');
+
+  /** Ids onto the drafts and the new baseline, from the same diff result (H2). */
+  private writeBackMysteryCustomMoves(saved: CustomMoveResponse[]): void {
+    this.mysteryCustomMoves.update((drafts) => rekeyDrafts(drafts, saved));
+    this.existingMysteryCustomMoves.set(saved);
+  }
+
   private readonly minionAttackService: SubResourceService<AttackDraft, UpsertMinionAttackRequest, MinionAttackResponse> = {
     create: (id, request) => this.minionService.createAttack(id, request),
     update: (id, attackId, request) => this.minionService.updateAttack(id, attackId, request),
@@ -3068,6 +3693,7 @@ export class MysteryCreateStore {
         this.minionWeaknessService,
       ),
       armors: applySubResourceDiff(minionId, draft.armors, draft.existingArmors, this.minionArmorService),
+      customMoves: applySubResourceDiff(minionId, draft.customMoves, draft.existingCustomMoves, this.minionMoves),
     });
   }
 
@@ -3090,6 +3716,7 @@ export class MysteryCreateStore {
         this.monsterWeaknessService,
       ),
       armors: applySubResourceDiff(monsterId, draft.armors, draft.existingArmors, this.monsterArmorService),
+      customMoves: applySubResourceDiff(monsterId, draft.customMoves, draft.existingCustomMoves, this.monsterMoves),
     });
   }
 
@@ -3130,7 +3757,11 @@ export class MysteryCreateStore {
     form.reset({ name: '', harm: 0, description: '', weaponTagIds: [] });
   }
 
-  private addNamedDraft(target: WritableSignal<PowerDraft[] | WeaknessDraft[]>, form: NamedDraftFormGroup, prefix: string): void {
+  private addNamedDraft(
+    target: WritableSignal<PowerDraft[] | WeaknessDraft[] | CustomMoveDraft[]>,
+    form: NamedDraftFormGroup,
+    prefix: string,
+  ): void {
     if (form.invalid) {
       form.markAllAsTouched();
       return;

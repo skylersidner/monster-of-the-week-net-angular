@@ -10,6 +10,14 @@ namespace MonsterOfTheWeek.Api.Tests.Services;
 
 public sealed class MinionServiceTests
 {
+    /// <summary>
+    /// The one construction every test in this file uses, extracted so that a new constructor
+    /// dependency on <see cref="MinionService"/> is one edit here rather than seven below
+    /// (architecture.md §16.3 B1).
+    /// </summary>
+    private static MinionService CreateService(FakeMinionRepository repository) =>
+        new(repository, new FakeResourceImageService(), new FakeCustomMoveService());
+
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenMinionTypeDoesNotExist()
     {
@@ -18,7 +26,7 @@ public sealed class MinionServiceTests
             MonsterExists = true,
             MinionTypeExists = false
         };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var missingMinionTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -36,7 +44,7 @@ public sealed class MinionServiceTests
     public async Task DeleteAsync_ReturnsTrue_WhenRepositoryDeletesRow()
     {
         var repository = new FakeMinionRepository { DeleteMinionResult = 1 };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var result = await service.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -47,7 +55,7 @@ public sealed class MinionServiceTests
     public async Task DeleteAsync_ReturnsFalse_WhenMinionDoesNotExist()
     {
         var repository = new FakeMinionRepository { DeleteMinionResult = 0 };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var result = await service.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -58,7 +66,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_MovesTheMinion_AndWritesOnce()
     {
         var repository = new FakeMinionRepository { MonsterExists = true };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var oldMonsterId = Guid.NewGuid();
         var newMonsterId = Guid.NewGuid();
         var minion = await repository.SeedMinionAsync(oldMonsterId);
@@ -77,7 +85,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_IsIdempotent_AndWritesNothing_WhenAlreadyOnThatMonster()
     {
         var repository = new FakeMinionRepository { MonsterExists = true };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var monsterId = Guid.NewGuid();
         var minion = await repository.SeedMinionAsync(monsterId);
 
@@ -92,7 +100,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_ReturnsFalse_WhenMonsterDoesNotExist()
     {
         var repository = new FakeMinionRepository { MonsterExists = false };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var oldMonsterId = Guid.NewGuid();
         var minion = await repository.SeedMinionAsync(oldMonsterId);
 
@@ -107,7 +115,7 @@ public sealed class MinionServiceTests
     public async Task MoveToMonsterAsync_ReturnsFalse_WhenMinionDoesNotExist()
     {
         var repository = new FakeMinionRepository { MonsterExists = true, MinionExists = false };
-        var service = new MinionService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var moved = await service.MoveToMonsterAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -121,6 +129,9 @@ public sealed class MinionServiceTests
     // attributes are read via ParameterInfo, not PropertyInfo/Validator.TryValidateObject.
     // UpsertCustomMoveRequest is deliberately excluded here: it's the shared cross-domain DTO
     // already fixed and covered in MonsterServiceTests.cs during Phase 2, no new coverage needed.
+    // Still true, and the reason is now stronger rather than weaker: as of domain-custom-moves
+    // Phase 2 there is exactly one custom-move endpoint for all five owners, so a per-domain copy
+    // of this assertion would be five tests of one DTO (architecture.md §9).
     public static IEnumerable<object[]> NameRequestTypes =>
     [
         [typeof(UpsertMinionRequest)],
@@ -217,7 +228,7 @@ public sealed class MinionServiceTests
         public Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<MinionListItemResponse>>([]);
 
-        public Task<Minion?> GetDetailAsync(Guid id, CancellationToken cancellationToken) =>
+        public Task<Minion?> GetMinionDetailAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult<Minion?>(_minions.FirstOrDefault(x => x.Id == id)
                 ?? new Minion
                 {
@@ -228,7 +239,7 @@ public sealed class MinionServiceTests
 
         // Honours `MinionExists` so the not-found branch is reachable; it defaults to true, so the
         // canned fallback every pre-existing test relies on is unchanged.
-        public Task<Minion?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+        public Task<Minion?> GetMinionForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult<Minion?>(
                 MinionExists
                     ? _minions.FirstOrDefault(x => x.Id == id) ?? new Minion { Name = "Minion" }
@@ -308,17 +319,6 @@ public sealed class MinionServiceTests
         public Task AddWeaknessAsync(MinionWeakness weakness, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<int> DeleteWeaknessAsync(Guid minionId, Guid weaknessId, CancellationToken cancellationToken) => Task.FromResult(1);
-
-        public Task<IReadOnlyList<MinionCustomMove>> GetCustomMovesAsync(Guid minionId, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<MinionCustomMove>>([]);
-
-        public Task<MinionCustomMove?> GetCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken) =>
-            Task.FromResult<MinionCustomMove?>(null);
-
-        public Task AddCustomMoveAsync(MinionCustomMove move, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task<int> DeleteCustomMoveAsync(Guid minionId, Guid moveId, CancellationToken cancellationToken) => Task.FromResult(1);
-
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {
             SaveChangesCalls += 1;

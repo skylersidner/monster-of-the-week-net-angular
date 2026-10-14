@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore.Storage;
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
@@ -9,11 +10,19 @@ namespace MonsterOfTheWeek.Api.Tests.Services;
 
 public sealed class MysteryServiceTests
 {
+    /// <summary>
+    /// The one construction every test in this file uses, extracted so that a new constructor
+    /// dependency on <see cref="MysteryService"/> is one edit here rather than five below
+    /// (architecture.md §16.3 B1).
+    /// </summary>
+    private static MysteryService CreateService(FakeMysteryRepository repository) =>
+        new(repository, new FakeCustomMoveService());
+
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenAdventureTypeDoesNotExist()
     {
         var repository = new FakeMysteryRepository { AdventureTypeExists = false };
-        var service = new MysteryService(repository);
+        var service = CreateService(repository);
         var missingAdventureTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -31,7 +40,7 @@ public sealed class MysteryServiceTests
     public async Task CreateAsync_ReturnsSuccess_WhenValid_AndMysteryIsRetrievable()
     {
         var repository = new FakeMysteryRepository();
-        var service = new MysteryService(repository);
+        var service = CreateService(repository);
         var adventureTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -55,7 +64,7 @@ public sealed class MysteryServiceTests
     public async Task UpdateAsync_ReturnsNotFound_WhenMysteryDoesNotExist()
     {
         var repository = new FakeMysteryRepository();
-        var service = new MysteryService(repository);
+        var service = CreateService(repository);
 
         var result = await service.UpdateAsync(
             Guid.NewGuid(),
@@ -71,7 +80,7 @@ public sealed class MysteryServiceTests
     public async Task UpdateAsync_ReturnsValidation_WhenAdventureTypeDoesNotExist()
     {
         var repository = new FakeMysteryRepository();
-        var service = new MysteryService(repository);
+        var service = CreateService(repository);
         var created = await service.CreateAsync(
             new UpsertMysteryRequest("The Vanishing", null, null, null, null, Guid.NewGuid()),
             CancellationToken.None);
@@ -95,7 +104,7 @@ public sealed class MysteryServiceTests
     public async Task UpdateAsync_ReturnsSuccess_WhenValid()
     {
         var repository = new FakeMysteryRepository();
-        var service = new MysteryService(repository);
+        var service = CreateService(repository);
         var created = await service.CreateAsync(
             new UpsertMysteryRequest("The Vanishing", null, null, null, null, Guid.NewGuid()),
             CancellationToken.None);
@@ -191,5 +200,8 @@ public sealed class MysteryServiceTests
             SaveChangesCalls += 1;
             return Task.CompletedTask;
         }
+
+        public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IDbContextTransaction>(new NoOpDbContextTransaction());
     }
 }

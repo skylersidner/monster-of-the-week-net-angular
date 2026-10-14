@@ -972,8 +972,47 @@ export interface UpsertHunterRequest {
 
 // --- Resource images (docs/resource-images/design.md §3; ApiContracts.cs ResourceImage*Response) ---
 
-/** The four owner types a `ResourceImage` can belong to. Same names as the API's `ResourceOwnerType`. */
-export type ResourceOwnerType = 'Monster' | 'Minion' | 'Bystander' | 'Location';
+/**
+ * The five domains that can own a sub-resource. Same names as the API's `DomainOwnerType`
+ * (`DomainEntities.cs`), in the same order — the API persists these as strings, so they are a
+ * data contract and not free to rename on either side.
+ *
+ * **One union, not two.** This was `ResourceOwnerType` (four members) and `CustomMoveOwnerType`
+ * (five) until `docs/resource-images/endpoint-unification.md` §2.6 merged them, superseding
+ * architecture.md §2.8. The old pair were two independent, hand-written lists: a sixth domain had
+ * to be added to both by hand and nothing noticed if it was added to only one. `ImageOwnerType`
+ * below now *derives* from this one, so that cannot happen again.
+ *
+ * **A union, not a TS enum**, matching the rest of this file — the app has no TS `enum` anywhere.
+ * It is also what makes `Record<DomainOwnerType, string>` exhaustive at compile time, so adding a
+ * sixth member without a route segment is a type error at `OWNER_SEGMENT` in
+ * `core/custom-moves.ts`. That is the client half of R7's drift guard, for free.
+ */
+export type DomainOwnerType = 'Mystery' | 'Monster' | 'Minion' | 'Location' | 'Bystander';
+
+/**
+ * The four domains that can own a `ResourceImage` — every `DomainOwnerType` except `Mystery`,
+ * which has no `PrimaryImageId`, no image FK and no images endpoint.
+ *
+ * **The `Exclude<>` is load-bearing, not tidiness** (endpoint-unification.md §2.6.4, U-R9). Widen
+ * this to plain `DomainOwnerType` and `Record<DomainOwnerType, string>` exhaustiveness *forces* a
+ * `Mystery: 'mysteries'` entry into `OWNER_SEGMENT` in `core/resource-images.ts`; then
+ * `resourceImagesPath('Mystery', id)` compiles, builds `/api/mysteries/{id}/images`, and 404s —
+ * silently, because every method there sets `SUPPRESS_ERROR_TOAST`. The existing cross-guard does
+ * not catch it either: `core/custom-moves.spec.ts` compares that segment against the custom-move
+ * map, and `'mysteries'` is the *correct* custom-move segment, so it passes. Keep the narrowing.
+ *
+ * The payoff runs the other way too: add a sixth domain to `DomainOwnerType` and the images
+ * segment map is a **compile error** until someone decides whether that domain has images.
+ */
+export type ImageOwnerType = Exclude<DomainOwnerType, 'Mystery'>;
+
+// --- Domain custom moves (docs/domain-custom-moves/architecture.md §27.1, Phase 4) ---
+//
+// Custom moves use `DomainOwnerType` above, declared beside `ImageOwnerType` because the two are
+// now one fact and its derived subset rather than two independent lists. `ImageOwnerType` is still
+// a strict subtype, so a page holding the four-member type can pass it straight into a custom-move
+// call with no cast.
 
 /** One stored image's metadata. `isPrimary` is the server's derived-or-explicit primary (design §1.2). */
 export interface ResourceImageResponse {

@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { of, throwError, Subject } from 'rxjs';
 import { vi } from 'vitest';
 
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { BystanderService } from '../../../../core/bystander';
 import { BystanderDetailResponse, MysteryListItemResponse, UpsertBystanderRequest } from '../../../../core/models';
 import { MysteryService } from '../../../../core/mystery';
@@ -82,6 +83,23 @@ describe('BystanderDetailComponent', () => {
     await TestBed.configureTestingModule({
       imports: [BystanderDetailComponent],
       providers: [
+        /**
+         * **F-L9.** `CustomMoveService` is `providedIn: 'root'`, so without this the real one
+         * resolves and any stray call becomes a real HTTP request — refused today only because
+         * nothing is listening on :5225, and a write against dev the moment something is. This
+         * spec drives no custom-move traffic, so the stub says so by throwing.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: (() => {
+            // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+            // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+            const refuse = (method: string) => () => {
+              throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+            };
+            return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+          })(),
+        },
         provideRouter([]),
         {
           provide: ActivatedRoute,
@@ -217,9 +235,25 @@ describe('BystanderDetailComponent', () => {
     expect(successCalls).toBe(1);
   });
 
-  it('leaves the read-only custom moves list rendering', () => {
+  /**
+   * **Was `it('leaves the read-only custom moves list rendering')`**, asserting `'No custom moves.'`
+   * — the copy of the bare heading-and-list this page shipped with before Phase 5d of
+   * domain-custom-moves replaced it with `app-custom-moves-card`.
+   *
+   * Replaced rather than patched, for the reason its location twin was in 5c: **it encoded a current
+   * state as a requirement.** It passed happily through the whole period when custom moves were
+   * unauthorable here and would have kept passing forever — the third instance of that shape in
+   * this subsystem. The replacement asserts a property the page is actually required to have.
+   *
+   * The authoring behaviour itself is covered in `bystander-detail.custom-moves.spec.ts`.
+   */
+  it('mounts the custom-moves card, wired to this domain', () => {
+    const card = (fixture.nativeElement as HTMLElement).querySelector('[data-custom-moves-card]');
+
+    expect(card).not.toBeNull();
+    expect(card!.getAttribute('data-owner-type')).toBe('Bystander');
     expect(fixture.nativeElement.textContent).toContain('Custom Moves');
-    expect(fixture.nativeElement.textContent).toContain('No custom moves.');
+    expect(fixture.nativeElement.textContent).toContain('No custom moves yet.');
   });
 
   // --- membership (mystery-entity-linking.md §4.3) -------------------------------------

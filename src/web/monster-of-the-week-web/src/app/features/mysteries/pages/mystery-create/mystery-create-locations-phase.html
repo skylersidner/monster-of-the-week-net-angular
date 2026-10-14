@@ -53,18 +53,38 @@
 
 <!-- A3: an empty catalogue hides the strip entirely; a fully-attached one keeps it, with its own empty state. -->
 @if (!store.locationCatalogEmpty()) {
-  <div class="flex flex-wrap items-center bg-surface-sunken border border-default rounded-md gap-2 mb-3 mt-3 px-3 py-2">
-    <label class="text-muted text-sm shrink-0" for="attach-location">Add an existing location</label>
-    <app-custom-select
-      id="attach-location"
-      class="flex-1 min-w-[12rem]"
-      [formControl]="attachControl"
-      [options]="store.attachableLocations()"
-      [searchable]="true"
-      size="compact"
-      placeholder="Search your locations…"
-      emptyText="Every location you've made is already in this mystery."
-    ></app-custom-select>
+  <div class="bg-surface-sunken border border-default rounded-md mb-3 mt-3 px-3 py-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <label class="text-muted text-sm shrink-0" for="attach-location">Add an existing location</label>
+      @if (store.attachingLocationName(); as pending) {
+        <!--
+          §17.1's busy state, which this strip did not need until 5f-3b. Attaching a location used
+          to be a pure client-side transform; it now fetches the one field the catalogue list item
+          lacks, so it needs the same feedback the monster strip needed and for the same reasons.
+          The label names the row, and it lives in the strip rather than in a half-drawn roster
+          card. Copied from `mystery-create-monster-phase.html` rather than reinvented.
+        -->
+        <span class="flex flex-1 items-center gap-2 text-muted text-sm min-w-[12rem]" data-location-attach-busy>
+          <app-icon name="spinner" class="h-4 w-4 shrink-0 animate-spin" />
+          <span class="truncate">Loading “{{ pending }}”…</span>
+        </span>
+      } @else {
+        <app-custom-select
+          id="attach-location"
+          class="flex-1 min-w-[12rem]"
+          [formControl]="attachControl"
+          [options]="store.attachableLocations()"
+          [searchable]="true"
+          size="compact"
+          placeholder="Search your locations…"
+          emptyText="Every location you've made is already in this mystery."
+        ></app-custom-select>
+      }
+    </div>
+    @if (store.locationAttachError(); as attachError) {
+      <!-- §17.2: local to the control that failed, never the wizard's footer band. -->
+      <p class="text-danger text-sm mt-2 mb-0" data-location-attach-error>{{ attachError }}</p>
+    }
   </div>
 }
 
@@ -96,6 +116,60 @@
         <app-custom-select formControlName="locationTypeId" [options]="store.locationTypes()" placeholder="Select a type..."></app-custom-select>
       </div>
 
+      <!--
+        The fifth thing in this composer, and the first sub-resource a location has ever had.
+
+        **Hand-written rather than `app-custom-moves-card`** (§13.5.3, §35.5): the card's row type
+        collapses identity into one opaque `key`, and the wizard's diff needs `id` (null means
+        create) and `localKey` (stable across the transition where the id arrives) as separate
+        things. Share across surfaces that agree about identity; copy across those that do not.
+
+        **The caveat line is what makes 5f-3a shippable without 5f-3b** (§35.1). An attached or
+        hydrated location arrives from a *list* response, which carries no `customMoves` — so the
+        panel must not imply the location has none. It says what is true instead: there may be
+        moves it cannot show, and anything added here is added *to* them. Non-destructive by
+        construction, because an empty baseline claims nothing and the diff deletes nothing.
+      -->
+      <div class="border border-default rounded-lg mb-4 p-3" data-location-custom-moves>
+        <h4 class="text-primary text-sm font-bold m-0 mb-3">Custom Moves</h4>
+        <!--
+          **5f-3a's caveat, now reachable only through edit-mode hydration.** 5f-3b's fetch makes an
+          *attached* row complete, so the line retires for the case it was written for. It is not
+          deleted, because hydration still builds its drafts from `getByMystery` — a list route
+          with no `CustomMoves` — so a revisited mystery's rows sit in exactly the position attach
+          used to be in. Deleting it would make the panel claim completeness it does not have on
+          that path. Fetching per row on load is a different cost and a different sub-phase (F-L10).
+        -->
+        @if (!store.locationComposerMovesLoaded()) {
+          <p class="text-muted text-[0.8rem] leading-[1.4] m-0 mb-2" data-location-custom-moves-partial>
+            This location may already have custom moves of its own. They aren't shown here — anything you add is added to them.
+          </p>
+        }
+        @for (move of store.locationCustomMoves(); track move.localKey) {
+          <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm" data-location-custom-move>
+            <div class="flex flex-1 flex-col gap-[0.2rem]">
+              <span>{{ move.name }}</span>
+              @if (move.description) {
+                <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+              }
+            </div>
+            <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1"
+              [attr.aria-label]="'Remove ' + move.name" (click)="store.removeLocationCustomMove(move.localKey)">×</button>
+          </div>
+        }
+        @if (store.locationCustomMoves().length === 0 && store.locationComposerMovesLoaded()) {
+          <p class="text-muted text-sm italic m-0" data-location-custom-moves-empty>No custom moves added yet.</p>
+        }
+        <form [formGroup]="store.locationCustomMoveForm" class="flex flex-wrap items-center gap-2 mt-2">
+          <input formControlName="name" placeholder="Move name" aria-label="Location custom move name"
+            class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+          <textarea formControlName="description" rows="2" placeholder="When does it apply, and what happens?" aria-label="Location custom move description"
+            class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+          <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors"
+            (click)="store.addLocationCustomMove()">+ Add</button>
+        </form>
+      </div>
+
       <div class="flex items-center justify-end gap-3">
         @if (store.editingLocationKey() !== null) {
           <button type="button" class="bg-transparent border border-strong rounded-lg text-muted cursor-pointer font-[inherit] text-[0.9rem] px-5 py-[0.55rem] transition-colors" (click)="cancelDraft()">Cancel</button>
@@ -125,7 +199,7 @@
   [usageMessage]="pendingRemoveUsageMessage()"
   [usage]="pendingRemoveUsage()"
   message=""
-  [items]="[]"
+  [items]="pendingRemoveItems()"
   [footnote]="pendingRemoveFootnote()"
   (confirmed)="onRemoveConfirmed()"
   (secondary)="onDetachConfirmed()"

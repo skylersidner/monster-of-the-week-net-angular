@@ -19,26 +19,27 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
     public DbSet<MonsterAttackWeaponTag> MonsterAttackWeaponTags => Set<MonsterAttackWeaponTag>();
     public DbSet<MonsterArmor> MonsterArmors => Set<MonsterArmor>();
     public DbSet<MonsterWeakness> MonsterWeaknesses => Set<MonsterWeakness>();
-    public DbSet<MonsterCustomMove> MonsterCustomMoves => Set<MonsterCustomMove>();
     public DbSet<WeaponTag> WeaponTags => Set<WeaponTag>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<LocationType> LocationTypes => Set<LocationType>();
-    public DbSet<LocationCustomMove> LocationCustomMoves => Set<LocationCustomMove>();
     public DbSet<Bystander> Bystanders => Set<Bystander>();
     public DbSet<BystanderType> BystanderTypes => Set<BystanderType>();
-    public DbSet<BystanderCustomMove> BystanderCustomMoves => Set<BystanderCustomMove>();
-    public DbSet<MysteryCustomMove> MysteryCustomMoves => Set<MysteryCustomMove>();
     public DbSet<MysteryMonster> MysteryMonsters => Set<MysteryMonster>();
     public DbSet<MysteryLocation> MysteryLocations => Set<MysteryLocation>();
     public DbSet<MysteryBystander> MysteryBystanders => Set<MysteryBystander>();
     public DbSet<ResourceImage> ResourceImages => Set<ResourceImage>();
+
+    // The one table behind all five owners' custom moves
+    // (docs/domain-custom-moves/architecture.md §3.1). The five per-domain *CustomMoves sets this
+    // replaced went with their tables in Phase 3.
+    public DbSet<CustomMove> CustomMoves => Set<CustomMove>();
+
     public DbSet<Minion> Minions => Set<Minion>();
     public DbSet<MinionAttack> MinionAttacks => Set<MinionAttack>();
     public DbSet<MinionAttackWeaponTag> MinionAttackWeaponTags => Set<MinionAttackWeaponTag>();
     public DbSet<MinionPower> MinionPowers => Set<MinionPower>();
     public DbSet<MinionArmor> MinionArmors => Set<MinionArmor>();
     public DbSet<MinionWeakness> MinionWeaknesses => Set<MinionWeakness>();
-    public DbSet<MinionCustomMove> MinionCustomMoves => Set<MinionCustomMove>();
 
     public DbSet<Playbook> Playbooks => Set<Playbook>();
     public DbSet<PlaybookStatArrayOption> PlaybookStatArrayOptions => Set<PlaybookStatArrayOption>();
@@ -253,17 +254,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasOne(e => e.Monster).WithMany(e => e.Weaknesses).HasForeignKey(e => e.MonsterId);
         });
 
-        modelBuilder.Entity<MonsterCustomMove>(entity =>
-        {
-            entity.ToTable("monster_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MonsterId).HasColumnName("monster_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Monster).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MonsterId);
-        });
-
         modelBuilder.Entity<LocationType>(entity =>
         {
             entity.ToTable("location_types");
@@ -293,17 +283,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasIndex(e => e.PrimaryImageId).HasDatabaseName("idx_locations_primary_image_id");
         });
 
-        modelBuilder.Entity<LocationCustomMove>(entity =>
-        {
-            entity.ToTable("location_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.LocationId).HasColumnName("location_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Location).WithMany(e => e.CustomMoves).HasForeignKey(e => e.LocationId);
-        });
-
         modelBuilder.Entity<BystanderType>(entity =>
         {
             entity.ToTable("bystander_types");
@@ -331,28 +310,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.HasOne<ResourceImage>().WithMany().HasForeignKey(e => e.PrimaryImageId)
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.PrimaryImageId).HasDatabaseName("idx_bystanders_primary_image_id");
-        });
-
-        modelBuilder.Entity<BystanderCustomMove>(entity =>
-        {
-            entity.ToTable("bystander_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.BystanderId).HasColumnName("bystander_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Bystander).WithMany(e => e.CustomMoves).HasForeignKey(e => e.BystanderId);
-        });
-
-        modelBuilder.Entity<MysteryCustomMove>(entity =>
-        {
-            entity.ToTable("mystery_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MysteryId).HasColumnName("mystery_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Mystery).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MysteryId);
         });
 
         modelBuilder.Entity<MysteryMonster>(entity =>
@@ -475,18 +432,6 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<MinionCustomMove>(entity =>
-        {
-            entity.ToTable("minion_custom_moves");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.MinionId).HasColumnName("minion_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.HasOne(e => e.Minion).WithMany(e => e.CustomMoves).HasForeignKey(e => e.MinionId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
         // Resource images — docs/resource-images/design.md and phases.md Phase 1.
         //
         // OwnerId has no FK: a discriminator + id pair can't reference four different tables,
@@ -500,9 +445,10 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             entity.ToTable("resource_images");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
-            // String-backed, not a plain int: readable raw SQL, no magic numbers. This is a new
-            // pattern for this codebase — no other entity uses HasConversion today — so it is a
-            // deliberate first, not an inherited convention.
+            // String-backed, not a plain int: readable raw SQL, no magic numbers. This was a new
+            // pattern for this codebase when it landed — no other entity used HasConversion
+            // then — so it was a deliberate first, not an inherited convention. custom_moves
+            // below is the second such column (domain-custom-moves/architecture.md §22).
             entity.Property(e => e.OwnerType).HasColumnName("owner_type").HasConversion<string>().HasMaxLength(16).IsRequired();
             entity.Property(e => e.OwnerId).HasColumnName("owner_id").IsRequired();
             entity.Property(e => e.FileName).HasColumnName("file_name").HasMaxLength(255).IsRequired();
@@ -521,6 +467,47 @@ public sealed class MotwDbContext(DbContextOptions<MotwDbContext> options)
             // does not guarantee SortOrder is distinct within an owner.
             entity.HasIndex(e => new { e.OwnerType, e.OwnerId, e.SortOrder })
                 .HasDatabaseName("idx_resource_images_owner_sort");
+        });
+
+        // Domain custom moves — docs/domain-custom-moves/architecture.md §3.1/§20/§21.1.
+        //
+        // OwnerId has no FK, for the same reason resource_images above has none: a discriminator
+        // + id pair can't reference five different tables, so ownership (the owner exists, and
+        // is the type it claims to be) is validated in ICustomMoveService, not the schema.
+        // architecture.md §2.3's accepted tradeoff, not an oversight — and the reason owner
+        // deletion deletes these rows in application code (§2.4/§19) rather than by cascade.
+        // Resist "fixing" this by adding five nullable FK columns; that is the per-domain shape
+        // this table exists to replace.
+        //
+        // OwnerType here and on resource_images above are the SAME enum since U0
+        // (endpoint-unification.md §2.6, superseding §2.8/§22's two-enum decision). Both columns
+        // are `.HasConversion<string>()`, so the merge changed no stored byte and needed no
+        // migration — the model snapshot records the provider type, not the CLR type. What it did
+        // change is that DomainOwnerType.Mystery is now writable here *and* constructible against
+        // resource_images, which is why the image service throws on it rather than silently
+        // storing a row. See IResourceImageService.ImageOwnerTypes.
+        modelBuilder.Entity<CustomMove>(entity =>
+        {
+            entity.ToTable("custom_moves");
+            entity.HasKey(e => e.Id);
+            // Every column name is explicit because this model configures no naming convention —
+            // without these the migration bakes in PascalCase columns.
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.OwnerType).HasColumnName("owner_type").HasConversion<string>().HasMaxLength(16).IsRequired();
+            entity.Property(e => e.OwnerId).HasColumnName("owner_id").IsRequired();
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Description).HasColumnName("description");
+
+            // Name is in the index because every list read orders by it (§20), so the read is a
+            // seek that arrives already ordered. Not unique: none of the five per-domain tables
+            // this replaces constrained name, and nothing says two moves can't share one.
+            //
+            // One index, deliberately. Do NOT add a second on (owner_type, owner_id, id) for the
+            // update/delete paths — this index's two-column prefix already serves them, the
+            // residual filter is free at this table's size, and a second index is a write cost
+            // for nothing (§20).
+            entity.HasIndex(e => new { e.OwnerType, e.OwnerId, e.Name })
+                .HasDatabaseName("idx_custom_moves_owner_name");
         });
 
         modelBuilder.Entity<AppUser>(entity =>

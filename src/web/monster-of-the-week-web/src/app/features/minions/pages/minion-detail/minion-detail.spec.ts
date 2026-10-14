@@ -4,6 +4,7 @@ import { convertToParamMap, provideRouter } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { MinionDetailResponse, UpsertMinionRequest } from '../../../../core/models';
 import { MinionService } from '../../../../core/minion';
 import { NotificationService } from '../../../../core/notifications';
@@ -38,6 +39,23 @@ describe('MinionDetailComponent', () => {
     await TestBed.configureTestingModule({
       imports: [MinionDetailComponent],
       providers: [
+        /**
+         * **F-L9.** `CustomMoveService` is `providedIn: 'root'`, so without this the real one
+         * resolves and any stray call becomes a real HTTP request — refused today only because
+         * nothing is listening on :5225, and a write against dev the moment something is. This
+         * spec drives no custom-move traffic, so the stub says so by throwing.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: (() => {
+            // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+            // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+            const refuse = (method: string) => () => {
+              throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+            };
+            return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+          })(),
+        },
         provideRouter([]),
         {
           provide: ActivatedRoute,

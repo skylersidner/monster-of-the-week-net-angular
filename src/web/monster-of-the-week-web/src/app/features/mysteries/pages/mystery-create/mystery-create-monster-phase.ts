@@ -281,6 +281,12 @@ export class MysteryCreateMonsterPhaseComponent {
         [draft.powers.length, 'power'],
         [draft.weaknesses.length, 'weakness', 'weaknesses'],
         [draft.armors.length, 'armor'],
+        // **A per-owner site neither §26.2 L6's table nor §30.4 lists**, found by deriving the
+        // sites from the four siblings rather than from the table. It is not a volume row: `[items]`
+        // is a *promise about what the deletion will take* (§7.7i(3), UX §18.4), so a minion whose
+        // only content is two custom moves promised nothing and took them anyway. The monster
+        // modal needs no twin — its `[items]` is the minion cascade, not a sub-resource list.
+        [draft.customMoves.length, 'custom move'],
       ] as const
     )
       .filter(([count]) => count > 0)

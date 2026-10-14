@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { Observable, defer, of, throwError } from 'rxjs';
 
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { BystanderService } from '../../../../core/bystander';
 import { LocationService } from '../../../../core/location';
 import { MinionService } from '../../../../core/minion';
@@ -213,6 +214,23 @@ describe('Phase 5b — the monster roster', () => {
 
     TestBed.configureTestingModule({
       providers: [
+        /**
+         * **F-L9.** `CustomMoveService` is `providedIn: 'root'`, so without this the real one
+         * resolves and any stray call becomes a real HTTP request — refused today only because
+         * nothing is listening on :5225, and a write against dev the moment something is. This
+         * spec drives no custom-move traffic, so the stub says so by throwing.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: (() => {
+            // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+            // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+            const refuse = (method: string) => () => {
+              throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+            };
+            return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+          })(),
+        },
         MysteryCreateStore,
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn() } },
@@ -231,6 +249,7 @@ describe('Phase 5b — the monster roster', () => {
                 overview: null,
                 countdown: null,
                 adventureType: { id: 'adventure-type-1', name: 'Haunting', description: '' },
+                customMoves: [],
               }),
             ),
             getMysteries: vi.fn(() =>

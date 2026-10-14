@@ -34,9 +34,4 @@ public interface IMinionService
     Task<ServiceResult<MinionWeaknessResponse>> CreateWeaknessAsync(Guid id, UpsertMinionWeaknessRequest request, CancellationToken cancellationToken);
     Task<ServiceResult<MinionWeaknessResponse>> UpdateWeaknessAsync(Guid id, Guid weaknessId, UpsertMinionWeaknessRequest request, CancellationToken cancellationToken);
     Task<bool> DeleteWeaknessAsync(Guid id, Guid weaknessId, CancellationToken cancellationToken);
-
-    Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken);
-    Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(Guid id, UpsertCustomMoveRequest request, CancellationToken cancellationToken);
-    Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(Guid id, Guid moveId, UpsertCustomMoveRequest request, CancellationToken cancellationToken);
-    Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
 }

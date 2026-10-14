@@ -4,6 +4,7 @@ using MonsterOfTheWeek.Api.Data;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
 using MonsterOfTheWeek.Api.Services;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Tests.Services.ResourceImages;
@@ -28,6 +29,24 @@ namespace MonsterOfTheWeek.Api.Tests.Services.ResourceImages;
 /// </summary>
 public sealed class ByMysteryVariantsStayOutOfScopeTests
 {
+    /// <summary>
+    /// Two factories rather than one, because this is the only file in the sweep that constructs
+    /// two different services (architecture.md §16.3 B1). Same purpose: a new constructor
+    /// dependency is one edit per service here, not one per call site.
+    /// </summary>
+    private static LocationService CreateLocationService(
+        ILocationRepository locationRepository,
+        IResourceImageService resourceImageService,
+        ICustomMoveService customMoveService) =>
+        new(locationRepository, resourceImageService, customMoveService);
+
+    /// <inheritdoc cref="CreateLocationService"/>
+    private static BystanderService CreateBystanderService(
+        IBystanderRepository bystanderRepository,
+        IResourceImageService resourceImageService,
+        ICustomMoveService customMoveService) =>
+        new(bystanderRepository, resourceImageService, customMoveService);
+
     private static async Task<MotwDbContext> CreateContextAsync()
     {
         var connection = new SqliteConnection("DataSource=:memory:");
@@ -59,7 +78,7 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
 
         var imageService = new ResourceImageService(context);
         await imageService.UploadAsync(
-            ResourceOwnerType.Monster, monster.Id,
+            DomainOwnerType.Monster, monster.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
 
@@ -88,12 +107,12 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
 
         var imageService = new ResourceImageService(context);
         await imageService.UploadAsync(
-            ResourceOwnerType.Location, location.Id,
+            DomainOwnerType.Location, location.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
 
         var repository = new LocationRepository(context);
-        var locationService = new LocationService(repository, imageService);
+        var locationService = CreateLocationService(repository, imageService, new CustomMoveService(context));
         var result = await locationService.GetByMysteryAsync(mystery.Id, CancellationToken.None);
 
         // LocationService.GetByMysteryAsync is untouched — it still maps in memory, with the
@@ -122,12 +141,12 @@ public sealed class ByMysteryVariantsStayOutOfScopeTests
 
         var imageService = new ResourceImageService(context);
         await imageService.UploadAsync(
-            ResourceOwnerType.Bystander, bystander.Id,
+            DomainOwnerType.Bystander, bystander.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
 
         var repository = new BystanderRepository(context);
-        var bystanderService = new BystanderService(repository, imageService);
+        var bystanderService = CreateBystanderService(repository, imageService, new CustomMoveService(context));
         var result = await bystanderService.GetByMysteryAsync(mystery.Id, CancellationToken.None);
 
         // Same point as the Location case above — BystanderService.GetByMysteryAsync is untouched.

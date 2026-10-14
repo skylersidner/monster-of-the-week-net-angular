@@ -173,9 +173,13 @@ BEGIN
   -- -------------------------------------------------------------------------
   -- Mystery Custom Move: Bring the Noise
   -- -------------------------------------------------------------------------
-  INSERT INTO mystery_custom_moves (id, mystery_id, name, description)
+  -- Custom moves for all five domains live in one `custom_moves` table, discriminated by
+  -- (owner_type, owner_id) rather than a per-domain FK. `owner_type` is the CustomMoveOwnerType
+  -- enum member name, stored as a string — see docs/domain-custom-moves/architecture.md.
+  INSERT INTO custom_moves (id, owner_type, owner_id, name, description)
   VALUES (
     gen_random_uuid(),
+    'Mystery',
     v_mystery_id,
     'Bring the Noise',
     'When making noise loud enough to drown out a conversation at 10 paces (e.g. banging on sheet metal, turning a car stereo up full blast) to disrupt the Disembodied Quiet, roll +(whichever Rating is most appropriate): On a 10+, all spirits in the nearby area are forced to manifest. When manifested, they are vulnerable to attack. On a 7-9, all spirits in the area are forced to manifest and the hunter chooses 1: All spirits in the area focus their attacks on you; All spirits in the area are enraged and now cause +1 harm (increasing each time this option is selected); The noise disorients you (–1 to Sharp for 30 minutes—this can only be chosen once per hunter). On a 6 or less, all spirits in the area focus their attacks on you.'

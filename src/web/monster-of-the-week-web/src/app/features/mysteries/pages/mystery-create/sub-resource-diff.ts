@@ -113,6 +113,20 @@ function runAfterSave<TDraft, TRequest, TResponse>(
   return service.afterSave?.(ownerId, saved, draft, baseline) ?? of(saved);
 }
 
+/**
+ * **The empty short-circuit is load-bearing — do not "simplify" it to a bare `forkJoin`.**
+ *
+ * `forkJoin([])` completes **without emitting**, so an empty collection would make everything
+ * downstream of this diff never run — and the wizard's submit would silently not finish rather
+ * than fail. Every wizard sub-resource collection starts empty, so that is the common case, not
+ * the edge one. `of([])` emits synchronously, which is what the dictionary `forkJoin` above needs
+ * from both of its keys.
+ *
+ * **It does not surface as a timeout.** Measured on the `runBatch` twin in 5f-0: the sibling
+ * requests are still dispatched, so a ledger assertion still passes and only the post-submit
+ * bookkeeping (`clearDrainedRemovals`, the writeback, `advancePhase`) silently stops happening.
+ * Ten tests failed that way, none of them on the thing that was actually broken.
+ */
 function batch<T>(requests: Observable<T>[]): Observable<T[]> {
   return requests.length > 0 ? forkJoin(requests) : of<T[]>([]);
 }

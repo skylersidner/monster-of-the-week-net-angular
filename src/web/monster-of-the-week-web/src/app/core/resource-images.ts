@@ -4,7 +4,7 @@ import { Observable, catchError, of, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { ApiService } from './api';
 import { SUPPRESS_ERROR_TOAST } from './http-context-tokens';
-import { ResourceImageResponse, ResourceImageUploadResponse, ResourceOwnerType } from './models';
+import { ResourceImageResponse, ResourceImageUploadResponse, ImageOwnerType } from './models';
 
 /** Images per owner (design.md §1.4). Enforced server-side; the client uses it for the §7.5 pre-flight block. */
 export const MAX_IMAGES_PER_RESOURCE = 10;
@@ -24,8 +24,19 @@ export const ACCEPTED_IMAGE_EXTENSIONS: readonly string[] = ['.jpg', '.jpeg', '.
 /** The `<input type="file" accept>` value. */
 export const IMAGE_INPUT_ACCEPT = ACCEPTED_IMAGE_MIME_TYPES.join(',');
 
-/** Owner type → the per-domain controller's route segment (design.md §3: images nest under each domain). */
-const OWNER_SEGMENT: Readonly<Record<ResourceOwnerType, string>> = {
+/**
+ * Owner type → the owner segment of the shared images route
+ * (`docs/resource-images/endpoint-unification.md` §3, which supersedes `design.md` §3's
+ * per-domain-controller sentence). **The URLs this builds did not change when the server stopped
+ * serving them from four controllers** — the whole unification was backend-only precisely because
+ * this map was already the single place a client image URL is assembled.
+ *
+ * **Four keys, and `ImageOwnerType` is what holds it to four.** It is `Exclude<DomainOwnerType,
+ * 'Mystery'>`, so `Record<…>` exhaustiveness cannot push a `Mystery: 'mysteries'` entry in here —
+ * which would compile, 404 silently under `SUPPRESS_ERROR_TOAST`, and still pass
+ * `custom-moves.spec.ts`'s cross-check. endpoint-unification.md §2.6.4 / U-R9.
+ */
+const OWNER_SEGMENT: Readonly<Record<ImageOwnerType, string>> = {
   Monster: 'monsters',
   Minion: 'minions',
   Bystander: 'bystanders',
@@ -33,7 +44,7 @@ const OWNER_SEGMENT: Readonly<Record<ResourceOwnerType, string>> = {
 };
 
 /** `/api/{segment}/{ownerId}/images` — rooted, no base URL. ApiService adds that for JSON calls. */
-export function resourceImagesPath(ownerType: ResourceOwnerType, ownerId: string): string {
+export function resourceImagesPath(ownerType: ImageOwnerType, ownerId: string): string {
   return `/api/${OWNER_SEGMENT[ownerType]}/${ownerId}/images`;
 }
 
@@ -44,7 +55,7 @@ export function resourceImagesPath(ownerType: ResourceOwnerType, ownerId: string
  * here rather than from `ApiService`, using the same normalization. `apiBaseUrl` is `''` today
  * (same-origin), so in practice this is the rooted path.
  */
-export function resourceImageFileUrl(ownerType: ResourceOwnerType, ownerId: string, imageId: string): string {
+export function resourceImageFileUrl(ownerType: ImageOwnerType, ownerId: string, imageId: string): string {
   return withBaseUrl(`${resourceImagesPath(ownerType, ownerId)}/${imageId}/file`);
 }
 
@@ -54,7 +65,7 @@ export function resourceImageFileUrl(ownerType: ResourceOwnerType, ownerId: stri
  * `app-resource-thumbnail`'s placeholder trigger.
  */
 export function resourceImageThumbnailUrl(
-  ownerType: ResourceOwnerType,
+  ownerType: ImageOwnerType,
   ownerId: string,
   imageId: string | null | undefined,
 ): string | null {
@@ -84,7 +95,7 @@ function inlineErrorContext(): HttpContext {
 export class ResourceImageService {
   constructor(private readonly apiService: ApiService) {}
 
-  list(ownerType: ResourceOwnerType, ownerId: string): Observable<ResourceImageResponse[]> {
+  list(ownerType: ImageOwnerType, ownerId: string): Observable<ResourceImageResponse[]> {
     return this.apiService.get<ResourceImageResponse[]>(resourceImagesPath(ownerType, ownerId), inlineErrorContext());
   }
 
@@ -97,7 +108,7 @@ export class ResourceImageService {
    * per-file answer the dropzone renders, and it arrives on `HttpErrorResponse.error`, not on the
    * success path. Every other failure (network, 5xx, a 400 without that body) still errors.
    */
-  upload(ownerType: ResourceOwnerType, ownerId: string, files: readonly File[]): Observable<ResourceImageUploadResponse> {
+  upload(ownerType: ImageOwnerType, ownerId: string, files: readonly File[]): Observable<ResourceImageUploadResponse> {
     const body = new FormData();
     for (const file of files) {
       // `files`: the controller action binds `[FromForm] IFormFileCollection files`.
@@ -115,12 +126,12 @@ export class ResourceImageService {
       );
   }
 
-  delete(ownerType: ResourceOwnerType, ownerId: string, imageId: string): Observable<void> {
+  delete(ownerType: ImageOwnerType, ownerId: string, imageId: string): Observable<void> {
     return this.apiService.delete(`${resourceImagesPath(ownerType, ownerId)}/${imageId}`, inlineErrorContext());
   }
 
   /** Bare `PUT`, 204/404, the same "set this relationship" shape as the mystery link-toggle endpoints. */
-  setPrimary(ownerType: ResourceOwnerType, ownerId: string, imageId: string): Observable<void> {
+  setPrimary(ownerType: ImageOwnerType, ownerId: string, imageId: string): Observable<void> {
     return this.apiService.put<null, void>(
       `${resourceImagesPath(ownerType, ownerId)}/${imageId}/primary`,
       null,

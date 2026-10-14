@@ -37,9 +37,11 @@
     (save)="onCreate($event)"
   ></app-minion-form>
 
+  <!-- The minion twin of `monster-create.html`'s sentence: edited, not introduced, because this
+       page already had draft panels. Location/Bystander introduce it in 5c/5d (§13.4). -->
   <p class="text-muted text-[0.9rem] mb-3">
-    Attacks, powers, armors and weaknesses added below are saved together with the minion when you
-    press Create Minion.
+    Attacks, powers, armors, weaknesses and custom moves added below are saved together with the
+    minion when you press Create Minion.
   </p>
 
   <div class="grid gap-4 grid-cols-4 max-xl:grid-cols-2 max-sm:grid-cols-1">
@@ -227,5 +229,19 @@
         <button class="bg-accent border-0 rounded-[0.35rem] text-on-accent cursor-pointer px-3 py-[0.45rem] w-fit disabled:cursor-not-allowed disabled:opacity-70" type="submit" [disabled]="isSaving()">Add Weakness</button>
       </form>
     </article>
+  </div>
+
+  <!-- Same card, same position as the detail page's, so a partial-failure bounce lands somewhere
+       already learned (§13.4). `emptyText` is the only input that differs from detail's. -->
+  <div class="mt-6">
+    <app-custom-moves-card
+      ownerType="Minion"
+      [rows]="customMoveRows()"
+      [(editingKey)]="editingCustomMoveKey"
+      [busy]="isSaving()"
+      emptyText="No custom moves added yet."
+      (committed)="commitCustomMoveDraft($event)"
+      (removeRequested)="removeCustomMoveDraft($event)"
+    />
   </div>
 </section>

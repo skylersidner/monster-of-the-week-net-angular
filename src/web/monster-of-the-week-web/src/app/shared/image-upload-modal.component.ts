@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
-import { ResourceOwnerType } from '../core/models';
+import { ImageOwnerType } from '../core/models';
 import {
   IMAGE_INPUT_ACCEPT,
   MAX_FILES_PER_UPLOAD_REQUEST,
@@ -86,7 +86,7 @@ export class ImageUploadModalComponent {
   /** Injected, never called: it must be alive before this modal opens. See its own doc comment. */
   private readonly focusReturn = inject(FocusReturnTracker);
 
-  @Input({ required: true }) ownerType!: ResourceOwnerType;
+  @Input({ required: true }) ownerType!: ImageOwnerType;
   @Input({ required: true }) ownerId!: string;
 
   /**

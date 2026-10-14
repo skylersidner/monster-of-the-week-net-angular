@@ -48,7 +48,7 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
                 // round trip. Confirmed via EF logging that this translates to a single SQL
                 // COALESCE over a correlated subquery, not a second query per row.
                 x.PrimaryImageId ?? dbContext.ResourceImages
-                    .Where(i => i.OwnerType == ResourceOwnerType.Monster && i.OwnerId == x.Id)
+                    .Where(i => i.OwnerType == DomainOwnerType.Monster && i.OwnerId == x.Id)
                     .OrderBy(i => i.SortOrder).ThenBy(i => i.Id)
                     .Select(i => (Guid?)i.Id)
                     .FirstOrDefault()))
@@ -87,7 +87,6 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
             .Include(x => x.Powers)
             .Include(x => x.Armors)
             .Include(x => x.Weaknesses)
-            .Include(x => x.CustomMoves)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public Task<Monster?> GetMonsterForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
@@ -243,21 +242,6 @@ public sealed class MonsterRepository(MotwDbContext dbContext) : IMonsterReposit
 
     public Task<int> DeleteWeaknessAsync(Guid monsterId, Guid weaknessId, CancellationToken cancellationToken) =>
         dbContext.MonsterWeaknesses.Where(x => x.Id == weaknessId && x.MonsterId == monsterId).ExecuteDeleteAsync(cancellationToken);
-
-    public async Task<IReadOnlyList<MonsterCustomMove>> GetCustomMovesAsync(Guid monsterId, CancellationToken cancellationToken) =>
-        await dbContext.MonsterCustomMoves.AsNoTracking().Where(x => x.MonsterId == monsterId).OrderBy(x => x.Name).ToListAsync(cancellationToken);
-
-    public Task<MonsterCustomMove?> GetCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.MonsterCustomMoves.FirstOrDefaultAsync(x => x.Id == moveId && x.MonsterId == monsterId, cancellationToken);
-
-    public Task AddCustomMoveAsync(MonsterCustomMove value, CancellationToken cancellationToken)
-    {
-        dbContext.MonsterCustomMoves.Add(value);
-        return Task.CompletedTask;
-    }
-
-    public Task<int> DeleteCustomMoveAsync(Guid monsterId, Guid moveId, CancellationToken cancellationToken) =>
-        dbContext.MonsterCustomMoves.Where(x => x.Id == moveId && x.MonsterId == monsterId).ExecuteDeleteAsync(cancellationToken);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);

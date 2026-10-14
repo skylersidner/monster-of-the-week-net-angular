@@ -1,11 +1,15 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-public sealed class BystanderService(IBystanderRepository bystanderRepository, IResourceImageService resourceImageService) : IBystanderService
+public sealed class BystanderService(
+    IBystanderRepository bystanderRepository,
+    IResourceImageService resourceImageService,
+    ICustomMoveService customMoveService) : IBystanderService
 {
     public Task<IReadOnlyList<BystanderListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         bystanderRepository.GetAllAsync(cancellationToken);
@@ -85,20 +89,36 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository, I
         return ServiceResult<BystanderDetailResponse>.Success(response!);
     }
 
+    /// <summary>
+    /// Custom moves come from a second query as of Phase 2 of domain-custom-moves (§3.4) — see
+    /// <see cref="MonsterService.GetByIdAsync"/> for the cost accounting, which applies here too
+    /// because Create and Update funnel their responses through this method.
+    /// <para>
+    /// This is the one of the five that maps inline rather than through a private
+    /// <c>ToDetailResponse</c>. Left that way: extracting one would be a second change in the
+    /// same diff, and §9's teardown inventory counts five mapping sites, not four.
+    /// </para>
+    /// </summary>
     public async Task<BystanderDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var bystander = await bystanderRepository.GetBystanderDetailAsync(id, asNoTracking: true, cancellationToken);
-        return bystander is null
-            ? null
-            : new BystanderDetailResponse(
-                bystander.Id,
-                bystander.Mysteries.Select(mb => mb.MysteryId).ToList(),
-                bystander.Name,
-                bystander.Description,
-                bystander.BystanderTypeId,
-                bystander.BystanderType.Name,
-                bystander.BystanderType.Motivation,
-                bystander.CustomMoves.Select(x => x.ToResponse()).ToList());
+        if (bystander is null)
+        {
+            return null;
+        }
+
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            DomainOwnerType.Bystander, id, cancellationToken);
+
+        return new BystanderDetailResponse(
+            bystander.Id,
+            bystander.Mysteries.Select(mb => mb.MysteryId).ToList(),
+            bystander.Name,
+            bystander.Description,
+            bystander.BystanderTypeId,
+            bystander.BystanderType.Name,
+            bystander.BystanderType.Motivation,
+            customMoves);
     }
 
     public async Task<ServiceResult<BystanderDetailResponse>> UpdateAsync(
@@ -127,14 +147,16 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository, I
     }
 
     /// <summary>
-    /// Deletes the Bystander and, in the same transaction, every image it owns. Same reasoning as
+    /// Deletes the Bystander and, in the same transaction, every image and custom move it owns. Same
+    /// reasoning as
     /// <see cref="MonsterService.DeleteAsync"/>.
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         await using var transaction = await bystanderRepository.BeginTransactionAsync(cancellationToken);
 
-        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Bystander, id, cancellationToken);
+        await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Bystander, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Bystander, id, cancellationToken);
         var deleted = await bystanderRepository.DeleteBystanderAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);
@@ -175,63 +197,6 @@ public sealed class BystanderService(IBystanderRepository bystanderRepository, I
     public async Task<bool> UnlinkFromMysteryAsync(Guid mysteryId, Guid id, CancellationToken cancellationToken)
     {
         var deleted = await bystanderRepository.UnlinkBystanderFromMysteryAsync(mysteryId, id, cancellationToken);
-        return deleted > 0;
-    }
-
-    public async Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken)
-    {
-        if (!await bystanderRepository.BystanderExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<IReadOnlyList<CustomMoveResponse>>.NotFound($"Bystander {id} was not found.");
-        }
-
-        var moves = await bystanderRepository.GetBystanderCustomMovesAsync(id, cancellationToken);
-        return ServiceResult<IReadOnlyList<CustomMoveResponse>>.Success(moves.Select(x => x.ToResponse()).ToList());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(
-        Guid id,
-        UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (!await bystanderRepository.BystanderExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Bystander {id} was not found.");
-        }
-
-        var move = new BystanderCustomMove
-        {
-            BystanderId = id,
-            Name = request.Name.Trim(),
-            Description = request.Description?.Trim()
-        };
-
-        await bystanderRepository.AddBystanderCustomMoveAsync(move, cancellationToken);
-        await bystanderRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(move.ToResponse());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(
-        Guid id,
-        Guid moveId,
-        UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        var move = await bystanderRepository.GetBystanderCustomMoveAsync(id, moveId, cancellationToken);
-        if (move is null)
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Bystander custom move {moveId} was not found.");
-        }
-
-        move.Name = request.Name.Trim();
-        move.Description = request.Description?.Trim();
-        await bystanderRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(move.ToResponse());
-    }
-
-    public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken)
-    {
-        var deleted = await bystanderRepository.DeleteBystanderCustomMoveAsync(id, moveId, cancellationToken);
         return deleted > 0;
     }
 }

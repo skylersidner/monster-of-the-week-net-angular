@@ -1,11 +1,15 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-public sealed class MinionService(IMinionRepository minionRepository, IResourceImageService resourceImageService) : IMinionService
+public sealed class MinionService(
+    IMinionRepository minionRepository,
+    IResourceImageService resourceImageService,
+    ICustomMoveService customMoveService) : IMinionService
 {
     public Task<IReadOnlyList<MinionListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         minionRepository.GetAllAsync(cancellationToken);
@@ -49,15 +53,27 @@ public sealed class MinionService(IMinionRepository minionRepository, IResourceI
         return ServiceResult<MinionDetailResponse>.Success(detail!);
     }
 
+    /// <summary>
+    /// Custom moves come from a second query as of Phase 2 of domain-custom-moves (§3.4) — see
+    /// <see cref="MonsterService.GetByIdAsync"/> for the cost accounting, which applies here too
+    /// because Create and Update funnel their responses through this method.
+    /// </summary>
     public async Task<MinionDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
-        var minion = await minionRepository.GetDetailAsync(id, cancellationToken);
-        return minion is null ? null : ToDetailResponse(minion);
+        var minion = await minionRepository.GetMinionDetailAsync(id, cancellationToken);
+        if (minion is null)
+        {
+            return null;
+        }
+
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            DomainOwnerType.Minion, id, cancellationToken);
+        return ToDetailResponse(minion, customMoves);
     }
 
     public async Task<ServiceResult<MinionDetailResponse>> UpdateAsync(Guid id, UpsertMinionRequest request, CancellationToken cancellationToken)
     {
-        var minion = await minionRepository.GetForUpdateAsync(id, cancellationToken);
+        var minion = await minionRepository.GetMinionForUpdateAsync(id, cancellationToken);
         if (minion is null)
         {
             return ServiceResult<MinionDetailResponse>.NotFound($"Minion {id} was not found.");
@@ -117,7 +133,7 @@ public sealed class MinionService(IMinionRepository minionRepository, IResourceI
         // Doubles as the existence check the membership verb spends a separate `…ExistsAsync` on:
         // this verb has to mutate the row, so it needs the entity either way and a null is the
         // same answer.
-        var minion = await minionRepository.GetForUpdateAsync(id, cancellationToken);
+        var minion = await minionRepository.GetMinionForUpdateAsync(id, cancellationToken);
         if (minion is null)
         {
             return false;
@@ -134,7 +150,8 @@ public sealed class MinionService(IMinionRepository minionRepository, IResourceI
     }
 
     /// <summary>
-    /// Deletes the Minion and, in the same transaction, every image it owns. Same reasoning as
+    /// Deletes the Minion and, in the same transaction, every image and custom move it owns. Same
+    /// reasoning as
     /// <see cref="MonsterService.DeleteAsync"/> — see there for why this needs a transaction at
     /// all; a Minion has no owned children of its own to cascade-orphan, so this is the simpler
     /// half of that fix.
@@ -143,7 +160,8 @@ public sealed class MinionService(IMinionRepository minionRepository, IResourceI
     {
         await using var transaction = await minionRepository.BeginTransactionAsync(cancellationToken);
 
-        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Minion, id, cancellationToken);
+        await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Minion, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Minion, id, cancellationToken);
         var deleted = await minionRepository.DeleteMinionAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);
@@ -373,48 +391,9 @@ public sealed class MinionService(IMinionRepository minionRepository, IResourceI
     public async Task<bool> DeleteWeaknessAsync(Guid id, Guid weaknessId, CancellationToken cancellationToken) =>
         await minionRepository.DeleteWeaknessAsync(id, weaknessId, cancellationToken) > 0;
 
-    public async Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken)
-    {
-        if (!await minionRepository.MinionExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<IReadOnlyList<CustomMoveResponse>>.NotFound($"Minion {id} was not found.");
-        }
-
-        var values = await minionRepository.GetCustomMovesAsync(id, cancellationToken);
-        return ServiceResult<IReadOnlyList<CustomMoveResponse>>.Success(values.Select(x => x.ToResponse()).ToList());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(Guid id, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
-    {
-        if (!await minionRepository.MinionExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Minion {id} was not found.");
-        }
-
-        var value = new MinionCustomMove { MinionId = id, Name = request.Name.Trim(), Description = request.Description?.Trim() };
-        await minionRepository.AddCustomMoveAsync(value, cancellationToken);
-        await minionRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(value.ToResponse());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(Guid id, Guid moveId, UpsertCustomMoveRequest request, CancellationToken cancellationToken)
-    {
-        var value = await minionRepository.GetCustomMoveAsync(id, moveId, cancellationToken);
-        if (value is null)
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Custom move {moveId} was not found.");
-        }
-
-        value.Name = request.Name.Trim();
-        value.Description = request.Description?.Trim();
-        await minionRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(value.ToResponse());
-    }
-
-    public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-        await minionRepository.DeleteCustomMoveAsync(id, moveId, cancellationToken) > 0;
-
-    private static MinionDetailResponse ToDetailResponse(Minion minion) =>
+    private static MinionDetailResponse ToDetailResponse(
+        Minion minion,
+        IReadOnlyList<CustomMoveResponse> customMoves) =>
         new(
             minion.Id,
             minion.MonsterId,
@@ -427,5 +406,5 @@ public sealed class MinionService(IMinionRepository minionRepository, IResourceI
             minion.Powers.Select(x => x.ToResponse()).ToList(),
             minion.Armors.Select(x => x.ToResponse()).ToList(),
             minion.Weaknesses.Select(x => x.ToResponse()).ToList(),
-            minion.CustomMoves.Select(x => x.ToResponse()).ToList());
+            customMoves);
 }

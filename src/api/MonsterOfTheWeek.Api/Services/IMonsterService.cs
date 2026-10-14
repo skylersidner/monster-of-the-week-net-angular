@@ -36,9 +36,4 @@ public interface IMonsterService
     Task<ServiceResult<MonsterWeaknessResponse>> CreateWeaknessAsync(Guid id, UpsertMonsterWeaknessRequest request, CancellationToken cancellationToken);
     Task<ServiceResult<MonsterWeaknessResponse>> UpdateWeaknessAsync(Guid id, Guid weaknessId, UpsertMonsterWeaknessRequest request, CancellationToken cancellationToken);
     Task<bool> DeleteWeaknessAsync(Guid id, Guid weaknessId, CancellationToken cancellationToken);
-
-    Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken);
-    Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(Guid id, UpsertCustomMoveRequest request, CancellationToken cancellationToken);
-    Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(Guid id, Guid moveId, UpsertCustomMoveRequest request, CancellationToken cancellationToken);
-    Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken);
 }

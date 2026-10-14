@@ -47,27 +47,27 @@ public sealed class ListProjectionPrimaryImageAgreementTests
         var repository = new MonsterRepository(context);
 
         // Case 1: no images -> null.
-        await AssertAgreementAsync(ResourceOwnerType.Monster, monster.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Monster, monster.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == monster.Id).PrimaryImageId);
 
         // Case 2: derived (lowest SortOrder).
         var upload = await imageService.UploadAsync(
-            ResourceOwnerType.Monster, monster.Id,
+            DomainOwnerType.Monster, monster.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg()), new ResourceImageUploadFile("b.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
         var images = upload.Value!.Uploaded;
-        await AssertAgreementAsync(ResourceOwnerType.Monster, monster.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Monster, monster.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == monster.Id).PrimaryImageId);
 
         // Case 3: explicit.
         monster.PrimaryImageId = images[1].Id;
         await context.SaveChangesAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Monster, monster.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Monster, monster.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == monster.Id).PrimaryImageId);
 
         // Case 4: delete the explicit primary -> falls through to derivation.
         await context.ResourceImages.Where(i => i.Id == images[1].Id).ExecuteDeleteAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Monster, monster.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Monster, monster.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == monster.Id).PrimaryImageId);
     }
 
@@ -89,24 +89,24 @@ public sealed class ListProjectionPrimaryImageAgreementTests
 
         var repository = new MinionRepository(context);
 
-        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Minion, minion.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == minion.Id).PrimaryImageId);
 
         var upload = await imageService.UploadAsync(
-            ResourceOwnerType.Minion, minion.Id,
+            DomainOwnerType.Minion, minion.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg()), new ResourceImageUploadFile("b.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
         var images = upload.Value!.Uploaded;
-        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Minion, minion.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == minion.Id).PrimaryImageId);
 
         minion.PrimaryImageId = images[1].Id;
         await context.SaveChangesAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Minion, minion.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == minion.Id).PrimaryImageId);
 
         await context.ResourceImages.Where(i => i.Id == images[1].Id).ExecuteDeleteAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Minion, minion.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == minion.Id).PrimaryImageId);
     }
 
@@ -138,26 +138,26 @@ public sealed class ListProjectionPrimaryImageAgreementTests
         Task<Guid?> ByMonster() => GetSinglePrimaryImageIdAsync(repository, monster.Id, minion.Id);
 
         // Case 1: no images -> null.
-        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService, ByMonster);
+        await AssertAgreementAsync(DomainOwnerType.Minion, minion.Id, imageService, ByMonster);
 
         // Case 2: derived (lowest SortOrder) — the case that was serving null before this change.
         var upload = await imageService.UploadAsync(
-            ResourceOwnerType.Minion, minion.Id,
+            DomainOwnerType.Minion, minion.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg()), new ResourceImageUploadFile("b.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
         var images = upload.Value!.Uploaded;
-        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService, ByMonster);
+        await AssertAgreementAsync(DomainOwnerType.Minion, minion.Id, imageService, ByMonster);
         Assert.Equal(images[0].Id, await ByMonster());
 
         // Case 3: explicit.
         minion.PrimaryImageId = images[1].Id;
         await context.SaveChangesAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService, ByMonster);
+        await AssertAgreementAsync(DomainOwnerType.Minion, minion.Id, imageService, ByMonster);
         Assert.Equal(images[1].Id, await ByMonster());
 
         // Case 4: delete the explicit primary -> falls through to derivation.
         await context.ResourceImages.Where(i => i.Id == images[1].Id).ExecuteDeleteAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Minion, minion.Id, imageService, ByMonster);
+        await AssertAgreementAsync(DomainOwnerType.Minion, minion.Id, imageService, ByMonster);
         Assert.Equal(images[0].Id, await ByMonster());
     }
 
@@ -177,24 +177,24 @@ public sealed class ListProjectionPrimaryImageAgreementTests
 
         var repository = new LocationRepository(context);
 
-        await AssertAgreementAsync(ResourceOwnerType.Location, location.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Location, location.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == location.Id).PrimaryImageId);
 
         var upload = await imageService.UploadAsync(
-            ResourceOwnerType.Location, location.Id,
+            DomainOwnerType.Location, location.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg()), new ResourceImageUploadFile("b.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
         var images = upload.Value!.Uploaded;
-        await AssertAgreementAsync(ResourceOwnerType.Location, location.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Location, location.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == location.Id).PrimaryImageId);
 
         location.PrimaryImageId = images[1].Id;
         await context.SaveChangesAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Location, location.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Location, location.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == location.Id).PrimaryImageId);
 
         await context.ResourceImages.Where(i => i.Id == images[1].Id).ExecuteDeleteAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Location, location.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Location, location.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == location.Id).PrimaryImageId);
     }
 
@@ -211,29 +211,29 @@ public sealed class ListProjectionPrimaryImageAgreementTests
 
         var repository = new BystanderRepository(context);
 
-        await AssertAgreementAsync(ResourceOwnerType.Bystander, bystander.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Bystander, bystander.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == bystander.Id).PrimaryImageId);
 
         var upload = await imageService.UploadAsync(
-            ResourceOwnerType.Bystander, bystander.Id,
+            DomainOwnerType.Bystander, bystander.Id,
             [new ResourceImageUploadFile("a.jpg", ResourceImageTestFixtures.TinyJpeg()), new ResourceImageUploadFile("b.jpg", ResourceImageTestFixtures.TinyJpeg())],
             CancellationToken.None);
         var images = upload.Value!.Uploaded;
-        await AssertAgreementAsync(ResourceOwnerType.Bystander, bystander.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Bystander, bystander.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == bystander.Id).PrimaryImageId);
 
         bystander.PrimaryImageId = images[1].Id;
         await context.SaveChangesAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Bystander, bystander.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Bystander, bystander.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == bystander.Id).PrimaryImageId);
 
         await context.ResourceImages.Where(i => i.Id == images[1].Id).ExecuteDeleteAsync();
-        await AssertAgreementAsync(ResourceOwnerType.Bystander, bystander.Id, imageService,
+        await AssertAgreementAsync(DomainOwnerType.Bystander, bystander.Id, imageService,
             async () => (await repository.GetAllAsync(CancellationToken.None)).Single(x => x.Id == bystander.Id).PrimaryImageId);
     }
 
     private static async Task AssertAgreementAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         ApiResourceImageService imageService,
         Func<Task<Guid?>> getListPrimaryImageId)

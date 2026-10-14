@@ -67,3 +67,60 @@
     </div>
   </form>
 }
+
+<!--
+  Step `0-4` — the mystery's own custom moves (5f-1).
+
+  **The hand-written panel idiom, not the shared `app-custom-moves-card`** (§13.5.3, §35.5). Two
+  reasons, and the second is the binding one: this column is `w-[42%]` and already scrolls, so the
+  detail card's density is wrong here; and `CustomMoveRow` collapses identity into one opaque `key`
+  while the wizard's diff needs `id` **and** `localKey` as separate things. Share across surfaces
+  that agree about identity; copy across surfaces that do not.
+
+  Three deliberate differences from the four panels this copies (Attacks, Powers, Weaknesses,
+  Armor in the monster composer):
+
+  1. **No `<h4>` and no bordered shell.** Those panels are one of five inside a composer, so each
+     needs its own frame and name. This *is* a step, so the step title ("What Moves Does This
+     Mystery Have?") is its heading and the step panel is its frame — a second frame would be a
+     panel inside a panel.
+  2. **An empty state.** Not copied from the panels, which have none; copied from the locations and
+     bystanders *phases*, which do (`mystery-create-locations-phase.html:51-53`). Those are the
+     precedent that matters, because a step whose only content is an empty list reads as broken
+     where a panel among four does not.
+  3. **`aria-label` on the two controls, and the required-name message.** The panels' inputs are
+     placeholder-only and pressing `+ Add` on an empty one does nothing visible at all. That is
+     tolerable three levels down inside a composer and not at the top level of a step, which is
+     what this is. The message markup is step `0-0`'s, not a new one.
+-->
+@if (store.currentStep() === 4) {
+  <div data-mystery-custom-moves>
+    @for (move of store.mysteryCustomMoves(); track move.localKey) {
+      <div class="flex items-center border-b border-default text-primary justify-between py-[0.3rem] text-sm" data-mystery-custom-move>
+        <div class="flex flex-1 flex-col gap-[0.2rem]">
+          <span>{{ move.name }}</span>
+          @if (move.description) {
+            <div class="text-muted text-[0.8rem] leading-[1.4]">{{ move.description }}</div>
+          }
+        </div>
+        <button type="button" class="bg-transparent border-0 text-danger cursor-pointer text-[1.1rem] leading-none px-1"
+          [attr.aria-label]="'Remove ' + move.name" (click)="store.removeMysteryCustomMove(move.localKey)">×</button>
+      </div>
+    }
+    @if (store.mysteryCustomMoves().length === 0) {
+      <p class="text-muted text-sm italic" data-mystery-custom-moves-empty>No custom moves added yet.</p>
+    }
+    <form [formGroup]="store.mysteryCustomMoveForm" class="flex flex-wrap items-center gap-2 mt-2">
+      <input id="mysteryCustomMoveName" formControlName="name" placeholder="Move name" aria-label="Custom move name"
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_220px]" />
+      <textarea id="mysteryCustomMoveDescription" formControlName="description" rows="2" aria-label="Custom move description"
+        placeholder="When does it apply, and what happens?"
+        class="border border-strong rounded-md text-primary font-[inherit] text-sm px-[0.6rem] py-[0.4rem] flex-[1_1_100%]"></textarea>
+      @if (store.mysteryCustomMoveForm.controls.name.invalid && store.mysteryCustomMoveForm.controls.name.touched) {
+        <span class="text-danger block text-[0.8rem] basis-full">Name is required</span>
+      }
+      <button type="button" class="bg-transparent border border-accent rounded-md text-accent cursor-pointer font-[inherit] text-sm font-semibold mt-2 px-[0.9rem] py-[0.45rem] hover:bg-accent-subtle transition-colors"
+        (click)="store.addMysteryCustomMove()">+ Add</button>
+    </form>
+  </div>
+}

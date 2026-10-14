@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -7,6 +7,12 @@ import { MinionService } from '../../../../core/minion';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import {
+  CustomMoveCommit,
+  CustomMoveRow,
+  CustomMovesCardComponent,
+} from '../../../../shared/custom-moves-card.component';
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { IconComponent } from '../../../../shared/icons/icon.component';
 import { ImageCarouselComponent } from '../../../../shared/image-carousel.component';
 import { ImageUploadModalComponent } from '../../../../shared/image-upload-modal.component';
@@ -19,6 +25,7 @@ import {
   MinionAttackResponse,
   ResourceImageResponse,
   TypeRefResponse,
+  UpsertCustomMoveRequest,
   UpsertMinionArmorRequest,
   UpsertMinionAttackRequest,
   UpsertMinionPowerRequest,
@@ -35,6 +42,7 @@ import {
     MinionFormComponent,
     WeaponTagSelectComponent,
     ConfirmDeleteModalComponent,
+    CustomMovesCardComponent,
     IconComponent,
     ResourceImagesCardComponent,
     ImageCarouselComponent,
@@ -109,8 +117,13 @@ export class MinionDetailComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly minionService: MinionService,
     private readonly referenceDataService: ReferenceDataService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly customMoveService: CustomMoveService
   ) {}
+
+  /** The card, so a successful commit can reset it and restore focus. Optional: it lives inside
+   *  the template's `@if (minion())`. Identical to `monster-detail`'s. */
+  @ViewChild(CustomMovesCardComponent) private readonly customMovesCard?: CustomMovesCardComponent;
 
   ngOnInit(): void {
     // Special Description is only required while Is Special is checked - UI-only rule,
@@ -163,6 +176,22 @@ export class MinionDetailComponent implements OnInit {
       });
   }
 
+  /**
+   * **A failed save does not touch `errorMessage`.** It used to, and that was the same bug as the
+   * one `runAndRefresh` carried but one step worse: the template puts `@else if (errorMessage())`
+   * ahead of the content branch, so a failed `PUT` unmounted the form *while it still held the
+   * user's unsaved edits*. The `notificationService.error` below was already firing the identical
+   * string, so removing the inline write cost nothing.
+   *
+   * **The invariant this completes, and the reason the template's branch order is safe:**
+   * `errorMessage` is now written by the **load path only** (`ngOnInit`), on this page and on
+   * `monster-detail`. So `minion-detail.html:6`'s `@else if (errorMessage())` means exactly "this
+   * minion could not be loaded", which is the only claim that branch position is correct for.
+   * **Anything that happens after a successful load reports through a toast or its own inline
+   * element, never here** — the images section (`data-images-error`) is the shape to copy.
+   *
+   * architecture.md (domain-custom-moves) §34 — Phase A.
+   */
   saveMinion(payload: UpsertMinionRequest): void {
     if (!this.minion()) {
       return;
@@ -181,11 +210,9 @@ export class MinionDetailComponent implements OnInit {
           this.imagesStore.setOwnerName(minion.name);
           this.activeMutation.set(null);
           this.notificationService.success('Minion details saved.');
-          this.errorMessage.set(null);
         },
         error: () => {
           this.activeMutation.set(null);
-          this.errorMessage.set('Unable to save minion details.');
           this.notificationService.error('Unable to save minion details.');
         },
       });
@@ -227,11 +254,12 @@ export class MinionDetailComponent implements OnInit {
           this.minion.set(minion);
           this.attackForm.reset({ name: '', description: '', harm: 0, weaponTagIds: [] });
           this.notificationService.success('Attack added.');
-          this.errorMessage.set(null);
           this.activeMutation.set(null);
         },
+        // The toast is the whole failure surface — `errorMessage` is deliberately untouched. See
+        // `runAndRefresh`. This method has its own subscribe only because an attack chains its
+        // weapon-tag assignments, so it needs the same treatment rather than inheriting it.
         error: () => {
-          this.errorMessage.set('Unable to add attack.');
           this.notificationService.error('Unable to add attack.');
           this.activeMutation.set(null);
         },
@@ -342,6 +370,85 @@ export class MinionDetailComponent implements OnInit {
     });
   }
 
+  // --- Custom moves (architecture.md §29.1, §29.3; Phase 5b) ---
+  //
+  // **The 5a pilot, copied with the owner type and the noun changed, and nothing else.** That was
+  // the point of writing §29.3 before starting: Minion is the closest page to Monster — same
+  // four-panel grid, same closure-shaped `pendingDelete`, same `runAndRefresh` — so if anything
+  // here had needed to diverge, it would have meant the pilot's shape was wrong rather than that
+  // Minion is special. Nothing did.
+
+  /** Mapped from the `customMoves` already on `MinionDetailResponse` — no request on load. */
+  readonly customMoveRows = computed<CustomMoveRow[]>(() =>
+    (this.minion()?.customMoves ?? []).map((move) => ({
+      key: move.id,
+      name: move.name,
+      description: move.description,
+    }))
+  );
+
+  /** Which row the card has open. Bound two-way; the page owns it, the card asks (L-D1). */
+  readonly editingCustomMoveKey = signal<string | null>(null);
+
+  /** Add or edit, decided by `commit.key` — `null` means add. See `monster-detail`'s twin. */
+  commitCustomMove(commit: CustomMoveCommit): void {
+    const request: UpsertCustomMoveRequest = { name: commit.name, description: commit.description };
+    const { key } = commit;
+
+    this.runAndRefresh(
+      (minionId) =>
+        key === null
+          ? this.customMoveService.create('Minion', minionId, request)
+          : this.customMoveService.update('Minion', minionId, key, request),
+      key === null ? 'Unable to add custom move.' : 'Unable to save custom move.',
+      () => this.customMovesCard?.commitSucceeded(),
+      key === null ? 'Custom move added.' : 'Custom move saved.'
+    );
+  }
+
+  /**
+   * Through this page's single `<app-confirm-delete-modal>`, which already serves five flows — so
+   * custom moves cost one method and no template change at the modal (decision 14). No `footnote`
+   * and no `message`, so the component's own *"This cannot be undone."* default applies and the
+   * census spec's transcribed data is unaffected (R12's gate stays 5e-only).
+   */
+  requestDeleteCustomMove(row: CustomMoveRow): void {
+    this.pendingDelete.set({
+      label: row.name,
+      perform: () =>
+        this.runAndRefresh(
+          (minionId) => this.customMoveService.delete('Minion', minionId, row.key),
+          'Unable to delete custom move.'
+        ),
+    });
+  }
+
+  /**
+   * Every attack/power/armor/weakness create and delete on this page.
+   *
+   * **A failure here is a toast and nothing else — `errorMessage` is never set.** The template puts
+   * `@else if (errorMessage())` ahead of its content branch, so setting it unmounts the minion, the
+   * form and all four collections, leaving the user with one red line and no way back except a
+   * reload. That is the same hazard the images section avoids by keeping its own inline error
+   * (`data-images-error`) — this method, `createAttack` and `saveMinion` were the three places on
+   * this page that still had it. (Unlike `monster-detail`, this page has no membership batch to
+   * compare with: a minion belongs to a monster, not to mysteries, so `saveMinion` is a plain
+   * update.)
+   *
+   * Nothing was lost in removing it: the `notificationService.error(errorMessage)` below was always
+   * fired with the *same string*, so the inline write was duplication with a destructive side
+   * effect. `errorMessage` stays the surface for **load** failures and for the **entity save**.
+   *
+   * The success branches' `errorMessage.set(null)` calls went too, and the honest reason is that
+   * they were **unreachable**, not that they were wrong: `errorMessage` is only ever non-null after
+   * a failed load, and in that state the template renders the error branch — no form, no panels, no
+   * controls — so no write can be triggered to reach the clear. Verified by control: restoring one
+   * fails no test, and there is no assertion that could catch it. They are removed so that the load
+   * path is the *single* writer (see `saveMinion`), which is a property worth having rather than a
+   * behaviour change.
+   *
+   * architecture.md (domain-custom-moves) §34 — Phase A. Identical to `monster-detail.ts`'s.
+   */
   private runAndRefresh(
     operation: (minionId: string) => Observable<unknown>,
     errorMessage: string,
@@ -363,12 +470,10 @@ export class MinionDetailComponent implements OnInit {
         next: (minion) => {
           this.minion.set(minion);
           onSuccess?.();
-          this.errorMessage.set(null);
           this.activeMutation.set(null);
           this.notificationService.success(successMessage ?? 'Changes saved.');
         },
         error: () => {
-          this.errorMessage.set(errorMessage);
           this.activeMutation.set(null);
           this.notificationService.error(errorMessage);
         },

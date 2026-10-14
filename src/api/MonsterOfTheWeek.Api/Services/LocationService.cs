@@ -1,11 +1,15 @@
 using MonsterOfTheWeek.Api.Contracts;
 using MonsterOfTheWeek.Api.Data.Entities;
 using MonsterOfTheWeek.Api.Repositories;
+using MonsterOfTheWeek.Api.Services.CustomMoves;
 using MonsterOfTheWeek.Api.Services.ResourceImages;
 
 namespace MonsterOfTheWeek.Api.Services;
 
-public sealed class LocationService(ILocationRepository locationRepository, IResourceImageService resourceImageService) : ILocationService
+public sealed class LocationService(
+    ILocationRepository locationRepository,
+    IResourceImageService resourceImageService,
+    ICustomMoveService customMoveService) : ILocationService
 {
     public Task<IReadOnlyList<LocationListItemResponse>> GetAllAsync(CancellationToken cancellationToken) =>
         locationRepository.GetAllAsync(cancellationToken);
@@ -88,10 +92,22 @@ public sealed class LocationService(ILocationRepository locationRepository, IRes
         return ServiceResult<LocationDetailResponse>.Success(response!);
     }
 
+    /// <summary>
+    /// Custom moves come from a second query as of Phase 2 of domain-custom-moves (§3.4) — see
+    /// <see cref="MonsterService.GetByIdAsync"/> for the cost accounting, which applies here too
+    /// because Create and Update funnel their responses through this method.
+    /// </summary>
     public async Task<LocationDetailResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         var location = await locationRepository.GetLocationDetailAsync(id, asNoTracking: true, cancellationToken);
-        return location is null ? null : ToDetailResponse(location);
+        if (location is null)
+        {
+            return null;
+        }
+
+        var customMoves = await customMoveService.ListForProjectionAsync(
+            DomainOwnerType.Location, id, cancellationToken);
+        return ToDetailResponse(location, customMoves);
     }
 
     public async Task<ServiceResult<LocationDetailResponse>> UpdateAsync(
@@ -120,14 +136,16 @@ public sealed class LocationService(ILocationRepository locationRepository, IRes
     }
 
     /// <summary>
-    /// Deletes the Location and, in the same transaction, every image it owns. Same reasoning as
+    /// Deletes the Location and, in the same transaction, every image and custom move it owns. Same
+    /// reasoning as
     /// <see cref="MonsterService.DeleteAsync"/>.
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         await using var transaction = await locationRepository.BeginTransactionAsync(cancellationToken);
 
-        await resourceImageService.DeleteAllForOwnerAsync(ResourceOwnerType.Location, id, cancellationToken);
+        await resourceImageService.DeleteAllForOwnerAsync(DomainOwnerType.Location, id, cancellationToken);
+        await customMoveService.DeleteAllForOwnerAsync(DomainOwnerType.Location, id, cancellationToken);
         var deleted = await locationRepository.DeleteLocationAsync(id, cancellationToken) > 0;
 
         await transaction.CommitAsync(cancellationToken);
@@ -171,64 +189,9 @@ public sealed class LocationService(ILocationRepository locationRepository, IRes
         return deleted > 0;
     }
 
-    public async Task<ServiceResult<IReadOnlyList<CustomMoveResponse>>> GetCustomMovesAsync(Guid id, CancellationToken cancellationToken)
-    {
-        if (!await locationRepository.LocationExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<IReadOnlyList<CustomMoveResponse>>.NotFound($"Location {id} was not found.");
-        }
-
-        var moves = await locationRepository.GetLocationCustomMovesAsync(id, cancellationToken);
-        return ServiceResult<IReadOnlyList<CustomMoveResponse>>.Success(moves.Select(x => x.ToResponse()).ToList());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> CreateCustomMoveAsync(
-        Guid id,
-        UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (!await locationRepository.LocationExistsAsync(id, cancellationToken))
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Location {id} was not found.");
-        }
-
-        var move = new LocationCustomMove
-        {
-            LocationId = id,
-            Name = request.Name.Trim(),
-            Description = request.Description?.Trim()
-        };
-
-        await locationRepository.AddLocationCustomMoveAsync(move, cancellationToken);
-        await locationRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(move.ToResponse());
-    }
-
-    public async Task<ServiceResult<CustomMoveResponse>> UpdateCustomMoveAsync(
-        Guid id,
-        Guid moveId,
-        UpsertCustomMoveRequest request,
-        CancellationToken cancellationToken)
-    {
-        var move = await locationRepository.GetLocationCustomMoveAsync(id, moveId, cancellationToken);
-        if (move is null)
-        {
-            return ServiceResult<CustomMoveResponse>.NotFound($"Location custom move {moveId} was not found.");
-        }
-
-        move.Name = request.Name.Trim();
-        move.Description = request.Description?.Trim();
-        await locationRepository.SaveChangesAsync(cancellationToken);
-        return ServiceResult<CustomMoveResponse>.Success(move.ToResponse());
-    }
-
-    public async Task<bool> DeleteCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken)
-    {
-        var deleted = await locationRepository.DeleteLocationCustomMoveAsync(id, moveId, cancellationToken);
-        return deleted > 0;
-    }
-
-    private static LocationDetailResponse ToDetailResponse(Location location) =>
+    private static LocationDetailResponse ToDetailResponse(
+        Location location,
+        IReadOnlyList<CustomMoveResponse> customMoves) =>
         new(
             location.Id,
             location.Mysteries.Select(ml => ml.MysteryId).ToList(),
@@ -237,5 +200,5 @@ public sealed class LocationService(ILocationRepository locationRepository, IRes
             location.LocationTypeId,
             location.LocationType.Name,
             location.LocationType.Motivation,
-            location.CustomMoves.Select(x => x.ToResponse()).ToList());
+            customMoves);
 }

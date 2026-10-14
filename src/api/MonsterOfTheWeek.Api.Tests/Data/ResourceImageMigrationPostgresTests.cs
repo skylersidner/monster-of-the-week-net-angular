@@ -18,7 +18,7 @@ namespace MonsterOfTheWeek.Api.Tests.Data;
 /// database.
 /// </para>
 /// </summary>
-[Collection(ResourceImagePostgresCollection.Name)]
+[Collection(PostgresCollection.Name)]
 public sealed class ResourceImageMigrationPostgresTests
 {
     private static string ConnectionString =>
@@ -87,7 +87,7 @@ public sealed class ResourceImageMigrationPostgresTests
         };
         var image = new ResourceImage
         {
-            OwnerType = ResourceOwnerType.Monster,
+            OwnerType = DomainOwnerType.Monster,
             OwnerId = monster.Id,
             FileName = "test.webp",
             ContentType = "image/webp",

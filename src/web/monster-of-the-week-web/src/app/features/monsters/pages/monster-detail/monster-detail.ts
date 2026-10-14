@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -10,6 +10,12 @@ import { resourceImageThumbnailUrl } from '../../../../core/resource-images';
 import { NotificationService } from '../../../../core/notifications';
 import { ReferenceDataService } from '../../../../core/reference-data';
 import { ConfirmDeleteModalComponent } from '../../../../shared/confirm-delete-modal.component';
+import {
+  CustomMoveCommit,
+  CustomMoveRow,
+  CustomMovesCardComponent,
+} from '../../../../shared/custom-moves-card.component';
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { IconComponent } from '../../../../shared/icons/icon.component';
 import { ImageCarouselComponent } from '../../../../shared/image-carousel.component';
 import { ImageUploadModalComponent } from '../../../../shared/image-upload-modal.component';
@@ -26,6 +32,7 @@ import {
   ResourceImageResponse,
   MysteryListItemResponse,
   TypeRefResponse,
+  UpsertCustomMoveRequest,
   UpsertMonsterArmorRequest,
   UpsertMonsterAttackRequest,
   UpsertMonsterPowerRequest,
@@ -42,6 +49,7 @@ import {
     MonsterFormComponent,
     WeaponTagSelectComponent,
     ConfirmDeleteModalComponent,
+    CustomMovesCardComponent,
     IconComponent,
     ResourceImagesCardComponent,
     ImageCarouselComponent,
@@ -118,8 +126,17 @@ export class MonsterDetailComponent implements OnInit {
     private readonly minionService: MinionService,
     private readonly mysteryService: MysteryService,
     private readonly referenceDataService: ReferenceDataService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly customMoveService: CustomMoveService
   ) {}
+
+  /**
+   * The card, so a successful commit can return it to its add state and restore focus.
+   *
+   * Optional because the card lives inside the template's `@if (monster())` branch, so it does not
+   * exist until the page has loaded — and `commitCustomMove` is only reachable once it has.
+   */
+  @ViewChild(CustomMovesCardComponent) private readonly customMovesCard?: CustomMovesCardComponent;
 
   ngOnInit(): void {
     // Special Description is only required while Is Special is checked - UI-only rule,
@@ -185,8 +202,22 @@ export class MonsterDetailComponent implements OnInit {
    * baseline to server truth. `DELETE` on a membership URI 404s on repeat, so without the refetch a
    * retry after a partial failure would fail permanently.
    *
-   * **The membership caveat is a toast only; `errorMessage` stays `null`** — setting it unmounts the
-   * form, leaving nothing to retry into.
+   * **No failure here touches `errorMessage` — not the membership caveat and not a total failure.**
+   * The caveat never did (setting it unmounts the form, leaving nothing to retry into); the total
+   * failure used to, and that was the same bug one step worse, because a failed `PUT` unmounts the
+   * form *while it still holds the user's unsaved edits*. The `notificationService.error` below was
+   * already firing the identical string, so removing the inline write cost nothing.
+   *
+   * **The invariant this completes, and the reason the template's branch order is safe:**
+   * `errorMessage` is now written by the **load path only** (`ngOnInit`), on this page and on
+   * `minion-detail`. So `monster-detail.html:6`'s `@else if (errorMessage())` — which sits *ahead*
+   * of the content branch and therefore replaces the entire page — means exactly "this monster
+   * could not be loaded", which is the only claim that branch position is correct for. **Anything
+   * that happens after a successful load reports through a toast or its own inline element, never
+   * here.** If you are about to add an `errorMessage.set` to a write path, that is the rule you are
+   * breaking; the images section (its own `data-images-error`) is the shape to copy instead.
+   *
+   * architecture.md (domain-custom-moves) §34 — Phase A.
    */
   saveMonster(submit: MonsterFormSubmit): void {
     const current = this.monster();
@@ -226,7 +257,6 @@ export class MonsterDetailComponent implements OnInit {
           // quotes that name ("{name} will have no images afterward").
           this.imagesStore.setOwnerName(monster.name);
           this.activeMutation.set(null);
-          this.errorMessage.set(null);
 
           if (membershipFailed) {
             // `forkJoin` reports that one call failed, never that all of them did, so the copy hedges.
@@ -239,7 +269,6 @@ export class MonsterDetailComponent implements OnInit {
         },
         error: () => {
           this.activeMutation.set(null);
-          this.errorMessage.set('Unable to save monster details.');
           this.notificationService.error('Unable to save monster details.');
         },
       });
@@ -281,11 +310,12 @@ export class MonsterDetailComponent implements OnInit {
           this.monster.set(monster);
           this.attackForm.reset({ name: '', description: '', harm: 0, weaponTagIds: [] });
           this.notificationService.success('Attack added.');
-          this.errorMessage.set(null);
           this.activeMutation.set(null);
         },
+        // The toast is the whole failure surface — `errorMessage` is deliberately untouched. See
+        // `runAndRefresh`. This method has its own subscribe only because an attack chains its
+        // weapon-tag assignments, so it needs the same treatment rather than inheriting it.
         error: () => {
-          this.errorMessage.set('Unable to add attack.');
           this.notificationService.error('Unable to add attack.');
           this.activeMutation.set(null);
         },
@@ -396,6 +426,109 @@ export class MonsterDetailComponent implements OnInit {
     });
   }
 
+  // --- Custom moves (architecture.md §29.1; Phase 5a, the pilot for 5b–5e) ---
+  //
+  // **Writes are immediate and per row**, unlike the create page's staged list — and that
+  // difference lives entirely in these three members, not in the card, which has no `mode` input
+  // (§13.4). Everything below is the shape 5b–5e copy with the owner type and the noun changed.
+
+  /**
+   * The card's rows, mapped from the `customMoves` already on the detail response.
+   *
+   * **No request on load** (decision 2): `customMoves` is embedded in `MonsterDetailResponse`, so
+   * the first paint of the card *is* server truth and `CustomMoveService.list()` is never called
+   * here. That is also what makes the create→detail recovery path coherent — a user bounced here by
+   * a partial create failure sees exactly what saved.
+   *
+   * Single-sourced from `monster()` on purpose. A page-level `customMoves` signal fed by `list()`
+   * after each write would be one request cheaper, and was rejected: two sources for one collection
+   * that agree only by coincidence is the hazard `mystery-create-monster-phase.html:22-28` already
+   * names in this repo (§27.2).
+   */
+  readonly customMoveRows = computed<CustomMoveRow[]>(() =>
+    (this.monster()?.customMoves ?? []).map((move) => ({
+      key: move.id,
+      name: move.name,
+      description: move.description,
+    }))
+  );
+
+  /** Which row the card has open. Bound two-way; the page owns it, the card asks (L-D1). */
+  readonly editingCustomMoveKey = signal<string | null>(null);
+
+  /**
+   * Add or edit, decided by `commit.key` — `null` means add. One handler for both, because the card
+   * emits one event for both and the only difference is the verb.
+   *
+   * Routed through `runAndRefresh`, which since Phase A reports failures as a toast and never
+   * touches `errorMessage`. So this needs no special pipeline: **the custom-move write is the
+   * normal case on this page now**, which is the simplification Phase A bought.
+   *
+   * `commitSucceeded()` on the success branch is what returns the card to its add state and puts
+   * focus back on the edited row's pencil. It is deliberately *not* called on failure: the form
+   * keeps the user's text so they can retry, which is the whole point of not unmounting anything.
+   */
+  commitCustomMove(commit: CustomMoveCommit): void {
+    const request: UpsertCustomMoveRequest = { name: commit.name, description: commit.description };
+    const { key } = commit;
+
+    this.runAndRefresh(
+      (monsterId) =>
+        key === null
+          ? this.customMoveService.create('Monster', monsterId, request)
+          : this.customMoveService.update('Monster', monsterId, key, request),
+      key === null ? 'Unable to add custom move.' : 'Unable to save custom move.',
+      () => this.customMovesCard?.commitSucceeded(),
+      key === null ? 'Custom move added.' : 'Custom move saved.'
+    );
+  }
+
+  /**
+   * Routed through **this page's single `<app-confirm-delete-modal>`** rather than a second element
+   * — decision 14, and the shape `requestDeletePower` above already uses. The modal's confirm
+   * handler calls `pending.perform()` and never branches on which kind of delete is pending, so
+   * adding a sixth flow to this page costs exactly this method and no template change at all.
+   *
+   * Passes no `message` (so the component's own *"This cannot be undone."* default applies, which
+   * is true on a detail page) and no `footnote` — the least demanding of all eighteen call sites,
+   * so the census spec's transcribed data is unaffected and R12's gate stays 5e-only.
+   */
+  requestDeleteCustomMove(row: CustomMoveRow): void {
+    this.pendingDelete.set({
+      label: row.name,
+      perform: () =>
+        this.runAndRefresh(
+          (monsterId) => this.customMoveService.delete('Monster', monsterId, row.key),
+          'Unable to delete custom move.'
+        ),
+    });
+  }
+
+  /**
+   * Every attack/power/armor/weakness create and delete on this page.
+   *
+   * **A failure here is a toast and nothing else — `errorMessage` is never set.** The template puts
+   * `@else if (errorMessage())` ahead of its content branch, so setting it unmounts the monster,
+   * the form and all five collections, leaving the user with one red line and no way back except a
+   * reload. That is the same hazard `saveMonster`'s membership caveat always avoided above
+   * (*"setting it unmounts the form, leaving nothing to retry into"*) and that the images section
+   * avoids by keeping its own inline error — this method, `createAttack` and `saveMonster`'s total
+   * failure were the three places on this page that still had it.
+   *
+   * Nothing was lost in removing it: the `notificationService.error(errorMessage)` below was always
+   * fired with the *same string*, so the inline write was duplication with a destructive side
+   * effect. `errorMessage` stays the surface for **load** failures and for the **entity save**.
+   *
+   * The success branches' `errorMessage.set(null)` calls went too, and the honest reason is that
+   * they were **unreachable**, not that they were wrong: `errorMessage` is only ever non-null after
+   * a failed load, and in that state the template renders the error branch — no form, no panels, no
+   * controls — so no write can be triggered to reach the clear. Verified by control: restoring one
+   * fails no test, and there is no assertion that could catch it. They are removed so that the load
+   * path is the *single* writer (see `saveMonster`), which is a property worth having rather than a
+   * behaviour change.
+   *
+   * architecture.md (domain-custom-moves) §34 — Phase A.
+   */
   private runAndRefresh(
     operation: (monsterId: string) => Observable<unknown>,
     errorMessage: string,
@@ -417,12 +550,10 @@ export class MonsterDetailComponent implements OnInit {
         next: (monster) => {
           this.monster.set(monster);
           onSuccess?.();
-          this.errorMessage.set(null);
           this.activeMutation.set(null);
           this.notificationService.success(successMessage ?? 'Changes saved.');
         },
         error: () => {
-          this.errorMessage.set(errorMessage);
           this.activeMutation.set(null);
           this.notificationService.error(errorMessage);
         },

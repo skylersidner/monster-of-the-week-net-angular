@@ -493,7 +493,7 @@ In both detail templates, add a Custom Moves section below the main form:
 }
 ```
 
-No create/edit controls. This section is display-only in Phase 9. A note in the component file (comment, not rendered UI) can mark it as "pending API endpoints for custom move management."
+Create and edit controls, through the shared `app-custom-moves-card`. **Superseded, 2026-10-12** — this paragraph used to say "No create/edit controls. This section is display-only in Phase 9… pending API endpoints for custom move management." The endpoints were already there; the deferral rested on a premise that was never true. `docs/domain-custom-moves/architecture.md` is the plan that shipped it, and its F3 scheduled this correction for Phase 6.
 
 ---
 

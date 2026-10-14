@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { of } from 'rxjs';
 
+import { CustomMoveService } from '../../../../core/custom-moves';
 import { BystanderService } from '../../../../core/bystander';
 import { LocationService } from '../../../../core/location';
 import { MinionService } from '../../../../core/minion';
@@ -224,6 +225,23 @@ describe('MysteryCreateStore', () => {
 
     TestBed.configureTestingModule({
       providers: [
+        /**
+         * **F-L9.** `CustomMoveService` is `providedIn: 'root'`, so without this the real one
+         * resolves and any stray call becomes a real HTTP request — refused today only because
+         * nothing is listening on :5225, and a write against dev the moment something is. This
+         * spec drives no custom-move traffic, so the stub says so by throwing.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: (() => {
+            // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+            // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+            const refuse = (method: string) => () => {
+              throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+            };
+            return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+          })(),
+        },
         MysteryCreateStore,
         {
           provide: ReferenceDataService,
@@ -254,7 +272,7 @@ describe('MysteryCreateStore', () => {
   /** Walks the wizard to phase 1 / step 1 (the minion step) with a saved mystery and a valid monster. */
   function advanceToMinionStep(): void {
     store.conceptForm.setValue({ name: 'The Hollow Choir', concept: '', adventureTypeId: 'adventure-type-1' });
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     store.monsterForm.setValue({
@@ -327,6 +345,12 @@ describe('MysteryCreateStore', () => {
       nightfall: '',
       midnight: 'The gate opens above the chapel.',
     });
+    store.next();
+
+    // Step `0-4`, the mystery's own custom moves — left empty here on purpose. An empty collection
+    // must still advance, and the diff must still emit (a bare `forkJoin([])` would not), so this
+    // walk is where "the new step does not break the old flow" is asserted. The non-empty path has
+    // its own spec, because a staged move means real `CustomMoveService` traffic to fake.
     store.next();
 
     store.monsterForm.setValue({
@@ -421,7 +445,7 @@ describe('MysteryCreateStore', () => {
 
   it('updates instead of duplicating when completed phases are revisited', () => {
     store.conceptForm.setValue({ name: 'The Hollow Choir', concept: '', adventureTypeId: 'adventure-type-1' });
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     store.monsterForm.setValue({
@@ -451,7 +475,7 @@ describe('MysteryCreateStore', () => {
 
     // Walk backward through the tracker and submit each completed phase a second time.
     store.jumpToPhase(0);
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     store.jumpToPhase(1);
@@ -485,7 +509,7 @@ describe('MysteryCreateStore', () => {
 
   it('unlinks a location that was removed after it had been saved', () => {
     store.conceptForm.setValue({ name: 'The Hollow Choir', concept: '', adventureTypeId: 'adventure-type-1' });
-    store.currentStep.set(3);
+    store.currentStep.set(4);
     store.next();
 
     store.currentPhase.set(2);
@@ -750,11 +774,29 @@ describe('MysteryCreateStore', () => {
       powers: [],
       weaknesses: [],
       armors: [],
+      customMoves: [],
     });
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
+        /**
+         * **F-L9.** `CustomMoveService` is `providedIn: 'root'`, so without this the real one
+         * resolves and any stray call becomes a real HTTP request — refused today only because
+         * nothing is listening on :5225, and a write against dev the moment something is. This
+         * spec drives no custom-move traffic, so the stub says so by throwing.
+         */
+        {
+          provide: CustomMoveService,
+          useValue: (() => {
+            // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+            // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+            const refuse = (method: string) => () => {
+              throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+            };
+            return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+          })(),
+        },
         MysteryCreateStore,
         {
           provide: ReferenceDataService,
@@ -783,6 +825,7 @@ describe('MysteryCreateStore', () => {
                 overview: null,
                 adventureType: { id: 'adventure-type-1', name: 'Haunting', description: '' },
                 countdown: null,
+                customMoves: [],
               }),
           },
         },
@@ -805,6 +848,7 @@ describe('MysteryCreateStore', () => {
                 powers: [],
                 weaknesses: [],
                 armors: [],
+                customMoves: [],
               }),
           },
         },

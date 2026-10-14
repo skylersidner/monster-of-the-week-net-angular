@@ -347,34 +347,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.ToTable("bystanders", (string)null);
                 });
 
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BystanderCustomMove", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("BystanderId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("bystander_id");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("name");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BystanderId");
-
-                    b.ToTable("bystander_custom_moves", (string)null);
-                });
-
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BystanderType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -439,6 +411,41 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("countdowns", (string)null);
+                });
+
+            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.CustomMove", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("owner_type");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerType", "OwnerId", "Name")
+                        .HasDatabaseName("idx_custom_moves_owner_name");
+
+                    b.ToTable("custom_moves", (string)null);
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Hunter", b =>
@@ -775,34 +782,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.ToTable("locations", (string)null);
                 });
 
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.LocationCustomMove", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<Guid>("LocationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("location_id");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("name");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LocationId");
-
-                    b.ToTable("location_custom_moves", (string)null);
-                });
-
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.LocationType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -968,34 +947,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.HasIndex("WeaponTagId");
 
                     b.ToTable("minion_attack_weapon_tags", (string)null);
-                });
-
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MinionCustomMove", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<Guid>("MinionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("minion_id");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("name");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MinionId");
-
-                    b.ToTable("minion_custom_moves", (string)null);
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MinionPower", b =>
@@ -1242,34 +1193,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.ToTable("monster_attack_weapon_tags", (string)null);
                 });
 
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MonsterCustomMove", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<Guid>("MonsterId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("monster_id");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("name");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MonsterId");
-
-                    b.ToTable("monster_custom_moves", (string)null);
-                });
-
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MonsterPower", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1413,34 +1336,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.HasIndex("BystanderId");
 
                     b.ToTable("mystery_bystanders", (string)null);
-                });
-
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MysteryCustomMove", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<Guid>("MysteryId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("mystery_id");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("name");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MysteryId");
-
-                    b.ToTable("mystery_custom_moves", (string)null);
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MysteryLocation", b =>
@@ -2124,17 +2019,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("BystanderType");
                 });
 
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.BystanderCustomMove", b =>
-                {
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Bystander", "Bystander")
-                        .WithMany("CustomMoves")
-                        .HasForeignKey("BystanderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Bystander");
-                });
-
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Countdown", b =>
                 {
                     b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Mystery", "Mystery")
@@ -2353,17 +2237,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("LocationType");
                 });
 
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.LocationCustomMove", b =>
-                {
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Location", "Location")
-                        .WithMany("CustomMoves")
-                        .HasForeignKey("LocationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Location");
-                });
-
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Minion", b =>
                 {
                     b.HasOne("MonsterOfTheWeek.Api.Data.Entities.MinionType", "MinionType")
@@ -2427,17 +2300,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("MinionAttack");
 
                     b.Navigation("WeaponTag");
-                });
-
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MinionCustomMove", b =>
-                {
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Minion", "Minion")
-                        .WithMany("CustomMoves")
-                        .HasForeignKey("MinionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Minion");
                 });
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MinionPower", b =>
@@ -2527,17 +2389,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("WeaponTag");
                 });
 
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MonsterCustomMove", b =>
-                {
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Monster", "Monster")
-                        .WithMany("CustomMoves")
-                        .HasForeignKey("MonsterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Monster");
-                });
-
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MonsterPower", b =>
                 {
                     b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Monster", "Monster")
@@ -2586,17 +2437,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Bystander");
-
-                    b.Navigation("Mystery");
-                });
-
-            modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.MysteryCustomMove", b =>
-                {
-                    b.HasOne("MonsterOfTheWeek.Api.Data.Entities.Mystery", "Mystery")
-                        .WithMany("CustomMoves")
-                        .HasForeignKey("MysteryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("Mystery");
                 });
@@ -2809,8 +2649,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Bystander", b =>
                 {
-                    b.Navigation("CustomMoves");
-
                     b.Navigation("Mysteries");
                 });
 
@@ -2848,8 +2686,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
 
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Location", b =>
                 {
-                    b.Navigation("CustomMoves");
-
                     b.Navigation("Mysteries");
                 });
 
@@ -2863,8 +2699,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("Armors");
 
                     b.Navigation("Attacks");
-
-                    b.Navigation("CustomMoves");
 
                     b.Navigation("Powers");
 
@@ -2886,8 +2720,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
                     b.Navigation("Armors");
 
                     b.Navigation("Attacks");
-
-                    b.Navigation("CustomMoves");
 
                     b.Navigation("Minions");
 
@@ -2916,8 +2748,6 @@ namespace MonsterOfTheWeek.Api.Data.Migrations
             modelBuilder.Entity("MonsterOfTheWeek.Api.Data.Entities.Mystery", b =>
                 {
                     b.Navigation("Countdown");
-
-                    b.Navigation("CustomMoves");
 
                     b.Navigation("MysteryBystanders");
 

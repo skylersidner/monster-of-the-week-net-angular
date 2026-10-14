@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using MonsterOfTheWeek.Api.Data.Entities;
 
 namespace MonsterOfTheWeek.Api.Services.ResourceImages;
@@ -62,6 +63,37 @@ public sealed record ResourceImageUploadResult(
 public interface IResourceImageService
 {
     /// <summary>
+    /// The owner types that can own an image — four of <see cref="DomainOwnerType"/>'s five.
+    /// <c>Mystery</c> is absent because a Mystery has no <c>PrimaryImageId</c>, no
+    /// <c>HasOne&lt;ResourceImage&gt;()</c> FK and no <c>idx_mysteries_primary_image_id</c>, where
+    /// the other four have all three.
+    ///
+    /// <para>
+    /// <b>This is a declared set, and it is declared because it stopped being derivable</b>
+    /// (endpoint-unification.md §2.6.3). Until U0 the image-legal set was exactly
+    /// <c>Enum.GetValues&lt;ResourceOwnerType&gt;()</c> — the four-member enum *was* the
+    /// statement. Merging the two owner enums into one five-member <see cref="DomainOwnerType"/>
+    /// turned one derived fact into one transcribed constant, and this is that constant. It lives
+    /// on the image feature's own contract rather than on a controller because the service's three
+    /// <c>switch</c> expressions must be asserted against it too, and a test reading a controller's
+    /// internals to check a service is backwards.
+    /// </para>
+    ///
+    /// <para>
+    /// Read by the route alternation, the unified controller's segment dictionary and the drift
+    /// test (U2/U3), so that "which owners have images" is stated once. A member missing from here
+    /// but handled in the service — or the reverse — is what the drift test exists to catch.
+    /// </para>
+    /// </summary>
+    public static readonly FrozenSet<DomainOwnerType> ImageOwnerTypes =
+        FrozenSet.ToFrozenSet([
+            DomainOwnerType.Monster,
+            DomainOwnerType.Minion,
+            DomainOwnerType.Bystander,
+            DomainOwnerType.Location,
+        ]);
+
+    /// <summary>
     /// Validates and stores as many of <paramref name="files"/> as the type/size/dimension
     /// checks and the 10-image cap allow, generates a thumbnail for each accepted file, and
     /// writes the whole accepted set in one <c>SaveChangesAsync</c> call. Returns
@@ -70,7 +102,7 @@ public interface IResourceImageService
     /// accepted or rejected, never the batch as a whole.
     /// </summary>
     Task<ServiceResult<ResourceImageUploadResult>> UploadAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         IReadOnlyList<ResourceImageUploadFile> files,
         CancellationToken cancellationToken);
@@ -82,7 +114,7 @@ public interface IResourceImageService
     /// <c>null</c> when the owner has no images at all.
     /// </summary>
     Task<Guid?> GetPrimaryImageIdAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken);
 
@@ -92,7 +124,7 @@ public interface IResourceImageService
     /// Monster/Minion/Bystander/Location doesn't leave orphaned image bytes behind.
     /// </summary>
     Task DeleteAllForOwnerAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken);
 
@@ -105,7 +137,7 @@ public interface IResourceImageService
     /// row itself.
     /// </summary>
     Task<ServiceResult<IReadOnlyList<ResourceImage>>> ListAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         CancellationToken cancellationToken);
 
@@ -115,7 +147,7 @@ public interface IResourceImageService
     /// rather than ever serving an image through the wrong owner's URL.
     /// </summary>
     Task<ResourceImage?> GetImageAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid imageId,
         CancellationToken cancellationToken);
@@ -127,7 +159,7 @@ public interface IResourceImageService
     /// image doesn't exist or doesn't belong to this owner, which the caller turns into a 404.
     /// </summary>
     Task<bool> DeleteAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid imageId,
         CancellationToken cancellationToken);
@@ -139,7 +171,7 @@ public interface IResourceImageService
     /// deleted between the client's last read and this call (design.md §3).
     /// </summary>
     Task<bool> SetPrimaryAsync(
-        ResourceOwnerType ownerType,
+        DomainOwnerType ownerType,
         Guid ownerId,
         Guid imageId,
         CancellationToken cancellationToken);

@@ -10,6 +10,14 @@ namespace MonsterOfTheWeek.Api.Tests.Services;
 
 public sealed class BystanderServiceTests
 {
+    /// <summary>
+    /// The one construction every test in this file uses, extracted so that a new constructor
+    /// dependency on <see cref="BystanderService"/> is one edit here rather than sixteen below
+    /// (architecture.md §16.3 B1).
+    /// </summary>
+    private static BystanderService CreateService(FakeBystanderRepository repository) =>
+        new(repository, new FakeResourceImageService(), new FakeCustomMoveService());
+
     [Fact]
     public async Task CreateAsync_ReturnsValidation_WhenBystanderTypeDoesNotExist()
     {
@@ -18,7 +26,7 @@ public sealed class BystanderServiceTests
             MysteryExists = true,
             BystanderTypeExists = false
         };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var missingBystanderTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -36,7 +44,7 @@ public sealed class BystanderServiceTests
     public async Task CreateAsync_NoMysteryId_CreatesStandaloneBystander_WithEmptyMysteryIds()
     {
         var repository = new FakeBystanderRepository();
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var result = await service.CreateAsync(
             new UpsertBystanderRequest("Standalone Witness", "desc", Guid.NewGuid()),
@@ -55,7 +63,7 @@ public sealed class BystanderServiceTests
         {
             BystanderTypeExists = false
         };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var missingBystanderTypeId = Guid.NewGuid();
 
         var result = await service.CreateAsync(
@@ -72,7 +80,7 @@ public sealed class BystanderServiceTests
     public async Task CreateAsync_NoMysteryId_BystanderIsRetrievableViaGetByIdAsync_AndAppearsInGetAllAsync()
     {
         var repository = new FakeBystanderRepository();
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var createResult = await service.CreateAsync(
             new UpsertBystanderRequest("Standalone Witness", "desc", Guid.NewGuid()),
@@ -94,7 +102,7 @@ public sealed class BystanderServiceTests
     public async Task LinkToMysteryAsync_AddsBridgeRow_WhenMysteryAndBystanderExist()
     {
         var repository = new FakeBystanderRepository { MysteryExists = true, BystanderExists = true };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -107,7 +115,7 @@ public sealed class BystanderServiceTests
     public async Task LinkToMysteryAsync_IsIdempotent_WhenAlreadyLinked()
     {
         var repository = new FakeBystanderRepository { MysteryExists = true, BystanderExists = true };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var bystanderId = Guid.NewGuid();
 
@@ -122,7 +130,7 @@ public sealed class BystanderServiceTests
     public async Task LinkToMysteryAsync_ReturnsFalse_WhenMysteryDoesNotExist()
     {
         var repository = new FakeBystanderRepository { MysteryExists = false, BystanderExists = true };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -135,7 +143,7 @@ public sealed class BystanderServiceTests
     public async Task LinkToMysteryAsync_ReturnsFalse_WhenBystanderDoesNotExist()
     {
         var repository = new FakeBystanderRepository { MysteryExists = true, BystanderExists = false };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -148,7 +156,7 @@ public sealed class BystanderServiceTests
     public async Task LinkToMysteryAsync_ThenUnlink_RoundTrips()
     {
         var repository = new FakeBystanderRepository { MysteryExists = true, BystanderExists = true };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var bystanderId = Guid.NewGuid();
 
@@ -162,7 +170,7 @@ public sealed class BystanderServiceTests
     public async Task UnlinkFromMysteryAsync_ReturnsFalse_WhenNotLinked()
     {
         var repository = new FakeBystanderRepository { MysteryExists = true, BystanderExists = true };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var unlinked = await service.UnlinkFromMysteryAsync(Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None);
 
@@ -175,7 +183,7 @@ public sealed class BystanderServiceTests
     public async Task LinkToMysteryAsync_WritesAgain_AfterUnlink()
     {
         var repository = new FakeBystanderRepository { MysteryExists = true, BystanderExists = true };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var bystanderId = Guid.NewGuid();
 
@@ -199,7 +207,7 @@ public sealed class BystanderServiceTests
         var mysteryId = Guid.NewGuid();
         var bystanderId = Guid.NewGuid();
         repository.SeedLink(mysteryId, bystanderId);
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(mysteryId, bystanderId, CancellationToken.None);
 
@@ -215,7 +223,7 @@ public sealed class BystanderServiceTests
         var mysteryId = Guid.NewGuid();
         var bystanderId = Guid.NewGuid();
         repository.SeedLink(mysteryId, bystanderId);
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
 
         var linked = await service.LinkToMysteryAsync(mysteryId, bystanderId, CancellationToken.None);
 
@@ -230,7 +238,7 @@ public sealed class BystanderServiceTests
     public async Task LinkToMysteryAsync_LinksOneBystanderToTwoMysteries()
     {
         var repository = new FakeBystanderRepository { MysteryExists = true, BystanderExists = true };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var firstMysteryId = Guid.NewGuid();
         var secondMysteryId = Guid.NewGuid();
         var bystanderId = Guid.NewGuid();
@@ -252,7 +260,7 @@ public sealed class BystanderServiceTests
     public async Task LinkToMysteryAsync_LinksTwoBystandersToOneMystery()
     {
         var repository = new FakeBystanderRepository { MysteryExists = true, BystanderExists = true };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var firstBystanderId = Guid.NewGuid();
         var secondBystanderId = Guid.NewGuid();
@@ -270,7 +278,7 @@ public sealed class BystanderServiceTests
     public async Task LinkToMysteryAsync_WritesTheGivenIdsIntoTheBridgeRow()
     {
         var repository = new FakeBystanderRepository { MysteryExists = true, BystanderExists = true };
-        var service = new BystanderService(repository, new FakeResourceImageService());
+        var service = CreateService(repository);
         var mysteryId = Guid.NewGuid();
         var bystanderId = Guid.NewGuid();
 
@@ -411,17 +419,6 @@ public sealed class BystanderServiceTests
 
         public Task<Bystander?> GetBystanderForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult<Bystander?>(_bystanders.FirstOrDefault(x => x.Id == id) ?? new Bystander { Name = "Bystander" });
-
-        public Task<IReadOnlyList<BystanderCustomMove>> GetBystanderCustomMovesAsync(Guid id, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<BystanderCustomMove>>([]);
-
-        public Task AddBystanderCustomMoveAsync(BystanderCustomMove move, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task<BystanderCustomMove?> GetBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) =>
-            Task.FromResult<BystanderCustomMove?>(null);
-
-        public Task<int> DeleteBystanderCustomMoveAsync(Guid id, Guid moveId, CancellationToken cancellationToken) => Task.FromResult(1);
-
         public Task<int> DeleteBystanderAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(1);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)

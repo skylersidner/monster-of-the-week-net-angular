@@ -4,6 +4,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { Subject, of } from 'rxjs';
 
 import { BystanderService } from '../core/bystander';
+import { CustomMoveService } from '../core/custom-moves';
 import { LocationService } from '../core/location';
 import { MinionService } from '../core/minion';
 import { MonsterService } from '../core/monster';
@@ -11,7 +12,7 @@ import { MysteryService } from '../core/mystery';
 import { NotificationService } from '../core/notifications';
 import { ReferenceDataService } from '../core/reference-data';
 import { ResourceImageService } from '../core/resource-images';
-import { ResourceImageResponse, ResourceOwnerType } from '../core/models';
+import { ResourceImageResponse, ImageOwnerType } from '../core/models';
 import { ResourceImagesStore } from './resource-images.store';
 
 import { MonsterDetailComponent } from '../features/monsters/pages/monster-detail/monster-detail';
@@ -141,17 +142,15 @@ const location = {
 };
 
 interface Domain {
-  readonly ownerType: ResourceOwnerType;
+  readonly ownerType: ImageOwnerType;
   readonly component: Type<unknown>;
-  /** Whether the page owns `pendingDelete` itself, or lets the store own it. See the asymmetry test. */
-  readonly modalOwner: 'page' | 'store';
 }
 
 const DOMAINS: readonly Domain[] = [
-  { ownerType: 'Monster', component: MonsterDetailComponent, modalOwner: 'page' },
-  { ownerType: 'Minion', component: MinionDetailComponent, modalOwner: 'page' },
-  { ownerType: 'Bystander', component: BystanderDetailComponent, modalOwner: 'store' },
-  { ownerType: 'Location', component: LocationDetailComponent, modalOwner: 'store' },
+  { ownerType: 'Monster', component: MonsterDetailComponent },
+  { ownerType: 'Minion', component: MinionDetailComponent },
+  { ownerType: 'Bystander', component: BystanderDetailComponent },
+  { ownerType: 'Location', component: LocationDetailComponent },
 ];
 
 /**
@@ -170,6 +169,22 @@ function providers() {
   };
 
   return [
+    /**
+     * **F-L9.** All four pages inject the root-provided `CustomMoveService`, so without this the
+     * real one resolves and a stray call becomes a real HTTP request. This file is about the
+     * images card and drives no custom-move traffic at all.
+     */
+    {
+      provide: CustomMoveService,
+      useValue: (() => {
+        // Only the service's own four methods. A catch-all `Proxy` refuses `ngOnDestroy()` too,
+        // which Angular calls on every provider instance at teardown — 386 tests, one stub.
+        const refuse = (method: string) => () => {
+          throw new Error(`Unexpected CustomMoveService.${method}() — this spec expects no custom-move traffic.`);
+        };
+        return { list: refuse('list'), create: refuse('create'), update: refuse('update'), delete: refuse('delete') };
+      })(),
+    },
     provideRouter([]),
     {
       provide: ActivatedRoute,
@@ -396,29 +411,39 @@ describe('resource images — four-domain parity', () => {
   });
 
   /**
-   * The one intended asymmetry, asserted positively rather than excused as an exception.
+   * **Delete-modal ownership, now uniform — and that is the assertion.** All four pages own their
+   * own `pendingDelete` and route image deletes through it. There is no longer a per-domain column
+   * for this, because there is no longer a difference: `domain-custom-moves` Phase 5c moved
+   * Location and 5d moved Bystander, which were the last two.
    *
-   * Monster and Minion each already owned a `pendingDelete` serving four other delete flows before
-   * images existed, so routing image deletes through the store's own pending signals would have left
-   * two competing pending-delete concepts on one page. Bystander and Location had no modal at all,
-   * so the store holds it and those pages stay free of the signal and its two handlers.
+   * **The history, kept because it is what explains the rule rather than the outcome.** Monster and
+   * Minion each already owned a `pendingDelete` serving four other delete flows before images
+   * existed, so routing image deletes through the store's own pending signals would have left two
+   * competing pending-delete concepts on one page. Bystander and Location had no modal at all, so
+   * the store held it and those pages stayed free of the signal and its two handlers. That split
+   * was correct for as long as it lasted; custom moves gave every page a second delete flow, which
+   * is precisely the condition the rule turns on.
    *
-   * The deciding question, for a fifth domain or a future refactor: *is there an existing
-   * pending-delete concept for a second one to be ambiguous with?* Not which API reads nicer.
+   * **The rule, in the form that still decides a case** (Skyler, 2026-10-11): *a page that gains a
+   * second kind of object to manage is better served moving state to the locus of control than
+   * hooking into multiple stores — otherwise you end up hooked into several, when moving the state
+   * would have been more straightforward.* The narrower test — *is there an existing pending-delete
+   * concept for a second one to be ambiguous with?* — is the same question for this one case.
+   *
+   * So the store's `requestDelete`/`confirmDelete`/`cancelDelete` wrapper now has **no production
+   * caller on any page**. It is still correct, still covered by `resource-images.store.spec.ts`,
+   * and still the right shape for a hypothetical page with exactly one delete flow — there just
+   * are not any. Removing it is tracked as a follow-up rather than done here.
    */
-  it('splits delete-modal ownership exactly as intended, and no page mixes the two', async () => {
+  it('owns delete-modal state on the page, uniformly across all four', async () => {
     for (const domain of DOMAINS) {
       const { instance } = await renderStates(domain);
-      const ownsPendingDelete = typeof instance['pendingDelete'] === 'function';
-      const hasPageDeleteHandler = typeof instance['requestDeleteImage'] === 'function';
 
-      if (domain.modalOwner === 'page') {
-        expect(ownsPendingDelete, `${domain.ownerType} should own pendingDelete`).toBe(true);
-        expect(hasPageDeleteHandler, `${domain.ownerType} should route deletes through the page`).toBe(true);
-      } else {
-        expect(ownsPendingDelete, `${domain.ownerType} should NOT own pendingDelete`).toBe(false);
-        expect(hasPageDeleteHandler, `${domain.ownerType} should NOT have a page delete handler`).toBe(false);
-      }
+      expect(typeof instance['pendingDelete'], `${domain.ownerType} should own pendingDelete`).toBe('function');
+      expect(
+        typeof instance['requestDeleteImage'],
+        `${domain.ownerType} should route image deletes through the page`
+      ).toBe('function');
     }
   });
 });
